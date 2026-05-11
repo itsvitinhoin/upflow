@@ -1,27 +1,32 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Bold, Italic, List, ListOrdered, Code, Heading2, Heading3, Undo, Redo } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TiptapEditorProps {
-  content: any;
-  onChange: (content: any) => void;
+  content: unknown;
+  onChange: (content: unknown) => void;
   editable?: boolean;
 }
 
 export default function TiptapEditor({ content, onChange, editable = true }: TiptapEditorProps) {
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; });
+
   const editor = useEditor({
     extensions: [StarterKit],
-    content: content || "",
+    content: (content as object) || "",
     editable,
     onUpdate: ({ editor }) => {
-      onChange(editor.getJSON());
+      onChangeRef.current(editor.getJSON());
     },
     editorProps: {
       attributes: {
-        class: "ProseMirror focus:outline-none text-foreground",
+        class: "ProseMirror focus:outline-none text-foreground min-h-[350px]",
+        "data-testid": "doc-editor",
       },
     },
   });

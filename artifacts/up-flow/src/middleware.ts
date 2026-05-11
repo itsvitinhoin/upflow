@@ -2,11 +2,10 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
 export default withAuth(
-  function middleware(req) {
+  function middleware() {
     return NextResponse.next();
   },
   {
-    secret: process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET || "up-flow-dev-secret",
     pages: {
       signIn: "/login",
     },
@@ -18,7 +17,6 @@ export default withAuth(
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
     "/projects/:path*",
     "/docs/:path*",
     "/team/:path*",

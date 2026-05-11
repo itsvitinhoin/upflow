@@ -13,7 +13,7 @@ import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = (params?.id ?? "") as string;
   const [project, setProject] = useState<any>(null);
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

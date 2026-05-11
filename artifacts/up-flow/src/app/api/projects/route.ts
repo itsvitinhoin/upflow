@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -23,13 +24,17 @@ export async function POST(req: NextRequest) {
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const { name, description, due_date } = body;
+  const { name, description, due_date } = body as {
+    name?: string;
+    description?: string;
+    due_date?: string;
+  };
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
-  const userId = (session.user as any).id;
+  const userId = getUserId(session);
 
   const project = await prisma.project.create({
     data: {

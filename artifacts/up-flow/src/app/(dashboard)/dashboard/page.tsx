@@ -5,23 +5,40 @@ import { useSession } from "next-auth/react";
 import { Plus, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
-import { cn, formatDate, isOverdue, priorityColor, statusLabel } from "@/lib/utils";
+import { cn, formatDate, isOverdue, priorityColor } from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
+import type { AppUser } from "@/lib/session";
+
+interface Task {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  project: { id: string; name: string } | null;
+}
+
+interface Project {
+  id: string;
+  name: string;
+}
 
 export default function DashboardPage() {
   const { data: session } = useSession();
-  const [tasks, setTasks] = useState<any[]>([]);
+  const user = session?.user as AppUser | undefined;
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
 
-  useEffect(() => {
+  const loadTasks = () =>
     fetch("/api/tasks?mine=true")
       .then((r) => r.json())
-      .then((data) => { setTasks(data); setLoading(false); })
+      .then((data: Task[]) => { setTasks(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
 
-  const grouped = {
+  useEffect(() => { loadTasks(); }, []);
+
+  const grouped: Record<string, Task[]> = {
     todo: tasks.filter((t) => t.status === "todo"),
     in_progress: tasks.filter((t) => t.status === "in_progress"),
     done: tasks.filter((t) => t.status === "done"),
@@ -37,11 +54,10 @@ export default function DashboardPage() {
     <>
       <Header title="Dashboard" />
       <div className="p-6 max-w-6xl mx-auto">
-        {/* Welcome */}
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-foreground">
-              Good day, {session?.user?.name?.split(" ")[0] || "there"} 👋
+              Good day, {user?.name?.split(" ")[0] || "there"} 👋
             </h2>
             <p className="text-muted-foreground mt-1">Here&apos;s what you&apos;re working on</p>
           </div>
@@ -54,10 +70,8 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Onboarding */}
         <OnboardingChecklist tasks={tasks} />
 
-        {/* Task columns */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
@@ -105,7 +119,10 @@ export default function DashboardPage() {
                             {task.priority}
                           </span>
                           {task.due_date && (
-                            <span className={cn("text-xs text-muted-foreground", isOverdue(task.due_date) && task.status !== "done" && "text-red-500 font-medium")}>
+                            <span className={cn(
+                              "text-xs text-muted-foreground",
+                              isOverdue(task.due_date) && task.status !== "done" && "text-red-500 font-medium"
+                            )}>
                               {formatDate(task.due_date)}
                             </span>
                           )}
@@ -129,7 +146,7 @@ export default function DashboardPage() {
           onClose={() => setShowNewTask(false)}
           onCreated={() => {
             setShowNewTask(false);
-            fetch("/api/tasks?mine=true").then((r) => r.json()).then(setTasks);
+            loadTasks();
             toast.success("Task created");
           }}
         />
@@ -138,14 +155,17 @@ export default function DashboardPage() {
   );
 }
 
-function OnboardingChecklist({ tasks }: { tasks: any[] }) {
+function OnboardingChecklist({ tasks }: { tasks: Task[] }) {
   const [dismissed, setDismissed] = useState(false);
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     const d = localStorage.getItem("upflow_onboarding_dismissed");
     if (d === "true") setDismissed(true);
-    fetch("/api/projects").then((r) => r.json()).then(setProjects).catch(() => {});
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((data: Project[]) => setProjects(data))
+      .catch(() => {});
   }, []);
 
   const checks = [
@@ -173,10 +193,15 @@ function OnboardingChecklist({ tasks }: { tasks: any[] }) {
       <div className="space-y-2">
         {checks.map(({ label, done }) => (
           <div key={label} className="flex items-center gap-3">
-            <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
+            <div className={cn(
+              "w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0",
               done ? "bg-primary border-primary" : "border-border"
             )}>
-              {done && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+              {done && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
             </div>
             <span className={cn("text-sm", done ? "line-through text-muted-foreground" : "text-foreground")}>
               {label}

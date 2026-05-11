@@ -10,9 +10,25 @@ import {
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
+import { getSupabaseClient } from "@/lib/supabase";
+import type { AppUser } from "@/lib/session";
 
 interface SidebarProps {
-  user: { id: string; name?: string | null; email?: string | null; role?: string };
+  user: AppUser;
+}
+
+interface NotificationTask {
+  id: string;
+  title: string;
+  project: { id: string; name: string } | null;
+}
+
+interface Notification {
+  id: string;
+  type: string;
+  read: boolean;
+  created_at: string;
+  task: NotificationTask | null;
 }
 
 const navLinks = [
@@ -28,9 +44,8 @@ function notificationIcon(type: string) {
   return <Clock className="w-3.5 h-3.5 text-orange-400" />;
 }
 
-function notificationLabel(n: any) {
+function notificationLabel(n: Notification) {
   const taskTitle = n.task?.title || "a task";
-  const projectName = n.task?.project?.name;
   if (n.type === "assigned") return `Assigned to "${taskTitle}"`;
   if (n.type === "commented") return `New comment on "${taskTitle}"`;
   if (n.type === "due_soon") return `"${taskTitle}" is due soon`;
@@ -40,7 +55,7 @@ function notificationLabel(n: any) {
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -49,18 +64,31 @@ export default function Sidebar({ user }: SidebarProps) {
     try {
       const res = await fetch("/api/notifications");
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json() as Notification[];
         setNotifications(data);
-        setUnreadCount(data.filter((n: any) => !n.read).length);
+        setUnreadCount(data.filter((n) => !n.read).length);
       }
-    } catch {}
+    } catch {
+    }
   }, []);
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [fetchNotifications]);
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on("broadcast", { event: "new_notification" }, () => {
+          fetchNotifications();
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    } else {
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchNotifications, user.id]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -89,7 +117,6 @@ export default function Sidebar({ user }: SidebarProps) {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
-      {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
         <div className="flex items-center justify-center w-8 h-8 bg-sidebar-primary rounded-lg">
           <Zap className="w-4 h-4 text-white" />
@@ -97,10 +124,9 @@ export default function Sidebar({ user }: SidebarProps) {
         <span className="text-lg font-bold text-sidebar-foreground">Up Flow</span>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navLinks.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || pathname.startsWith(href + "/");
+          const isActive = pathname === href || (pathname?.startsWith(href + "/") ?? false);
           return (
             <Link
               key={href}
@@ -121,9 +147,7 @@ export default function Sidebar({ user }: SidebarProps) {
         })}
       </nav>
 
-      {/* Bottom */}
       <div className="px-3 pb-4 space-y-1 border-t border-sidebar-border pt-4">
-        {/* Notification bell with panel */}
         <div className="relative" ref={panelRef}>
           <button
             onClick={() => setPanelOpen((v) => !v)}
@@ -187,7 +211,6 @@ export default function Sidebar({ user }: SidebarProps) {
           )}
         </div>
 
-        {/* User */}
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
           <div className="flex items-center justify-center w-8 h-8 bg-sidebar-primary rounded-full text-xs font-bold text-white flex-shrink-0">
             {getInitials(user.name || user.email || "U")}
@@ -215,12 +238,10 @@ export default function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop sidebar */}
       <aside className="hidden md:flex w-60 flex-shrink-0 flex-col h-full border-r border-sidebar-border">
         <SidebarContent />
       </aside>
 
-      {/* Mobile hamburger */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -230,7 +251,6 @@ export default function Sidebar({ user }: SidebarProps) {
         </button>
       </div>
 
-      {/* Mobile overlay */}
       {mobileOpen && (
         <>
           <div

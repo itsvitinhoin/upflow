@@ -11,7 +11,7 @@ import { cn, formatDate, getInitials, statusColor, statusLabel } from "@/lib/uti
 
 export default function ProjectsPage() {
   const searchParams = useSearchParams();
-  const searchQuery = searchParams.get("search") || "";
+  const searchQuery = searchParams?.get("search") ?? "";
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);

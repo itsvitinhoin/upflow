@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/session";
+import { broadcastNotification } from "@/lib/supabase-server";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -27,14 +29,14 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
+  const body = await req.json() as { task_id?: string; body?: string };
   const { task_id, body: commentBody } = body;
 
   if (!task_id || !commentBody?.trim()) {
     return NextResponse.json({ error: "task_id and body are required" }, { status: 400 });
   }
 
-  const userId = (session.user as any).id;
+  const userId = getUserId(session);
 
   const comment = await prisma.comment.create({
     data: {
@@ -47,16 +49,12 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  // Notify task assignee about comment
   const task = await prisma.task.findUnique({ where: { id: task_id } });
   if (task?.assignee_id && task.assignee_id !== userId) {
     await prisma.notification.create({
-      data: {
-        type: "commented",
-        user_id: task.assignee_id,
-        task_id,
-      },
+      data: { type: "commented", user_id: task.assignee_id, task_id },
     }).catch(() => {});
+    await broadcastNotification(task.assignee_id);
   }
 
   return NextResponse.json(comment, { status: 201 });

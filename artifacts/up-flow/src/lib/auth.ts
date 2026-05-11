@@ -7,8 +7,13 @@ if (!process.env.NEXTAUTH_URL && process.env.REPLIT_DEV_DOMAIN) {
   process.env.NEXTAUTH_URL = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 }
 
+const secret = process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET;
+if (!secret) {
+  throw new Error("NEXTAUTH_SECRET or SESSION_SECRET environment variable is required");
+}
+
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET || process.env.SESSION_SECRET || "up-flow-secret-key-change-in-production",
+  secret,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,
@@ -55,14 +60,14 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
+        token.role = (user as { role?: string }).role;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).id = token.id as string;
-        (session.user as any).role = token.role as string;
+        (session.user as { id: string }).id = token.id as string;
+        (session.user as { role: string }).role = token.role as string;
       }
       return session;
     },
