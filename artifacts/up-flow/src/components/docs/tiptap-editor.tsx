@@ -3,7 +3,10 @@
 import { useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Bold, Italic, List, ListOrdered, Code, Heading2, Heading3, Undo, Redo } from "lucide-react";
+import {
+  Bold, Italic, List, ListOrdered, Code, FileCode,
+  Heading2, Heading3, Undo, Redo
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TiptapEditorProps {
@@ -108,12 +111,20 @@ export default function TiptapEditor({ content, onChange, editable = true }: Tip
           >
             <Italic className="w-4 h-4" />
           </ToolbarButton>
+          <div className="w-px h-5 bg-border mx-1" />
           <ToolbarButton
-            title="Code"
+            title="Inline code"
             active={editor.isActive("code")}
             onClick={() => editor.chain().focus().toggleCode().run()}
           >
             <Code className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            title="Code block"
+            active={editor.isActive("codeBlock")}
+            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          >
+            <FileCode className="w-4 h-4" />
           </ToolbarButton>
           <div className="w-px h-5 bg-border mx-1" />
           <ToolbarButton

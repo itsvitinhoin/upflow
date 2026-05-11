@@ -61,19 +61,35 @@ export default function Sidebar({ user }: SidebarProps) {
 
   useEffect(() => {
     fetchNotifications();
+
     const supabase = createSupabaseBrowserClient();
+
+    // Subscribe to Postgres changes on the notifications table filtered by user_id
     const channel = supabase
-      .channel(`notifications:${user.id}`)
-      .on("broadcast", { event: "new_notification" }, () => {
-        fetchNotifications();
-      })
+      .channel(`db-notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "Notification",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotifications();
+        }
+      )
       .subscribe((status) => {
-        if (status !== "SUBSCRIBED") {
+        // Fallback polling if realtime subscription is not available
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           const interval = setInterval(fetchNotifications, 30000);
           return () => clearInterval(interval);
         }
       });
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchNotifications, user.id]);
 
   useEffect(() => {
