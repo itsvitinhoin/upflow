@@ -55,7 +55,6 @@ export default function Sidebar({ user }: SidebarProps) {
         setUnreadCount(data.filter((n) => !n.read).length);
       }
     } catch {
-      // silent
     }
   }, []);
 
@@ -63,29 +62,21 @@ export default function Sidebar({ user }: SidebarProps) {
     fetchNotifications();
 
     const supabase = createSupabaseBrowserClient();
-
-    // Subscribe to Postgres changes on the notifications table filtered by user_id
     const channel = supabase
       .channel(`db-notifications:${user.id}`)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
-          table: "Notification",
+          table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
         () => {
           fetchNotifications();
         }
       )
-      .subscribe((status) => {
-        // Fallback polling if realtime subscription is not available
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          const interval = setInterval(fetchNotifications, 30000);
-          return () => clearInterval(interval);
-        }
-      });
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);

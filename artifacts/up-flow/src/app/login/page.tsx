@@ -17,12 +17,14 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       if (error) {
         toast.error(error.message);
+      } else if (!data.session) {
+        toast.error("Login failed to create a session");
       } else {
         router.push("/");
         router.refresh();
@@ -42,7 +44,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { error: signUpErr } = await supabase.auth.signUp({
+      const { data, error: signUpErr } = await supabase.auth.signUp({
         email,
         password,
       });
@@ -54,14 +56,18 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password, name: email.split("@")[0] }),
       });
 
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signInErr) throw signInErr;
+      if (!data.session) {
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInErr) throw signInErr;
+        if (!signInData.session) throw new Error("Registration did not create a session");
+      }
 
       toast.success("Account created! Signing in...");
       router.push("/");
+      router.refresh();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Registration failed";
       toast.error(message);
