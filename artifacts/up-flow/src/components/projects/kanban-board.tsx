@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import { Plus, GripVertical, Calendar, AlertCircle } from "lucide-react";
@@ -31,6 +31,7 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
   });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState<ColumnKey | null>(null);
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
     const grouped: Record<ColumnKey, Task[]> = { todo: [], in_progress: [], done: [] };
@@ -45,7 +46,14 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
     setColumns(grouped);
   }, [tasks]);
 
+  const handleDragStart = () => {
+    isDraggingRef.current = true;
+  };
+
   const handleDragEnd = async (result: DropResult) => {
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 0);
     const { source, destination, draggableId } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
@@ -65,11 +73,12 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
     setColumns(newColumns);
 
     try {
-      await fetch(`/api/tasks/${draggableId}`, {
+      const res = await fetch(`/api/tasks/${draggableId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: dstCol, position: destination.index }),
       });
+      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
     } catch {
       toast.error("Failed to update task");
       onUpdate();
@@ -78,7 +87,7 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
 
   return (
     <>
-      <DragDropContext onDragEnd={handleDragEnd}>
+      <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {COLUMNS.map(({ key, label, color }) => (
             <Droppable key={key} droppableId={key}>
@@ -114,7 +123,11 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
-                            onClick={() => setSelectedTask(task)}
+                            {...provided.dragHandleProps}
+                            onClick={() => {
+                              if (isDraggingRef.current) return;
+                              setSelectedTask(task);
+                            }}
                             className={cn(
                               "bg-card border border-border rounded-lg p-3 cursor-pointer hover:shadow-md transition-all group",
                               snapshot.isDragging && "shadow-xl rotate-1 opacity-90"
@@ -122,9 +135,8 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                           >
                             <div className="flex items-start gap-1.5">
                               <div
-                                {...provided.dragHandleProps}
-                                className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground flex-shrink-0"
-                                onClick={(e) => e.stopPropagation()}
+                                aria-hidden="true"
+                                className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground flex-shrink-0 pointer-events-none"
                               >
                                 <GripVertical className="w-3 h-3" />
                               </div>
