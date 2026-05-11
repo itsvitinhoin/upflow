@@ -1,0 +1,207 @@
+Build a full-stack internal project management tool called "Up Flow" using the following stack:
+
+Next.js 14 (App Router)
+Supabase (already configured — credentials are in Replit Secrets)
+Prisma ORM
+Tailwind CSS
+shadcn/ui components
+Tiptap rich text editor
+@hello-pangea/dnd for drag and drop
+Sonner for toast notifications
+
+Environment variables are already set in Replit Secrets:
+
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+DATABASE_URL
+DIRECT_URL
+NEXTAUTH_SECRET
+
+
+Create this Prisma schema at prisma/schema.prisma:
+prismagenerator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  admin
+  member
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum NotificationType {
+  assigned
+  commented
+  due_soon
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String
+  avatar_url    String?
+  role          Role           @default(member)
+  created_at    DateTime       @default(now())
+  projects      Project[]
+  tasks         Task[]         @relation("AssignedTasks")
+  comments      Comment[]
+  docs          Doc[]
+  notifications Notification[]
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(active)
+  owner_id    String
+  due_date    DateTime?
+  created_at  DateTime      @default(now())
+  owner       User          @relation(fields: [owner_id], references: [id])
+  tasks       Task[]
+  docs        Doc[]
+}
+
+model Task {
+  id            String         @id @default(uuid())
+  title         String
+  description   String?
+  status        TaskStatus     @default(todo)
+  priority      TaskPriority   @default(medium)
+  project_id    String
+  assignee_id   String?
+  parent_id     String?
+  due_date      DateTime?
+  position      Int            @default(0)
+  created_at    DateTime       @default(now())
+  project       Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  assignee      User?          @relation("AssignedTasks", fields: [assignee_id], references: [id])
+  parent        Task?          @relation("Subtasks", fields: [parent_id], references: [id])
+  subtasks      Task[]         @relation("Subtasks")
+  comments      Comment[]
+  notifications Notification[]
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  body       String
+  task_id    String
+  author_id  String
+  created_at DateTime @default(now())
+  task       Task     @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [author_id], references: [id])
+}
+
+model Doc {
+  id         String   @id @default(uuid())
+  title      String
+  content    Json?
+  project_id String
+  author_id  String
+  updated_at DateTime @updatedAt
+  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  author     User     @relation(fields: [author_id], references: [id])
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  type       NotificationType
+  user_id    String
+  task_id    String
+  read       Boolean          @default(false)
+  created_at DateTime         @default(now())
+  user       User             @relation(fields: [user_id], references: [id])
+  task       Task             @relation(fields: [task_id], references: [id], onDelete: Cascade)
+}
+
+After creating the schema, run:
+bashnpx prisma generate
+npx prisma db push
+
+Build these pages:
+/login — email + password login using Supabase auth. Clean centered card layout with app logo "Up Flow" at the top. Redirect to / on success.
+/ (dashboard) — personal home screen showing: tasks assigned to the logged-in user grouped by status (To Do, In Progress, Done), overdue tasks highlighted in red, a quick "New Task" button, and a welcome message with the user's name.
+/projects — grid of project cards. Each card shows: project name, status badge (active=green, archived=gray), owner avatar with initials, task count, due date. "New Project" button opens a shadcn Dialog form.
+/projects/[id] — project detail page with two view toggles (Kanban / List). Kanban board has three columns: To Do, In Progress, Done. Task cards are draggable between columns using @hello-pangea/dnd. Each card shows title, assignee avatar, priority badge, due date. Clicking a card opens the task detail modal.
+/projects/[id] task modal — slides in as a sheet/modal showing: editable title, description, status dropdown, priority dropdown, assignee picker, due date picker, subtasks list with checkbox, comments thread with reply input.
+/docs — list of all docs. Each row shows title, project name, last updated.
+/docs/[id] — full-page Tiptap editor with headings, bold, italic, bullet list, code block. Auto-saves with 1 second debounce. Shows "Saved" indicator.
+/team — table of all team members showing avatar initials, name, email, role badge.
+
+Build these API routes:
+GET    /api/projects
+POST   /api/projects
+GET    /api/projects/[id]
+PATCH  /api/projects/[id]
+GET    /api/tasks
+POST   /api/tasks
+PATCH  /api/tasks/[id]
+DELETE /api/tasks/[id]
+POST   /api/comments
+GET    /api/notifications
+PATCH  /api/notifications/[id]
+GET    /api/users
+
+Layout — wrap all dashboard pages in a shared layout with:
+Left sidebar containing:
+
+App name "Up Flow" with a logo icon at the top
+Nav links: Dashboard (home icon), Projects (folder icon), Docs (file icon), Team (users icon)
+Notification bell at the bottom with unread count badge
+Logged-in user avatar + name at the very bottom with a logout button
+
+Top header containing:
+
+Current page title
+Search bar (filters tasks and projects by name)
+"New Project" button
+
+Sidebar collapses to a hamburger menu on mobile.
+
+UI design rules:
+
+All components use shadcn/ui (Button, Dialog, Sheet, Select, Input, Badge, Avatar, Skeleton, Popover)
+Priority badges: low = gray, medium = amber, high = red
+Status badges: todo = gray, in_progress = blue, done = green
+Dark mode supported via Tailwind dark: classes
+Loading skeletons on all pages while data fetches
+Empty states with friendly message + CTA when no data exists
+Optimistic UI on task status changes
+Toast notifications via Sonner on all create/update/delete actions
+
+
+Supabase Realtime — in the sidebar notification bell:
+Subscribe to the notifications table filtered by the logged-in user's ID. When a new notification arrives, increment the bell badge and show a Sonner toast.
+
+Onboarding — show a dismissible checklist to new users:
+
+Create your first project
+Add a task
+Invite a teammate
+
+Dismiss permanently once all three are complete.
+
+Build this completely end-to-end. All pages functional, all API routes wired up, drag-and-drop kanban working, Supabase auth working, and the app running on npm run dev.
