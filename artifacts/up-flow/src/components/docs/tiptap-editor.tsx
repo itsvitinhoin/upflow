@@ -23,6 +23,7 @@ export default function TiptapEditor({ content, onChange, editable = true }: Tip
     extensions: [StarterKit],
     content: (content as object) || "",
     editable,
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
       onChangeRef.current(editor.getJSON());
     },

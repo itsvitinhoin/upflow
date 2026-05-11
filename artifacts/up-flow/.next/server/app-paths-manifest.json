@@ -1,3 +1,8 @@
 {
-  "/login/page": "app/login/page.js"
+  "/api/docs/route": "app/api/docs/route.js",
+  "/login/page": "app/login/page.js",
+  "/api/docs/[id]/route": "app/api/docs/[id]/route.js",
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/(dashboard)/docs/[id]/page": "app/(dashboard)/docs/[id]/page.js",
+  "/(dashboard)/docs/page": "app/(dashboard)/docs/page.js"
 }
