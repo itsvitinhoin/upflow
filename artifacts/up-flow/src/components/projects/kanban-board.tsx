@@ -129,7 +129,7 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                               setSelectedTask(task);
                             }}
                             className={cn(
-                              "bg-card border border-border rounded-lg p-3 cursor-pointer hover:shadow-md transition-all group",
+                              "bg-card border border-border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow group",
                               snapshot.isDragging && "shadow-xl rotate-1 opacity-90"
                             )}
                           >
