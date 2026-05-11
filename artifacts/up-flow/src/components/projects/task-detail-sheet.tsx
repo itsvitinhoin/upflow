@@ -6,7 +6,7 @@ import {
   X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
 } from "lucide-react";
 import { cn, formatDate, getInitials } from "@/lib/utils";
-import type { Task, Comment, TaskAssignee } from "@/lib/types";
+import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 
 interface TaskDetailSheetProps {
   task: Task;
@@ -14,13 +14,13 @@ interface TaskDetailSheetProps {
   onUpdate: () => void;
 }
 
-interface DetailTask extends Task {
-  subtasks?: Task[];
+interface DetailTask extends Omit<Task, "subtasks"> {
+  subtasks?: Subtask[];
   comments?: Comment[];
 }
 
 export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailSheetProps) {
-  const [currentTask, setCurrentTask] = useState<DetailTask>(task);
+  const [currentTask, setCurrentTask] = useState<DetailTask>(task as DetailTask);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -141,7 +141,7 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
         }),
       });
       if (!res.ok) throw new Error();
-      const subtask = await res.json() as Task;
+      const subtask = await res.json() as Subtask;
       setCurrentTask((prev) => ({
         ...prev,
         subtasks: [...(prev.subtasks ?? []), subtask],
@@ -162,7 +162,7 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
         body: JSON.stringify({ status: done ? "done" : "todo" }),
       });
       if (!res.ok) throw new Error();
-      const updated = await res.json() as Task;
+      const updated = await res.json() as Subtask;
       setCurrentTask((prev) => ({
         ...prev,
         subtasks: (prev.subtasks ?? []).map((s) => (s.id === subtaskId ? updated : s)),
@@ -179,7 +179,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
       <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-background border-l border-border shadow-2xl z-50 flex flex-col overflow-hidden">
-        {/* Header */}
         <div className="flex items-start gap-3 px-6 py-4 border-b border-border">
           <div className="flex-1 min-w-0">
             <input
@@ -207,9 +206,7 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
           </div>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto">
-          {/* Properties */}
           <div className="px-6 py-4 space-y-4 border-b border-border">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground w-24">Status</span>
@@ -259,7 +256,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
             </div>
           </div>
 
-          {/* Description */}
           <div className="px-6 py-4 border-b border-border">
             <label className="block text-sm font-medium text-foreground mb-2">Description</label>
             <textarea
@@ -275,7 +271,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
             />
           </div>
 
-          {/* Subtasks */}
           <div className="px-6 py-4 border-b border-border">
             <button
               onClick={() => setSubtasksExpanded((v) => !v)}
@@ -358,7 +353,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
             )}
           </div>
 
-          {/* Comments */}
           <div className="px-6 py-4">
             <h3 className="text-sm font-medium text-foreground mb-4">
               Comments ({comments.length})
@@ -366,7 +360,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
             <div className="space-y-4 mb-4">
               {comments.map((c) => (
                 <div key={c.id}>
-                  {/* Top-level comment */}
                   <div className="flex gap-3">
                     <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0">
                       {getInitials(c.author?.name || "?")}
@@ -394,7 +387,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
                     </div>
                   </div>
 
-                  {/* Replies */}
                   {(c.replies ?? []).length > 0 && (
                     <div className="ml-10 mt-2 space-y-2">
                       {(c.replies ?? []).map((r) => (
@@ -419,7 +411,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
                     </div>
                   )}
 
-                  {/* Reply input */}
                   {replyingTo === c.id && (
                     <div className="ml-10 mt-2 flex gap-2">
                       <CornerDownRight className="w-3 h-3 text-muted-foreground flex-shrink-0 mt-2.5" />
@@ -457,7 +448,6 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
               )}
             </div>
 
-            {/* New top-level comment */}
             <form onSubmit={addComment} className="flex gap-2">
               <input
                 value={newComment}
