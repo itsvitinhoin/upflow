@@ -1753,6 +1753,9 @@ video {
 .bg-muted\/50 {
   background-color: hsl(var(--muted) / 0.5);
 }
+.bg-muted\/70 {
+  background-color: hsl(var(--muted) / 0.7);
+}
 .bg-popover {
   background-color: hsl(var(--popover));
 }
@@ -1826,6 +1829,9 @@ video {
 }
 .p-2 {
   padding: 0.5rem;
+}
+.p-2\.5 {
+  padding: 0.625rem;
 }
 .p-3 {
   padding: 0.75rem;
@@ -2516,6 +2522,9 @@ video {
 .last\:border-0:last-child {
   border-width: 0px;
 }
+.hover\:border-primary:hover {
+  border-color: hsl(var(--primary));
+}
 .hover\:border-primary\/30:hover {
   border-color: hsl(var(--primary) / 0.3);
 }
@@ -2559,6 +2568,9 @@ video {
 }
 .hover\:text-muted-foreground:hover {
   color: hsl(var(--muted-foreground));
+}
+.hover\:text-primary:hover {
+  color: hsl(var(--primary));
 }
 .hover\:text-sidebar-accent-foreground:hover {
   color: hsl(var(--sidebar-accent-foreground));

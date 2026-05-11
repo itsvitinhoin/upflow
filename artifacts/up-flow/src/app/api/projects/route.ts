@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  void req;
 
   const projects = await prisma.project.findMany({
     orderBy: { created_at: "desc" },
@@ -20,28 +19,22 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json();
-  const { name, description, due_date } = body as {
-    name?: string;
-    description?: string;
-    due_date?: string;
-  };
+  const body = await req.json() as { name?: string; description?: string; due_date?: string };
+  const { name, description, due_date } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
-
-  const userId = getUserId(session);
 
   const project = await prisma.project.create({
     data: {
       name: name.trim(),
       description: description || null,
       due_date: due_date ? new Date(due_date) : null,
-      owner_id: userId,
+      owner_id: auth.prismaUser.id,
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },

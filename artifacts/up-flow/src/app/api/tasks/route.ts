@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 import type { TaskStatus, TaskPriority } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("project_id");
   const mine = searchParams.get("mine") === "true";
-  const userId = getUserId(session);
+  const parentId = searchParams.get("parent_id");
 
   const where: {
     project_id?: string;
     assignee_id?: string;
+    parent_id?: string | null;
   } = {};
   if (projectId) where.project_id = projectId;
-  if (mine) where.assignee_id = userId;
+  if (mine) where.assignee_id = auth.prismaUser.id;
+  if (parentId) where.parent_id = parentId;
 
   const tasks = await prisma.task.findMany({
     where,
@@ -36,8 +36,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json() as {
     title?: string;
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   if (!title?.trim()) return NextResponse.json({ error: "Title is required" }, { status: 400 });
   if (!project_id) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
 
-  const userId = getUserId(session);
+  const userId = auth.prismaUser.id;
 
   const lastTask = await prisma.task.findFirst({
     where: { project_id, status: status ?? "todo" },
@@ -82,9 +82,9 @@ export async function POST(req: NextRequest) {
   });
 
   if (assignee_id && assignee_id !== userId) {
-    await prisma.notification.create({
-      data: { type: "assigned", user_id: assignee_id, task_id: task.id },
-    }).catch(() => {});
+    await prisma.notification
+      .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
+      .catch(() => {});
     await broadcastNotification(assignee_id);
   }
 

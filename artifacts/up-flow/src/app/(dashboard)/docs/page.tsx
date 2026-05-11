@@ -6,15 +6,19 @@ import { toast } from "sonner";
 import { FileText, Plus, Clock } from "lucide-react";
 import Header from "@/components/layout/header";
 import { formatDate } from "@/lib/utils";
+import type { Doc } from "@/lib/types";
 
 export default function DocsPage() {
-  const [docs, setDocs] = useState<any[]>([]);
+  const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/docs")
       .then((r) => r.json())
-      .then((data) => { setDocs(data); setLoading(false); })
+      .then((data: Doc[]) => {
+        setDocs(data);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
@@ -25,7 +29,7 @@ export default function DocsPage() {
       body: JSON.stringify({ title: "Untitled Doc" }),
     });
     if (res.ok) {
-      const doc = await res.json();
+      const doc = await res.json() as Doc;
       window.location.href = `/docs/${doc.id}`;
     } else {
       toast.error("Failed to create doc — please select a project first");
@@ -39,7 +43,9 @@ export default function DocsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-foreground">Documents</h2>
-            <p className="text-muted-foreground text-sm mt-0.5">{docs.length} document{docs.length !== 1 ? "s" : ""}</p>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {docs.length} document{docs.length !== 1 ? "s" : ""}
+            </p>
           </div>
           <button
             onClick={handleNew}
@@ -66,19 +72,22 @@ export default function DocsPage() {
             <table className="w-full">
               <thead className="border-b border-border">
                 <tr>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">Title</th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">Project</th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">Last updated</th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3">
+                    Title
+                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden sm:table-cell">
+                    Project
+                  </th>
+                  <th className="text-left text-xs font-medium text-muted-foreground px-4 py-3 hidden md:table-cell">
+                    Last updated
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {docs.map((doc) => (
                   <tr key={doc.id} className="hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/docs/${doc.id}`}
-                        className="flex items-center gap-3 group"
-                      >
+                      <Link href={`/docs/${doc.id}`} className="flex items-center gap-3 group">
                         <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
                           {doc.title}
@@ -86,7 +95,9 @@ export default function DocsPage() {
                       </Link>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-sm text-muted-foreground">{doc.project?.name || "—"}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {doc.project?.name || "—"}
+                      </span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className="flex items-center gap-1.5 text-sm text-muted-foreground">

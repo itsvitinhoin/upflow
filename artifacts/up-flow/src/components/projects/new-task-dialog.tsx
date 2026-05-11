@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
+import type { Project, TaskAssignee } from "@/lib/types";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -12,15 +13,21 @@ interface NewTaskDialogProps {
   defaultStatus?: string;
 }
 
-export default function NewTaskDialog({ open, onClose, onCreated, projectId, defaultStatus = "todo" }: NewTaskDialogProps) {
+export default function NewTaskDialog({
+  open,
+  onClose,
+  onCreated,
+  projectId,
+  defaultStatus = "todo",
+}: NewTaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [selectedProject, setSelectedProject] = useState(projectId || "");
-  const [projects, setProjects] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -28,7 +35,12 @@ export default function NewTaskDialog({ open, onClose, onCreated, projectId, def
     Promise.all([
       fetch("/api/projects").then((r) => r.json()),
       fetch("/api/users").then((r) => r.json()),
-    ]).then(([p, u]) => { setProjects(p); setUsers(u); }).catch(() => {});
+    ])
+      .then(([p, u]: [Project[], TaskAssignee[]]) => {
+        setProjects(p);
+        setUsers(u);
+      })
+      .catch(() => {});
   }, [open]);
 
   if (!open) return null;
@@ -54,29 +66,39 @@ export default function NewTaskDialog({ open, onClose, onCreated, projectId, def
           due_date: dueDate || null,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to create task");
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        throw new Error(data.error || "Failed to create task");
+      }
       setTitle("");
       setDescription("");
       setPriority("medium");
       setDueDate("");
       setAssigneeId("");
       onCreated();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create task";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div
         className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-md p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-foreground">New Task</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -110,7 +132,9 @@ export default function NewTaskDialog({ open, onClose, onCreated, projectId, def
               >
                 <option value="">Select a project</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -149,7 +173,9 @@ export default function NewTaskDialog({ open, onClose, onCreated, projectId, def
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
                 ))}
               </select>
             </div>

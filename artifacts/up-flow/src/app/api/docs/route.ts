@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getUserId } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("project_id");
@@ -25,12 +23,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json() as { title?: string; project_id?: string };
   const { title, project_id } = body;
-  const userId = getUserId(session);
+  const userId = auth.prismaUser.id;
 
   let pid = project_id;
   if (!pid) {
@@ -41,7 +39,10 @@ export async function POST(req: NextRequest) {
     if (!firstProject) {
       const anyProject = await prisma.project.findFirst({ orderBy: { created_at: "desc" } });
       if (!anyProject) {
-        return NextResponse.json({ error: "Create a project first before adding docs" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Create a project first before adding docs" },
+          { status: 400 }
+        );
       }
       pid = anyProject.id;
     } else {

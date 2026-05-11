@@ -3,21 +3,24 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Settings, FileText } from "lucide-react";
+import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
 import KanbanBoard from "@/components/projects/kanban-board";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
+import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
+import type { Project, Task } from "@/lib/types";
 
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
   const id = (params?.id ?? "") as string;
-  const [project, setProject] = useState<any>(null);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [activeTab, setActiveTab] = useState<"board" | "list">("board");
 
   const loadData = async () => {
@@ -26,8 +29,11 @@ export default function ProjectPage() {
         fetch(`/api/projects/${id}`),
         fetch(`/api/tasks?project_id=${id}`),
       ]);
-      if (!pRes.ok) { router.push("/projects"); return; }
-      const [p, t] = await Promise.all([pRes.json(), tRes.json()]);
+      if (!pRes.ok) {
+        router.push("/projects");
+        return;
+      }
+      const [p, t] = await Promise.all([pRes.json() as Promise<Project>, tRes.json() as Promise<Task[]>]);
       setProject(p);
       setTasks(t);
     } catch {
@@ -37,7 +43,9 @@ export default function ProjectPage() {
     }
   };
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => {
+    loadData();
+  }, [id]);
 
   if (loading) {
     return (
@@ -60,9 +68,11 @@ export default function ProjectPage() {
     <>
       <Header title={project.name} />
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Back + Header */}
         <div className="mb-6">
-          <Link href="/projects" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3">
+          <Link
+            href="/projects"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+          >
             <ArrowLeft className="w-4 h-4" /> Back to Projects
           </Link>
 
@@ -70,7 +80,12 @@ export default function ProjectPage() {
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-1.5">
                 <h2 className="text-2xl font-bold text-foreground">{project.name}</h2>
-                <span className={cn("text-xs px-2.5 py-1 rounded-full font-medium", statusColor(project.status))}>
+                <span
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full font-medium",
+                    statusColor(project.status)
+                  )}
+                >
                   {statusLabel(project.status)}
                 </span>
               </div>
@@ -108,7 +123,6 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex items-center gap-1 border-b border-border mb-6">
           {(["board", "list"] as const).map((tab) => (
             <button
@@ -127,13 +141,9 @@ export default function ProjectPage() {
         </div>
 
         {activeTab === "board" ? (
-          <KanbanBoard
-            projectId={id}
-            tasks={tasks}
-            onUpdate={loadData}
-          />
+          <KanbanBoard projectId={id} tasks={tasks} onUpdate={loadData} />
         ) : (
-          <ListView tasks={tasks} onUpdate={loadData} />
+          <ListView tasks={tasks} onTaskClick={setSelectedTask} />
         )}
       </div>
 
@@ -149,14 +159,34 @@ export default function ProjectPage() {
           }}
         />
       )}
+
+      {selectedTask && (
+        <TaskDetailSheet
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={() => {
+            setSelectedTask(null);
+            loadData();
+          }}
+        />
+      )}
     </>
   );
 }
 
-function ListView({ tasks, onUpdate }: { tasks: any[]; onUpdate: () => void }) {
-  const [selected, setSelected] = useState<any>(null);
+function ListView({
+  tasks,
+  onTaskClick,
+}: {
+  tasks: Task[];
+  onTaskClick: (task: Task) => void;
+}) {
   const columns = ["todo", "in_progress", "done"] as const;
-  const labels: Record<string, string> = { todo: "To Do", in_progress: "In Progress", done: "Done" };
+  const labels: Record<string, string> = {
+    todo: "To Do",
+    in_progress: "In Progress",
+    done: "Done",
+  };
 
   return (
     <div className="space-y-6">
@@ -168,19 +198,27 @@ function ListView({ tasks, onUpdate }: { tasks: any[]; onUpdate: () => void }) {
               {labels[col]} ({colTasks.length})
             </h3>
             {colTasks.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-3 px-4 bg-muted/50 rounded-lg">No tasks</div>
+              <div className="text-sm text-muted-foreground py-3 px-4 bg-muted/50 rounded-lg">
+                No tasks
+              </div>
             ) : (
               <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
                 {colTasks.map((task) => (
                   <div
                     key={task.id}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => setSelected(task)}
+                    onClick={() => onTaskClick(task)}
                   >
-                    <div className={cn("w-2 h-2 rounded-full flex-shrink-0",
-                      task.priority === "high" ? "bg-red-500" :
-                      task.priority === "medium" ? "bg-amber-500" : "bg-gray-400"
-                    )} />
+                    <div
+                      className={cn(
+                        "w-2 h-2 rounded-full flex-shrink-0",
+                        task.priority === "high"
+                          ? "bg-red-500"
+                          : task.priority === "medium"
+                          ? "bg-amber-500"
+                          : "bg-gray-400"
+                      )}
+                    />
                     <span className="flex-1 text-sm text-foreground">{task.title}</span>
                     {task.assignee && (
                       <span className="text-xs text-muted-foreground">{task.assignee.name}</span>

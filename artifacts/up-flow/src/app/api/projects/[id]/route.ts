@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getUserId } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth-helpers";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  void req;
 
   const project = await prisma.project.findUnique({
     where: { id: params.id },
@@ -27,19 +26,22 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const userId = getUserId(session);
-  const userRole = (session.user as { role?: string }).role;
-
+  const { prismaUser } = auth;
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (project.owner_id !== userId && userRole !== "admin") {
+  if (project.owner_id !== prismaUser.id && prismaUser.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await req.json();
+  const body = await req.json() as {
+    name?: string;
+    description?: string;
+    status?: string;
+    due_date?: string | null;
+  };
   const { name, description, status, due_date } = body;
 
   const updated = await prisma.project.update({
@@ -63,15 +65,14 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  void req;
 
-  const userId = getUserId(session);
-  const userRole = (session.user as { role?: string }).role;
-
+  const { prismaUser } = auth;
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (project.owner_id !== userId && userRole !== "admin") {
+  if (project.owner_id !== prismaUser.id && prismaUser.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

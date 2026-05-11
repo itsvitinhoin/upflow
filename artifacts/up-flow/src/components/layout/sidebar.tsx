@@ -2,37 +2,22 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Zap, LayoutDashboard, FolderOpen, FileText, Users,
   Bell, LogOut, Menu, X, ChevronRight, UserCheck, MessageSquare, Clock
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
-import { getSupabaseClient } from "@/lib/supabase";
-import type { AppUser } from "@/lib/session";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { AppUser, Notification } from "@/lib/types";
 
 interface SidebarProps {
   user: AppUser;
 }
 
-interface NotificationTask {
-  id: string;
-  title: string;
-  project: { id: string; name: string } | null;
-}
-
-interface Notification {
-  id: string;
-  type: string;
-  read: boolean;
-  created_at: string;
-  task: NotificationTask | null;
-}
-
 const navLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderOpen },
   { href: "/docs", label: "Docs", icon: FileText },
   { href: "/team", label: "Team", icon: Users },
@@ -54,6 +39,7 @@ function notificationLabel(n: Notification) {
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -69,25 +55,25 @@ export default function Sidebar({ user }: SidebarProps) {
         setUnreadCount(data.filter((n) => !n.read).length);
       }
     } catch {
+      // silent
     }
   }, []);
 
   useEffect(() => {
     fetchNotifications();
-
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      const channel = supabase
-        .channel(`notifications:${user.id}`)
-        .on("broadcast", { event: "new_notification" }, () => {
-          fetchNotifications();
-        })
-        .subscribe();
-      return () => { supabase.removeChannel(channel); };
-    } else {
-      const interval = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(interval);
-    }
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on("broadcast", { event: "new_notification" }, () => {
+        fetchNotifications();
+      })
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") {
+          const interval = setInterval(fetchNotifications, 30000);
+          return () => clearInterval(interval);
+        }
+      });
+    return () => { supabase.removeChannel(channel); };
   }, [fetchNotifications, user.id]);
 
   useEffect(() => {
@@ -115,6 +101,14 @@ export default function Sidebar({ user }: SidebarProps) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
+  const handleSignOut = async () => {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    toast.success("Signed out");
+    router.push("/login");
+    router.refresh();
+  };
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-2.5 px-5 py-5 border-b border-sidebar-border">
@@ -126,7 +120,10 @@ export default function Sidebar({ user }: SidebarProps) {
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navLinks.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || (pathname?.startsWith(href + "/") ?? false);
+          const isActive =
+            href === "/"
+              ? pathname === "/"
+              : pathname === href || (pathname?.startsWith(href + "/") ?? false);
           return (
             <Link
               key={href}
@@ -169,19 +166,14 @@ export default function Sidebar({ user }: SidebarProps) {
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <span className="text-sm font-semibold text-foreground">Notifications</span>
                 {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkAllRead}
-                    className="text-xs text-primary hover:underline"
-                  >
+                  <button onClick={handleMarkAllRead} className="text-xs text-primary hover:underline">
                     Mark all read
                   </button>
                 )}
               </div>
               <div className="max-h-72 overflow-y-auto divide-y divide-border">
                 {notifications.length === 0 ? (
-                  <div className="py-8 text-center text-sm text-muted-foreground">
-                    No notifications
-                  </div>
+                  <div className="py-8 text-center text-sm text-muted-foreground">No notifications</div>
                 ) : (
                   notifications.map((n) => (
                     <div
@@ -193,16 +185,12 @@ export default function Sidebar({ user }: SidebarProps) {
                     >
                       <div className="mt-0.5 flex-shrink-0">{notificationIcon(n.type)}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-foreground leading-snug">
-                          {notificationLabel(n)}
-                        </p>
+                        <p className="text-xs text-foreground leading-snug">{notificationLabel(n)}</p>
                         {n.task?.project?.name && (
                           <p className="text-xs text-muted-foreground mt-0.5">{n.task.project.name}</p>
                         )}
                       </div>
-                      {!n.read && (
-                        <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
-                      )}
+                      {!n.read && <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />}
                     </div>
                   ))
                 )}
@@ -219,13 +207,10 @@ export default function Sidebar({ user }: SidebarProps) {
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {user.name || user.email}
             </p>
-            <p className="text-xs text-sidebar-foreground/50 capitalize truncate">{user.role || "member"}</p>
+            <p className="text-xs text-sidebar-foreground/50 capitalize truncate">{user.role}</p>
           </div>
           <button
-            onClick={() => {
-              signOut({ callbackUrl: "/login" });
-              toast.success("Signed out");
-            }}
+            onClick={handleSignOut}
             className="text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors flex-shrink-0"
             title="Sign out"
           >

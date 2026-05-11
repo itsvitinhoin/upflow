@@ -1,27 +1,47 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/layout/sidebar";
-import type { AppUser } from "@/lib/session";
+import { UserProvider } from "@/components/user-provider";
+import type { AppUser } from "@/lib/types";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
+
+  if (!supabaseUser?.email) {
     redirect("/login");
   }
 
-  const user = session.user as AppUser;
+  const prismaUser = await prisma.user.findUnique({
+    where: { email: supabaseUser.email },
+    select: { id: true, name: true, email: true, role: true, avatar_url: true },
+  });
+
+  if (!prismaUser) {
+    redirect("/login");
+  }
+
+  const user: AppUser = {
+    id: prismaUser.id,
+    name: prismaUser.name,
+    email: prismaUser.email,
+    image: prismaUser.avatar_url,
+    role: prismaUser.role,
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar user={user} />
-      <main className="flex-1 overflow-y-auto">
-        {children}
-      </main>
-    </div>
+    <UserProvider user={user}>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <Sidebar user={user} />
+        <main className="flex-1 overflow-y-auto">{children}</main>
+      </div>
+    </UserProvider>
   );
 }

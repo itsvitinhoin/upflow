@@ -8,11 +8,12 @@ import { FolderOpen, Plus, Calendar, CheckSquare } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import { cn, formatDate, getInitials, statusColor, statusLabel } from "@/lib/utils";
+import type { Project } from "@/lib/types";
 
 export default function ProjectsPage() {
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get("search") ?? "";
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
 
@@ -20,14 +21,19 @@ export default function ProjectsPage() {
     setLoading(true);
     fetch("/api/projects")
       .then((r) => r.json())
-      .then((data) => { setProjects(data); setLoading(false); })
+      .then((data: Project[]) => {
+        setProjects(data);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   };
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
-  const filtered = projects.filter((p) =>
-    !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filtered = projects.filter(
+    (p) => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -37,7 +43,9 @@ export default function ProjectsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-foreground">All Projects</h2>
-            <p className="text-muted-foreground text-sm mt-0.5">{projects.length} project{projects.length !== 1 ? "s" : ""}</p>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {projects.length} project{projects.length !== 1 ? "s" : ""}
+            </p>
           </div>
           <button
             onClick={() => setShowNew(true)}
@@ -77,12 +85,19 @@ export default function ProjectsPage() {
                   <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
                     {project.name}
                   </h3>
-                  <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ml-2", statusColor(project.status))}>
+                  <span
+                    className={cn(
+                      "text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ml-2",
+                      statusColor(project.status)
+                    )}
+                  >
                     {statusLabel(project.status)}
                   </span>
                 </div>
                 {project.description && (
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                    {project.description}
+                  </p>
                 )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

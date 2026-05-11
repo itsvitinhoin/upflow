@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
-import { Plus, GripVertical, User, Calendar, AlertCircle } from "lucide-react";
+import { Plus, GripVertical, Calendar, AlertCircle } from "lucide-react";
 import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
+import type { Task } from "@/lib/types";
 
 interface KanbanBoardProps {
   projectId: string;
-  tasks: any[];
+  tasks: Task[];
   onUpdate: () => void;
 }
 
@@ -23,22 +24,21 @@ const COLUMNS = [
 type ColumnKey = "todo" | "in_progress" | "done";
 
 export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardProps) {
-  const [columns, setColumns] = useState<Record<ColumnKey, any[]>>({
+  const [columns, setColumns] = useState<Record<ColumnKey, Task[]>>({
     todo: [],
     in_progress: [],
     done: [],
   });
-  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showNewTask, setShowNewTask] = useState<ColumnKey | null>(null);
 
   useEffect(() => {
-    const grouped: Record<ColumnKey, any[]> = { todo: [], in_progress: [], done: [] };
+    const grouped: Record<ColumnKey, Task[]> = { todo: [], in_progress: [], done: [] };
     tasks.forEach((t) => {
       if (t.status in grouped) {
         grouped[t.status as ColumnKey].push(t);
       }
     });
-    // Sort by position
     Object.keys(grouped).forEach((k) => {
       grouped[k as ColumnKey].sort((a, b) => a.position - b.position);
     });
@@ -64,7 +64,6 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
 
     setColumns(newColumns);
 
-    // Update backend
     try {
       await fetch(`/api/tasks/${draggableId}`, {
         method: "PATCH",
@@ -73,7 +72,7 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
       });
     } catch {
       toast.error("Failed to update task");
-      onUpdate(); // Revert
+      onUpdate();
     }
   };
 
@@ -92,7 +91,6 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                     snapshot.isDraggingOver && "bg-primary/5 ring-2 ring-primary/20"
                   )}
                 >
-                  {/* Column header */}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className={cn("w-2 h-2 rounded-full", color)} />
@@ -109,7 +107,6 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                     </button>
                   </div>
 
-                  {/* Cards */}
                   <div className="space-y-2 min-h-[100px]">
                     {columns[key].map((task, index) => (
                       <Draggable key={task.id} draggableId={task.id} index={index}>
@@ -139,16 +136,28 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                               )}
                             </div>
                             {task.description && (
-                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 ml-4">{task.description}</p>
+                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 ml-4">
+                                {task.description}
+                              </p>
                             )}
                             <div className="flex items-center gap-2 mt-2.5 ml-4">
-                              <span className={cn("text-xs px-1.5 py-0.5 rounded font-medium", priorityColor(task.priority))}>
+                              <span
+                                className={cn(
+                                  "text-xs px-1.5 py-0.5 rounded font-medium",
+                                  priorityColor(task.priority)
+                                )}
+                              >
                                 {task.priority}
                               </span>
                               {task.due_date && (
-                                <span className={cn("text-xs text-muted-foreground flex items-center gap-1",
-                                  isOverdue(task.due_date) && task.status !== "done" && "text-red-500 font-medium"
-                                )}>
+                                <span
+                                  className={cn(
+                                    "text-xs text-muted-foreground flex items-center gap-1",
+                                    isOverdue(task.due_date) &&
+                                      task.status !== "done" &&
+                                      "text-red-500 font-medium"
+                                  )}
+                                >
                                   <Calendar className="w-3 h-3" />
                                   {formatDate(task.due_date)}
                                 </span>

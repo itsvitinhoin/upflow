@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Zap } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,19 +16,55 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const result = await signIn("credentials", {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
-        redirect: false,
       });
-      if (result?.error) {
-        toast.error(result.error);
+      if (error) {
+        toast.error(error.message);
       } else {
-        router.push("/dashboard");
+        router.push("/");
         router.refresh();
       }
     } catch {
       toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRegister() {
+    if (!email || !password) {
+      toast.error("Enter email and password to register");
+      return;
+    }
+    setLoading(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: signUpErr } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (signUpErr) throw signUpErr;
+
+      await fetch("/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, name: email.split("@")[0] }),
+      });
+
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (signInErr) throw signInErr;
+
+      toast.success("Account created! Signing in...");
+      router.push("/");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -93,30 +129,9 @@ export default function LoginPage() {
             <p className="text-slate-400 text-sm">
               Don&apos;t have an account?{" "}
               <button
-                onClick={async () => {
-                  if (!email || !password) {
-                    toast.error("Enter email and password to register");
-                    return;
-                  }
-                  setLoading(true);
-                  try {
-                    const res = await fetch("/api/users/register", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email, password, name: email.split("@")[0] }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || "Registration failed");
-                    toast.success("Account created! Signing in...");
-                    await signIn("credentials", { email, password, redirect: false });
-                    router.push("/dashboard");
-                  } catch (err: any) {
-                    toast.error(err.message);
-                  } finally {
-                    setLoading(false);
-                  }
-                }}
-                className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
+                onClick={handleRegister}
+                disabled={loading}
+                className="text-blue-400 hover:text-blue-300 font-medium transition-colors disabled:opacity-50"
               >
                 Create account
               </button>
