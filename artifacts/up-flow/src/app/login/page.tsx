@@ -16,15 +16,14 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
-      if (error) {
-        toast.error(error.message);
-      } else if (!data.session) {
-        toast.error("Login failed to create a session");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body.error || "Login failed");
       } else {
         router.push("/");
         router.refresh();
