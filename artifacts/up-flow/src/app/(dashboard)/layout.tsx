@@ -19,14 +19,20 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const prismaUser = await prisma.user.findUnique({
+  // Upsert: auto-create Prisma row on first login so any Supabase user can access the app
+  const prismaUser = await prisma.user.upsert({
     where: { email: supabaseUser.email },
+    update: {},
+    create: {
+      email: supabaseUser.email,
+      name:
+        (supabaseUser.user_metadata?.name as string | undefined) ||
+        (supabaseUser.user_metadata?.full_name as string | undefined) ||
+        supabaseUser.email.split("@")[0],
+      role: "member",
+    },
     select: { id: true, name: true, email: true, role: true, avatar_url: true },
   });
-
-  if (!prismaUser) {
-    redirect("/login");
-  }
 
   const user: AppUser = {
     id: prismaUser.id,

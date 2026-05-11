@@ -2,6 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  void req;
+
+  const notification = await prisma.notification.findUnique({
+    where: { id: params.id },
+    include: {
+      task: {
+        select: {
+          id: true,
+          title: true,
+          project: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!notification) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (notification.user_id !== auth.prismaUser.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return NextResponse.json(notification);
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
