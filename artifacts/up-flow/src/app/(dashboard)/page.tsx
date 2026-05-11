@@ -163,20 +163,26 @@ export default function DashboardPage() {
 function OnboardingChecklist({ tasks }: { tasks: Task[] }) {
   const [dismissed, setDismissed] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [teamSize, setTeamSize] = useState(0);
 
   useEffect(() => {
     const d = localStorage.getItem("upflow_onboarding_dismissed");
     if (d === "true") setDismissed(true);
-    fetch("/api/projects")
-      .then((r) => r.json())
-      .then((data: Project[]) => setProjects(data))
+    Promise.all([
+      fetch("/api/projects").then((r) => r.json()),
+      fetch("/api/users").then((r) => r.json()),
+    ])
+      .then(([p, u]: [Project[], { id: string }[]]) => {
+        setProjects(p);
+        setTeamSize(u.length);
+      })
       .catch(() => {});
   }, []);
 
   const checks = [
     { label: "Create your first project", done: projects.length > 0 },
     { label: "Add a task", done: tasks.length > 0 },
-    { label: "Invite a teammate", done: false },
+    { label: "Invite a teammate", done: teamSize > 1 },
   ];
 
   const allDone = checks.every((c) => c.done);
