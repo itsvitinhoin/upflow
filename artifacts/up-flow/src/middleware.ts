@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({ request: { headers: req.headers } });
+  const cookieMutations: Array<{ name: string; value: string; options?: Parameters<typeof response.cookies.set>[0] }> = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,15 +13,13 @@ export async function middleware(req: NextRequest) {
         get(name: string) {
           return req.cookies.get(name)?.value;
         },
-        set(name: string, value: string, options: Record<string, unknown>) {
-          req.cookies.set({ name, value, ...(options as Parameters<typeof req.cookies.set>[0]) });
-          response = NextResponse.next({ request: { headers: req.headers } });
-          response.cookies.set({ name, value, ...(options as Parameters<typeof response.cookies.set>[0]) });
+        set(name: string, value: string, options: Parameters<typeof response.cookies.set>[0]) {
+          cookieMutations.push({ name, value, options });
+          response.cookies.set({ name, value, ...options });
         },
-        remove(name: string, options: Record<string, unknown>) {
-          req.cookies.set({ name, value: "", ...(options as Parameters<typeof req.cookies.set>[0]) });
-          response = NextResponse.next({ request: { headers: req.headers } });
-          response.cookies.set({ name, value: "", ...(options as Parameters<typeof response.cookies.set>[0]) });
+        remove(name: string, options: Parameters<typeof response.cookies.set>[0]) {
+          cookieMutations.push({ name, value: "", options });
+          response.cookies.set({ name, value: "", ...options });
         },
       },
     }
@@ -50,6 +49,10 @@ export async function middleware(req: NextRequest) {
     const homeUrl = req.nextUrl.clone();
     homeUrl.pathname = "/";
     return NextResponse.redirect(homeUrl);
+  }
+
+  for (const cookie of cookieMutations) {
+    response.cookies.set({ name: cookie.name, value: cookie.value, ...(cookie.options ?? {}) });
   }
 
   return response;
