@@ -19,6 +19,12 @@ import Header from "@/components/layout/header";
 import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
 import type { Task, Project, TeamMember } from "@/lib/types";
+import {
+  todayMeetings,
+  activityBubbles,
+  recentActions,
+  buildTimelineRows,
+} from "@/lib/dashboard-mocks";
 
 export default function DashboardPage() {
   const user = useAppUser();
@@ -297,37 +303,7 @@ function TeamTimeline({
   const currentHour = new Date().getHours();
   const totalHours = 11;
 
-  // Deterministic per-user blocks for visual fill — real time-tracking data not in schema yet.
-  const rows = useMemo(() => {
-    const list = users.slice(0, 6);
-    const palette = [
-      "bg-primary/30 border-l-primary",
-      "bg-upflow-success/25 border-l-upflow-success",
-      "bg-upflow-warning/25 border-l-upflow-warning",
-      "bg-upflow-danger/25 border-l-upflow-danger",
-    ];
-    return list.map((u, i) => {
-      const seed = (u.id.charCodeAt(0) || 0) + i * 13;
-      const blocks = [
-        {
-          start: 8 + (seed % 4),
-          end: Math.min(8 + (seed % 4) + 1 + (seed % 2), 19),
-          label: "Standup",
-        },
-        {
-          start: 12 + ((seed >> 2) % 3),
-          end: Math.min(12 + ((seed >> 2) % 3) + 2, 19),
-          label: "Focus block",
-        },
-        {
-          start: 16 + ((seed >> 1) % 3),
-          end: Math.min(16 + ((seed >> 1) % 3) + 1, 19),
-          label: "Review",
-        },
-      ];
-      return { user: u, blocks, color: palette[i % palette.length] };
-    });
-  }, [users]);
+  const rows = useMemo(() => buildTimelineRows(users), [users]);
 
   return (
     <section className="bg-card border border-border rounded-2xl p-5">
@@ -453,31 +429,15 @@ function RightPanel({
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
 
-  const allMeetings = [
-    { time: "09:30", title: "Daily standup", with: "Engineering", color: "bg-primary/20 text-primary" },
-    { time: "11:00", title: "Sprint planning", with: "Product", color: "bg-upflow-success/20 text-upflow-success" },
-    { time: "14:30", title: "Design review", with: "Product · Design", color: "bg-upflow-warning/20 text-upflow-warning" },
-    { time: "16:00", title: "Client check-in", with: "Acme Corp", color: "bg-upflow-danger/20 text-upflow-danger" },
-  ];
-  const am = allMeetings.filter((m) => parseInt(m.time) < 12);
-  const pm = allMeetings.filter((m) => parseInt(m.time) >= 12);
+  const am = todayMeetings.filter((m) => parseInt(m.time) < 12);
+  const pm = todayMeetings.filter((m) => parseInt(m.time) >= 12);
 
   const [meetingsOpen, setMeetingsOpen] = useState<Record<string, boolean>>(
-    Object.fromEntries(allMeetings.map((m) => [m.title, true]))
+    Object.fromEntries(todayMeetings.map((m) => [m.title, true]))
   );
 
-  // Bubbles for activity (12 weeks of varying-size dots).
-  const bubbles = Array.from({ length: 24 }, (_, i) => {
-    const v = 0.3 + ((i * 37) % 70) / 100;
-    return { size: 10 + v * 22, opacity: 0.25 + v * 0.7 };
-  });
-
-  const recent = [
-    { who: "Maya", what: "completed", target: "Login screen", when: "12m ago" },
-    { who: "Eli", what: "commented on", target: "API rate limits", when: "27m ago" },
-    { who: userName, what: "moved", target: "Onboarding flow", when: "1h ago" },
-    { who: "Tomás", what: "created", target: "Atlas project", when: "2h ago" },
-  ];
+  const bubbles = activityBubbles;
+  const recent = recentActions(userName);
 
   const handleStart = () => setTimerState("running");
   const handlePause = () => setTimerState("paused");
@@ -487,7 +447,7 @@ function RightPanel({
   };
 
   return (
-    <aside className="hidden xl:flex w-[300px] flex-shrink-0 flex-col gap-4 p-6 border-l border-border bg-sidebar/30">
+    <aside className="hidden lg:flex w-[280px] flex-shrink-0 flex-col gap-4 p-6 border-l border-border bg-sidebar/30">
       {/* Time tracking */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">

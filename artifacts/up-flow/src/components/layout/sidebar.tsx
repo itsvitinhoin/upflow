@@ -13,7 +13,6 @@ import {
   Kanban,
   Settings,
   HelpCircle,
-  LogOut,
   Menu,
   X,
 } from "lucide-react";
@@ -100,38 +99,32 @@ export default function Sidebar({ user }: SidebarProps) {
         <button
           aria-label="Settings"
           title="Settings"
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
         >
           <Settings className="w-[18px] h-[18px]" />
         </button>
         <button
           aria-label="Help"
           title="Help"
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
         <button
           onClick={handleSignOut}
-          aria-label="Sign out"
-          title="Sign out"
-          className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
-        >
-          <LogOut className="w-[18px] h-[18px]" />
-        </button>
-        <div
-          className="mt-2 flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white text-xs font-bold"
-          title={user.name || user.email || "User"}
+          aria-label={`Sign out (${user.name || user.email || "User"})`}
+          title={`Sign out · ${user.name || user.email || "User"}`}
+          className="mt-2 flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white text-xs font-bold hover:opacity-90 transition-opacity"
         >
           {getInitials(user.name || user.email || "U")}
-        </div>
+        </button>
       </div>
     </div>
   );
 
   return (
     <>
-      <aside className="hidden md:flex w-[64px] flex-shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
+      <aside className="hidden md:flex w-[56px] flex-shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
         <Rail />
       </aside>
 
@@ -151,7 +144,7 @@ export default function Sidebar({ user }: SidebarProps) {
             className="md:hidden fixed inset-0 bg-black/60 z-40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="md:hidden fixed left-0 top-0 h-full w-[64px] z-50 shadow-2xl border-r border-sidebar-border">
+          <aside className="md:hidden fixed left-0 top-0 h-full w-[56px] z-50 shadow-2xl border-r border-sidebar-border">
             <Rail onNavigate={() => setMobileOpen(false)} />
           </aside>
         </>

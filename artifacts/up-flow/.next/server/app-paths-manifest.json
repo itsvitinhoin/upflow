@@ -1,4 +1,6 @@
 {
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/api/users/route": "app/api/users/route.js",
   "/(dashboard)/projects/page": "app/(dashboard)/projects/page.js",
   "/(dashboard)/docs/page": "app/(dashboard)/docs/page.js",
   "/(dashboard)/team/page": "app/(dashboard)/team/page.js"
