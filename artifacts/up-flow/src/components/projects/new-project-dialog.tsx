@@ -46,11 +46,14 @@ export default function NewProjectDialog({ open, onClose, onCreated }: NewProjec
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div
-        className="bg-background border border-border rounded-2xl shadow-2xl w-full max-w-md p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label="New Project"
+        className="glass-strong rounded-2xl w-full max-w-md p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -75,7 +78,7 @@ export default function NewProjectDialog({ open, onClose, onCreated }: NewProjec
               placeholder="e.g. Website Redesign"
               required
               autoFocus
-              className="w-full border border-border bg-background rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div>
@@ -85,7 +88,7 @@ export default function NewProjectDialog({ open, onClose, onCreated }: NewProjec
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of the project..."
               rows={3}
-              className="w-full border border-border bg-background rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
           <div>
@@ -94,14 +97,14 @@ export default function NewProjectDialog({ open, onClose, onCreated }: NewProjec
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full border border-border bg-background rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 border border-border text-foreground text-sm font-medium py-2.5 rounded-lg hover:bg-muted transition-colors"
+              className="flex-1 border border-white/10 text-foreground text-sm font-medium py-2.5 rounded-lg hover:bg-white/10 transition-colors"
             >
               Cancel
             </button>

@@ -207,7 +207,7 @@ export default function DashboardPage() {
           </section>
 
           {/* Team timeline */}
-          <TeamTimeline users={users} loading={loading} />
+          <TeamTimeline users={users} loading={loading} statusFilter={statusFilter} />
 
           {/* Filtered tasks list */}
           <section className="glass rounded-2xl overflow-hidden">
@@ -258,52 +258,16 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 filteredTasks.map((task) => (
-                  <button
+                  <TaskRow
                     key={task.id}
-                    onClick={() => setActiveTask(task)}
-                    className="w-full text-left flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
-                  >
-                    <div
-                      className={cn(
-                        "w-1.5 h-8 rounded-full flex-shrink-0",
-                        task.priority === "high"
-                          ? "bg-upflow-danger"
-                          : task.priority === "medium"
-                          ? "bg-upflow-warning"
-                          : "bg-muted-foreground/40"
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {task.title}
-                      </p>
-                      {task.project?.name && (
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {task.project.name}
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs px-2 py-1 rounded-full font-medium",
-                        priorityColor(task.priority)
-                      )}
-                    >
-                      {task.priority}
-                    </span>
-                    {task.due_date && (
-                      <span
-                        className={cn(
-                          "text-xs text-muted-foreground hidden sm:block",
-                          isOverdue(task.due_date) &&
-                            task.status !== "done" &&
-                            "text-upflow-danger font-medium"
-                        )}
-                      >
-                        {formatDate(task.due_date)}
-                      </span>
-                    )}
-                  </button>
+                    task={task}
+                    onOpen={() => setActiveTask(task)}
+                    onMarkDone={() => handleStatusChange(task, "done")}
+                    onDelete={() => {
+                      if (confirm(`Delete "${task.title}"?`)) handleDeleteTask(task);
+                    }}
+                    disabled={updating}
+                  />
                 ))
               )}
             </div>
@@ -336,6 +300,135 @@ export default function DashboardPage() {
         />
       )}
     </>
+  );
+}
+
+function TaskRow({
+  task,
+  onOpen,
+  onMarkDone,
+  onDelete,
+  disabled,
+}: {
+  task: Task;
+  onOpen: () => void;
+  onMarkDone: () => void;
+  onDelete: () => void;
+  disabled: boolean;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [menuOpen]);
+
+  return (
+    <div className="group flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition-colors">
+      <div
+        className={cn(
+          "w-1.5 h-8 rounded-full flex-shrink-0",
+          task.priority === "high"
+            ? "bg-upflow-danger"
+            : task.priority === "medium"
+            ? "bg-upflow-warning"
+            : "bg-muted-foreground/40"
+        )}
+      />
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex-1 min-w-0 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+      >
+        <p className="text-sm font-medium text-foreground truncate">
+          {task.title}
+        </p>
+        {task.project?.name && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {task.project.name}
+          </p>
+        )}
+      </button>
+      <span
+        className={cn(
+          "text-xs px-2 py-1 rounded-full font-medium",
+          priorityColor(task.priority)
+        )}
+      >
+        {task.priority}
+      </span>
+      {task.due_date && (
+        <span
+          className={cn(
+            "text-xs text-muted-foreground hidden sm:block",
+            isOverdue(task.due_date) &&
+              task.status !== "done" &&
+              "text-upflow-danger font-medium"
+          )}
+        >
+          {formatDate(task.due_date)}
+        </span>
+      )}
+      <div className="relative" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={`Actions for ${task.title}`}
+          aria-expanded={menuOpen}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
+        {menuOpen && (
+          <div
+            role="menu"
+            className="absolute right-0 top-full mt-1 w-40 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+          >
+            <button
+              role="menuitem"
+              type="button"
+              disabled={disabled || task.status === "done"}
+              onClick={() => {
+                setMenuOpen(false);
+                onMarkDone();
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-white/5 disabled:opacity-40 focus:outline-none focus-visible:bg-white/10"
+            >
+              Mark done
+            </button>
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpen();
+              }}
+              className="w-full text-left px-3 py-2 hover:bg-white/5 border-t border-white/5 focus:outline-none focus-visible:bg-white/10"
+            >
+              Edit / details
+            </button>
+            <button
+              role="menuitem"
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete();
+              }}
+              className="w-full text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40 border-t border-white/5 focus:outline-none focus-visible:bg-upflow-danger/15"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -410,10 +503,21 @@ function StatCard({
 function TeamTimeline({
   users,
   loading,
+  statusFilter,
 }: {
   users: TeamMember[];
   loading: boolean;
+  statusFilter: StatusFilter;
 }) {
+  // Map dashboard status filter onto mock block labels so the stat-card
+  // selection visibly narrows the timeline as well.
+  const statusToLabel: Record<Exclude<StatusFilter, "all">, string> = {
+    todo: "Standup",
+    in_progress: "Focus block",
+    done: "Review",
+  };
+  const focusedLabel =
+    statusFilter === "all" ? null : statusToLabel[statusFilter];
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
   const currentHour = new Date().getHours();
   const totalHours = 11;
@@ -435,6 +539,12 @@ function TeamTimeline({
               month: "long",
               day: "numeric",
             })}
+            {focusedLabel && (
+              <>
+                {" · "}
+                <span className="text-primary">Showing {focusedLabel.toLowerCase()}s</span>
+              </>
+            )}
             {focusHour !== null && (
               <>
                 {" · "}
@@ -499,11 +609,18 @@ function TeamTimeline({
             No teammates to show
           </div>
         ) : (
-          rows.map(({ user: u, blocks, color }) => (
+          rows.map(({ user: u, blocks, color }) => {
+            const rowMatches = focusedLabel
+              ? blocks.some((b) => b.label === focusedLabel)
+              : true;
+            return (
             <button
               key={u.id}
               onClick={() => toast(`Open ${u.name}'s schedule`)}
-              className="w-full flex items-center gap-3 rounded-lg p-1 -mx-1 hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              className={cn(
+                "w-full flex items-center gap-3 rounded-lg p-1 -mx-1 hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                !rowMatches && "opacity-30"
+              )}
             >
               <div className="w-[128px] flex items-center gap-2 flex-shrink-0">
                 <div className="w-7 h-7 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
@@ -525,28 +642,36 @@ function TeamTimeline({
                     />
                   ))}
                 </div>
-                {blocks.map((b, i) => (
-                  <div
-                    key={i}
-                    title={`${b.label} · ${b.start > 12 ? `${b.start - 12}pm` : `${b.start}am`} - ${b.end > 12 ? `${b.end - 12}pm` : `${b.end}am`}`}
-                    className={cn(
-                      "absolute top-1 bottom-1 rounded-md border-l-2 px-2 flex items-center text-[10px] font-medium text-foreground/80 truncate transition-opacity",
-                      color,
-                      focusHour !== null &&
-                        !(b.start <= focusHour + 2 && b.end >= focusHour - 2) &&
-                        "opacity-30"
-                    )}
-                    style={{
-                      left: `calc(${((b.start - 8) / totalHours) * 100}% + 2px)`,
-                      width: `calc(${Math.max(((b.end - b.start) / totalHours) * 100, 4)}% - 4px)`,
-                    }}
-                  >
-                    {b.label}
-                  </div>
-                ))}
+                {blocks.map((b, i) => {
+                  const fmtH = (n: number) =>
+                    n > 12 ? `${n - 12}pm` : n === 12 ? "12pm" : `${n}am`;
+                  const dimByLabel =
+                    focusedLabel !== null && b.label !== focusedLabel;
+                  const dimByHour =
+                    focusHour !== null &&
+                    !(b.start <= focusHour + 2 && b.end >= focusHour - 2);
+                  return (
+                    <div
+                      key={i}
+                      title={`${u.name} · ${b.label} · ${fmtH(b.start)} – ${fmtH(b.end)}`}
+                      className={cn(
+                        "absolute top-1 bottom-1 rounded-md border-l-2 px-2 flex items-center text-[10px] font-medium text-foreground/80 truncate transition-opacity",
+                        color,
+                        (dimByLabel || dimByHour) && "opacity-30"
+                      )}
+                      style={{
+                        left: `calc(${((b.start - 8) / totalHours) * 100}% + 2px)`,
+                        width: `calc(${Math.max(((b.end - b.start) / totalHours) * 100, 4)}% - 4px)`,
+                      }}
+                    >
+                      {b.label}
+                    </div>
+                  );
+                })}
               </div>
             </button>
-          ))
+            );
+          })
         )}
       </div>
     </section>
@@ -614,8 +739,7 @@ function RightPanel({
       list = list.filter((r) => r.status === actionFilter);
     }
     if (activeDay !== null) {
-      // Mock filter: pick a deterministic subset based on day index
-      list = list.filter((_, i) => i % 7 === activeDay % (list.length || 1) || (i + activeDay) % 3 === 0);
+      list = list.filter((r) => r.dayIndex === activeDay);
     }
     return list;
   }, [recent, actionFilter, activeDay]);

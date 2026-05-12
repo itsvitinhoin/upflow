@@ -66,6 +66,8 @@ export type RecentAction = {
   target: string;
   when: string;
   status: "completed" | "in_progress";
+  /** 0 = Mon … 6 = Sun, used by the Activity widget to filter by day */
+  dayIndex: number;
 };
 
 export const recentActions = (currentUserName: string): RecentAction[] => [
@@ -73,36 +75,57 @@ export const recentActions = (currentUserName: string): RecentAction[] => [
     who: "Annette Black",
     what: "talked about",
     target: "us pages",
-    when: "11:34am 04/04/23",
+    when: "Mon · 11:34am",
     status: "completed",
+    dayIndex: 0,
   },
   {
     who: "Arlene McCoy",
     what: "shipped",
     target: "UI Dashboard",
-    when: "11:34am 03/05/23",
+    when: "Tue · 11:34am",
     status: "completed",
+    dayIndex: 1,
   },
   {
     who: "Esther Howard",
     what: "uploaded",
     target: "3D Objects for pages",
-    when: "02:12pm 02/05/23",
+    when: "Wed · 02:12pm",
     status: "completed",
+    dayIndex: 2,
   },
   {
     who: "Theresa Webb",
     what: "is finishing",
     target: "UX Research",
-    when: "03:34pm 02/05/23",
+    when: "Wed · 03:34pm",
     status: "in_progress",
+    dayIndex: 2,
   },
   {
     who: currentUserName,
     what: "uploaded",
     target: "Showreel video for home page",
-    when: "02:34pm 02/05/23",
+    when: "Thu · 02:34pm",
     status: "completed",
+    dayIndex: 3,
+  },
+  {
+    who: "Arlene McCoy",
+    what: "reviewed",
+    target: "Marketing site copy",
+    when: "Fri · 09:10am",
+    status: "completed",
+    dayIndex: 4,
+  },
+  {
+    who: "Theresa Webb",
+    what: "drafted",
+    target: "Q3 roadmap deck",
+    when: "Sat · 11:00am",
+    status: "in_progress",
+    dayIndex: 5,
   },
 ];
 
@@ -123,7 +146,9 @@ const palette = [
 export function buildTimelineRows(users: TeamMember[]): TimelineRow[] {
   return users.slice(0, 6).map((u, i) => {
     const seed = (u.id.charCodeAt(0) || 0) + i * 13;
-    const blocks: TimelineBlock[] = [
+    // Vary which blocks each teammate has so the stat-card filter actually
+    // narrows the visible rows (not every teammate has all three blocks).
+    const all: TimelineBlock[] = [
       {
         start: 8 + (seed % 4),
         end: Math.min(8 + (seed % 4) + 1 + (seed % 2), 19),
@@ -140,6 +165,18 @@ export function buildTimelineRows(users: TeamMember[]): TimelineRow[] {
         label: "Review",
       },
     ];
+    const presence: Record<number, ("Standup" | "Focus block" | "Review")[]> = {
+      0: ["Standup", "Focus block", "Review"],
+      1: ["Focus block", "Review"],
+      2: ["Standup", "Focus block"],
+      3: ["Focus block"],
+      4: ["Standup", "Review"],
+      5: ["Standup", "Focus block", "Review"],
+    };
+    const keep = new Set(presence[i] ?? ["Standup", "Focus block", "Review"]);
+    const blocks = all.filter((b) =>
+      keep.has(b.label as "Standup" | "Focus block" | "Review")
+    );
     return { user: u, blocks, color: palette[i % palette.length] };
   });
 }
