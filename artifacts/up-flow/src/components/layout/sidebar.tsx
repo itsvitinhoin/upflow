@@ -364,6 +364,7 @@ export default function Sidebar({ user }: SidebarProps) {
                             project={p}
                             onMove={() => setMoveTarget(p)}
                             onNavigate={() => setMobileOpen(false)}
+                            onDeleted={loadPanel}
                             isActive={pathname === `/projects/${p.id}`}
                           />
                         ))
@@ -418,6 +419,7 @@ export default function Sidebar({ user }: SidebarProps) {
                             project={p}
                             onMove={() => setMoveTarget(p)}
                             onNavigate={() => setMobileOpen(false)}
+                            onDeleted={loadPanel}
                             isActive={pathname === `/projects/${p.id}`}
                           />
                         ))
@@ -527,11 +529,13 @@ function ProjectRow({
   project,
   onMove,
   onNavigate,
+  onDeleted,
   isActive,
 }: {
   project: Project;
   onMove: () => void;
   onNavigate: () => void;
+  onDeleted: () => void;
   isActive: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -541,6 +545,18 @@ function ProjectRow({
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
+
+  const handleDelete = async () => {
+    setOpen(false);
+    if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+    const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Project deleted");
+      onDeleted();
+    } else {
+      toast.error("Could not delete project");
+    }
+  };
 
   return (
     <div
@@ -562,15 +578,15 @@ function ProjectRow({
       <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
         <button
           onClick={() => setOpen((v) => !v)}
-          aria-label={`Move ${project.name}`}
-          className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label={`Actions for ${project.name}`}
+          className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
         >
           <MoreHorizontal className="w-3 h-3" />
         </button>
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-full mt-1 w-36 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+            className="absolute right-0 top-full mt-1 w-40 glass-strong rounded-lg z-30 overflow-hidden text-xs"
           >
             <button
               role="menuitem"
@@ -581,6 +597,13 @@ function ProjectRow({
               className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
             >
               <Folder className="w-3 h-3" /> Move to space…
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleDelete}
+              className="w-full flex items-center gap-2 text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 border-t border-white/5"
+            >
+              <Trash2 className="w-3 h-3" /> Delete
             </button>
           </div>
         )}
