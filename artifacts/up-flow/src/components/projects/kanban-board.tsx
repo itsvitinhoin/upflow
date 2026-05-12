@@ -11,6 +11,7 @@ import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
 import type { ToolbarState } from "@/components/projects/project-toolbar";
 
 interface KanbanBoardProps {
+  projectId: string;
   tasks: Task[];
   customFields: CustomFieldDefinition[];
   users: TaskAssignee[];
@@ -28,6 +29,7 @@ const COLUMNS = [
 export type ColumnKey = "todo" | "in_progress" | "done";
 
 export default function KanbanBoard({
+  projectId,
   tasks,
   customFields,
   users,
@@ -120,12 +122,17 @@ export default function KanbanBoard({
     setColumns(newColumns);
 
     try {
-      const res = await fetch(`/api/tasks/${draggableId}`, {
-        method: "PATCH",
+      const res = await fetch(`/api/projects/${projectId}/reorder-tasks`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: dstCol, position: destination.index }),
+        body: JSON.stringify({
+          movedTaskId: draggableId,
+          srcColumn: srcCol,
+          dstColumn: dstCol,
+          dstIndex: destination.index,
+        }),
       });
-      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Reorder failed: ${res.status}`);
     } catch {
       toast.error("Failed to update task");
       onUpdate();
