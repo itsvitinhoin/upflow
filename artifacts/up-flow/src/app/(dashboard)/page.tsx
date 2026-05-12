@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import { useAppUser } from "@/components/user-provider";
 import {
   AlertCircle,
@@ -522,6 +523,19 @@ function TeamTimeline({
   const currentHour = new Date().getHours();
   const totalHours = 11;
   const [focusHour, setFocusHour] = useState<number | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [compact, setCompact] = useState(false);
+  const optionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (optionsRef.current && !optionsRef.current.contains(e.target as Node)) {
+        setOptionsOpen(false);
+      }
+    }
+    if (optionsOpen) document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [optionsOpen]);
 
   const rows = useMemo(() => buildTimelineRows(users), [users]);
 
@@ -558,13 +572,54 @@ function TeamTimeline({
             )}
           </p>
         </div>
-        <button
-          onClick={() => toast("Timeline options coming soon")}
-          aria-label="Timeline options"
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
+        <div className="relative" ref={optionsRef}>
+          <button
+            onClick={() => setOptionsOpen((v) => !v)}
+            aria-label="Timeline options"
+            aria-expanded={optionsOpen}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {optionsOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-1 w-52 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+            >
+              <button
+                role="menuitem"
+                type="button"
+                disabled={focusHour === null}
+                onClick={() => {
+                  setFocusHour(null);
+                  setOptionsOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-white/5 disabled:opacity-40 focus:outline-none focus-visible:bg-white/10"
+              >
+                Clear focus window
+              </button>
+              <button
+                role="menuitem"
+                type="button"
+                onClick={() => {
+                  setCompact((v) => !v);
+                  setOptionsOpen(false);
+                }}
+                className="w-full text-left px-3 py-2 hover:bg-white/5 border-t border-white/5 focus:outline-none focus-visible:bg-white/10"
+              >
+                {compact ? "Comfortable density" : "Compact density"}
+              </button>
+              <Link
+                role="menuitem"
+                href="/team"
+                onClick={() => setOptionsOpen(false)}
+                className="block w-full text-left px-3 py-2 hover:bg-white/5 border-t border-white/5 focus:outline-none focus-visible:bg-white/10"
+              >
+                Open team page
+              </Link>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hour pills */}
@@ -599,7 +654,7 @@ function TeamTimeline({
       </div>
 
       {/* Per-teammate rows */}
-      <div className="space-y-2 mt-2">
+      <div className={cn("mt-2", compact ? "space-y-1" : "space-y-2")}>
         {loading ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
             Loading…
@@ -628,7 +683,7 @@ function TeamTimeline({
                 </div>
                 <span className="text-xs text-foreground truncate text-left">{u.name}</span>
               </div>
-              <div className="relative flex-1 h-9 rounded-lg bg-white/5 overflow-hidden">
+              <div className={cn("relative flex-1 rounded-lg bg-white/5 overflow-hidden", compact ? "h-6" : "h-9")}>
                 <div className="absolute inset-y-0 left-0 right-0 grid grid-cols-12">
                   {hours.map((h) => (
                     <div
