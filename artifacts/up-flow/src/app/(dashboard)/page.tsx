@@ -841,12 +841,9 @@ function RightPanel({
   extraMeetings: Meeting[];
 }) {
   const [timerState, setTimerState] = useState<TimerState>("stopped");
-  const [seconds, setSeconds] = useState(2 * 3600 + 18 * 60);
+  const [seconds, setSeconds] = useState(0);
   const [activeProjectIdx, setActiveProjectIdx] = useState(0);
-  const [splits, setSplits] = useState<{ project: string; duration: string }[]>([
-    { project: "UI Dashboard", duration: "1h 12m" },
-    { project: "Showreel", duration: "0h 46m" },
-  ]);
+  const [splits, setSplits] = useState<{ project: string; duration: string }[]>([]);
   const [timerMenuOpen, setTimerMenuOpen] = useState(false);
   const timerMenuRef = useRef<HTMLDivElement>(null);
 
