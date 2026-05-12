@@ -1,8 +1,8 @@
 {
-  "/login/page": "app/login/page.js",
   "/api/notifications/route": "app/api/notifications/route.js",
-  "/api/folders/route": "app/api/folders/route.js",
-  "/api/spaces/route": "app/api/spaces/route.js",
   "/api/projects/route": "app/api/projects/route.js",
+  "/api/spaces/route": "app/api/spaces/route.js",
+  "/login/page": "app/login/page.js",
+  "/api/folders/route": "app/api/folders/route.js",
   "/(dashboard)/projects/page": "app/(dashboard)/projects/page.js"
 }
