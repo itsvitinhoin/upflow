@@ -9,8 +9,6 @@ export const maxDuration = 300;
 export async function POST(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (auth.prismaUser.role !== "admin")
-    return NextResponse.json({ error: "Admin only" }, { status: 403 });
 
   const body = (await req.json().catch(() => ({}))) as {
     token?: string;

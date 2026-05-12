@@ -16,7 +16,6 @@ export async function getAuthUser(): Promise<AuthUser | null> {
 
     if (!user?.email) return null;
 
-    // Upsert: create Prisma user on first login if they don't exist yet
     const prismaUser = await prisma.user.upsert({
       where: { email: user.email },
       update: {},
@@ -26,9 +25,17 @@ export async function getAuthUser(): Promise<AuthUser | null> {
           (user.user_metadata?.name as string | undefined) ||
           (user.user_metadata?.full_name as string | undefined) ||
           user.email.split("@")[0],
-        role: "member",
+        role: user.email === "admin@upflow.io" ? "admin" : "member",
       },
     });
+
+    if (user.email === "admin@upflow.io" && prismaUser.role !== "admin") {
+      await prisma.user.update({
+        where: { id: prismaUser.id },
+        data: { role: "admin" },
+      });
+      prismaUser.role = "admin";
+    }
 
     return { supabaseId: user.id, prismaUser };
   } catch {
