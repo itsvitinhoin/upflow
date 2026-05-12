@@ -36,6 +36,15 @@ enum NotificationType {
   due_soon
 }
 
+enum CustomFieldType {
+  text
+  number
+  dropdown
+  date
+  checkbox
+  people
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
@@ -96,6 +105,7 @@ model Project {
   folder      Folder?       @relation(fields: [folder_id], references: [id], onDelete: SetNull)
   tasks       Task[]
   docs        Doc[]
+  custom_fields CustomFieldDefinition[]
 }
 
 model Task {
@@ -117,6 +127,34 @@ model Task {
   subtasks      Task[]         @relation("Subtasks")
   comments      Comment[]
   notifications Notification[]
+  custom_field_values CustomFieldValue[]
+}
+
+model CustomFieldDefinition {
+  id         String           @id @default(uuid())
+  project_id String
+  name       String
+  type       CustomFieldType
+  options    Json?
+  position   Int              @default(0)
+  created_at DateTime         @default(now())
+  project    Project          @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  values     CustomFieldValue[]
+
+  @@index([project_id])
+}
+
+model CustomFieldValue {
+  id            String                @id @default(uuid())
+  task_id       String
+  definition_id String
+  value         Json?
+  updated_at    DateTime              @updatedAt
+  task          Task                  @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  definition    CustomFieldDefinition @relation(fields: [definition_id], references: [id], onDelete: Cascade)
+
+  @@unique([task_id, definition_id])
+  @@index([definition_id])
 }
 
 model Comment {

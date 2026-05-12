@@ -3,34 +3,44 @@
 import { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
-import { Plus, GripVertical, Calendar, AlertCircle } from "lucide-react";
+import { Plus, GripVertical, Calendar, AlertCircle, MessageSquare } from "lucide-react";
 import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
-import NewTaskDialog from "@/components/projects/new-task-dialog";
-import type { Task } from "@/lib/types";
+import CustomFieldChip from "@/components/projects/custom-field-chip";
+import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
 
 interface KanbanBoardProps {
   projectId: string;
   tasks: Task[];
+  customFields: CustomFieldDefinition[];
+  users: TaskAssignee[];
   onUpdate: () => void;
+  onAddTask: (status: ColumnKey) => void;
 }
 
 const COLUMNS = [
-  { key: "todo", label: "To Do", color: "bg-muted-foreground/60" },
-  { key: "in_progress", label: "In Progress", color: "bg-primary" },
-  { key: "done", label: "Done", color: "bg-upflow-success" },
+  { key: "todo", label: "To Do", color: "bg-muted-foreground/60", hex: "rgb(115 115 115)" },
+  { key: "in_progress", label: "In Progress", color: "bg-primary", hex: "rgb(126 167 255)" },
+  { key: "done", label: "Done", color: "bg-upflow-success", hex: "rgb(74 222 128)" },
 ] as const;
 
-type ColumnKey = "todo" | "in_progress" | "done";
+export type ColumnKey = "todo" | "in_progress" | "done";
 
-export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardProps) {
+export default function KanbanBoard({
+  projectId,
+  tasks,
+  customFields,
+  users,
+  onUpdate,
+  onAddTask,
+}: KanbanBoardProps) {
+  void projectId;
   const [columns, setColumns] = useState<Record<ColumnKey, Task[]>>({
     todo: [],
     in_progress: [],
     done: [],
   });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [showNewTask, setShowNewTask] = useState<ColumnKey | null>(null);
   const isDraggingRef = useRef(false);
 
   useEffect(() => {
@@ -56,7 +66,8 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
     }, 0);
     const { source, destination, draggableId } = result;
     if (!destination) return;
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    if (source.droppableId === destination.droppableId && source.index === destination.index)
+      return;
 
     const srcCol = source.droppableId as ColumnKey;
     const dstCol = destination.droppableId as ColumnKey;
@@ -88,106 +99,138 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
   return (
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {COLUMNS.map(({ key, label, color }) => (
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {COLUMNS.map(({ key, label, color, hex }) => (
             <Droppable key={key} droppableId={key}>
               {(provided, snapshot) => (
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "flex-shrink-0 w-72 bg-muted/50 rounded-xl p-3 transition-colors",
-                    snapshot.isDraggingOver && "bg-primary/5 ring-2 ring-primary/20"
+                    "flex-shrink-0 w-[300px] rounded-lg flex flex-col bg-muted/40 transition-colors",
+                    snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30",
                   )}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", color)} />
-                      <span className="text-sm font-semibold text-foreground">{label}</span>
-                      <span className="text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
-                        {columns[key].length}
-                      </span>
-                    </div>
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 rounded-t-lg border-t-2"
+                    style={{ borderColor: hex }}
+                  >
+                    <div className={cn("w-2 h-2 rounded-full", color)} />
+                    <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                      {label}
+                    </span>
+                    <span className="text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                      {columns[key].length}
+                    </span>
                     <button
-                      onClick={() => setShowNewTask(key)}
-                      className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
+                      onClick={() => onAddTask(key)}
+                      className="ml-auto text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
+                      title="Add task"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="space-y-2 min-h-[100px]">
-                    {columns[key].map((task, index) => (
-                      <Draggable key={task.id} draggableId={task.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            onClick={() => {
-                              if (isDraggingRef.current) return;
-                              setSelectedTask(task);
-                            }}
-                            className={cn(
-                              "bg-card border border-border rounded-lg p-3 cursor-pointer hover:shadow-md transition-shadow group",
-                              snapshot.isDragging && "shadow-xl rotate-1 opacity-90"
-                            )}
-                          >
-                            <div className="flex items-start gap-1.5">
-                              <div
-                                aria-hidden="true"
-                                className="mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground flex-shrink-0 pointer-events-none"
-                              >
-                                <GripVertical className="w-3 h-3" />
-                              </div>
-                              <p className="flex-1 text-sm text-foreground font-medium leading-snug">
-                                {task.title}
-                              </p>
-                              {isOverdue(task.due_date) && task.status !== "done" && (
-                                <AlertCircle className="w-4 h-4 text-upflow-danger flex-shrink-0" />
+                  <div className="px-2 pb-2 space-y-1.5 min-h-[120px] flex-1">
+                    {columns[key].map((task, index) => {
+                      const valueMap = new Map(
+                        (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
+                      );
+                      return (
+                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              onClick={() => {
+                                if (isDraggingRef.current) return;
+                                setSelectedTask(task);
+                              }}
+                              className={cn(
+                                "bg-card border border-border rounded-md p-2.5 cursor-pointer hover:border-primary/40 transition-colors group",
+                                snapshot.isDragging && "shadow-xl rotate-1 opacity-90",
                               )}
-                            </div>
-                            {task.description && (
-                              <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 ml-4">
-                                {task.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 mt-2.5 ml-4">
-                              <span
-                                className={cn(
-                                  "text-xs px-1.5 py-0.5 rounded font-medium",
-                                  priorityColor(task.priority)
-                                )}
-                              >
-                                {task.priority}
-                              </span>
-                              {task.due_date && (
+                            >
+                              <div className="flex items-start gap-1.5">
                                 <span
                                   className={cn(
-                                    "text-xs text-muted-foreground flex items-center gap-1",
-                                    isOverdue(task.due_date) &&
-                                      task.status !== "done" &&
-                                      "text-upflow-danger font-medium"
+                                    "mt-1 w-2 h-2 rounded-full flex-shrink-0",
+                                    task.priority === "high"
+                                      ? "bg-upflow-danger"
+                                      : task.priority === "medium"
+                                        ? "bg-upflow-warning"
+                                        : "bg-muted-foreground/50",
                                   )}
-                                >
-                                  <Calendar className="w-3 h-3" />
-                                  {formatDate(task.due_date)}
-                                </span>
-                              )}
-                              {task.assignee && (
-                                <div
-                                  title={task.assignee.name}
-                                  className="ml-auto w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0"
-                                >
-                                  {getInitials(task.assignee.name)}
+                                  title={`Priority: ${task.priority}`}
+                                />
+                                <p className="flex-1 text-sm text-foreground leading-snug">
+                                  {task.title}
+                                </p>
+                                {isOverdue(task.due_date) && task.status !== "done" && (
+                                  <AlertCircle className="w-3.5 h-3.5 text-upflow-danger flex-shrink-0" />
+                                )}
+                              </div>
+
+                              {customFields.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {customFields.slice(0, 4).map((f) => (
+                                    <CustomFieldChip
+                                      key={f.id}
+                                      definition={f}
+                                      value={valueMap.get(f.id)}
+                                      users={users}
+                                    />
+                                  ))}
                                 </div>
                               )}
+
+                              <div className="flex items-center gap-2 mt-2">
+                                {task.due_date && (
+                                  <span
+                                    className={cn(
+                                      "text-[11px] text-muted-foreground flex items-center gap-1",
+                                      isOverdue(task.due_date) &&
+                                        task.status !== "done" &&
+                                        "text-upflow-danger font-medium",
+                                    )}
+                                  >
+                                    <Calendar className="w-3 h-3" />
+                                    {formatDate(task.due_date)}
+                                  </span>
+                                )}
+                                {(task._count?.comments ?? 0) > 0 && (
+                                  <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                                    <MessageSquare className="w-3 h-3" />
+                                    {task._count?.comments}
+                                  </span>
+                                )}
+                                {(task._count?.subtasks ?? 0) > 0 && (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {task._count?.subtasks} sub
+                                  </span>
+                                )}
+                                {task.assignee && (
+                                  <div
+                                    title={task.assignee.name}
+                                    className="ml-auto w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0"
+                                  >
+                                    {getInitials(task.assignee.name)}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
+                          )}
+                        </Draggable>
+                      );
+                    })}
                     {provided.placeholder}
+                    <button
+                      onClick={() => onAddTask(key)}
+                      className="w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md px-2 py-1.5 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add task
+                    </button>
                   </div>
                 </div>
               )}
@@ -203,20 +246,6 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
           onUpdate={() => {
             setSelectedTask(null);
             onUpdate();
-          }}
-        />
-      )}
-
-      {showNewTask && (
-        <NewTaskDialog
-          open={!!showNewTask}
-          onClose={() => setShowNewTask(null)}
-          projectId={projectId}
-          defaultStatus={showNewTask}
-          onCreated={() => {
-            setShowNewTask(null);
-            onUpdate();
-            toast.success("Task created!");
           }}
         />
       )}

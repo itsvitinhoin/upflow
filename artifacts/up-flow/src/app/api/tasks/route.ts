@@ -28,6 +28,9 @@ export async function GET(req: NextRequest) {
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       project: { select: { id: true, name: true } },
+      custom_field_values: {
+        select: { definition_id: true, value: true },
+      },
       _count: { select: { comments: true, subtasks: true } },
     },
   });

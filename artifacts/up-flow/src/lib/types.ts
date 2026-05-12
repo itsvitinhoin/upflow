@@ -84,7 +84,31 @@ export interface Task {
   assignee: TaskAssignee | null;
   project: TaskProject | null;
   subtasks?: Subtask[];
+  custom_field_values?: TaskCustomFieldValue[];
   _count?: { comments: number; subtasks: number };
+}
+
+export type CustomFieldType =
+  | "text"
+  | "number"
+  | "dropdown"
+  | "date"
+  | "checkbox"
+  | "people";
+
+export interface CustomFieldDefinition {
+  id: string;
+  project_id: string;
+  name: string;
+  type: CustomFieldType;
+  options: string[] | null;
+  position: number;
+  created_at: string;
+}
+
+export interface TaskCustomFieldValue {
+  definition_id: string;
+  value: unknown;
 }
 
 export interface CommentAuthor {

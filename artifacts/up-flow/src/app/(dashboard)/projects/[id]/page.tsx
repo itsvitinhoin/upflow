@@ -1,16 +1,35 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
-import KanbanBoard from "@/components/projects/kanban-board";
-import NewTaskDialog from "@/components/projects/new-task-dialog";
+import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
+import ListView from "@/components/projects/list-view";
+import CreateTaskPanel from "@/components/projects/create-task-panel";
+import CustomFieldsManager from "@/components/projects/custom-fields-manager";
+import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
-import type { Project, Task } from "@/lib/types";
+import type {
+  AppUser,
+  CustomFieldDefinition,
+  Project,
+  Task,
+  TaskAssignee,
+} from "@/lib/types";
+
+const DEFAULT_TOOLBAR: ToolbarState = {
+  view: "list",
+  search: "",
+  groupBy: "status",
+  sortBy: "position",
+  sortDir: "asc",
+  showClosed: true,
+  visibleColumns: {},
+};
 
 export default function ProjectPage() {
   const params = useParams();
@@ -18,24 +37,40 @@ export default function ProjectPage() {
   const id = (params?.id ?? "") as string;
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<TaskAssignee[]>([]);
+  const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [me, setMe] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showNewTask, setShowNewTask] = useState(false);
+  const [createOpen, setCreateOpen] = useState<ColumnKey | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [activeTab, setActiveTab] = useState<"board" | "list">("board");
+  const [toolbar, setToolbar] = useState<ToolbarState>(DEFAULT_TOOLBAR);
 
   const loadData = async () => {
     try {
-      const [pRes, tRes] = await Promise.all([
+      const [pRes, tRes, uRes, fRes, meRes] = await Promise.all([
         fetch(`/api/projects/${id}`),
         fetch(`/api/tasks?project_id=${id}`),
+        fetch(`/api/users`),
+        fetch(`/api/projects/${id}/custom-fields`),
+        fetch(`/api/auth/me`),
       ]);
       if (!pRes.ok) {
         router.push("/projects");
         return;
       }
-      const [p, t] = await Promise.all([pRes.json() as Promise<Project>, tRes.json() as Promise<Task[]>]);
+      const [p, t, u, f, m] = await Promise.all([
+        pRes.json() as Promise<Project>,
+        tRes.json() as Promise<Task[]>,
+        uRes.ok ? (uRes.json() as Promise<TaskAssignee[]>) : Promise.resolve([]),
+        fRes.ok ? (fRes.json() as Promise<CustomFieldDefinition[]>) : Promise.resolve([]),
+        meRes.ok ? (meRes.json() as Promise<AppUser>) : Promise.resolve(null as AppUser | null),
+      ]);
       setProject(p);
       setTasks(t);
+      setUsers(u);
+      setCustomFields(f);
+      setMe(m);
     } catch {
       toast.error("Failed to load project");
     } finally {
@@ -45,7 +80,13 @@ export default function ProjectPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const canManageFields = useMemo(() => {
+    if (!me || !project) return false;
+    return me.role === "admin" || me.id === project.owner_id;
+  }, [me, project]);
 
   if (loading) {
     return (
@@ -64,11 +105,16 @@ export default function ProjectPage() {
   const doneTasks = tasks.filter((t) => t.status === "done").length;
   const progress = tasks.length > 0 ? Math.round((doneTasks / tasks.length) * 100) : 0;
 
+  const handleAddTask = (status?: string) => {
+    const s = (status === "in_progress" || status === "done" ? status : "todo") as ColumnKey;
+    setCreateOpen(s);
+  };
+
   return (
     <>
       <Header title={project.name} />
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="mb-6">
+      <div className="p-6 max-w-[1400px] mx-auto">
+        <div className="mb-4">
           <Link
             href="/projects"
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
@@ -83,7 +129,7 @@ export default function ProjectPage() {
                 <span
                   className={cn(
                     "text-xs px-2.5 py-1 rounded-full font-medium",
-                    statusColor(project.status)
+                    statusColor(project.status),
                   )}
                 >
                   {statusLabel(project.status)}
@@ -114,7 +160,7 @@ export default function ProjectPage() {
                 <FileText className="w-4 h-4" /> Docs
               </Link>
               <button
-                onClick={() => setShowNewTask(true)}
+                onClick={() => setCreateOpen("todo")}
                 className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <Plus className="w-4 h-4" /> Add Task
@@ -123,40 +169,59 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1 border-b border-border mb-6">
-          {(["board", "list"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "px-4 py-2 text-sm font-medium capitalize border-b-2 -mb-px transition-colors",
-                activeTab === tab
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab === "board" ? "Kanban Board" : "List View"}
-            </button>
-          ))}
-        </div>
+        <ProjectToolbar
+          state={toolbar}
+          onChange={setToolbar}
+          customFields={customFields}
+          onManageFields={() => setManageOpen(true)}
+          canManage={canManageFields}
+        />
 
-        {activeTab === "board" ? (
-          <KanbanBoard projectId={id} tasks={tasks} onUpdate={loadData} />
+        {toolbar.view === "board" ? (
+          <KanbanBoard
+            projectId={id}
+            tasks={tasks}
+            customFields={customFields}
+            users={users}
+            onUpdate={loadData}
+            onAddTask={(status) => setCreateOpen(status)}
+          />
         ) : (
-          <ListView tasks={tasks} onTaskClick={setSelectedTask} />
+          <ListView
+            projectId={id}
+            tasks={tasks}
+            customFields={customFields}
+            users={users}
+            toolbar={toolbar}
+            onTaskClick={setSelectedTask}
+            onAddTask={handleAddTask}
+            onUpdate={loadData}
+          />
         )}
       </div>
 
-      {showNewTask && (
-        <NewTaskDialog
-          open={showNewTask}
-          onClose={() => setShowNewTask(false)}
+      {createOpen && (
+        <CreateTaskPanel
+          open={!!createOpen}
+          onClose={() => setCreateOpen(null)}
           projectId={id}
+          defaultStatus={createOpen}
+          customFields={customFields}
+          users={users}
           onCreated={() => {
-            setShowNewTask(false);
+            setCreateOpen(null);
             loadData();
-            toast.success("Task created!");
           }}
+        />
+      )}
+
+      {manageOpen && (
+        <CustomFieldsManager
+          open={manageOpen}
+          onClose={() => setManageOpen(false)}
+          projectId={id}
+          fields={customFields}
+          onChanged={loadData}
         />
       )}
 
@@ -171,65 +236,5 @@ export default function ProjectPage() {
         />
       )}
     </>
-  );
-}
-
-function ListView({
-  tasks,
-  onTaskClick,
-}: {
-  tasks: Task[];
-  onTaskClick: (task: Task) => void;
-}) {
-  const columns = ["todo", "in_progress", "done"] as const;
-  const labels: Record<string, string> = {
-    todo: "To Do",
-    in_progress: "In Progress",
-    done: "Done",
-  };
-
-  return (
-    <div className="space-y-6">
-      {columns.map((col) => {
-        const colTasks = tasks.filter((t) => t.status === col);
-        return (
-          <div key={col}>
-            <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-              {labels[col]} ({colTasks.length})
-            </h3>
-            {colTasks.length === 0 ? (
-              <div className="text-sm text-muted-foreground py-3 px-4 bg-muted/50 rounded-lg">
-                No tasks
-              </div>
-            ) : (
-              <div className="bg-card border border-border rounded-xl divide-y divide-border overflow-hidden">
-                {colTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => onTaskClick(task)}
-                  >
-                    <div
-                      className={cn(
-                        "w-2 h-2 rounded-full flex-shrink-0",
-                        task.priority === "high"
-                          ? "bg-upflow-danger"
-                          : task.priority === "medium"
-                          ? "bg-upflow-warning"
-                          : "bg-muted-foreground/50"
-                      )}
-                    />
-                    <span className="flex-1 text-sm text-foreground">{task.title}</span>
-                    {task.assignee && (
-                      <span className="text-xs text-muted-foreground">{task.assignee.name}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
   );
 }
