@@ -60,13 +60,13 @@ export default function Sidebar({ user }: SidebarProps) {
       <Link
         href="/"
         onClick={onNavigate}
-        className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl mb-6 shadow-lg shadow-primary/20"
+        className="flex items-center justify-center w-9 h-9 bg-primary rounded-xl mb-6 shadow-lg shadow-primary/20"
         aria-label="Up Flow"
       >
-        <Zap className="w-5 h-5 text-white" fill="currentColor" />
+        <Zap className="w-4 h-4 text-white" fill="currentColor" />
       </Link>
 
-      <nav className="flex-1 flex flex-col items-center gap-1 w-full px-2">
+      <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1">
         {primaryNav.map(({ href, label, icon: Icon }) => {
           const active = isActive(href);
           return (
@@ -77,16 +77,16 @@ export default function Sidebar({ user }: SidebarProps) {
               title={label}
               aria-label={label}
               className={cn(
-                "relative flex items-center justify-center w-10 h-10 rounded-xl transition-colors group",
+                "relative flex flex-col items-center justify-center w-9 h-9 rounded-lg transition-colors group",
                 active
-                  ? "bg-primary/15 text-primary"
-                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {active && (
-                <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-primary" />
-              )}
               <Icon className="w-[18px] h-[18px]" />
+              {active && (
+                <span className="absolute -bottom-1.5 w-1 h-1 rounded-full bg-primary" />
+              )}
               <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-border shadow-md hidden md:block">
                 {label}
               </span>
@@ -95,18 +95,18 @@ export default function Sidebar({ user }: SidebarProps) {
         })}
       </nav>
 
-      <div className="flex flex-col items-center gap-1 w-full px-2 pb-1">
+      <div className="flex flex-col items-center gap-2 w-full px-1 pb-1">
         <button
           aria-label="Settings"
           title="Settings"
-          className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
         >
           <Settings className="w-[18px] h-[18px]" />
         </button>
         <button
           aria-label="Help"
           title="Help"
-          className="flex items-center justify-center w-9 h-9 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
+          className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
@@ -114,7 +114,7 @@ export default function Sidebar({ user }: SidebarProps) {
           onClick={handleSignOut}
           aria-label={`Sign out (${user.name || user.email || "User"})`}
           title={`Sign out · ${user.name || user.email || "User"}`}
-          className="mt-2 flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white text-xs font-bold hover:opacity-90 transition-opacity"
+          className="mt-2 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-[10px] font-bold hover:opacity-90 transition-opacity"
         >
           {getInitials(user.name || user.email || "U")}
         </button>
@@ -124,7 +124,7 @@ export default function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-      <aside className="hidden md:flex w-[56px] flex-shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
+      <aside className="hidden md:flex w-[48px] flex-shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
         <Rail />
       </aside>
 
@@ -144,7 +144,7 @@ export default function Sidebar({ user }: SidebarProps) {
             className="md:hidden fixed inset-0 bg-black/60 z-40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="md:hidden fixed left-0 top-0 h-full w-[56px] z-50 shadow-2xl border-r border-sidebar-border">
+          <aside className="md:hidden fixed left-0 top-0 h-full w-[48px] z-50 shadow-2xl border-r border-sidebar-border">
             <Rail onNavigate={() => setMobileOpen(false)} />
           </aside>
         </>

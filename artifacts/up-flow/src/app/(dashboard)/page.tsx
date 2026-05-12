@@ -21,7 +21,7 @@ import NewTaskDialog from "@/components/projects/new-task-dialog";
 import type { Task, Project, TeamMember } from "@/lib/types";
 import {
   todayMeetings,
-  activityBubbles,
+  weekActivity,
   recentActions,
   buildTimelineRows,
 } from "@/lib/dashboard-mocks";
@@ -265,29 +265,37 @@ function StatCard({
   icon: React.ReactNode;
   hint: string;
 }) {
-  const bg =
+  // Soft pastel gradient washes layered over a dark card base.
+  const wash =
     tone === "stat-1"
-      ? "bg-upflow-stat-1"
+      ? "bg-gradient-to-br from-upflow-stat-1-from/35 via-upflow-stat-1-to/80 to-upflow-stat-1-to"
       : tone === "stat-2"
-      ? "bg-upflow-stat-2"
-      : "bg-upflow-stat-3";
+      ? "bg-gradient-to-br from-upflow-stat-2-from/35 via-upflow-stat-2-to/80 to-upflow-stat-2-to"
+      : "bg-gradient-to-br from-upflow-stat-3-from/35 via-upflow-stat-3-to/80 to-upflow-stat-3-to";
   return (
-    <div className={cn("rounded-2xl border border-border p-5", bg)}>
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <div
+      className={cn(
+        "relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-inner",
+        wash
+      )}
+    >
+      {/* subtle inner highlight blob */}
+      <div className="pointer-events-none absolute -top-12 -right-10 w-36 h-36 rounded-full bg-white/5 blur-2xl" />
+      <div className="relative flex items-center justify-between">
+        <p className="text-xs font-medium text-foreground/80 uppercase tracking-wide">
           {label}
         </p>
         <div
           className={cn(
-            "flex items-center justify-center w-9 h-9 rounded-xl bg-background/50",
+            "flex items-center justify-center w-9 h-9 rounded-xl bg-background/40 backdrop-blur",
             accent
           )}
         >
           {icon}
         </div>
       </div>
-      <h3 className="mt-3 text-3xl font-bold text-foreground">{value}</h3>
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      <h3 className="relative mt-3 text-3xl font-bold text-foreground">{value}</h3>
+      <p className="relative mt-1 text-xs text-foreground/60">{hint}</p>
     </div>
   );
 }
@@ -436,7 +444,11 @@ function RightPanel({
     Object.fromEntries(todayMeetings.map((m) => [m.title, true]))
   );
 
-  const bubbles = activityBubbles;
+  const todayIdx = (() => {
+    // Map JS Sunday=0..Saturday=6 to our Mon..Sun layout
+    const d = new Date().getDay();
+    return d === 0 ? 6 : d - 1;
+  })();
   const recent = recentActions(userName);
 
   const handleStart = () => setTimerState("running");
@@ -478,129 +490,140 @@ function RightPanel({
             Start
           </button>
           <button
-            onClick={handlePause}
-            disabled={timerState !== "running"}
-            aria-label="Pause timer"
-            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-upflow-warning/15 text-upflow-warning hover:bg-upflow-warning/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <Pause className="w-3.5 h-3.5" />
-            Pause
-          </button>
-          <button
             onClick={handleStop}
             disabled={timerState === "stopped"}
             aria-label="Stop timer"
-            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-upflow-danger/15 text-upflow-danger hover:bg-upflow-danger/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-upflow-danger text-white hover:bg-upflow-danger/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm shadow-upflow-danger/30"
           >
             <Square className="w-3.5 h-3.5" />
             Stop
           </button>
+          <button
+            onClick={handlePause}
+            disabled={timerState !== "running"}
+            aria-label="Pause timer"
+            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Pause className="w-3.5 h-3.5" />
+            Pause
+          </button>
         </div>
       </div>
 
-      {/* Today's meetings — AM/PM grouped with toggles */}
+      {/* Today's meetings — AM/PM groups with right-aligned toggles */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Today&apos;s meetings
+            Today meetings
           </p>
           <CalendarIcon className="w-4 h-4 text-muted-foreground" />
         </div>
 
         {[
-          { label: "Morning", items: am },
-          { label: "Afternoon", items: pm },
+          { label: "AM", items: am },
+          { label: "PM", items: pm },
         ].map(
           (group) =>
             group.items.length > 0 && (
               <div key={group.label} className="mb-3 last:mb-0">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
                   {group.label}
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {group.items.map((mt) => {
                     const open = meetingsOpen[mt.title];
                     return (
-                      <button
+                      <div
                         key={mt.title}
-                        onClick={() =>
-                          setMeetingsOpen((s) => ({ ...s, [mt.title]: !s[mt.title] }))
-                        }
-                        aria-pressed={open}
-                        aria-label={`Toggle ${mt.title}`}
-                        className={cn(
-                          "w-full flex items-center gap-3 p-2 rounded-lg text-left transition-opacity",
-                          open ? "opacity-100" : "opacity-50"
-                        )}
+                        className="flex items-center gap-3 py-1.5"
                       >
-                        <div
-                          className={cn(
-                            "flex flex-col items-center justify-center w-12 h-12 rounded-xl flex-shrink-0",
-                            mt.color
-                          )}
-                        >
-                          <Video className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-bold mt-0.5">{mt.time}</span>
-                        </div>
+                        <span className="font-mono text-xs font-semibold text-foreground/90 tabular-nums w-12 flex-shrink-0">
+                          {mt.time}
+                        </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground truncate">
+                          <p className="text-sm text-foreground truncate">
                             {mt.title}
                           </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {mt.with}
-                          </p>
                         </div>
-                        <span
+                        <button
+                          onClick={() =>
+                            setMeetingsOpen((s) => ({
+                              ...s,
+                              [mt.title]: !s[mt.title],
+                            }))
+                          }
+                          aria-pressed={open}
+                          aria-label={`Toggle ${mt.title}`}
                           className={cn(
-                            "w-2 h-2 rounded-full flex-shrink-0",
-                            open ? "bg-upflow-success" : "bg-muted-foreground/40"
+                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0",
+                            open ? "bg-primary" : "bg-secondary"
                           )}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={cn(
+                              "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
+                              open ? "translate-x-[18px]" : "translate-x-[3px]"
+                            )}
+                          />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
               </div>
             )
         )}
+        <button className="text-xs text-primary hover:text-primary/80 mt-1">
+          View all →
+        </button>
       </div>
 
-      {/* Activity bubble chart */}
+      {/* Activity — per-weekday vertical capsules */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Activity
           </p>
-          <span className="text-xs text-muted-foreground">12 weeks</span>
+          <span className="text-xs text-muted-foreground">Last week</span>
         </div>
-        <div className="relative h-24">
-          {bubbles.map((b, i) => {
-            const col = i % 12;
-            const row = Math.floor(i / 12);
-            const left = (col / 11) * 100;
-            const top = row === 0 ? 20 + ((i * 17) % 30) : 50 + ((i * 11) % 30);
+        <div className="flex items-end justify-between gap-1.5">
+          {weekActivity.map((d, i) => {
+            const isToday = i === todayIdx;
             return (
-              <div
-                key={i}
-                className="absolute rounded-full bg-primary"
-                style={{
-                  left: `${left}%`,
-                  top: `${top}%`,
-                  width: `${b.size}px`,
-                  height: `${b.size}px`,
-                  opacity: b.opacity,
-                  transform: "translate(-50%, -50%)",
-                }}
-              />
+              <div key={d.day} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
+                <div
+                  className={cn(
+                    "w-full flex flex-col items-center justify-end gap-1 py-2 rounded-full min-h-[96px]",
+                    isToday ? "bg-primary/15 ring-1 ring-primary/30" : "bg-background/60"
+                  )}
+                >
+                  {d.items.map((dot, di) => (
+                    <span
+                      key={di}
+                      className={cn("rounded-full block", dot.color)}
+                      style={{
+                        width: `${dot.size}px`,
+                        height: `${dot.size}px`,
+                        opacity: 0.85,
+                      }}
+                    />
+                  ))}
+                </div>
+                <span
+                  className={cn(
+                    "text-[10px] font-medium",
+                    isToday ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  {d.day}
+                </span>
+              </div>
             );
           })}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          <span className="text-upflow-success font-medium">+12%</span> vs last quarter
-        </p>
       </div>
 
-      {/* Last actions */}
+      {/* Last actions — with status pills */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
           Last actions
@@ -612,16 +635,34 @@ function RightPanel({
                 {getInitials(r.who)}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-foreground leading-snug">
-                  <span className="font-medium">{r.who}</span>{" "}
-                  <span className="text-muted-foreground">{r.what}</span>{" "}
-                  <span className="font-medium">{r.target}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {r.who}
+                  </p>
+                  <span
+                    className={cn(
+                      "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
+                      r.status === "completed"
+                        ? "bg-upflow-success/15 text-upflow-success"
+                        : "bg-upflow-warning/15 text-upflow-warning"
+                    )}
+                  >
+                    {r.status === "completed" ? "Completed" : "In progress"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-snug truncate">
+                  {r.what} {r.target}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{r.when}</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
+                  {r.when}
+                </p>
               </div>
             </div>
           ))}
         </div>
+        <button className="text-xs text-primary hover:text-primary/80 mt-3">
+          View all →
+        </button>
       </div>
     </aside>
   );

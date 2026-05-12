@@ -122,7 +122,7 @@ export default function Header({ title }: HeaderProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${title.toLowerCase()}, projects, tasks, docs…`}
-              className="w-full h-11 pl-10 pr-4 text-sm bg-card border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-muted-foreground transition"
+              className="w-full h-11 pl-11 pr-4 text-sm bg-card border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/40 placeholder:text-muted-foreground transition"
             />
           </div>
         </form>
@@ -132,7 +132,7 @@ export default function Header({ title }: HeaderProps) {
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label="Notifications"
-              className="relative w-11 h-11 flex items-center justify-center rounded-xl bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              className="relative w-11 h-11 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (
@@ -195,7 +195,7 @@ export default function Header({ title }: HeaderProps) {
 
           <button
             onClick={() => setShowNewProject(true)}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 h-11 rounded-xl transition-colors shadow-md shadow-primary/20"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-5 h-11 rounded-full transition-colors shadow-md shadow-primary/20"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New Project</span>

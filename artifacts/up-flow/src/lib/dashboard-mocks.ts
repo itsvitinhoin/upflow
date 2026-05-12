@@ -9,14 +9,14 @@ export type Meeting = {
 
 export const todayMeetings: Meeting[] = [
   {
-    time: "09:30",
+    time: "08:30",
     title: "Daily standup",
     with: "Engineering",
     color: "bg-primary/20 text-primary",
   },
   {
-    time: "11:00",
-    title: "Sprint planning",
+    time: "10:30",
+    title: "XR Health review",
     with: "Product",
     color: "bg-upflow-success/20 text-upflow-success",
   },
@@ -28,22 +28,82 @@ export const todayMeetings: Meeting[] = [
   },
   {
     time: "16:00",
-    title: "Client check-in",
+    title: "Team meeting",
     with: "Acme Corp",
     color: "bg-upflow-danger/20 text-upflow-danger",
   },
 ];
 
-export const activityBubbles = Array.from({ length: 24 }, (_, i) => {
-  const v = 0.3 + ((i * 37) % 70) / 100;
-  return { size: 10 + v * 22, opacity: 0.25 + v * 0.7 };
-});
+/* Per-weekday vertical capsules: each day has a stack of dots, sized by hours.
+ * Colors cycle through accent / success / warning / danger so each day looks
+ * varied without backend data. */
+const dotPalette = [
+  "bg-primary",
+  "bg-upflow-success",
+  "bg-upflow-warning",
+  "bg-upflow-danger",
+];
 
-export const recentActions = (currentUserName: string) => [
-  { who: "Maya", what: "completed", target: "Login screen", when: "12m ago" },
-  { who: "Eli", what: "commented on", target: "API rate limits", when: "27m ago" },
-  { who: currentUserName, what: "moved", target: "Onboarding flow", when: "1h ago" },
-  { who: "Tomás", what: "created", target: "Atlas project", when: "2h ago" },
+export const weekActivity = [
+  { day: "Mon", dots: [16, 10, 14, 8, 12] },
+  { day: "Tue", dots: [12, 18, 8, 10] },
+  { day: "Wed", dots: [10, 20, 14, 8, 12, 6] },
+  { day: "Thu", dots: [14, 10, 18, 8] },
+  { day: "Fri", dots: [12, 14, 10] },
+  { day: "Sat", dots: [8, 10] },
+  { day: "Sun", dots: [6] },
+].map((d, di) => ({
+  ...d,
+  items: d.dots.map((size, i) => ({
+    size,
+    color: dotPalette[(i + di) % dotPalette.length],
+  })),
+}));
+
+export type RecentAction = {
+  who: string;
+  what: string;
+  target: string;
+  when: string;
+  status: "completed" | "in_progress";
+};
+
+export const recentActions = (currentUserName: string): RecentAction[] => [
+  {
+    who: "Annette Black",
+    what: "talked about",
+    target: "us pages",
+    when: "11:34am 04/04/23",
+    status: "completed",
+  },
+  {
+    who: "Arlene McCoy",
+    what: "shipped",
+    target: "UI Dashboard",
+    when: "11:34am 03/05/23",
+    status: "completed",
+  },
+  {
+    who: "Esther Howard",
+    what: "uploaded",
+    target: "3D Objects for pages",
+    when: "02:12pm 02/05/23",
+    status: "completed",
+  },
+  {
+    who: "Theresa Webb",
+    what: "is finishing",
+    target: "UX Research",
+    when: "03:34pm 02/05/23",
+    status: "in_progress",
+  },
+  {
+    who: currentUserName,
+    what: "uploaded",
+    target: "Showreel video for home page",
+    when: "02:34pm 02/05/23",
+    status: "completed",
+  },
 ];
 
 export type TimelineBlock = { start: number; end: number; label: string };
