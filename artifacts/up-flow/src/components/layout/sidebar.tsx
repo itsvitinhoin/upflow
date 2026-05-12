@@ -14,6 +14,8 @@ import {
   Settings,
   HelpCircle,
   LogOut,
+  Menu,
+  X,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
@@ -37,6 +39,7 @@ export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -53,10 +56,11 @@ export default function Sidebar({ user }: SidebarProps) {
       ? pathname === "/"
       : pathname === href || (pathname?.startsWith(href + "/") ?? false);
 
-  return (
-    <aside className="hidden md:flex w-[64px] flex-shrink-0 flex-col items-center bg-sidebar border-r border-sidebar-border py-4">
+  const Rail = ({ onNavigate }: { onNavigate?: () => void }) => (
+    <div className="flex flex-col items-center w-full h-full bg-sidebar py-4">
       <Link
         href="/"
+        onClick={onNavigate}
         className="flex items-center justify-center w-10 h-10 bg-primary rounded-xl mb-6 shadow-lg shadow-primary/20"
         aria-label="Up Flow"
       >
@@ -70,6 +74,7 @@ export default function Sidebar({ user }: SidebarProps) {
             <Link
               key={href}
               href={href}
+              onClick={onNavigate}
               title={label}
               aria-label={label}
               className={cn(
@@ -83,7 +88,7 @@ export default function Sidebar({ user }: SidebarProps) {
                 <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-primary" />
               )}
               <Icon className="w-[18px] h-[18px]" />
-              <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-border shadow-md">
+              <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-border shadow-md hidden md:block">
                 {label}
               </span>
             </Link>
@@ -93,23 +98,23 @@ export default function Sidebar({ user }: SidebarProps) {
 
       <div className="flex flex-col items-center gap-1 w-full px-2 pb-1">
         <button
-          title="Settings"
           aria-label="Settings"
+          title="Settings"
           className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
         >
           <Settings className="w-[18px] h-[18px]" />
         </button>
         <button
-          title="Help"
           aria-label="Help"
+          title="Help"
           className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
         <button
           onClick={handleSignOut}
-          title="Sign out"
           aria-label="Sign out"
+          title="Sign out"
           className="flex items-center justify-center w-10 h-10 rounded-xl text-muted-foreground hover:bg-sidebar-accent hover:text-foreground transition-colors"
         >
           <LogOut className="w-[18px] h-[18px]" />
@@ -121,6 +126,36 @@ export default function Sidebar({ user }: SidebarProps) {
           {getInitials(user.name || user.email || "U")}
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      <aside className="hidden md:flex w-[64px] flex-shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
+        <Rail />
+      </aside>
+
+      <div className="md:hidden fixed top-3 left-3 z-50">
+        <button
+          onClick={() => setMobileOpen((v) => !v)}
+          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+          className="bg-card border border-border text-foreground p-2 rounded-lg shadow-lg"
+        >
+          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {mobileOpen && (
+        <>
+          <div
+            className="md:hidden fixed inset-0 bg-black/60 z-40"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="md:hidden fixed left-0 top-0 h-full w-[64px] z-50 shadow-2xl border-r border-sidebar-border">
+            <Rail onNavigate={() => setMobileOpen(false)} />
+          </aside>
+        </>
+      )}
+    </>
   );
 }

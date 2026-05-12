@@ -9,6 +9,7 @@ import {
   Plus,
   Play,
   Pause,
+  Square,
   Calendar as CalendarIcon,
   MoreHorizontal,
   Video,
@@ -17,12 +18,13 @@ import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
-import type { Task, Project } from "@/lib/types";
+import type { Task, Project, TeamMember } from "@/lib/types";
 
 export default function DashboardPage() {
   const user = useAppUser();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
 
@@ -30,10 +32,12 @@ export default function DashboardPage() {
     Promise.all([
       fetch("/api/tasks?mine=true").then((r) => r.json() as Promise<Task[]>),
       fetch("/api/projects").then((r) => r.json() as Promise<Project[]>),
+      fetch("/api/users").then((r) => r.json() as Promise<TeamMember[]>),
     ])
-      .then(([t, p]) => {
+      .then(([t, p, u]) => {
         setTasks(t);
         setProjects(p);
+        setUsers(u);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -46,9 +50,6 @@ export default function DashboardPage() {
   const doneCount = tasks.filter((t) => t.status === "done").length;
   const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
   const todoCount = tasks.filter((t) => t.status === "todo").length;
-  const overdueCount = tasks.filter(
-    (t) => isOverdue(t.due_date) && t.status !== "done"
-  ).length;
   const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
   const upcomingTasks = useMemo(
@@ -82,31 +83,31 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Stat cards */}
+          {/* Stat cards (Upcoming / In Progress / Completed Actions) */}
           <section className="grid gap-4 md:grid-cols-3">
             <StatCard
               tone="stat-1"
-              label="My open tasks"
-              value={todoCount + inProgressCount}
+              label="Upcoming Actions"
+              value={todoCount}
               accent="text-primary"
               icon={<FolderKanban className="w-5 h-5" />}
-              hint={`${inProgressCount} in progress`}
+              hint="Tasks waiting to start"
             />
             <StatCard
               tone="stat-2"
-              label="Completed"
+              label="In progress Actions"
+              value={inProgressCount}
+              accent="text-upflow-warning"
+              icon={<AlertCircle className="w-5 h-5" />}
+              hint="Currently being worked on"
+            />
+            <StatCard
+              tone="stat-3"
+              label="Completed Actions"
               value={doneCount}
               accent="text-upflow-success"
               icon={<CheckCircle2 className="w-5 h-5" />}
               hint={`${progress}% of total`}
-            />
-            <StatCard
-              tone="stat-3"
-              label="Needs attention"
-              value={overdueCount}
-              accent="text-upflow-danger"
-              icon={<AlertCircle className="w-5 h-5" />}
-              hint={overdueCount === 0 ? "Nothing overdue" : "Past due date"}
             />
           </section>
 
@@ -136,17 +137,15 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          {/* Timeline */}
-          <Timeline tasks={tasks} />
+          {/* Team timeline */}
+          <TeamTimeline users={users} loading={loading} />
 
           {/* Upcoming tasks */}
           <section className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Upcoming tasks</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Sorted by due date
-                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">Sorted by due date</p>
               </div>
               <button
                 onClick={() => setShowNewTask(true)}
@@ -287,28 +286,54 @@ function StatCard({
   );
 }
 
-function Timeline({ tasks }: { tasks: Task[] }) {
+function TeamTimeline({
+  users,
+  loading,
+}: {
+  users: TeamMember[];
+  loading: boolean;
+}) {
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i); // 8am - 7pm
   const currentHour = new Date().getHours();
+  const totalHours = 11;
 
-  // Build deterministic timeline blocks from tasks (using hash of id) so the UI feels populated.
-  const blocks = useMemo(() => {
-    const items = tasks.slice(0, 8);
-    return items
-      .map((t, idx) => {
-        const seed = (t.id.charCodeAt(0) || 0) + idx * 7;
-        const start = 8 + (seed % 10); // 8 - 17
-        const duration = 1 + (seed % 3); // 1 - 3 hours
-        return { task: t, start, end: Math.min(start + duration, 19) };
-      })
-      .filter((b) => b.start < 19);
-  }, [tasks]);
+  // Deterministic per-user blocks for visual fill — real time-tracking data not in schema yet.
+  const rows = useMemo(() => {
+    const list = users.slice(0, 6);
+    const palette = [
+      "bg-primary/30 border-l-primary",
+      "bg-upflow-success/25 border-l-upflow-success",
+      "bg-upflow-warning/25 border-l-upflow-warning",
+      "bg-upflow-danger/25 border-l-upflow-danger",
+    ];
+    return list.map((u, i) => {
+      const seed = (u.id.charCodeAt(0) || 0) + i * 13;
+      const blocks = [
+        {
+          start: 8 + (seed % 4),
+          end: Math.min(8 + (seed % 4) + 1 + (seed % 2), 19),
+          label: "Standup",
+        },
+        {
+          start: 12 + ((seed >> 2) % 3),
+          end: Math.min(12 + ((seed >> 2) % 3) + 2, 19),
+          label: "Focus block",
+        },
+        {
+          start: 16 + ((seed >> 1) % 3),
+          end: Math.min(16 + ((seed >> 1) % 3) + 1, 19),
+          label: "Review",
+        },
+      ];
+      return { user: u, blocks, color: palette[i % palette.length] };
+    });
+  }, [users]);
 
   return (
     <section className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Today&apos;s timeline</h3>
+          <h3 className="text-sm font-semibold text-foreground">Team timeline</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             {new Date().toLocaleDateString(undefined, {
               weekday: "long",
@@ -326,17 +351,17 @@ function Timeline({ tasks }: { tasks: Task[] }) {
       </div>
 
       {/* Hour pills */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-3 -mx-1 px-1">
+      <div className="flex items-center gap-1 overflow-x-auto pb-3 pl-[140px]">
         {hours.map((h) => {
           const isCurrent = h === currentHour;
           return (
             <div
               key={h}
               className={cn(
-                "flex-shrink-0 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors",
+                "flex-1 min-w-[44px] text-center px-2 py-1.5 text-xs rounded-lg font-medium transition-colors",
                 isCurrent
                   ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground bg-secondary/50"
+                  : "text-muted-foreground bg-secondary/40"
               )}
             >
               {h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`}
@@ -345,62 +370,67 @@ function Timeline({ tasks }: { tasks: Task[] }) {
         })}
       </div>
 
-      {/* Timeline rail */}
-      <div className="relative mt-4 h-24 rounded-xl bg-secondary/40 overflow-hidden">
-        <div className="absolute inset-y-0 left-0 right-0 grid grid-cols-12">
-          {hours.map((h) => (
-            <div
-              key={h}
-              className={cn(
-                "border-r border-border/50 last:border-r-0",
-                h === currentHour && "bg-primary/5"
-              )}
-            />
-          ))}
-        </div>
-        {blocks.length === 0 ? (
-          <div className="relative z-10 h-full flex items-center justify-center text-xs text-muted-foreground">
-            No scheduled work
+      {/* Per-teammate rows */}
+      <div className="space-y-2 mt-2">
+        {loading ? (
+          <div className="text-xs text-muted-foreground py-4 text-center">
+            Loading…
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="text-xs text-muted-foreground py-4 text-center">
+            No teammates to show
           </div>
         ) : (
-          blocks.map((b, i) => {
-            const totalHours = 11; // 8 -> 19
-            const left = ((b.start - 8) / totalHours) * 100;
-            const width = ((b.end - b.start) / totalHours) * 100;
-            const colors = [
-              "bg-primary/30 border-primary",
-              "bg-upflow-success/25 border-upflow-success",
-              "bg-upflow-warning/25 border-upflow-warning",
-              "bg-upflow-danger/25 border-upflow-danger",
-            ];
-            return (
-              <div
-                key={b.task.id}
-                title={b.task.title}
-                className={cn(
-                  "absolute top-3 bottom-3 rounded-lg border-l-2 px-3 flex flex-col justify-center overflow-hidden",
-                  colors[i % colors.length]
-                )}
-                style={{
-                  left: `calc(${left}% + 4px)`,
-                  width: `calc(${width}% - 8px)`,
-                }}
-              >
-                <p className="text-[11px] font-semibold text-foreground truncate">
-                  {b.task.title}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {b.start > 12 ? `${b.start - 12}pm` : `${b.start}am`} –{" "}
-                  {b.end > 12 ? `${b.end - 12}pm` : b.end === 12 ? "12pm" : `${b.end}am`}
-                </p>
+          rows.map(({ user: u, blocks, color }) => (
+            <div key={u.id} className="flex items-center gap-3">
+              <div className="w-[128px] flex items-center gap-2 flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                  {getInitials(u.name)}
+                </div>
+                <span className="text-xs text-foreground truncate">{u.name}</span>
               </div>
-            );
-          })
+              <div className="relative flex-1 h-9 rounded-lg bg-secondary/40 overflow-hidden">
+                <div className="absolute inset-y-0 left-0 right-0 grid grid-cols-12">
+                  {hours.map((h) => (
+                    <div
+                      key={h}
+                      className={cn(
+                        "border-r border-border/40 last:border-r-0",
+                        h === currentHour && "bg-primary/10"
+                      )}
+                    />
+                  ))}
+                </div>
+                {blocks.map((b, i) => {
+                  const left = ((b.start - 8) / totalHours) * 100;
+                  const width = Math.max(((b.end - b.start) / totalHours) * 100, 4);
+                  return (
+                    <div
+                      key={i}
+                      title={`${b.label} · ${b.start > 12 ? `${b.start - 12}pm` : `${b.start}am`} - ${b.end > 12 ? `${b.end - 12}pm` : `${b.end}am`}`}
+                      className={cn(
+                        "absolute top-1 bottom-1 rounded-md border-l-2 px-2 flex items-center text-[10px] font-medium text-foreground/80 truncate",
+                        color
+                      )}
+                      style={{
+                        left: `calc(${left}% + 2px)`,
+                        width: `calc(${width}% - 4px)`,
+                      }}
+                    >
+                      {b.label}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </section>
   );
 }
+
+type TimerState = "stopped" | "running" | "paused";
 
 function RightPanel({
   projects,
@@ -409,34 +439,52 @@ function RightPanel({
   projects: Project[];
   userName: string;
 }) {
-  const [running, setRunning] = useState(false);
-  const [seconds, setSeconds] = useState(2 * 3600 + 18 * 60); // start at 2h 18m
+  const [timerState, setTimerState] = useState<TimerState>("stopped");
+  const [seconds, setSeconds] = useState(2 * 3600 + 18 * 60); // 2h 18m start
 
   useEffect(() => {
-    if (!running) return;
+    if (timerState !== "running") return;
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
-  }, [running]);
+  }, [timerState]);
 
   const fmt = (n: number) => String(n).padStart(2, "0");
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
 
-  const meetings = [
-    { time: "10:00", title: "Team standup", with: "Engineering", color: "bg-primary/20 text-primary" },
-    { time: "14:30", title: "Design review", with: "Product · Design", color: "bg-upflow-success/20 text-upflow-success" },
-    { time: "16:00", title: "Client check-in", with: "Acme Corp", color: "bg-upflow-warning/20 text-upflow-warning" },
+  const allMeetings = [
+    { time: "09:30", title: "Daily standup", with: "Engineering", color: "bg-primary/20 text-primary" },
+    { time: "11:00", title: "Sprint planning", with: "Product", color: "bg-upflow-success/20 text-upflow-success" },
+    { time: "14:30", title: "Design review", with: "Product · Design", color: "bg-upflow-warning/20 text-upflow-warning" },
+    { time: "16:00", title: "Client check-in", with: "Acme Corp", color: "bg-upflow-danger/20 text-upflow-danger" },
   ];
+  const am = allMeetings.filter((m) => parseInt(m.time) < 12);
+  const pm = allMeetings.filter((m) => parseInt(m.time) >= 12);
 
-  const activity = Array.from({ length: 12 }, (_, i) => 0.3 + ((i * 31) % 70) / 100);
+  const [meetingsOpen, setMeetingsOpen] = useState<Record<string, boolean>>(
+    Object.fromEntries(allMeetings.map((m) => [m.title, true]))
+  );
+
+  // Bubbles for activity (12 weeks of varying-size dots).
+  const bubbles = Array.from({ length: 24 }, (_, i) => {
+    const v = 0.3 + ((i * 37) % 70) / 100;
+    return { size: 10 + v * 22, opacity: 0.25 + v * 0.7 };
+  });
 
   const recent = [
     { who: "Maya", what: "completed", target: "Login screen", when: "12m ago" },
     { who: "Eli", what: "commented on", target: "API rate limits", when: "27m ago" },
     { who: userName, what: "moved", target: "Onboarding flow", when: "1h ago" },
-    { who: "Tomás", what: "created", target: "New project: Atlas", when: "2h ago" },
+    { who: "Tomás", what: "created", target: "Atlas project", when: "2h ago" },
   ];
+
+  const handleStart = () => setTimerState("running");
+  const handlePause = () => setTimerState("paused");
+  const handleStop = () => {
+    setTimerState("stopped");
+    setSeconds(0);
+  };
 
   return (
     <aside className="hidden xl:flex w-[300px] flex-shrink-0 flex-col gap-4 p-6 border-l border-border bg-sidebar/30">
@@ -459,21 +507,38 @@ function RightPanel({
         <p className="text-xs text-muted-foreground mt-1">
           {projects[0]?.name || "No active project"}
         </p>
-        <button
-          onClick={() => setRunning((r) => !r)}
-          className={cn(
-            "mt-4 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-colors",
-            running
-              ? "bg-upflow-danger/15 text-upflow-danger hover:bg-upflow-danger/25"
-              : "bg-primary text-primary-foreground hover:bg-primary/90"
-          )}
-        >
-          {running ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          {running ? "Pause timer" : "Start timer"}
-        </button>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <button
+            onClick={handleStart}
+            disabled={timerState === "running"}
+            aria-label="Start timer"
+            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Play className="w-3.5 h-3.5" />
+            Start
+          </button>
+          <button
+            onClick={handlePause}
+            disabled={timerState !== "running"}
+            aria-label="Pause timer"
+            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-upflow-warning/15 text-upflow-warning hover:bg-upflow-warning/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Pause className="w-3.5 h-3.5" />
+            Pause
+          </button>
+          <button
+            onClick={handleStop}
+            disabled={timerState === "stopped"}
+            aria-label="Stop timer"
+            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-upflow-danger/15 text-upflow-danger hover:bg-upflow-danger/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <Square className="w-3.5 h-3.5" />
+            Stop
+          </button>
+        </div>
       </div>
 
-      {/* Today's meetings */}
+      {/* Today's meetings — AM/PM grouped with toggles */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -481,30 +546,66 @@ function RightPanel({
           </p>
           <CalendarIcon className="w-4 h-4 text-muted-foreground" />
         </div>
-        <div className="space-y-3">
-          {meetings.map((m) => (
-            <div key={m.title} className="flex items-start gap-3">
-              <div
-                className={cn(
-                  "flex flex-col items-center justify-center w-12 h-12 rounded-xl flex-shrink-0",
-                  m.color
-                )}
-              >
-                <Video className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold mt-0.5">{m.time}</span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {m.title}
+
+        {[
+          { label: "Morning", items: am },
+          { label: "Afternoon", items: pm },
+        ].map(
+          (group) =>
+            group.items.length > 0 && (
+              <div key={group.label} className="mb-3 last:mb-0">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+                  {group.label}
                 </p>
-                <p className="text-xs text-muted-foreground truncate">{m.with}</p>
+                <div className="space-y-2">
+                  {group.items.map((mt) => {
+                    const open = meetingsOpen[mt.title];
+                    return (
+                      <button
+                        key={mt.title}
+                        onClick={() =>
+                          setMeetingsOpen((s) => ({ ...s, [mt.title]: !s[mt.title] }))
+                        }
+                        aria-pressed={open}
+                        aria-label={`Toggle ${mt.title}`}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-2 rounded-lg text-left transition-opacity",
+                          open ? "opacity-100" : "opacity-50"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "flex flex-col items-center justify-center w-12 h-12 rounded-xl flex-shrink-0",
+                            mt.color
+                          )}
+                        >
+                          <Video className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-bold mt-0.5">{mt.time}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {mt.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {mt.with}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "w-2 h-2 rounded-full flex-shrink-0",
+                            open ? "bg-upflow-success" : "bg-muted-foreground/40"
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            )
+        )}
       </div>
 
-      {/* Activity */}
+      {/* Activity bubble chart */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -512,14 +613,27 @@ function RightPanel({
           </p>
           <span className="text-xs text-muted-foreground">12 weeks</span>
         </div>
-        <div className="flex items-end gap-1.5 h-16">
-          {activity.map((v, i) => (
-            <div
-              key={i}
-              className="flex-1 rounded-sm bg-gradient-to-t from-primary/30 to-primary"
-              style={{ height: `${v * 100}%` }}
-            />
-          ))}
+        <div className="relative h-24">
+          {bubbles.map((b, i) => {
+            const col = i % 12;
+            const row = Math.floor(i / 12);
+            const left = (col / 11) * 100;
+            const top = row === 0 ? 20 + ((i * 17) % 30) : 50 + ((i * 11) % 30);
+            return (
+              <div
+                key={i}
+                className="absolute rounded-full bg-primary"
+                style={{
+                  left: `${left}%`,
+                  top: `${top}%`,
+                  width: `${b.size}px`,
+                  height: `${b.size}px`,
+                  opacity: b.opacity,
+                  transform: "translate(-50%, -50%)",
+                }}
+              />
+            );
+          })}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
           <span className="text-upflow-success font-medium">+12%</span> vs last quarter
