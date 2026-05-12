@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { X, Plus, Trash2, Settings2, Loader2 } from "lucide-react";
+import { X, Plus, Trash2, Settings2, Loader2, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CustomFieldDefinition, CustomFieldType } from "@/lib/types";
 
@@ -34,12 +34,16 @@ export default function CustomFieldsManager({
   const [type, setType] = useState<CustomFieldType>("text");
   const [optionsText, setOptionsText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editOptions, setEditOptions] = useState("");
 
   useEffect(() => {
     if (!open) {
       setName("");
       setType("text");
       setOptionsText("");
+      setEditingId(null);
     }
   }, [open]);
 
@@ -74,6 +78,42 @@ export default function CustomFieldsManager({
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const startEdit = (f: CustomFieldDefinition) => {
+    setEditingId(f.id);
+    setEditName(f.name);
+    setEditOptions((f.options ?? []).join("\n"));
+  };
+
+  const saveEdit = async (f: CustomFieldDefinition) => {
+    if (!editName.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+    try {
+      const body: Record<string, unknown> = { name: editName.trim() };
+      if (f.type === "dropdown") {
+        body.options = editOptions
+          .split(/[\n,]/)
+          .map((o) => o.trim())
+          .filter(Boolean);
+      }
+      const res = await fetch(
+        `/api/projects/${projectId}/custom-fields/${f.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!res.ok) throw new Error();
+      setEditingId(null);
+      onChanged();
+      toast.success("Field updated");
+    } catch {
+      toast.error("Failed to update");
     }
   };
 
@@ -118,29 +158,77 @@ export default function CustomFieldsManager({
               <p className="text-sm text-muted-foreground">No custom fields yet.</p>
             ) : (
               <div className="border border-border rounded-lg divide-y divide-border bg-card">
-                {fields.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center gap-3 px-3 py-2.5"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-foreground truncate">{f.name}</div>
-                      <div className="text-xs text-muted-foreground capitalize">
-                        {f.type}
-                        {f.type === "dropdown" && f.options && f.options.length > 0 && (
-                          <> · {f.options.length} options</>
+                {fields.map((f) => {
+                  const editing = editingId === f.id;
+                  return (
+                    <div key={f.id} className="px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        {editing ? (
+                          <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="flex-1 text-sm bg-white/5 border border-white/10 rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-foreground truncate">{f.name}</div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {f.type}
+                              {f.type === "dropdown" && f.options && f.options.length > 0 && (
+                                <> · {f.options.length} options</>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {editing ? (
+                          <>
+                            <button
+                              onClick={() => saveEdit(f)}
+                              className="text-upflow-success hover:bg-upflow-success/10 p-1.5 rounded"
+                              title="Save"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="text-muted-foreground hover:bg-muted p-1.5 rounded"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEdit(f)}
+                              className="text-muted-foreground hover:text-foreground p-1.5 rounded hover:bg-muted"
+                              title="Edit field"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => remove(f.id)}
+                              className="text-muted-foreground hover:text-destructive p-1.5 rounded hover:bg-destructive/10"
+                              title="Delete field"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
                         )}
                       </div>
+                      {editing && f.type === "dropdown" && (
+                        <textarea
+                          value={editOptions}
+                          onChange={(e) => setEditOptions(e.target.value)}
+                          rows={3}
+                          placeholder="Options (one per line)"
+                          className="w-full mt-2 text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                        />
+                      )}
                     </div>
-                    <button
-                      onClick={() => remove(f.id)}
-                      className="text-muted-foreground hover:text-destructive p-1.5 rounded hover:bg-destructive/10"
-                      title="Delete field"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

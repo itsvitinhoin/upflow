@@ -29,6 +29,8 @@ const DEFAULT_TOOLBAR: ToolbarState = {
   sortDir: "asc",
   showClosed: true,
   visibleColumns: {},
+  filterPriority: "all",
+  filterAssignee: "all",
 };
 
 export default function ProjectPage() {
@@ -175,6 +177,7 @@ export default function ProjectPage() {
           customFields={customFields}
           onManageFields={() => setManageOpen(true)}
           canManage={canManageFields}
+          users={users}
         />
 
         {toolbar.view === "board" ? (
@@ -183,6 +186,7 @@ export default function ProjectPage() {
             tasks={tasks}
             customFields={customFields}
             users={users}
+            toolbar={toolbar}
             onUpdate={loadData}
             onAddTask={(status) => setCreateOpen(status)}
           />

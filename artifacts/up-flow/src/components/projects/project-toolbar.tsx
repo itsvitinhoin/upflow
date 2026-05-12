@@ -17,6 +17,9 @@ import type { CustomFieldDefinition } from "@/lib/types";
 export type GroupBy = "status" | "assignee" | "priority" | "none";
 export type SortBy = "position" | "due_date" | "priority" | "title" | "created_at";
 
+export type FilterPriority = "all" | "high" | "medium" | "low";
+export type FilterAssignee = "all" | "unassigned" | "me" | string;
+
 export interface ToolbarState {
   view: "list" | "board";
   search: string;
@@ -25,6 +28,8 @@ export interface ToolbarState {
   sortDir: "asc" | "desc";
   showClosed: boolean;
   visibleColumns: Record<string, boolean>;
+  filterPriority: FilterPriority;
+  filterAssignee: FilterAssignee;
 }
 
 interface Props {
@@ -33,6 +38,7 @@ interface Props {
   customFields: CustomFieldDefinition[];
   onManageFields?: () => void;
   canManage: boolean;
+  users?: { id: string; name: string }[];
 }
 
 const STANDARD_COLUMNS = [
@@ -48,7 +54,11 @@ export default function ProjectToolbar({
   customFields,
   onManageFields,
   canManage,
+  users = [],
 }: Props) {
+  const filterCount =
+    (state.filterPriority !== "all" ? 1 : 0) +
+    (state.filterAssignee !== "all" ? 1 : 0);
   const set = (patch: Partial<ToolbarState>) => onChange({ ...state, ...patch });
 
   return (
@@ -77,6 +87,13 @@ export default function ProjectToolbar({
           className="pl-8 pr-3 py-1.5 text-sm bg-card border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-52"
         />
       </div>
+
+      <FilterPopover
+        state={state}
+        onChange={(p) => set(p)}
+        users={users}
+        count={filterCount}
+      />
 
       <DropdownButton
         icon={<Filter className="w-3.5 h-3.5" />}
@@ -291,6 +308,107 @@ function ColumnsDropdown({
               </button>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterPopover({
+  state,
+  onChange,
+  users,
+  count,
+}: {
+  state: ToolbarState;
+  onChange: (patch: Partial<ToolbarState>) => void;
+  users: { id: string; name: string }[];
+  count: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border",
+          count > 0
+            ? "bg-primary/15 border-primary/40 text-primary"
+            : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+        )}
+      >
+        <Filter className="w-3.5 h-3.5" />
+        Filter
+        {count > 0 && (
+          <span className="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-4 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full px-1">
+            {count}
+          </span>
+        )}
+        <ChevronDown className="w-3 h-3" />
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 left-0 min-w-[240px] bg-popover border border-border rounded-lg shadow-xl p-3 space-y-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              Priority
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(["all", "high", "medium", "low"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => onChange({ filterPriority: p })}
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-md border capitalize",
+                    state.filterPriority === p
+                      ? "bg-primary/15 border-primary/40 text-primary"
+                      : "border-border text-muted-foreground hover:bg-muted",
+                  )}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+              Assignee
+            </div>
+            <select
+              value={state.filterAssignee}
+              onChange={(e) =>
+                onChange({ filterAssignee: e.target.value as FilterAssignee })
+              }
+              className="w-full text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="all">Anyone</option>
+              <option value="unassigned">Unassigned</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {count > 0 && (
+            <button
+              onClick={() =>
+                onChange({ filterPriority: "all", filterAssignee: "all" })
+              }
+              className="w-full text-xs text-muted-foreground hover:text-foreground border-t border-border pt-2"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       )}
     </div>

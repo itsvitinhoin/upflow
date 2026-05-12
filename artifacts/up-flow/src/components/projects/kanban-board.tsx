@@ -3,17 +3,19 @@
 import { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
-import { Plus, GripVertical, Calendar, AlertCircle, MessageSquare } from "lucide-react";
-import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
+import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
+import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CustomFieldChip from "@/components/projects/custom-field-chip";
 import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
+import type { ToolbarState } from "@/components/projects/project-toolbar";
 
 interface KanbanBoardProps {
   projectId: string;
   tasks: Task[];
   customFields: CustomFieldDefinition[];
   users: TaskAssignee[];
+  toolbar?: ToolbarState;
   onUpdate: () => void;
   onAddTask: (status: ColumnKey) => void;
 }
@@ -31,6 +33,7 @@ export default function KanbanBoard({
   tasks,
   customFields,
   users,
+  toolbar,
   onUpdate,
   onAddTask,
 }: KanbanBoardProps) {
@@ -45,7 +48,28 @@ export default function KanbanBoard({
 
   useEffect(() => {
     const grouped: Record<ColumnKey, Task[]> = { todo: [], in_progress: [], done: [] };
-    tasks.forEach((t) => {
+    let filtered = tasks;
+    if (toolbar) {
+      if (toolbar.search.trim()) {
+        const q = toolbar.search.toLowerCase();
+        filtered = filtered.filter(
+          (t) =>
+            t.title.toLowerCase().includes(q) ||
+            (t.description ?? "").toLowerCase().includes(q),
+        );
+      }
+      if (toolbar.filterPriority !== "all") {
+        filtered = filtered.filter((t) => t.priority === toolbar.filterPriority);
+      }
+      if (toolbar.filterAssignee !== "all") {
+        if (toolbar.filterAssignee === "unassigned") {
+          filtered = filtered.filter((t) => !t.assignee);
+        } else {
+          filtered = filtered.filter((t) => t.assignee?.id === toolbar.filterAssignee);
+        }
+      }
+    }
+    filtered.forEach((t) => {
       if (t.status in grouped) {
         grouped[t.status as ColumnKey].push(t);
       }
@@ -54,7 +78,19 @@ export default function KanbanBoard({
       grouped[k as ColumnKey].sort((a, b) => a.position - b.position);
     });
     setColumns(grouped);
-  }, [tasks]);
+  }, [tasks, toolbar]);
+
+  const deleteTask = async (taskId: string) => {
+    if (!confirm("Delete this task?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      onUpdate();
+      toast.success("Task deleted");
+    } catch {
+      toast.error("Failed to delete");
+    }
+  };
 
   const handleDragStart = () => {
     isDraggingRef.current = true;
@@ -99,7 +135,7 @@ export default function KanbanBoard({
   return (
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4">
+        <div className="flex gap-3 overflow-x-auto pb-4 h-[calc(100vh-280px)]">
           {COLUMNS.map(({ key, label, color, hex }) => (
             <Droppable key={key} droppableId={key}>
               {(provided, snapshot) => (
@@ -107,7 +143,7 @@ export default function KanbanBoard({
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "flex-shrink-0 w-[300px] rounded-lg flex flex-col bg-muted/40 transition-colors",
+                    "flex-shrink-0 w-[300px] rounded-lg flex flex-col bg-muted/40 transition-colors h-full overflow-hidden",
                     snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30",
                   )}
                 >
@@ -131,7 +167,7 @@ export default function KanbanBoard({
                     </button>
                   </div>
 
-                  <div className="px-2 pb-2 space-y-1.5 min-h-[120px] flex-1">
+                  <div className="px-2 pb-2 space-y-1.5 flex-1 overflow-y-auto">
                     {columns[key].map((task, index) => {
                       const valueMap = new Map(
                         (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
@@ -148,10 +184,32 @@ export default function KanbanBoard({
                                 setSelectedTask(task);
                               }}
                               className={cn(
-                                "bg-card border border-border rounded-md p-2.5 cursor-pointer hover:border-primary/40 transition-colors group",
+                                "relative bg-card border border-border rounded-md p-2.5 cursor-pointer hover:border-primary/40 hover:shadow-md transition-all group",
                                 snapshot.isDragging && "shadow-xl rotate-1 opacity-90",
                               )}
                             >
+                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-card border border-border rounded-md shadow-sm">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedTask(task);
+                                  }}
+                                  className="p-1 text-muted-foreground hover:text-foreground rounded"
+                                  title="Open"
+                                >
+                                  <MoreHorizontal className="w-3 h-3" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteTask(task.id);
+                                  }}
+                                  className="p-1 text-muted-foreground hover:text-destructive rounded"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
                               <div className="flex items-start gap-1.5">
                                 <span
                                   className={cn(

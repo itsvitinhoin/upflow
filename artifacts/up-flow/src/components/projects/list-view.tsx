@@ -95,12 +95,12 @@ export default function ListView({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-auto max-h-[calc(100vh-280px)] relative">
       <div
-        className="grid items-center px-3 py-1.5 border-b border-border bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+        className="grid items-center px-3 py-1.5 border-b border-border bg-card text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sticky top-0 z-20"
         style={{ gridTemplateColumns: cols.gridTemplate }}
       >
-        <div className="px-2">Name</div>
+        <div className="px-2 sticky left-0 bg-card">Name</div>
         {cols.cols.map((c) => (
           <div key={c.key} className="px-2 truncate">
             {c.label}
@@ -112,7 +112,7 @@ export default function ListView({
         const isCollapsed = collapsed[g.key];
         return (
           <div key={g.key} className="border-b border-border last:border-b-0">
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/20 sticky top-0">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/40 sticky top-[30px] z-10">
               <button
                 onClick={() => setCollapsed((p) => ({ ...p, [g.key]: !p[g.key] }))}
                 className="text-muted-foreground hover:text-foreground p-0.5"
@@ -161,7 +161,7 @@ export default function ListView({
                       style={{ gridTemplateColumns: cols.gridTemplate }}
                     >
                       <div
-                        className="px-2 flex items-center gap-2 cursor-pointer min-w-0"
+                        className="px-2 flex items-center gap-2 cursor-pointer min-w-0 sticky left-0 bg-card group-hover:bg-muted/30"
                         onClick={() => onTaskClick(t)}
                       >
                         <button
@@ -369,6 +369,17 @@ function groupTasks(tasks: Task[], toolbar: ToolbarState, users: TaskAssignee[])
   if (!toolbar.showClosed) {
     filtered = filtered.filter((t) => t.status !== "done");
   }
+  if (toolbar.filterPriority !== "all") {
+    filtered = filtered.filter((t) => t.priority === toolbar.filterPriority);
+  }
+  if (toolbar.filterAssignee !== "all") {
+    if (toolbar.filterAssignee === "unassigned") {
+      filtered = filtered.filter((t) => !t.assignee);
+    } else {
+      filtered = filtered.filter((t) => t.assignee?.id === toolbar.filterAssignee);
+    }
+  }
+  void users;
 
   const sorted = [...filtered].sort((a, b) => compareTasks(a, b, toolbar));
 
