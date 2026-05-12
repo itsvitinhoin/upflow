@@ -60,10 +60,10 @@ export default function Sidebar({ user }: SidebarProps) {
       <Link
         href="/"
         onClick={onNavigate}
-        className="flex items-center justify-center w-9 h-9 bg-primary rounded-xl mb-6 shadow-lg shadow-primary/20"
+        className="flex items-center justify-center w-9 h-9 rounded-xl mb-6 overflow-hidden bg-background/10 shadow-lg shadow-primary/20"
         aria-label="Up Flow"
       >
-        <Zap className="w-4 h-4 text-white" fill="currentColor" />
+        <img src="/assets/UP_LOGO_1778594851568.png" alt="Up Flow" className="w-full h-full object-contain" />
       </Link>
 
       <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1">
