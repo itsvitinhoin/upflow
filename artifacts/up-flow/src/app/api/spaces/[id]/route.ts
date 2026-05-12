@@ -16,10 +16,17 @@ export async function PATCH(
   }
 
   const body = (await req.json()) as { name?: string; icon?: string | null; position?: number };
+  let trimmedName: string | undefined;
+  if (body.name !== undefined) {
+    trimmedName = body.name.trim();
+    if (!trimmedName) {
+      return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
+    }
+  }
   const updated = await prisma.space.update({
     where: { id: params.id },
     data: {
-      ...(body.name !== undefined && { name: body.name }),
+      ...(trimmedName !== undefined && { name: trimmedName }),
       ...(body.icon !== undefined && { icon: body.icon }),
       ...(body.position !== undefined && { position: body.position }),
     },

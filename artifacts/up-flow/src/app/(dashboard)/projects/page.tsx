@@ -53,6 +53,9 @@ export default function ProjectsPage() {
       toast.success("Project moved");
       setMoveProjectId(null);
       loadProjects();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      }
     } catch {
       toast.error("Could not move project");
     }

@@ -1,3 +1,5 @@
 {
+  "/api/spaces/route": "app/api/spaces/route.js",
+  "/api/projects/route": "app/api/projects/route.js",
   "/(dashboard)/projects/page": "app/(dashboard)/projects/page.js"
 }

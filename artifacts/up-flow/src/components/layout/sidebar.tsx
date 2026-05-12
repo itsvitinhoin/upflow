@@ -106,6 +106,14 @@ export default function Sidebar({ user }: SidebarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // Refresh panel when other parts of the app emit a refresh event
+  useEffect(() => {
+    const handler = () => loadPanel();
+    window.addEventListener("upflow:sidebar-refresh", handler);
+    return () => window.removeEventListener("upflow:sidebar-refresh", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Close action menu on outside click
   useEffect(() => {
     if (!menuOpenId) return;
