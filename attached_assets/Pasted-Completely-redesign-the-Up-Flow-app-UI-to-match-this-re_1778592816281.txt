@@ -1,0 +1,130 @@
+Completely redesign the Up Flow app UI to match this reference design pixel by pixel. This is a dark navy dashboard with a right panel layout.
+GLOBAL COLOR SYSTEM — replace all existing colors:
+css--bg-app: #0f1117
+--bg-sidebar: #151720
+--bg-card: #1a1d2e
+--bg-card-hover: #1e2138
+--border-color: #252840
+--text-primary: #e8eaf6
+--text-secondary: #7b80a0
+--accent: #6c63ff
+--accent-hover: #5a52e0
+--success: #00d68f
+--warning: #f5a623
+--danger: #ff6b8a
+--stat-card-1: #1e2a3a
+--stat-card-2: #1e2535
+--stat-card-3: #2a1e30
+Apply background: var(--bg-app) to the root layout. Import Inter from Google Fonts.
+
+SIDEBAR — icon-only, ~56px wide:
+
+Background --bg-sidebar, full height, right border 1px solid var(--border-color)
+Top: app logo icon (colorful 3D-style polygon shape using CSS) + small chevron >
+Nav icons stacked vertically with 28px gap between them, centered horizontally:
+
+ti-layout-grid (Dashboard) — active by default
+ti-users (Team)
+ti-clock (Time)
+ti-mail (Inbox)
+ti-calendar (Calendar)
+ti-layout-kanban (Projects)
+
+
+Active icon: 36x36px rounded rect background in --accent color behind the icon, icon white
+Inactive icons: --text-secondary color, no background
+Bottom of sidebar: ti-settings + ti-info-circle icons, then user avatar circle at very bottom
+No text labels — icons only
+Hover on inactive: background rgba(108,99,255,0.15) rounded rect
+
+
+TOP SEARCH BAR:
+
+Full-width dark input bar at the very top, height 44px
+Background #1a1d2e, border 1px solid var(--border-color), border-radius 10px
+ti-search icon left inside input in --text-secondary
+Placeholder: "Searching something here..." in --text-secondary
+Notification bell ti-bell on the right side of the bar with a small red dot badge
+
+
+MAIN CONTENT AREA — 3-column layout:
+Left+center = main content (flex: 1)
+Right panel = 280px fixed width
+
+STAT CARDS ROW — 3 cards in equal grid:
+Each card:
+
+Height ~100px, border-radius 12px, border 1px solid var(--border-color)
+Backgrounds: card 1 = --stat-card-1 (teal tint), card 2 = --stat-card-2 (blue-purple tint), card 3 = --stat-card-3 (pink-purple tint)
+Top: small label "Upcoming Actions" / "In progress Actions" / "Completed Actions" — 11px, --text-secondary
+Large number: 36px bold --text-primary — pull real counts from the database
+Bottom row: small icon left (ti-clipboard / ti-clock / ti-circle-check) + arrow ti-arrow-right right in --text-secondary
+Subtle background texture: use a very faint radial gradient from a slightly lighter tint at top-right
+
+
+TIMELINE SECTION:
+Header row:
+
+"Timeline" title 14px 500 weight
+Right side: ti-calendar icon + "Today" button (small, accent border) + ti-dots-vertical menu
+
+Time axis:
+
+Hours from 8AM to 7PM across the top
+Current hour highlighted with accent color pill
+Thin separator lines between hours
+
+User rows (pull from real team members):
+
+Left: user avatar (28px circle with initials) + name 13px + total hours logged small muted
+Right: colored task/project bars as rounded pills
+Each bar shows project name + time range inside
+Bar colors: use distinct muted colors per project — #3d5a8a, #8a3d6e, #3d8a5a, #8a6e3d, #5a3d8a
+Row height 48px, alternating very subtle row bg
+
+
+RIGHT PANEL — 280px, stacked widgets:
+Time Tracking widget:
+
+Dark card --bg-card, border, border-radius 12px, padding 16px
+Header: "Time tracking" 13px 500 + ti-dots-vertical right
+Project name: 12px muted centered
+Timer: 02:20:32 style — 28px monospace weight 600 white, centered
+Two buttons side by side: "Stop" (background --danger, white text) + "Pause" (border only, white text)
+Wire up to actual time tracking state
+
+Today Meetings widget:
+
+Same card style
+Header: "Today meetings" + ti-dots-vertical
+AM section label, then rows: time (bold) + meeting name + toggle switch
+PM section label same pattern
+"View all →" link at bottom in --accent
+
+Activity widget:
+
+Header: "Activity" + "Last week ▾" dropdown + "Team Name ▾" + ti-dots-vertical
+Bubble chart: 7 columns (Mon–Sun), each column has 4–6 colored circles of varying sizes
+Circle colors: pink #ff6b8a, yellow #f5c842, teal #00d68f, purple --accent
+Inactive days (Sat/Sun): gray circles only
+Day labels below each column
+
+Last actions:
+
+"Last actions" label
+Rows: avatar circle + name bold 13px + task description 12px muted + status badge + timestamp right
+Status badges: "COMPLETED" green #00d68f bg with dark green text, "IN PROGRESS" amber bg
+Badge font: 9px uppercase weight 600
+"View all →" link at bottom
+
+
+GENERAL POLISH:
+
+All cards use border-radius: 12px and border: 1px solid var(--border-color)
+Scrollbars: scrollbar-width: thin; scrollbar-color: var(--border-color) transparent
+All page transitions: opacity 0→1 150ms ease
+Remove all white/light backgrounds from the entire app
+body { background: var(--bg-app); color: var(--text-primary); font-family: 'Inter', sans-serif; }
+Every existing page (Projects, Docs, Team, Tasks) must also use this dark theme
+
+After changes restart with PORT=3000 pnpm run dev from artifacts/up-flow.
