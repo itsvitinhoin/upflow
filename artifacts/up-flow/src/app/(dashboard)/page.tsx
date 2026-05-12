@@ -621,12 +621,25 @@ function TeamTimeline({
   const focusedLabel =
     statusFilter === "all" ? null : statusToLabel[statusFilter];
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
-  const currentHour = new Date().getHours();
   const totalHours = 11;
+  const [currentHour, setCurrentHour] = useState<number | null>(null);
+  const [todayLabel, setTodayLabel] = useState<string>("");
   const [focusHour, setFocusHour] = useState<number | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [compact, setCompact] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const now = new Date();
+    setCurrentHour(now.getHours());
+    setTodayLabel(
+      now.toLocaleDateString(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }),
+    );
+  }, []);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -649,11 +662,7 @@ function TeamTimeline({
         <div>
           <h3 className="text-sm font-semibold text-foreground">Team timeline</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {new Date().toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
+            <span suppressHydrationWarning>{todayLabel || "\u00A0"}</span>
             {focusedLabel && (
               <>
                 {" · "}
