@@ -11,7 +11,6 @@ import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
 import type { ToolbarState } from "@/components/projects/project-toolbar";
 
 interface KanbanBoardProps {
-  projectId: string;
   tasks: Task[];
   customFields: CustomFieldDefinition[];
   users: TaskAssignee[];
@@ -29,7 +28,6 @@ const COLUMNS = [
 export type ColumnKey = "todo" | "in_progress" | "done";
 
 export default function KanbanBoard({
-  projectId,
   tasks,
   customFields,
   users,
@@ -37,7 +35,6 @@ export default function KanbanBoard({
   onUpdate,
   onAddTask,
 }: KanbanBoardProps) {
-  void projectId;
   const [columns, setColumns] = useState<Record<ColumnKey, Task[]>>({
     todo: [],
     in_progress: [],

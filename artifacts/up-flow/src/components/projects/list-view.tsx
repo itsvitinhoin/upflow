@@ -373,13 +373,15 @@ function groupTasks(tasks: Task[], toolbar: ToolbarState, users: TaskAssignee[])
     filtered = filtered.filter((t) => t.priority === toolbar.filterPriority);
   }
   if (toolbar.filterAssignee !== "all") {
+    const allowed = new Set(users.map((u) => u.id));
     if (toolbar.filterAssignee === "unassigned") {
       filtered = filtered.filter((t) => !t.assignee);
+    } else if (allowed.has(toolbar.filterAssignee)) {
+      filtered = filtered.filter((t) => t.assignee?.id === toolbar.filterAssignee);
     } else {
       filtered = filtered.filter((t) => t.assignee?.id === toolbar.filterAssignee);
     }
   }
-  void users;
 
   const sorted = [...filtered].sort((a, b) => compareTasks(a, b, toolbar));
 

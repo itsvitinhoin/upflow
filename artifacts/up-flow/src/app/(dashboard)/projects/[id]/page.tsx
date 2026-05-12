@@ -182,7 +182,6 @@ export default function ProjectPage() {
 
         {toolbar.view === "board" ? (
           <KanbanBoard
-            projectId={id}
             tasks={tasks}
             customFields={customFields}
             users={users}

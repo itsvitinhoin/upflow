@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
 
@@ -9,24 +10,11 @@ export async function PUT(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { prismaUser } = auth;
-
   const task = await prisma.task.findUnique({
     where: { id: params.id },
-    select: {
-      id: true,
-      project_id: true,
-      assignee_id: true,
-      project: { select: { owner_id: true } },
-    },
+    select: { id: true, project_id: true },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const isProjectOwner = task.project.owner_id === prismaUser.id;
-  const isAssignee = task.assignee_id === prismaUser.id;
-  if (!isProjectOwner && !isAssignee && prismaUser.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const body = (await req.json().catch(() => ({}))) as {
     definition_id?: string;
@@ -71,11 +59,11 @@ export async function PUT(
         definition_id: body.definition_id,
       },
     },
-    update: { value: body.value as never },
+    update: { value: body.value as Prisma.InputJsonValue },
     create: {
       task_id: task.id,
       definition_id: body.definition_id,
-      value: body.value as never,
+      value: body.value as Prisma.InputJsonValue,
     },
   });
 

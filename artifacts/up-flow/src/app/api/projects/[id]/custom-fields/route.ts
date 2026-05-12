@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma, type CustomFieldType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
-import type { CustomFieldType } from "@prisma/client";
 
 const VALID_TYPES: CustomFieldType[] = [
   "text",
@@ -66,8 +66,8 @@ export async function POST(
       type: body.type,
       options:
         body.type === "dropdown" && Array.isArray(body.options)
-          ? (body.options as never)
-          : (null as never),
+          ? (body.options as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       position: (last?.position ?? -1) + 1,
     },
   });

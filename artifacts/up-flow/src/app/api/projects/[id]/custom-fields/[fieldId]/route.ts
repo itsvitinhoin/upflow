@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
 
@@ -52,7 +53,9 @@ export async function PATCH(
     data: {
       ...(body.name !== undefined && { name: String(body.name).trim() }),
       ...(body.options !== undefined && {
-        options: (Array.isArray(body.options) ? body.options : null) as never,
+        options: Array.isArray(body.options)
+          ? (body.options as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       }),
       ...(body.position !== undefined && { position: body.position }),
     },
