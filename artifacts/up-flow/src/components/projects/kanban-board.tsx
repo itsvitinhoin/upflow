@@ -61,6 +61,9 @@ export default function KanbanBoard({
       if (toolbar.filterPriority !== "all") {
         filtered = filtered.filter((t) => t.priority === toolbar.filterPriority);
       }
+      if (!toolbar.showClosed) {
+        filtered = filtered.filter((t) => t.status !== "done");
+      }
       if (toolbar.filterAssignee !== "all") {
         if (toolbar.filterAssignee === "unassigned") {
           filtered = filtered.filter((t) => !t.assignee);

@@ -82,17 +82,36 @@ export default function CreateTaskPanel({
         throw new Error(data.error || "Failed to create task");
       }
       const created = (await res.json()) as { id: string };
-      // Save custom field values one by one (best-effort)
+
       const entries = Object.entries(fieldValues).filter(
         ([, v]) => v !== null && v !== undefined && v !== "",
       );
+      const failed: string[] = [];
       for (const [definition_id, value] of entries) {
-        await fetch(`/api/tasks/${created.id}/custom-fields`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ definition_id, value }),
-        }).catch(() => {});
+        try {
+          const r = await fetch(`/api/tasks/${created.id}/custom-fields`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ definition_id, value }),
+          });
+          if (!r.ok) {
+            const def = customFields.find((f) => f.id === definition_id);
+            failed.push(def?.name ?? definition_id);
+          }
+        } catch {
+          const def = customFields.find((f) => f.id === definition_id);
+          failed.push(def?.name ?? definition_id);
+        }
       }
+
+      if (failed.length > 0) {
+        toast.error(
+          `Task created, but failed to save: ${failed.join(", ")}. Open the task to retry.`,
+        );
+        onCreated();
+        return;
+      }
+
       onCreated();
       toast.success("Task created");
     } catch (e) {
