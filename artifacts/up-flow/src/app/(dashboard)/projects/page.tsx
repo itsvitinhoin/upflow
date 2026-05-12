@@ -210,7 +210,7 @@ function MoveToSpaceDialog({
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-2xl w-full max-w-sm p-6"
+        className="glass-strong rounded-2xl w-full max-w-sm p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-foreground">Move project</h3>
@@ -219,7 +219,7 @@ function MoveToSpaceDialog({
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
-          className="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">— Unassigned —</option>
           {spaces.map((sp) => (
@@ -231,7 +231,7 @@ function MoveToSpaceDialog({
         <div className="flex gap-2 mt-6">
           <button
             onClick={onClose}
-            className="flex-1 border border-border text-foreground text-sm py-2 rounded-lg hover:bg-muted"
+            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
           >
             Cancel
           </button>

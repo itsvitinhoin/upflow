@@ -48,6 +48,9 @@ export async function PATCH(
   if (space_id) {
     const space = await prisma.space.findUnique({ where: { id: space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
+    if (prismaUser.role !== "admin" && space.owner_id !== prismaUser.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   const updated = await prisma.project.update({
