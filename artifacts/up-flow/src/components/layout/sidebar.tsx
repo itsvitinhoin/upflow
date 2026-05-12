@@ -317,7 +317,7 @@ export default function Sidebar({ user }: SidebarProps) {
                           setMenuOpenId((id) => (id === sp.id ? null : sp.id))
                         }
                         aria-label={`Actions for ${sp.name}`}
-                        className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                       >
                         <MoreHorizontal className="w-3.5 h-3.5" />
                       </button>
