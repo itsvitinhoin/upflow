@@ -60,6 +60,11 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [greeting, setGreeting] = useState<string | null>(null);
+
+  useEffect(() => {
+    setGreeting(greetingTime());
+  }, []);
 
   useEffect(() => {
     setExtraMeetings(loadStoredMeetings());
@@ -147,7 +152,7 @@ export default function DashboardPage() {
           {/* Greeting */}
           <div>
             <h2 className="text-2xl font-bold text-foreground">
-              Good {greetingTime()}, {firstName} 👋
+              {greeting ? `Good ${greeting}, ${firstName} 👋` : `Hi ${firstName} 👋`}
             </h2>
             <p className="text-muted-foreground text-sm mt-1">
               Here&apos;s what&apos;s happening across your workspace today.
