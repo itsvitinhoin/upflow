@@ -1430,22 +1430,24 @@ function QuickAction({
         )}
       />
       <div className="pointer-events-none absolute -top-8 -right-6 w-24 h-24 rounded-full bg-white/10 blur-2xl" />
-      <div className="relative flex items-center gap-2.5">
+      <div className="relative flex items-start gap-2.5">
         <div
           className={cn(
-            "flex items-center justify-center w-8 h-8 rounded-lg bg-background/40 backdrop-blur",
+            "flex items-center justify-center w-8 h-8 rounded-lg bg-background/40 backdrop-blur flex-shrink-0",
             tone.split(" ").find((c) => c.startsWith("text-")) || "text-foreground"
           )}
         >
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold text-foreground/90 uppercase tracking-wide truncate">
+          <p className="text-xs font-semibold text-foreground leading-tight">
             {label}
           </p>
-          <p className="text-[10px] text-foreground/60 truncate">{hint}</p>
+          <p className="text-[11px] text-foreground/60 leading-snug mt-0.5">
+            {hint}
+          </p>
         </div>
-        <ArrowRight className="w-3.5 h-3.5 text-foreground/50 group-hover:text-foreground transition-colors flex-shrink-0" />
+        <ArrowRight className="w-3.5 h-3.5 mt-1 text-foreground/50 group-hover:text-foreground transition-colors flex-shrink-0" />
       </div>
     </button>
   );
