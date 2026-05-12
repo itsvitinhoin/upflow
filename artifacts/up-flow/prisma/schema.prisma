@@ -54,15 +54,16 @@ model User {
 }
 
 model Space {
-  id         String    @id @default(uuid())
-  name       String
-  icon       String?
-  owner_id   String
-  position   Int       @default(0)
-  created_at DateTime  @default(now())
-  owner      User      @relation(fields: [owner_id], references: [id])
-  projects   Project[]
-  folders    Folder[]
+  id          String    @id @default(uuid())
+  name        String
+  icon        String?
+  owner_id    String
+  position    Int       @default(0)
+  clickup_id  String?   @unique
+  created_at  DateTime  @default(now())
+  owner       User      @relation(fields: [owner_id], references: [id])
+  projects    Project[]
+  folders     Folder[]
 }
 
 model Folder {
@@ -72,6 +73,7 @@ model Folder {
   space_id   String
   owner_id   String
   position   Int       @default(0)
+  clickup_id String?   @unique
   created_at DateTime  @default(now())
   space      Space     @relation(fields: [space_id], references: [id], onDelete: Cascade)
   owner      User      @relation(fields: [owner_id], references: [id])
@@ -87,6 +89,7 @@ model Project {
   space_id    String?
   folder_id   String?
   due_date    DateTime?
+  clickup_id  String?       @unique
   created_at  DateTime      @default(now())
   owner       User          @relation(fields: [owner_id], references: [id])
   space       Space?        @relation(fields: [space_id], references: [id], onDelete: SetNull)
@@ -106,6 +109,7 @@ model Task {
   parent_id     String?
   due_date      DateTime?
   position      Int            @default(0)
+  clickup_id    String?        @unique
   created_at    DateTime       @default(now())
   project       Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
   assignee      User?          @relation("AssignedTasks", fields: [assignee_id], references: [id])
