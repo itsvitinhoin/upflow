@@ -1,9 +1,9 @@
 {
   "/api/notifications/route": "app/api/notifications/route.js",
-  "/api/projects/route": "app/api/projects/route.js",
-  "/(dashboard)/calendar/page": "app/(dashboard)/calendar/page.js",
   "/(dashboard)/projects/page": "app/(dashboard)/projects/page.js",
-  "/(dashboard)/projects/[id]/page": "app/(dashboard)/projects/[id]/page.js",
   "/(dashboard)/page": "app/(dashboard)/page.js",
-  "/(dashboard)/time/page": "app/(dashboard)/time/page.js"
+  "/(dashboard)/projects/[id]/page": "app/(dashboard)/projects/[id]/page.js",
+  "/(dashboard)/time/page": "app/(dashboard)/time/page.js",
+  "/(dashboard)/inbox/page": "app/(dashboard)/inbox/page.js",
+  "/(dashboard)/calendar/page": "app/(dashboard)/calendar/page.js"
 }
