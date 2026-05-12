@@ -45,10 +45,14 @@ export default async function DashboardLayout({
   return (
     <UserProvider user={user}>
       <div className="relative flex h-screen overflow-hidden bg-background">
-        <div className="bg-orbs"><span /></div>
         <div className="relative z-10 flex w-full h-full">
           <Sidebar user={user} />
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="relative flex-1 overflow-y-auto">
+            {/* Orbs are confined to the main content area so they do not
+                bleed under the sidebar. */}
+            <div className="bg-orbs" aria-hidden><span /></div>
+            <div className="relative z-10">{children}</div>
+          </main>
         </div>
       </div>
     </UserProvider>

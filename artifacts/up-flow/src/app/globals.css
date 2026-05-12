@@ -121,7 +121,7 @@
 }
 
 .bg-orbs {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: hidden;
