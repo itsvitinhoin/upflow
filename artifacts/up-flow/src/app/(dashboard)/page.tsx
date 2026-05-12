@@ -1464,19 +1464,16 @@ function PeopleCard({
   return (
     <section className="glass rounded-2xl overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">People</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {users.length} teammate{users.length === 1 ? "" : "s"}
-          </p>
-        </div>
+        <h3 className="text-sm font-semibold text-foreground">
+          People ({users.length})
+        </h3>
         <Link href="/team" className="text-xs text-primary hover:underline">
           View all →
         </Link>
       </div>
       <div className="p-3">
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />
             ))}
@@ -1486,23 +1483,31 @@ function PeopleCard({
             No teammates yet.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {users.slice(0, 8).map((u) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {users.slice(0, 9).map((u) => (
               <Link
                 key={u.id}
                 href="/team"
                 className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center flex-shrink-0">
-                  {getInitials(u.name)}
-                </div>
+                {u.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={u.avatar_url}
+                    alt={u.name}
+                    className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                    {getInitials(u.name)}
+                  </div>
+                )}
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-foreground truncate">
                     {u.name}
                   </p>
                   <p className="text-[10px] text-muted-foreground truncate">
-                    {u._count.tasks} task{u._count.tasks === 1 ? "" : "s"} ·{" "}
-                    {u._count.projects} proj
+                    {u.email}
                   </p>
                 </div>
               </Link>

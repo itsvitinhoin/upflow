@@ -8,6 +8,10 @@ export async function GET(req: NextRequest) {
   void req;
 
   const spaces = await prisma.space.findMany({
+    where:
+      auth.prismaUser.role === "admin"
+        ? undefined
+        : { owner_id: auth.prismaUser.id },
     orderBy: [{ position: "asc" }, { created_at: "asc" }],
     include: {
       owner: { select: { id: true, name: true, email: true } },
