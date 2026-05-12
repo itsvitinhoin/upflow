@@ -127,9 +127,18 @@ export default function Sidebar({ user }: SidebarProps) {
   // Close action menu on outside click
   useEffect(() => {
     if (!menuOpenId) return;
-    const handle = () => setMenuOpenId(null);
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    const handle = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target && target.closest('[role="menu"], [data-menu-trigger]')) return;
+      setMenuOpenId(null);
+    };
+    const t = window.setTimeout(() => {
+      document.addEventListener("mousedown", handle);
+    }, 0);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("mousedown", handle);
+    };
   }, [menuOpenId]);
 
   const handleSignOut = async () => {
@@ -351,6 +360,7 @@ export default function Sidebar({ user }: SidebarProps) {
                           setMenuOpenId((id) => (id === sp.id ? null : sp.id))
                         }
                         aria-label={`Actions for ${sp.name}`}
+                        data-menu-trigger
                         className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                       >
                         <MoreHorizontal className="w-3.5 h-3.5" />
@@ -446,6 +456,7 @@ export default function Sidebar({ user }: SidebarProps) {
                                     setMenuOpenId((id) => (id === f.id ? null : f.id))
                                   }
                                   aria-label={`Actions for ${f.name}`}
+                                  data-menu-trigger
                                   className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
                                 >
                                   <MoreHorizontal className="w-3 h-3" />
@@ -730,9 +741,18 @@ function ProjectRow({
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const h = () => setOpen(false);
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    const h = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target && target.closest('[role="menu"], [data-menu-trigger]')) return;
+      setOpen(false);
+    };
+    const t = window.setTimeout(() => {
+      document.addEventListener("mousedown", h);
+    }, 0);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("mousedown", h);
+    };
   }, [open]);
 
   const handleDelete = async () => {
@@ -768,6 +788,7 @@ function ProjectRow({
         <button
           onClick={() => setOpen((v) => !v)}
           aria-label={`Actions for ${project.name}`}
+          data-menu-trigger
           className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
         >
           <MoreHorizontal className="w-3 h-3" />
