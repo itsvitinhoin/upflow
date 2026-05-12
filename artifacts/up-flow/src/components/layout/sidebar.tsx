@@ -56,7 +56,7 @@ export default function Sidebar({ user }: SidebarProps) {
       : pathname === href || (pathname?.startsWith(href + "/") ?? false);
 
   const Rail = ({ onNavigate }: { onNavigate?: () => void }) => (
-    <div className="flex flex-col items-center w-full h-full bg-sidebar py-4">
+    <div className="flex flex-col items-center w-full h-full glass-rail py-4">
       <Link
         href="/"
         onClick={onNavigate}
@@ -124,7 +124,7 @@ export default function Sidebar({ user }: SidebarProps) {
 
   return (
     <>
-      <aside className="hidden md:flex w-[48px] flex-shrink-0 flex-col bg-sidebar border-r border-sidebar-border">
+      <aside className="hidden md:flex w-[48px] flex-shrink-0 flex-col">
         <Rail />
       </aside>
 

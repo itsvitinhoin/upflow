@@ -36,6 +36,7 @@ export default function Header({ title }: HeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -78,9 +79,41 @@ export default function Header({ title }: HeaderProps) {
         setPanelOpen(false);
       }
     }
-    if (panelOpen) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && panelOpen) setPanelOpen(false);
+    }
+    if (panelOpen) {
+      document.addEventListener("mousedown", handleClick);
+      document.addEventListener("keydown", handleKey);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [panelOpen]);
+
+  useEffect(() => {
+    function handleShortcut(e: KeyboardEvent) {
+      if (!((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k")) return;
+      const target = e.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        const isEditable =
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable;
+        // Allow Cmd/Ctrl+K from our own search input (re-focus is fine), but
+        // skip when the user is editing other inputs/textareas/contenteditable.
+        if (isEditable && target !== searchRef.current) return;
+      }
+      e.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    }
+    document.addEventListener("keydown", handleShortcut);
+    return () => document.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   const handleMarkAllRead = async () => {
     const unread = notifications.filter((n) => !n.read);
@@ -109,7 +142,7 @@ export default function Header({ title }: HeaderProps) {
 
   return (
     <>
-      <header className="flex items-center gap-4 px-6 py-4 border-b border-border bg-background/80 backdrop-blur sticky top-0 z-30">
+      <header className="flex items-center gap-4 px-6 py-4 glass-header sticky top-0 z-30">
         <form
           onSubmit={handleSearch}
           className="flex-1 min-w-0 ml-10 md:ml-0"
@@ -118,12 +151,16 @@ export default function Header({ title }: HeaderProps) {
           <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
+              ref={searchRef}
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${title.toLowerCase()}, projects, tasks, docs…`}
-              className="w-full h-11 pl-11 pr-4 text-sm bg-card border border-border rounded-full focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/40 placeholder:text-muted-foreground transition"
+              className="w-full h-11 pl-11 pr-16 text-sm bg-white/5 backdrop-blur-md border border-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/40 placeholder:text-muted-foreground transition"
             />
+            <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground bg-white/5 border border-white/10 rounded">
+              ⌘K
+            </kbd>
           </div>
         </form>
 
@@ -132,7 +169,7 @@ export default function Header({ title }: HeaderProps) {
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label="Notifications"
-              className="relative w-11 h-11 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              className="relative w-11 h-11 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (
@@ -141,7 +178,7 @@ export default function Header({ title }: HeaderProps) {
             </button>
 
             {panelOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-popover border border-border rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="absolute right-0 top-full mt-2 w-80 glass-strong rounded-xl z-50 overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <span className="text-sm font-semibold text-foreground">
                     Notifications

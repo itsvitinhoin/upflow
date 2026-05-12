@@ -45,13 +45,13 @@ const dotPalette = [
 ];
 
 export const weekActivity = [
-  { day: "Mon", dots: [16, 10, 14, 8, 12] },
-  { day: "Tue", dots: [12, 18, 8, 10] },
-  { day: "Wed", dots: [10, 20, 14, 8, 12, 6] },
-  { day: "Thu", dots: [14, 10, 18, 8] },
-  { day: "Fri", dots: [12, 14, 10] },
-  { day: "Sat", dots: [8, 10] },
-  { day: "Sun", dots: [6] },
+  { day: "Mon", dots: [16, 10, 14, 8, 12], hours: 7.5, tasks: 5 },
+  { day: "Tue", dots: [12, 18, 8, 10], hours: 6.2, tasks: 4 },
+  { day: "Wed", dots: [10, 20, 14, 8, 12, 6], hours: 8.4, tasks: 6 },
+  { day: "Thu", dots: [14, 10, 18, 8], hours: 6.8, tasks: 4 },
+  { day: "Fri", dots: [12, 14, 10], hours: 5.1, tasks: 3 },
+  { day: "Sat", dots: [8, 10], hours: 2.4, tasks: 2 },
+  { day: "Sun", dots: [6], hours: 1.0, tasks: 1 },
 ].map((d, di) => ({
   ...d,
   items: d.dots.map((size, i) => ({

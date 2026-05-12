@@ -87,6 +87,78 @@
   }
 }
 
+@layer components {
+  .glass {
+    background-color: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 1px 0 rgba(0, 0, 0, 0.25);
+  }
+  .glass-strong {
+    background-color: hsl(var(--popover) / 0.78);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  .glass-rail {
+    background-color: hsl(var(--sidebar) / 0.55);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .glass-header {
+    background-color: hsl(var(--background) / 0.55);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+}
+
+.bg-orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+.bg-orbs::before,
+.bg-orbs::after,
+.bg-orbs > span {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(120px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.bg-orbs::before {
+  width: 520px;
+  height: 520px;
+  top: -160px;
+  left: 10%;
+  background: radial-gradient(circle at 30% 30%, hsl(152 60% 55% / 0.55), transparent 60%);
+}
+.bg-orbs::after {
+  width: 620px;
+  height: 620px;
+  bottom: -200px;
+  right: 5%;
+  background: radial-gradient(circle at 60% 60%, hsl(245 90% 70% / 0.55), transparent 60%);
+}
+.bg-orbs > span {
+  width: 460px;
+  height: 460px;
+  top: 30%;
+  right: 30%;
+  background: radial-gradient(circle at 50% 50%, hsl(18 80% 70% / 0.45), transparent 60%);
+}
+
 /* Tiptap editor styles */
 .ProseMirror {
   outline: none;

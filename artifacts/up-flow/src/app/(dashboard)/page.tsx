@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAppUser } from "@/components/user-provider";
 import {
   AlertCircle,
@@ -13,6 +13,9 @@ import {
   Calendar as CalendarIcon,
   MoreHorizontal,
   Video,
+  RotateCcw,
+  Repeat,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
@@ -26,6 +29,9 @@ import {
   buildTimelineRows,
 } from "@/lib/dashboard-mocks";
 
+type StatusFilter = "all" | "todo" | "in_progress" | "done";
+type ActionFilter = "all" | "completed" | "in_progress";
+
 export default function DashboardPage() {
   const user = useAppUser();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -33,6 +39,9 @@ export default function DashboardPage() {
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const loadData = () => {
     Promise.all([
@@ -58,20 +67,54 @@ export default function DashboardPage() {
   const todoCount = tasks.filter((t) => t.status === "todo").length;
   const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
-  const upcomingTasks = useMemo(
+  const filteredTasks = useMemo(
     () =>
       [...tasks]
-        .filter((t) => t.status !== "done")
+        .filter((t) => (statusFilter === "all" ? t.status !== "done" : t.status === statusFilter))
         .sort((a, b) => {
           if (!a.due_date) return 1;
           if (!b.due_date) return -1;
           return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
         })
         .slice(0, 6),
-    [tasks]
+    [tasks, statusFilter]
   );
 
   const firstName = user?.name?.split(" ")[0] || "there";
+
+  const handleStatusChange = async (task: Task, status: Task["status"]) => {
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast.success(`Task moved to ${status.replace("_", " ")}`);
+      setActiveTask(null);
+      loadData();
+    } catch {
+      toast.error("Could not update task");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteTask = async (task: Task) => {
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Task deleted");
+      setActiveTask(null);
+      loadData();
+    } catch {
+      toast.error("Could not delete task");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   return (
     <>
@@ -89,7 +132,7 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          {/* Stat cards (Upcoming / In Progress / Completed Actions) */}
+          {/* Stat cards */}
           <section className="grid gap-4 md:grid-cols-3">
             <StatCard
               tone="stat-1"
@@ -98,6 +141,10 @@ export default function DashboardPage() {
               accent="text-primary"
               icon={<FolderKanban className="w-5 h-5" />}
               hint="Tasks waiting to start"
+              active={statusFilter === "todo"}
+              onClick={() =>
+                setStatusFilter((s) => (s === "todo" ? "all" : "todo"))
+              }
             />
             <StatCard
               tone="stat-2"
@@ -106,6 +153,10 @@ export default function DashboardPage() {
               accent="text-upflow-warning"
               icon={<AlertCircle className="w-5 h-5" />}
               hint="Currently being worked on"
+              active={statusFilter === "in_progress"}
+              onClick={() =>
+                setStatusFilter((s) => (s === "in_progress" ? "all" : "in_progress"))
+              }
             />
             <StatCard
               tone="stat-3"
@@ -114,11 +165,15 @@ export default function DashboardPage() {
               accent="text-upflow-success"
               icon={<CheckCircle2 className="w-5 h-5" />}
               hint={`${progress}% of total`}
+              active={statusFilter === "done"}
+              onClick={() =>
+                setStatusFilter((s) => (s === "done" ? "all" : "done"))
+              }
             />
           </section>
 
           {/* Progress widget */}
-          <section className="bg-card border border-border rounded-2xl p-5">
+          <section className="glass rounded-2xl p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Weekly progress</p>
@@ -135,47 +190,78 @@ export default function DashboardPage() {
                 New Task
               </button>
             </div>
-            <div className="mt-4 h-2 rounded-full bg-secondary overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-upflow-success transition-all"
-                style={{ width: `${progress}%` }}
-              />
+            <div
+              className="group relative mt-4 h-2 rounded-full bg-white/5 overflow-visible cursor-help"
+              title={`${doneCount} of ${tasks.length || 0} tasks complete`}
+            >
+              <div className="h-full rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-primary to-upflow-success transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium glass-strong opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                {doneCount} / {tasks.length || 0} complete
+              </span>
             </div>
           </section>
 
           {/* Team timeline */}
           <TeamTimeline users={users} loading={loading} />
 
-          {/* Upcoming tasks */}
-          <section className="bg-card border border-border rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Upcoming tasks</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Sorted by due date</p>
+          {/* Filtered tasks list */}
+          <section className="glass rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {statusFilter === "all"
+                    ? "Upcoming tasks"
+                    : statusFilter === "todo"
+                    ? "Upcoming"
+                    : statusFilter === "in_progress"
+                    ? "In progress"
+                    : "Completed"}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {statusFilter === "all"
+                    ? "Sorted by due date"
+                    : `Filtered by ${statusFilter.replace("_", " ")} · click the card again to reset`}
+                </p>
               </div>
-              <button
-                onClick={() => setShowNewTask(true)}
-                className="text-xs text-primary hover:underline"
-              >
-                + Add task
-              </button>
+              <div className="flex items-center gap-2">
+                {statusFilter !== "all" && (
+                  <button
+                    onClick={() => setStatusFilter("all")}
+                    className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                  >
+                    <X className="w-3 h-3" /> Clear
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNewTask(true)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  + Add task
+                </button>
+              </div>
             </div>
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-white/5">
               {loading ? (
                 [1, 2, 3].map((i) => (
                   <div key={i} className="px-5 py-4">
-                    <div className="h-4 w-1/2 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" />
                   </div>
                 ))
-              ) : upcomingTasks.length === 0 ? (
+              ) : filteredTasks.length === 0 ? (
                 <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                  No tasks yet — create your first one.
+                  Nothing here yet.
                 </div>
               ) : (
-                upcomingTasks.map((task) => (
-                  <div
+                filteredTasks.map((task) => (
+                  <button
                     key={task.id}
-                    className="flex items-center gap-3 px-5 py-3.5 hover:bg-secondary/50 transition-colors"
+                    onClick={() => setActiveTask(task)}
+                    className="w-full text-left flex items-center gap-3 px-5 py-3.5 hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/60"
                   >
                     <div
                       className={cn(
@@ -217,7 +303,7 @@ export default function DashboardPage() {
                         {formatDate(task.due_date)}
                       </span>
                     )}
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -239,6 +325,16 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      {activeTask && (
+        <TaskDetailModal
+          task={activeTask}
+          updating={updating}
+          onClose={() => setActiveTask(null)}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDeleteTask}
+        />
+      )}
     </>
   );
 }
@@ -257,6 +353,8 @@ function StatCard({
   accent,
   icon,
   hint,
+  active,
+  onClick,
 }: {
   tone: "stat-1" | "stat-2" | "stat-3";
   label: string;
@@ -264,23 +362,27 @@ function StatCard({
   accent: string;
   icon: React.ReactNode;
   hint: string;
+  active: boolean;
+  onClick: () => void;
 }) {
-  // Soft pastel gradient washes layered over a dark card base.
   const wash =
     tone === "stat-1"
-      ? "bg-gradient-to-br from-upflow-stat-1-from/35 via-upflow-stat-1-to/80 to-upflow-stat-1-to"
+      ? "bg-gradient-to-br from-upflow-stat-1-from/35 via-upflow-stat-1-to/60 to-upflow-stat-1-to/40"
       : tone === "stat-2"
-      ? "bg-gradient-to-br from-upflow-stat-2-from/35 via-upflow-stat-2-to/80 to-upflow-stat-2-to"
-      : "bg-gradient-to-br from-upflow-stat-3-from/35 via-upflow-stat-3-to/80 to-upflow-stat-3-to";
+      ? "bg-gradient-to-br from-upflow-stat-2-from/35 via-upflow-stat-2-to/60 to-upflow-stat-2-to/40"
+      : "bg-gradient-to-br from-upflow-stat-3-from/35 via-upflow-stat-3-to/60 to-upflow-stat-3-to/40";
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        "relative overflow-hidden rounded-2xl border border-border/60 p-5 shadow-inner",
-        wash
+        "relative overflow-hidden rounded-2xl p-5 text-left glass transition-all hover:-translate-y-0.5 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-primary/60",
+        active && "ring-2 ring-primary/70"
       )}
     >
-      {/* subtle inner highlight blob */}
-      <div className="pointer-events-none absolute -top-12 -right-10 w-36 h-36 rounded-full bg-white/5 blur-2xl" />
+      <div className={cn("pointer-events-none absolute inset-0", wash)} />
+      <div className="pointer-events-none absolute -top-12 -right-10 w-36 h-36 rounded-full bg-white/10 blur-2xl" />
       <div className="relative flex items-center justify-between">
         <p className="text-xs font-medium text-foreground/80 uppercase tracking-wide">
           {label}
@@ -296,7 +398,12 @@ function StatCard({
       </div>
       <h3 className="relative mt-3 text-3xl font-bold text-foreground">{value}</h3>
       <p className="relative mt-1 text-xs text-foreground/60">{hint}</p>
-    </div>
+      {active && (
+        <span className="relative mt-2 inline-block text-[10px] font-medium uppercase tracking-wider text-primary">
+          Filtering ↓
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -307,14 +414,18 @@ function TeamTimeline({
   users: TeamMember[];
   loading: boolean;
 }) {
-  const hours = Array.from({ length: 12 }, (_, i) => 8 + i); // 8am - 7pm
+  const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
   const currentHour = new Date().getHours();
   const totalHours = 11;
+  const [focusHour, setFocusHour] = useState<number | null>(null);
 
   const rows = useMemo(() => buildTimelineRows(users), [users]);
 
+  const inFocusWindow = (h: number) =>
+    focusHour !== null && Math.abs(h - focusHour) <= 2;
+
   return (
-    <section className="bg-card border border-border rounded-2xl p-5">
+    <section className="glass rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Team timeline</h3>
@@ -324,9 +435,21 @@ function TeamTimeline({
               month: "long",
               day: "numeric",
             })}
+            {focusHour !== null && (
+              <>
+                {" · "}
+                <button
+                  onClick={() => setFocusHour(null)}
+                  className="text-primary hover:underline"
+                >
+                  Clear focus
+                </button>
+              </>
+            )}
           </p>
         </div>
         <button
+          onClick={() => toast("Timeline options coming soon")}
           aria-label="Timeline options"
           className="text-muted-foreground hover:text-foreground transition-colors"
         >
@@ -338,18 +461,29 @@ function TeamTimeline({
       <div className="flex items-center gap-1 overflow-x-auto pb-3 pl-[140px]">
         {hours.map((h) => {
           const isCurrent = h === currentHour;
+          const isFocus = focusHour === h;
+          const inWindow = inFocusWindow(h);
           return (
-            <div
+            <button
               key={h}
+              onClick={() =>
+                setFocusHour((f) => (f === h ? null : h))
+              }
+              aria-pressed={isFocus}
+              title={`Focus around ${h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`}`}
               className={cn(
-                "flex-1 min-w-[44px] text-center px-2 py-1.5 text-xs rounded-lg font-medium transition-colors",
-                isCurrent
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground bg-secondary/40"
+                "flex-1 min-w-[44px] text-center px-2 py-1.5 text-xs rounded-lg font-medium transition-all hover:text-foreground",
+                isFocus
+                  ? "bg-primary text-primary-foreground ring-2 ring-primary/60"
+                  : isCurrent
+                  ? "bg-primary/80 text-primary-foreground"
+                  : inWindow
+                  ? "bg-primary/20 text-foreground"
+                  : "text-muted-foreground bg-white/5 hover:bg-white/10"
               )}
             >
               {h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -366,47 +500,52 @@ function TeamTimeline({
           </div>
         ) : (
           rows.map(({ user: u, blocks, color }) => (
-            <div key={u.id} className="flex items-center gap-3">
+            <button
+              key={u.id}
+              onClick={() => toast(`Open ${u.name}'s schedule`)}
+              className="w-full flex items-center gap-3 rounded-lg p-1 -mx-1 hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
               <div className="w-[128px] flex items-center gap-2 flex-shrink-0">
-                <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
                   {getInitials(u.name)}
                 </div>
-                <span className="text-xs text-foreground truncate">{u.name}</span>
+                <span className="text-xs text-foreground truncate text-left">{u.name}</span>
               </div>
-              <div className="relative flex-1 h-9 rounded-lg bg-secondary/40 overflow-hidden">
+              <div className="relative flex-1 h-9 rounded-lg bg-white/5 overflow-hidden">
                 <div className="absolute inset-y-0 left-0 right-0 grid grid-cols-12">
                   {hours.map((h) => (
                     <div
                       key={h}
                       className={cn(
-                        "border-r border-border/40 last:border-r-0",
-                        h === currentHour && "bg-primary/10"
+                        "border-r border-white/5 last:border-r-0 transition-colors",
+                        h === currentHour && "bg-primary/10",
+                        focusHour !== null && inFocusWindow(h) && "bg-primary/15",
+                        focusHour !== null && !inFocusWindow(h) && "opacity-50"
                       )}
                     />
                   ))}
                 </div>
-                {blocks.map((b, i) => {
-                  const left = ((b.start - 8) / totalHours) * 100;
-                  const width = Math.max(((b.end - b.start) / totalHours) * 100, 4);
-                  return (
-                    <div
-                      key={i}
-                      title={`${b.label} · ${b.start > 12 ? `${b.start - 12}pm` : `${b.start}am`} - ${b.end > 12 ? `${b.end - 12}pm` : `${b.end}am`}`}
-                      className={cn(
-                        "absolute top-1 bottom-1 rounded-md border-l-2 px-2 flex items-center text-[10px] font-medium text-foreground/80 truncate",
-                        color
-                      )}
-                      style={{
-                        left: `calc(${left}% + 2px)`,
-                        width: `calc(${width}% - 4px)`,
-                      }}
-                    >
-                      {b.label}
-                    </div>
-                  );
-                })}
+                {blocks.map((b, i) => (
+                  <div
+                    key={i}
+                    title={`${b.label} · ${b.start > 12 ? `${b.start - 12}pm` : `${b.start}am`} - ${b.end > 12 ? `${b.end - 12}pm` : `${b.end}am`}`}
+                    className={cn(
+                      "absolute top-1 bottom-1 rounded-md border-l-2 px-2 flex items-center text-[10px] font-medium text-foreground/80 truncate transition-opacity",
+                      color,
+                      focusHour !== null &&
+                        !(b.start <= focusHour + 2 && b.end >= focusHour - 2) &&
+                        "opacity-30"
+                    )}
+                    style={{
+                      left: `calc(${((b.start - 8) / totalHours) * 100}% + 2px)`,
+                      width: `calc(${Math.max(((b.end - b.start) / totalHours) * 100, 4)}% - 4px)`,
+                    }}
+                  >
+                    {b.label}
+                  </div>
+                ))}
               </div>
-            </div>
+            </button>
           ))
         )}
       </div>
@@ -424,7 +563,24 @@ function RightPanel({
   userName: string;
 }) {
   const [timerState, setTimerState] = useState<TimerState>("stopped");
-  const [seconds, setSeconds] = useState(2 * 3600 + 18 * 60); // 2h 18m start
+  const [seconds, setSeconds] = useState(2 * 3600 + 18 * 60);
+  const [activeProjectIdx, setActiveProjectIdx] = useState(0);
+  const [splits, setSplits] = useState<{ project: string; duration: string }[]>([
+    { project: "UI Dashboard", duration: "1h 12m" },
+    { project: "Showreel", duration: "0h 46m" },
+  ]);
+  const [timerMenuOpen, setTimerMenuOpen] = useState(false);
+  const timerMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (timerMenuRef.current && !timerMenuRef.current.contains(e.target as Node)) {
+        setTimerMenuOpen(false);
+      }
+    }
+    if (timerMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [timerMenuOpen]);
 
   useEffect(() => {
     if (timerState !== "running") return;
@@ -445,40 +601,97 @@ function RightPanel({
   );
 
   const todayIdx = (() => {
-    // Map JS Sunday=0..Saturday=6 to our Mon..Sun layout
     const d = new Date().getDay();
     return d === 0 ? 6 : d - 1;
   })();
+  const [activeDay, setActiveDay] = useState<number | null>(null);
+  const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
   const recent = recentActions(userName);
+
+  const filteredRecent = useMemo(() => {
+    let list = recent;
+    if (actionFilter !== "all") {
+      list = list.filter((r) => r.status === actionFilter);
+    }
+    if (activeDay !== null) {
+      // Mock filter: pick a deterministic subset based on day index
+      list = list.filter((_, i) => i % 7 === activeDay % (list.length || 1) || (i + activeDay) % 3 === 0);
+    }
+    return list;
+  }, [recent, actionFilter, activeDay]);
+
+  const activeProject = projects[activeProjectIdx]?.name || "No active project";
 
   const handleStart = () => setTimerState("running");
   const handlePause = () => setTimerState("paused");
   const handleStop = () => {
+    if (seconds > 0) {
+      setSplits((prev) => [
+        { project: activeProject, duration: `${h}h ${m}m` },
+        ...prev,
+      ].slice(0, 4));
+    }
     setTimerState("stopped");
     setSeconds(0);
   };
 
+  const handleReset = () => {
+    setTimerState("stopped");
+    setSeconds(0);
+    setTimerMenuOpen(false);
+    toast.success("Timer reset");
+  };
+
+  const handleSwitchProject = () => {
+    if (projects.length <= 1) {
+      toast("No other projects to switch to");
+      setTimerMenuOpen(false);
+      return;
+    }
+    setActiveProjectIdx((i) => (i + 1) % projects.length);
+    setTimerMenuOpen(false);
+    toast.success(`Switched to ${projects[(activeProjectIdx + 1) % projects.length].name}`);
+  };
+
   return (
-    <aside className="hidden lg:flex w-[280px] flex-shrink-0 flex-col gap-4 p-6 border-l border-border bg-sidebar/30">
+    <aside className="hidden lg:flex w-[280px] flex-shrink-0 flex-col gap-4 p-6 border-l border-white/5">
       {/* Time tracking */}
-      <div className="bg-card border border-border rounded-2xl p-5">
+      <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Time tracking
           </p>
-          <button
-            aria-label="Time tracking options"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+          <div className="relative" ref={timerMenuRef}>
+            <button
+              onClick={() => setTimerMenuOpen((v) => !v)}
+              aria-label="Time tracking options"
+              aria-expanded={timerMenuOpen}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+            {timerMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-44 glass-strong rounded-xl z-50 overflow-hidden text-xs">
+                <button
+                  onClick={handleReset}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 text-left"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset timer
+                </button>
+                <button
+                  onClick={handleSwitchProject}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 text-left border-t border-white/5"
+                >
+                  <Repeat className="w-3.5 h-3.5" /> Switch project
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div className="font-mono text-3xl font-bold text-foreground tabular-nums">
           {fmt(h)}:{fmt(m)}:{fmt(s)}
         </div>
-        <p className="text-xs text-muted-foreground mt-1">
-          {projects[0]?.name || "No active project"}
-        </p>
+        <p className="text-xs text-muted-foreground mt-1 truncate">{activeProject}</p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           <button
             onClick={handleStart}
@@ -502,16 +715,33 @@ function RightPanel({
             onClick={handlePause}
             disabled={timerState !== "running"}
             aria-label="Pause timer"
-            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-secondary text-foreground hover:bg-secondary/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-white/5 text-foreground hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Pause className="w-3.5 h-3.5" />
             Pause
           </button>
         </div>
+        {splits.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
+              Recent splits
+            </p>
+            <ul className="space-y-1">
+              {splits.map((sp, i) => (
+                <li key={i} className="flex items-center justify-between text-xs">
+                  <span className="text-foreground/80 truncate pr-2">{sp.project}</span>
+                  <span className="font-mono text-muted-foreground tabular-nums">
+                    {sp.duration}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {/* Today's meetings — AM/PM groups with right-aligned toggles */}
-      <div className="bg-card border border-border rounded-2xl p-5">
+      {/* Today's meetings */}
+      <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Today meetings
@@ -535,16 +765,22 @@ function RightPanel({
                     return (
                       <div
                         key={mt.title}
-                        className="flex items-center gap-3 py-1.5"
+                        className="flex items-center gap-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors -mx-2 px-2"
                       >
-                        <span className="font-mono text-xs font-semibold text-foreground/90 tabular-nums w-12 flex-shrink-0">
-                          {mt.time}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm text-foreground truncate">
-                            {mt.title}
-                          </p>
-                        </div>
+                        <button
+                          onClick={() => toast(`Joining ${mt.title}…`, { icon: "📹" })}
+                          className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        >
+                          <span className="font-mono text-xs font-semibold text-foreground/90 tabular-nums w-12 flex-shrink-0">
+                            {mt.time}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-foreground truncate">
+                              {mt.title}
+                            </p>
+                          </div>
+                          <Video className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                        </button>
                         <button
                           onClick={() =>
                             setMeetingsOpen((s) => ({
@@ -556,7 +792,7 @@ function RightPanel({
                           aria-label={`Toggle ${mt.title}`}
                           className={cn(
                             "relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0",
-                            open ? "bg-primary" : "bg-secondary"
+                            open ? "bg-primary" : "bg-white/10"
                           )}
                         >
                           <span
@@ -573,28 +809,52 @@ function RightPanel({
               </div>
             )
         )}
-        <button className="text-xs text-primary hover:text-primary/80 mt-1">
+        <button
+          onClick={() => toast("All meetings — calendar view coming soon")}
+          className="text-xs text-primary hover:text-primary/80 mt-1"
+        >
           View all →
         </button>
       </div>
 
-      {/* Activity — per-weekday vertical capsules */}
-      <div className="bg-card border border-border rounded-2xl p-5">
+      {/* Activity */}
+      <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Activity
           </p>
-          <span className="text-xs text-muted-foreground">Last week</span>
+          {activeDay !== null ? (
+            <button
+              onClick={() => setActiveDay(null)}
+              className="text-[10px] text-primary hover:underline"
+            >
+              Clear
+            </button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Last week</span>
+          )}
         </div>
         <div className="flex items-end justify-between gap-1.5">
           {weekActivity.map((d, i) => {
             const isToday = i === todayIdx;
+            const isActive = activeDay === i;
             return (
-              <div key={d.day} className="flex flex-col items-center gap-1.5 flex-1 min-w-0">
-                <div
+              <div
+                key={d.day}
+                className="flex flex-col items-center gap-1.5 flex-1 min-w-0"
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveDay((c) => (c === i ? null : i))}
+                  aria-pressed={isActive}
+                  title={`${d.hours}h · ${d.tasks} tasks`}
                   className={cn(
-                    "w-full flex flex-col items-center justify-end gap-1 py-2 rounded-full min-h-[96px]",
-                    isToday ? "bg-primary/15 ring-1 ring-primary/30" : "bg-background/60"
+                    "group relative w-full flex flex-col items-center justify-end gap-1 py-2 rounded-full min-h-[96px] transition-all hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                    isActive
+                      ? "bg-primary/25 ring-2 ring-primary/60"
+                      : isToday
+                      ? "bg-primary/15 ring-1 ring-primary/30"
+                      : "bg-white/5"
                   )}
                 >
                   {d.items.map((dot, di) => (
@@ -608,11 +868,18 @@ function RightPanel({
                       }}
                     />
                   ))}
-                </div>
+                  <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium glass-strong opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                    {d.hours}h · {d.tasks} tasks
+                  </span>
+                </button>
                 <span
                   className={cn(
                     "text-[10px] font-medium",
-                    isToday ? "text-primary" : "text-muted-foreground"
+                    isActive
+                      ? "text-primary"
+                      : isToday
+                      ? "text-primary"
+                      : "text-muted-foreground"
                   )}
                 >
                   {d.day}
@@ -623,47 +890,225 @@ function RightPanel({
         </div>
       </div>
 
-      {/* Last actions — with status pills */}
-      <div className="bg-card border border-border rounded-2xl p-5">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-          Last actions
-        </p>
-        <div className="space-y-3">
-          {recent.map((r, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                {getInitials(r.who)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-xs font-medium text-foreground truncate">
-                    {r.who}
-                  </p>
-                  <span
-                    className={cn(
-                      "text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
-                      r.status === "completed"
-                        ? "bg-upflow-success/15 text-upflow-success"
-                        : "bg-upflow-warning/15 text-upflow-warning"
-                    )}
-                  >
-                    {r.status === "completed" ? "Completed" : "In progress"}
-                  </span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug truncate">
-                  {r.what} {r.target}
-                </p>
-                <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                  {r.when}
-                </p>
-              </div>
-            </div>
+      {/* Last actions */}
+      <div className="glass rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Last actions
+          </p>
+        </div>
+        <div className="flex items-center gap-1 mb-3">
+          {(["all", "completed", "in_progress"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setActionFilter(f)}
+              aria-pressed={actionFilter === f}
+              className={cn(
+                "text-[10px] font-semibold uppercase tracking-wider px-2 py-1 rounded-full transition-colors",
+                actionFilter === f
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-white/5 text-muted-foreground hover:bg-white/10"
+              )}
+            >
+              {f === "all" ? "All" : f === "completed" ? "Done" : "Active"}
+            </button>
           ))}
         </div>
-        <button className="text-xs text-primary hover:text-primary/80 mt-3">
+        <div className="space-y-3">
+          {filteredRecent.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">
+              No matching activity.
+            </p>
+          ) : (
+            filteredRecent.map((r, i) => (
+              <button
+                key={i}
+                onClick={() => toast(`${r.who} — ${r.what} ${r.target}`)}
+                className="w-full flex items-start gap-3 -mx-2 px-2 py-1 rounded-lg hover:bg-white/5 transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                  {getInitials(r.who)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-xs font-medium text-foreground truncate">
+                      {r.who}
+                    </p>
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded flex-shrink-0",
+                        r.status === "completed"
+                          ? "bg-upflow-success/20 text-upflow-success"
+                          : "bg-upflow-warning/20 text-upflow-warning"
+                      )}
+                    >
+                      {r.status === "completed" ? "Completed" : "In progress"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-snug truncate">
+                    {r.what} {r.target}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground/90 mt-0.5">
+                    {r.when}
+                  </p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+        <button
+          onClick={() => toast("All activity view coming soon")}
+          className="text-xs text-primary hover:text-primary/80 mt-3"
+        >
           View all →
         </button>
       </div>
     </aside>
+  );
+}
+
+function TaskDetailModal({
+  task,
+  updating,
+  onClose,
+  onStatusChange,
+  onDelete,
+}: {
+  task: Task;
+  updating: boolean;
+  onClose: () => void;
+  onStatusChange: (task: Task, status: Task["status"]) => void;
+  onDelete: (task: Task) => void;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const titleId = `task-modal-title-${task.id}`;
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeBtnRef.current?.focus();
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      previouslyFocused?.focus?.();
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-md glass-strong rounded-2xl p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              {task.project?.name || "Task"}
+            </p>
+            <h3 id={titleId} className="mt-1 text-lg font-bold text-foreground">{task.title}</h3>
+          </div>
+          <button
+            ref={closeBtnRef}
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted-foreground hover:text-foreground rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+          <span
+            className={cn(
+              "px-2 py-1 rounded-full font-medium",
+              priorityColor(task.priority)
+            )}
+          >
+            {task.priority}
+          </span>
+          <span className="px-2 py-1 rounded-full bg-white/5 text-foreground/80 capitalize">
+            {task.status.replace("_", " ")}
+          </span>
+          {task.due_date && (
+            <span
+              className={cn(
+                "px-2 py-1 rounded-full bg-white/5",
+                isOverdue(task.due_date) && task.status !== "done"
+                  ? "text-upflow-danger"
+                  : "text-foreground/80"
+              )}
+            >
+              Due {formatDate(task.due_date)}
+            </span>
+          )}
+        </div>
+        {task.description && (
+          <p className="mt-4 text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+            {task.description}
+          </p>
+        )}
+        <div className="mt-6 grid grid-cols-3 gap-2">
+          <button
+            onClick={() => onStatusChange(task, "todo")}
+            disabled={updating || task.status === "todo"}
+            className="text-xs font-medium py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 transition-colors"
+          >
+            To do
+          </button>
+          <button
+            onClick={() => onStatusChange(task, "in_progress")}
+            disabled={updating || task.status === "in_progress"}
+            className="text-xs font-medium py-2 rounded-xl bg-upflow-warning/20 text-upflow-warning hover:bg-upflow-warning/30 disabled:opacity-40 transition-colors"
+          >
+            In progress
+          </button>
+          <button
+            onClick={() => onStatusChange(task, "done")}
+            disabled={updating || task.status === "done"}
+            className="text-xs font-medium py-2 rounded-xl bg-upflow-success/20 text-upflow-success hover:bg-upflow-success/30 disabled:opacity-40 transition-colors"
+          >
+            Mark done
+          </button>
+        </div>
+        <button
+          onClick={() => {
+            if (confirm(`Delete "${task.title}"?`)) onDelete(task);
+          }}
+          disabled={updating}
+          className="mt-3 w-full text-xs font-medium py-2 rounded-xl text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40 transition-colors"
+        >
+          Delete task
+        </button>
+      </div>
+    </div>
   );
 }

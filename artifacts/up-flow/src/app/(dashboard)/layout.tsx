@@ -44,9 +44,12 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider user={user}>
-      <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar user={user} />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+      <div className="relative flex h-screen overflow-hidden bg-background">
+        <div className="bg-orbs"><span /></div>
+        <div className="relative z-10 flex w-full h-full">
+          <Sidebar user={user} />
+          <main className="flex-1 overflow-y-auto">{children}</main>
+        </div>
       </div>
     </UserProvider>
   );
