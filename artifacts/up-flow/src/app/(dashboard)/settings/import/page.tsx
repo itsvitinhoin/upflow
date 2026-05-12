@@ -46,7 +46,7 @@ export default function ClickUpImportPage() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [busy, setBusy] = useState<"idle" | "connecting" | "previewing" | "importing">("idle");
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = !!user;
 
   const handleConnect = async () => {
     setBusy("connecting");
