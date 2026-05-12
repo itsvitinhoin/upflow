@@ -87,9 +87,6 @@ export default function Sidebar({ user }: SidebarProps) {
               {active && (
                 <span className="absolute -bottom-1.5 w-1 h-1 rounded-full bg-primary" />
               )}
-              <span className="pointer-events-none absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-popover-foreground text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50 border border-border shadow-md hidden md:block">
-                {label}
-              </span>
             </Link>
           );
         })}
