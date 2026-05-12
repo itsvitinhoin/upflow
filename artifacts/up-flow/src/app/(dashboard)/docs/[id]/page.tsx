@@ -183,8 +183,8 @@ export default function DocPage() {
             )}
             {saveState === "saved" && (
               <>
-                <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
-                <span className="text-green-600 dark:text-green-400">Saved</span>
+                <Check className="w-3 h-3 text-upflow-success" />
+                <span className="text-upflow-success">Saved</span>
               </>
             )}
             {saveState === "error" && (

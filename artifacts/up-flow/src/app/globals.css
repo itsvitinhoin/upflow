@@ -3,75 +3,48 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 98%;
-    --foreground: 224 71% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 214 32% 95%;
-    --secondary-foreground: 224 71% 4%;
-    --muted: 214 32% 95%;
-    --muted-foreground: 214 32% 47%;
-    --accent: 214 32% 93%;
-    --accent-foreground: 224 71% 4%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 216 12% 84%;
-    --input: 216 12% 84%;
-    --ring: 217 91% 60%;
-    --sidebar: 221 39% 14%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-border: 221 39% 20%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 221 39% 19%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 32 95% 44%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 271 76% 53%;
-    --radius: 0.5rem;
-  }
-
+  :root,
   .dark {
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
-    --card: 221 39% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 221 39% 8%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 224 71% 4%;
-    --secondary: 216 34% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 216 34% 17%;
-    --muted-foreground: 214 32% 60%;
-    --accent: 216 34% 20%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 63% 31%;
+    --background: 228 22% 8%;
+    --foreground: 229 50% 94%;
+    --card: 229 27% 14%;
+    --card-foreground: 229 50% 94%;
+    --popover: 229 27% 14%;
+    --popover-foreground: 229 50% 94%;
+    --primary: 245 100% 69%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 231 29% 17%;
+    --secondary-foreground: 229 50% 94%;
+    --muted: 231 29% 17%;
+    --muted-foreground: 229 16% 56%;
+    --accent: 231 29% 17%;
+    --accent-foreground: 229 50% 94%;
+    --destructive: 348 100% 71%;
     --destructive-foreground: 0 0% 100%;
-    --border: 216 34% 17%;
-    --input: 216 34% 17%;
-    --ring: 217 91% 60%;
-    --sidebar: 224 71% 3%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-border: 224 71% 7%;
-    --sidebar-primary: 217 91% 60%;
+    --border: 231 25% 20%;
+    --input: 231 25% 20%;
+    --ring: 245 100% 69%;
+    --sidebar: 229 19% 11%;
+    --sidebar-foreground: 229 50% 94%;
+    --sidebar-border: 231 25% 20%;
+    --sidebar-primary: 245 100% 69%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 221 39% 9%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 32 95% 44%;
-    --chart-4: 0 84% 60%;
+    --sidebar-accent: 231 29% 17%;
+    --sidebar-accent-foreground: 229 50% 94%;
+    --sidebar-ring: 245 100% 69%;
+    --upflow-accent: 245 100% 69%;
+    --upflow-success: 159 100% 42%;
+    --upflow-warning: 36 91% 55%;
+    --upflow-danger: 348 100% 71%;
+    --upflow-stat-1: 210 35% 17%;
+    --upflow-stat-2: 226 28% 16%;
+    --upflow-stat-3: 290 24% 16%;
+    --chart-1: 245 100% 69%;
+    --chart-2: 159 100% 42%;
+    --chart-3: 36 91% 55%;
+    --chart-4: 348 100% 71%;
     --chart-5: 271 76% 53%;
+    --radius: 0.75rem;
   }
 }
 
@@ -79,8 +52,34 @@
   * {
     @apply border-border;
   }
+  html {
+    color-scheme: dark;
+    background-color: hsl(var(--background));
+  }
   body {
     @apply bg-background text-foreground antialiased;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
   }
 }
 

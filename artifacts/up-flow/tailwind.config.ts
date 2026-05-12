@@ -53,6 +53,15 @@ const config: Config = {
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        upflow: {
+          accent: "hsl(var(--upflow-accent))",
+          success: "hsl(var(--upflow-success))",
+          warning: "hsl(var(--upflow-warning))",
+          danger: "hsl(var(--upflow-danger))",
+          "stat-1": "hsl(var(--upflow-stat-1))",
+          "stat-2": "hsl(var(--upflow-stat-2))",
+          "stat-3": "hsl(var(--upflow-stat-3))",
+        },
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",

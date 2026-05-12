@@ -213,10 +213,10 @@ function ListView({
                       className={cn(
                         "w-2 h-2 rounded-full flex-shrink-0",
                         task.priority === "high"
-                          ? "bg-red-500"
+                          ? "bg-upflow-danger"
                           : task.priority === "medium"
-                          ? "bg-amber-500"
-                          : "bg-gray-400"
+                          ? "bg-upflow-warning"
+                          : "bg-muted-foreground/50"
                       )}
                     />
                     <span className="flex-1 text-sm text-foreground">{task.title}</span>

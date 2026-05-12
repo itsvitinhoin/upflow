@@ -43,10 +43,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error: signUpErr } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const { data, error: signUpErr } = await supabase.auth.signUp({ email, password });
       if (signUpErr) throw signUpErr;
 
       await fetch("/api/users/register", {
@@ -76,20 +73,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-30 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at 20% 30%, hsl(var(--primary) / 0.25), transparent 50%), radial-gradient(circle at 80% 70%, hsl(var(--upflow-success) / 0.15), transparent 50%)",
+        }}
+      />
+      <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-500 rounded-2xl mb-4 shadow-lg shadow-blue-500/30">
-            <Zap className="w-7 h-7 text-white" />
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-primary rounded-2xl mb-4 shadow-lg shadow-primary/30">
+            <Zap className="w-7 h-7 text-white" fill="currentColor" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Up Flow</h1>
-          <p className="text-slate-400 mt-1">Sign in to your workspace</p>
+          <h1 className="text-3xl font-bold text-foreground">Up Flow</h1>
+          <p className="text-muted-foreground mt-1">Sign in to your workspace</p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 shadow-2xl">
+        <div className="bg-card border border-border rounded-2xl p-8 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-200 mb-1.5">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
                 Email address
               </label>
               <input
@@ -98,11 +102,11 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@company.com"
-                className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-200 mb-1.5">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
                 Password
               </label>
               <input
@@ -111,13 +115,13 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-primary-foreground font-semibold py-2.5 px-4 rounded-lg transition-colors shadow-md shadow-primary/20"
             >
               {loading ? (
                 <>
@@ -130,13 +134,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-white/10 text-center">
-            <p className="text-slate-400 text-sm">
+          <div className="mt-6 pt-6 border-t border-border text-center">
+            <p className="text-muted-foreground text-sm">
               Don&apos;t have an account?{" "}
               <button
                 onClick={handleRegister}
                 disabled={loading}
-                className="text-blue-400 hover:text-blue-300 font-medium transition-colors disabled:opacity-50"
+                className="text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
               >
                 Create account
               </button>

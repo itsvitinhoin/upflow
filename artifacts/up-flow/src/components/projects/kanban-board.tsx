@@ -16,9 +16,9 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS = [
-  { key: "todo", label: "To Do", color: "bg-gray-400" },
-  { key: "in_progress", label: "In Progress", color: "bg-blue-500" },
-  { key: "done", label: "Done", color: "bg-green-500" },
+  { key: "todo", label: "To Do", color: "bg-muted-foreground/60" },
+  { key: "in_progress", label: "In Progress", color: "bg-primary" },
+  { key: "done", label: "Done", color: "bg-upflow-success" },
 ] as const;
 
 type ColumnKey = "todo" | "in_progress" | "done";
@@ -144,7 +144,7 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                                 {task.title}
                               </p>
                               {isOverdue(task.due_date) && task.status !== "done" && (
-                                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                <AlertCircle className="w-4 h-4 text-upflow-danger flex-shrink-0" />
                               )}
                             </div>
                             {task.description && (
@@ -167,7 +167,7 @@ export default function KanbanBoard({ projectId, tasks, onUpdate }: KanbanBoardP
                                     "text-xs text-muted-foreground flex items-center gap-1",
                                     isOverdue(task.due_date) &&
                                       task.status !== "done" &&
-                                      "text-red-500 font-medium"
+                                      "text-upflow-danger font-medium"
                                   )}
                                 >
                                   <Calendar className="w-3 h-3" />

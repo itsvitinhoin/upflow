@@ -89,8 +89,8 @@ export default function TeamPage() {
                         className={cn(
                           "text-xs px-2.5 py-1 rounded-full font-medium capitalize",
                           user.role === "admin"
-                            ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                            ? "bg-primary/15 text-primary"
+                            : "bg-muted text-muted-foreground"
                         )}
                       >
                         {user.role}
