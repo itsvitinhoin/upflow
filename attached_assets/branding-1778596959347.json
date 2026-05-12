@@ -1,0 +1,158 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Arial",
+      "role": "body"
+    },
+    {
+      "family": "Mona Sans",
+      "role": "body"
+    },
+    {
+      "family": "Helvetica Neue",
+      "role": "body"
+    }
+  ],
+  "colors": {
+    "primary": "#0D0C22",
+    "secondary": "#655C7A",
+    "accent": "#FFFFFF",
+    "background": "#FFFFFF",
+    "textPrimary": "#808080",
+    "link": "#060318"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Arial",
+      "heading": "Arial"
+    },
+    "fontStacks": {
+      "heading": [
+        "Mona Sans",
+        "Helvetica Neue",
+        "Helvetica",
+        "Arial",
+        "sans-serif"
+      ],
+      "body": [
+        "Mona Sans",
+        "Helvetica Neue",
+        "Helvetica",
+        "Arial",
+        "sans-serif"
+      ],
+      "paragraph": [
+        "Mona Sans",
+        "Helvetica Neue",
+        "Helvetica",
+        "Arial",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "24px",
+      "h2": "24px",
+      "body": "16px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "8px"
+  },
+  "components": {
+    "input": {
+      "background": "transparent",
+      "textColor": "#060318",
+      "borderColor": null,
+      "borderRadius": "12px",
+      "borderRadiusCorners": {
+        "topLeft": "12px",
+        "topRight": "12px",
+        "bottomRight": "12px",
+        "bottomLeft": "12px"
+      },
+      "shadow": "none"
+    },
+    "buttonPrimary": {
+      "background": "#FFFFFF",
+      "textColor": "#0D0C22",
+      "borderRadius": "10000000px",
+      "borderRadiusCorners": {
+        "topLeft": "10000000px",
+        "topRight": "10000000px",
+        "bottomRight": "10000000px",
+        "bottomLeft": "10000000px"
+      },
+      "shadow": "none"
+    },
+    "buttonSecondary": {
+      "background": "#0D0C22",
+      "textColor": "#FFFFFF",
+      "borderColor": "#0D0C22",
+      "borderRadius": "10000000px",
+      "borderRadiusCorners": {
+        "topLeft": "10000000px",
+        "topRight": "10000000px",
+        "bottomRight": "10000000px",
+        "bottomLeft": "10000000px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "favicon": "File saved at: attached_assets/favicon.svg",
+    "ogImage": "File saved at: attached_assets/ogImage.png",
+    "logoHref": "File saved at: attached_assets/logoHref.html",
+    "logoAlt": "Dribbble: the community for graphic design"
+  },
+  "__llm_logo_reasoning": {
+    "selectedIndex": 8,
+    "reasoning": "Selected #8 because it is visible, medium-sized, and matches the brand 'Dribbble' with href to home, making it the primary brand logo.",
+    "confidence": 0.95,
+    "source": "llm"
+  },
+  "__llm_button_reasoning": {
+    "primary": {
+      "index": 0,
+      "text": "Get Started",
+      "reasoning": "Button #0 with text 'Get Started' is the primary CTA due to its action-oriented text and distinct white background, making it stand out as an invitation to begin using the service."
+    },
+    "secondary": {
+      "index": 1,
+      "text": "Get in touch",
+      "reasoning": "Button #1 'Get in touch' is selected as secondary due to its dark background, contrasting with the primary button's light background, and its supportive action text."
+    },
+    "confidence": 0.9
+  },
+  "personality": {
+    "tone": "modern",
+    "energy": "medium",
+    "targetAudience": "professionals seeking project management solutions"
+  },
+  "designSystem": {
+    "framework": "custom",
+    "componentLibrary": ""
+  },
+  "confidence": {
+    "buttons": 0.9,
+    "colors": 0.9,
+    "overall": 0.9
+  },
+  "__llm_metadata": {
+    "logoSelection": {
+      "llmCalled": true,
+      "llmSucceeded": true,
+      "finalSource": "llm",
+      "rawLogoSelection": {
+        "selectedLogoIndex": 8,
+        "selectedLogoReasoning": "Selected #8 because it is visible, medium-sized, and matches the brand 'Dribbble' with href to home, making it the primary brand logo.",
+        "confidence": 0.95
+      }
+    },
+    "buttonClassification": {
+      "llmCalled": true,
+      "llmSucceeded": true
+    }
+  }
+}
