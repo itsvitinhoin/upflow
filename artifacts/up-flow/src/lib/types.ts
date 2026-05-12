@@ -19,10 +19,12 @@ export interface Project {
   status: "active" | "archived";
   owner_id: string;
   space_id?: string | null;
+  folder_id?: string | null;
   due_date: string | null;
   created_at: string;
   owner: ProjectOwner;
   space?: { id: string; name: string; icon: string | null } | null;
+  folder?: { id: string; name: string; icon: string | null } | null;
   _count: { tasks: number };
 }
 
@@ -30,6 +32,17 @@ export interface Space {
   id: string;
   name: string;
   icon: string | null;
+  owner_id: string;
+  position: number;
+  created_at: string;
+  _count?: { projects: number };
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  icon: string | null;
+  space_id: string;
   owner_id: string;
   position: number;
   created_at: string;

@@ -27,7 +27,7 @@ import {
 import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { AppUser, Project, Space } from "@/lib/types";
+import type { AppUser, Project, Space, Folder as FolderT } from "@/lib/types";
 
 interface SidebarProps {
   user: AppUser;
@@ -52,6 +52,7 @@ export default function Sidebar({ user }: SidebarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [spaces, setSpaces] = useState<Space[]>([]);
+  const [folders, setFolders] = useState<FolderT[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [loadingPanel, setLoadingPanel] = useState(true);
@@ -59,6 +60,13 @@ export default function Sidebar({ user }: SidebarProps) {
   const [renameTarget, setRenameTarget] = useState<Space | null>(null);
   const [moveTarget, setMoveTarget] = useState<Project | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [createFolderForSpace, setCreateFolderForSpace] = useState<Space | null>(null);
+  const [renameFolderTarget, setRenameFolderTarget] = useState<FolderT | null>(null);
+  const [createListFor, setCreateListFor] = useState<
+    | { kind: "space"; space: Space }
+    | { kind: "folder"; folder: FolderT }
+    | null
+  >(null);
 
   // hydrate panel state
   useEffect(() => {
@@ -87,10 +95,12 @@ export default function Sidebar({ user }: SidebarProps) {
     Promise.all([
       fetch("/api/spaces").then((r) => r.json() as Promise<Space[]>),
       fetch("/api/projects").then((r) => r.json() as Promise<Project[]>),
+      fetch("/api/folders").then((r) => r.json() as Promise<FolderT[]>),
     ])
-      .then(([s, p]) => {
+      .then(([s, p, f]) => {
         setSpaces(s);
         setProjects(p);
+        setFolders(f);
       })
       .catch(() => {})
       .finally(() => setLoadingPanel(false));
@@ -140,17 +150,39 @@ export default function Sidebar({ user }: SidebarProps) {
   const projectsBySpace = (spaceId: string | null) =>
     projects.filter((p) => (p.space_id ?? null) === spaceId);
 
+  const foldersBySpace = (spaceId: string) =>
+    folders.filter((f) => f.space_id === spaceId);
+
+  const projectsByFolder = (folderId: string) =>
+    projects.filter((p) => (p.folder_id ?? null) === folderId);
+
+  const projectsInSpaceLoose = (spaceId: string) =>
+    projects.filter(
+      (p) => (p.space_id ?? null) === spaceId && !p.folder_id
+    );
+
   const toggleCollapse = (id: string) =>
     setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   const handleDeleteSpace = async (sp: Space) => {
-    if (!confirm(`Delete space "${sp.name}"? Projects inside will move to Unassigned.`)) return;
+    if (!confirm(`Delete space "${sp.name}"? Folders and lists inside will be removed.`)) return;
     const res = await fetch(`/api/spaces/${sp.id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Space deleted");
       loadPanel();
     } else {
       toast.error("Could not delete space");
+    }
+  };
+
+  const handleDeleteFolder = async (f: FolderT) => {
+    if (!confirm(`Delete folder "${f.name}"? Lists inside will move directly under the space.`)) return;
+    const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
+    if (res.ok) {
+      toast.success("Folder deleted");
+      loadPanel();
+    } else {
+      toast.error("Could not delete folder");
     }
   };
 
@@ -285,7 +317,9 @@ export default function Sidebar({ user }: SidebarProps) {
           <>
             {spaces.map((sp) => {
               const isCollapsed = !!collapsed[sp.id];
-              const items = projectsBySpace(sp.id);
+              const spaceFolders = foldersBySpace(sp.id);
+              const looseLists = projectsInSpaceLoose(sp.id);
+              const totalCount = projectsBySpace(sp.id).length;
               const menuOpen = menuOpenId === sp.id;
               return (
                 <div key={sp.id} className="rounded-lg">
@@ -309,7 +343,7 @@ export default function Sidebar({ user }: SidebarProps) {
                       {sp.name}
                     </button>
                     <span className="text-[10px] text-muted-foreground tabular-nums">
-                      {items.length}
+                      {totalCount}
                     </span>
                     <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
                       <button
@@ -324,15 +358,35 @@ export default function Sidebar({ user }: SidebarProps) {
                       {menuOpen && (
                         <div
                           role="menu"
-                          className="absolute right-0 top-full mt-1 w-36 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+                          className="absolute right-0 top-full mt-1 w-44 glass-strong rounded-lg z-30 overflow-hidden text-xs"
                         >
+                          <button
+                            role="menuitem"
+                            onClick={() => {
+                              setMenuOpenId(null);
+                              setCreateListFor({ kind: "space", space: sp });
+                            }}
+                            className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
+                          >
+                            <Plus className="w-3 h-3" /> New list
+                          </button>
+                          <button
+                            role="menuitem"
+                            onClick={() => {
+                              setMenuOpenId(null);
+                              setCreateFolderForSpace(sp);
+                            }}
+                            className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
+                          >
+                            <Folder className="w-3 h-3" /> New folder
+                          </button>
                           <button
                             role="menuitem"
                             onClick={() => {
                               setMenuOpenId(null);
                               setRenameTarget(sp);
                             }}
-                            className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
+                            className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5 border-t border-white/5"
                           >
                             <Pencil className="w-3 h-3" /> Rename
                           </button>
@@ -353,22 +407,121 @@ export default function Sidebar({ user }: SidebarProps) {
 
                   {!isCollapsed && (
                     <div className="ml-5 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
-                      {items.length === 0 ? (
+                      {spaceFolders.length === 0 && looseLists.length === 0 && (
                         <p className="px-2 py-1.5 text-[11px] text-muted-foreground/70 italic">
-                          No projects yet
+                          No folders or lists yet
                         </p>
-                      ) : (
-                        items.map((p) => (
-                          <ProjectRow
-                            key={p.id}
-                            project={p}
-                            onMove={() => setMoveTarget(p)}
-                            onNavigate={() => setMobileOpen(false)}
-                            onDeleted={loadPanel}
-                            isActive={pathname === `/projects/${p.id}`}
-                          />
-                        ))
                       )}
+                      {spaceFolders.map((f) => {
+                        const fCollapsed = !!collapsed[f.id];
+                        const fItems = projectsByFolder(f.id);
+                        const fMenuOpen = menuOpenId === f.id;
+                        return (
+                          <div key={f.id} className="rounded-md">
+                            <div className="group relative flex items-center gap-1 px-1 py-0.5 rounded-md hover:bg-white/5">
+                              <button
+                                onClick={() => toggleCollapse(f.id)}
+                                aria-label={fCollapsed ? "Expand" : "Collapse"}
+                                className="w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                              >
+                                {fCollapsed ? (
+                                  <ChevronRight className="w-3 h-3" />
+                                ) : (
+                                  <ChevronDown className="w-3 h-3" />
+                                )}
+                              </button>
+                              <Folder className="w-3.5 h-3.5 text-muted-foreground" />
+                              <button
+                                onClick={() => toggleCollapse(f.id)}
+                                className="flex-1 text-left text-xs font-medium text-foreground/90 truncate"
+                              >
+                                {f.name}
+                              </button>
+                              <span className="text-[10px] text-muted-foreground tabular-nums">
+                                {fItems.length}
+                              </span>
+                              <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() =>
+                                    setMenuOpenId((id) => (id === f.id ? null : f.id))
+                                  }
+                                  aria-label={`Actions for ${f.name}`}
+                                  className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+                                >
+                                  <MoreHorizontal className="w-3 h-3" />
+                                </button>
+                                {fMenuOpen && (
+                                  <div
+                                    role="menu"
+                                    className="absolute right-0 top-full mt-1 w-40 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+                                  >
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setMenuOpenId(null);
+                                        setCreateListFor({ kind: "folder", folder: f });
+                                      }}
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
+                                    >
+                                      <Plus className="w-3 h-3" /> New list
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setMenuOpenId(null);
+                                        setRenameFolderTarget(f);
+                                      }}
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5 border-t border-white/5"
+                                    >
+                                      <Pencil className="w-3 h-3" /> Rename
+                                    </button>
+                                    <button
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setMenuOpenId(null);
+                                        handleDeleteFolder(f);
+                                      }}
+                                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 border-t border-white/5"
+                                    >
+                                      <Trash2 className="w-3 h-3" /> Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {!fCollapsed && (
+                              <div className="ml-4 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
+                                {fItems.length === 0 ? (
+                                  <p className="px-2 py-1 text-[11px] text-muted-foreground/70 italic">
+                                    No lists yet
+                                  </p>
+                                ) : (
+                                  fItems.map((p) => (
+                                    <ProjectRow
+                                      key={p.id}
+                                      project={p}
+                                      onMove={() => setMoveTarget(p)}
+                                      onNavigate={() => setMobileOpen(false)}
+                                      onDeleted={loadPanel}
+                                      isActive={pathname === `/projects/${p.id}`}
+                                    />
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {looseLists.map((p) => (
+                        <ProjectRow
+                          key={p.id}
+                          project={p}
+                          onMove={() => setMoveTarget(p)}
+                          onNavigate={() => setMobileOpen(false)}
+                          onDeleted={loadPanel}
+                          isActive={pathname === `/projects/${p.id}`}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -514,9 +667,45 @@ export default function Sidebar({ user }: SidebarProps) {
         <MoveProjectDialog
           project={moveTarget}
           spaces={spaces}
+          folders={folders}
           onClose={() => setMoveTarget(null)}
           onSaved={() => {
             setMoveTarget(null);
+            loadPanel();
+          }}
+        />
+      )}
+
+      {createFolderForSpace && (
+        <FolderDialog
+          mode="create"
+          space={createFolderForSpace}
+          onClose={() => setCreateFolderForSpace(null)}
+          onSaved={() => {
+            setCreateFolderForSpace(null);
+            loadPanel();
+          }}
+        />
+      )}
+
+      {renameFolderTarget && (
+        <FolderDialog
+          mode="rename"
+          folder={renameFolderTarget}
+          onClose={() => setRenameFolderTarget(null)}
+          onSaved={() => {
+            setRenameFolderTarget(null);
+            loadPanel();
+          }}
+        />
+      )}
+
+      {createListFor && (
+        <NewListDialog
+          target={createListFor}
+          onClose={() => setCreateListFor(null)}
+          onSaved={() => {
+            setCreateListFor(null);
             loadPanel();
           }}
         />
@@ -717,30 +906,48 @@ function SpaceDialog({
 function MoveProjectDialog({
   project,
   spaces,
+  folders,
   onClose,
   onSaved,
 }: {
   project: Project;
   spaces: Space[];
+  folders: FolderT[];
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [target, setTarget] = useState<string>(project.space_id ?? "");
+  // value format: "" = unassigned; "space:<id>" = directly in space; "folder:<id>" = in folder
+  const initial =
+    project.folder_id
+      ? `folder:${project.folder_id}`
+      : project.space_id
+      ? `space:${project.space_id}`
+      : "";
+  const [target, setTarget] = useState<string>(initial);
   const [loading, setLoading] = useState(false);
 
   const save = async () => {
     setLoading(true);
     try {
+      let space_id: string | null = null;
+      let folder_id: string | null = null;
+      if (target.startsWith("folder:")) {
+        folder_id = target.slice("folder:".length);
+        const f = folders.find((x) => x.id === folder_id);
+        space_id = f?.space_id ?? null;
+      } else if (target.startsWith("space:")) {
+        space_id = target.slice("space:".length);
+      }
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ space_id: target || null }),
+        body: JSON.stringify({ space_id, folder_id }),
       });
       if (!res.ok) throw new Error("Failed");
-      toast.success("Project moved");
+      toast.success("List moved");
       onSaved();
     } catch {
-      toast.error("Could not move project");
+      toast.error("Could not move list");
     } finally {
       setLoading(false);
     }
@@ -757,25 +964,33 @@ function MoveProjectDialog({
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">Move project</h3>
+            <h3 className="text-base font-semibold text-foreground">Move list</h3>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">{project.name}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Space</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">Destination</label>
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">— Unassigned —</option>
-          {spaces.map((sp) => (
-            <option key={sp.id} value={sp.id}>
-              {sp.icon || "🗂️"} {sp.name}
-            </option>
-          ))}
+          {spaces.map((sp) => {
+            const fs = folders.filter((f) => f.space_id === sp.id);
+            return (
+              <optgroup key={sp.id} label={`${sp.icon || "🗂️"} ${sp.name}`}>
+                <option value={`space:${sp.id}`}>↳ (directly in space)</option>
+                {fs.map((f) => (
+                  <option key={f.id} value={`folder:${f.id}`}>
+                    📁 {f.name}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
         </select>
         <div className="flex gap-2 mt-6">
           <button
@@ -793,6 +1008,197 @@ function MoveProjectDialog({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FolderDialog({
+  mode,
+  space,
+  folder,
+  onClose,
+  onSaved,
+}: {
+  mode: "create" | "rename";
+  space?: Space;
+  folder?: FolderT;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(folder?.name ?? "");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setLoading(true);
+    try {
+      const url = mode === "create" ? "/api/folders" : `/api/folders/${folder!.id}`;
+      const method = mode === "create" ? "POST" : "PATCH";
+      const body =
+        mode === "create"
+          ? { name: name.trim(), space_id: space!.id }
+          : { name: name.trim() };
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success(mode === "create" ? "Folder created" : "Folder renamed");
+      onSaved();
+    } catch {
+      toast.error("Could not save folder");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={submit}
+        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">
+              {mode === "create" ? "New folder" : "Rename folder"}
+            </h3>
+            {mode === "create" && space && (
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                in {space.icon || "🗂️"} {space.name}
+              </p>
+            )}
+          </div>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <label className="block text-xs font-medium text-foreground mb-1.5">Name</label>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Q1 initiatives"
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="flex gap-2 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !name.trim()}
+            className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
+          >
+            {mode === "create" ? "Create" : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function NewListDialog({
+  target,
+  onClose,
+  onSaved,
+}: {
+  target:
+    | { kind: "space"; space: Space }
+    | { kind: "folder"; folder: FolderT };
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setLoading(true);
+    try {
+      const body =
+        target.kind === "space"
+          ? { name: name.trim(), space_id: target.space.id }
+          : {
+              name: name.trim(),
+              space_id: target.folder.space_id,
+              folder_id: target.folder.id,
+            };
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed");
+      toast.success("List created");
+      onSaved();
+    } catch {
+      toast.error("Could not create list");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const locationLabel =
+    target.kind === "space"
+      ? `${target.space.icon || "🗂️"} ${target.space.name}`
+      : `📁 ${target.folder.name}`;
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={submit}
+        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">New list</h3>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">in {locationLabel}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <label className="block text-xs font-medium text-foreground mb-1.5">Name</label>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Sprint 12"
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="flex gap-2 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !name.trim()}
+            className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
+          >
+            Create
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

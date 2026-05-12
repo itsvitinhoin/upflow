@@ -42,13 +42,21 @@ export async function PATCH(
     status?: string;
     due_date?: string | null;
     space_id?: string | null;
+    folder_id?: string | null;
   };
-  const { name, description, status, due_date, space_id } = body;
+  const { name, description, status, due_date, space_id, folder_id } = body;
 
   if (space_id) {
     const space = await prisma.space.findUnique({ where: { id: space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
     if (prismaUser.role !== "admin" && space.owner_id !== prismaUser.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+  if (folder_id) {
+    const folder = await prisma.folder.findUnique({ where: { id: folder_id } });
+    if (!folder) return NextResponse.json({ error: "Folder not found" }, { status: 400 });
+    if (prismaUser.role !== "admin" && folder.owner_id !== prismaUser.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -61,10 +69,12 @@ export async function PATCH(
       ...(status !== undefined && { status: status as "active" | "archived" }),
       ...(due_date !== undefined && { due_date: due_date ? new Date(due_date) : null }),
       ...(space_id !== undefined && { space_id: space_id || null }),
+      ...(folder_id !== undefined && { folder_id: folder_id || null }),
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },
       space: { select: { id: true, name: true, icon: true } },
+      folder: { select: { id: true, name: true, icon: true } },
       _count: { select: { tasks: true } },
     },
   });
