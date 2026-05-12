@@ -49,6 +49,18 @@ model User {
   comments      Comment[]
   docs          Doc[]
   notifications Notification[]
+  spaces        Space[]
+}
+
+model Space {
+  id         String    @id @default(uuid())
+  name       String
+  icon       String?
+  owner_id   String
+  position   Int       @default(0)
+  created_at DateTime  @default(now())
+  owner      User      @relation(fields: [owner_id], references: [id])
+  projects   Project[]
 }
 
 model Project {
@@ -57,9 +69,11 @@ model Project {
   description String?
   status      ProjectStatus @default(active)
   owner_id    String
+  space_id    String?
   due_date    DateTime?
   created_at  DateTime      @default(now())
   owner       User          @relation(fields: [owner_id], references: [id])
+  space       Space?        @relation(fields: [space_id], references: [id], onDelete: SetNull)
   tasks       Task[]
   docs        Doc[]
 }

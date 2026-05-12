@@ -17,17 +17,29 @@ import {
   RotateCcw,
   Repeat,
   X,
+  FolderPlus,
+  CheckSquare,
+  UserPlus,
+  Building2,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
+import NewProjectDialog from "@/components/projects/new-project-dialog";
+import InviteDialog from "@/components/dashboard/invite-dialog";
+import ScheduleMeetingDialog, {
+  loadStoredMeetings,
+} from "@/components/dashboard/schedule-meeting-dialog";
+import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import type { Task, Project, TeamMember } from "@/lib/types";
 import {
   todayMeetings,
   weekActivity,
   recentActions,
   buildTimelineRows,
+  type Meeting,
 } from "@/lib/dashboard-mocks";
 
 type StatusFilter = "all" | "todo" | "in_progress" | "done";
@@ -40,9 +52,18 @@ export default function DashboardPage() {
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewTask, setShowNewTask] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showCompany, setShowCompany] = useState(false);
+  const [extraMeetings, setExtraMeetings] = useState<Meeting[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [updating, setUpdating] = useState(false);
+
+  useEffect(() => {
+    setExtraMeetings(loadStoredMeetings());
+  }, []);
 
   const loadData = () => {
     Promise.all([
@@ -132,6 +153,45 @@ export default function DashboardPage() {
               Here&apos;s what&apos;s happening across your workspace today.
             </p>
           </div>
+
+          {/* Quick actions */}
+          <section className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            <QuickAction
+              label="Create Project"
+              hint="Start something new"
+              icon={<FolderPlus className="w-4 h-4" />}
+              tone="from-primary/30 to-primary/10 text-primary"
+              onClick={() => setShowNewProject(true)}
+            />
+            <QuickAction
+              label="Create Task"
+              hint="Add to your list"
+              icon={<CheckSquare className="w-4 h-4" />}
+              tone="from-upflow-success/30 to-upflow-success/10 text-upflow-success"
+              onClick={() => setShowNewTask(true)}
+            />
+            <QuickAction
+              label="Invite to Team"
+              hint="Bring teammates in"
+              icon={<UserPlus className="w-4 h-4" />}
+              tone="from-upflow-warning/30 to-upflow-warning/10 text-upflow-warning"
+              onClick={() => setShowInvite(true)}
+            />
+            <QuickAction
+              label="Schedule Meeting"
+              hint="Today's agenda"
+              icon={<Video className="w-4 h-4" />}
+              tone="from-upflow-stat-2-from/40 to-upflow-stat-2-to/10 text-foreground"
+              onClick={() => setShowSchedule(true)}
+            />
+            <QuickAction
+              label="Create a Company"
+              hint="Track an account"
+              icon={<Building2 className="w-4 h-4" />}
+              tone="from-upflow-danger/30 to-upflow-danger/10 text-upflow-danger"
+              onClick={() => setShowCompany(true)}
+            />
+          </section>
 
           {/* Stat cards */}
           <section className="grid gap-4 md:grid-cols-3">
@@ -273,10 +333,17 @@ export default function DashboardPage() {
               )}
             </div>
           </section>
+
+          {/* People */}
+          <PeopleCard users={users} loading={loading} />
         </div>
 
         {/* Right panel */}
-        <RightPanel projects={projects} userName={user?.name || "there"} />
+        <RightPanel
+          projects={projects}
+          userName={user?.name || "there"}
+          extraMeetings={extraMeetings}
+        />
       </div>
 
       {showNewTask && (
@@ -290,6 +357,35 @@ export default function DashboardPage() {
           }}
         />
       )}
+
+      {showNewProject && (
+        <NewProjectDialog
+          open={showNewProject}
+          onClose={() => setShowNewProject(false)}
+          onCreated={() => {
+            setShowNewProject(false);
+            loadData();
+            toast.success("Project created");
+          }}
+        />
+      )}
+
+      <InviteDialog open={showInvite} onClose={() => setShowInvite(false)} />
+
+      <ScheduleMeetingDialog
+        open={showSchedule}
+        onClose={() => setShowSchedule(false)}
+        onScheduled={(m) =>
+          setExtraMeetings((prev) =>
+            [...prev, m].sort((a, b) => a.time.localeCompare(b.time))
+          )
+        }
+      />
+
+      <CreateCompanyDialog
+        open={showCompany}
+        onClose={() => setShowCompany(false)}
+      />
 
       {activeTask && (
         <TaskDetailModal
@@ -738,9 +834,11 @@ type TimerState = "stopped" | "running" | "paused";
 function RightPanel({
   projects,
   userName,
+  extraMeetings,
 }: {
   projects: Project[];
   userName: string;
+  extraMeetings: Meeting[];
 }) {
   const [timerState, setTimerState] = useState<TimerState>("stopped");
   const [seconds, setSeconds] = useState(2 * 3600 + 18 * 60);
@@ -773,12 +871,29 @@ function RightPanel({
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
 
-  const am = todayMeetings.filter((m) => parseInt(m.time) < 12);
-  const pm = todayMeetings.filter((m) => parseInt(m.time) >= 12);
+  const allMeetings = useMemo(
+    () =>
+      [...todayMeetings, ...extraMeetings].sort((a, b) =>
+        a.time.localeCompare(b.time)
+      ),
+    [extraMeetings]
+  );
+  const am = allMeetings.filter((m) => parseInt(m.time) < 12);
+  const pm = allMeetings.filter((m) => parseInt(m.time) >= 12);
 
   const [meetingsOpen, setMeetingsOpen] = useState<Record<string, boolean>>(
     Object.fromEntries(todayMeetings.map((m) => [m.title, true]))
   );
+
+  useEffect(() => {
+    setMeetingsOpen((prev) => {
+      const next = { ...prev };
+      for (const m of extraMeetings) {
+        if (!(m.title in next)) next[m.title] = true;
+      }
+      return next;
+    });
+  }, [extraMeetings]);
 
   const todayIdx = (() => {
     const d = new Date().getDay();
@@ -1289,5 +1404,112 @@ function TaskDetailModal({
         </button>
       </div>
     </div>
+  );
+}
+
+function QuickAction({
+  label,
+  hint,
+  icon,
+  tone,
+  onClick,
+}: {
+  label: string;
+  hint: string;
+  icon: React.ReactNode;
+  tone: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative overflow-hidden rounded-2xl p-4 text-left glass transition-all hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary/60"
+    >
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-0 bg-gradient-to-br opacity-90",
+          tone
+        )}
+      />
+      <div className="pointer-events-none absolute -top-8 -right-6 w-24 h-24 rounded-full bg-white/10 blur-2xl" />
+      <div className="relative flex items-center gap-2.5">
+        <div
+          className={cn(
+            "flex items-center justify-center w-8 h-8 rounded-lg bg-background/40 backdrop-blur",
+            tone.split(" ").find((c) => c.startsWith("text-")) || "text-foreground"
+          )}
+        >
+          {icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold text-foreground/90 uppercase tracking-wide truncate">
+            {label}
+          </p>
+          <p className="text-[10px] text-foreground/60 truncate">{hint}</p>
+        </div>
+        <ArrowRight className="w-3.5 h-3.5 text-foreground/50 group-hover:text-foreground transition-colors flex-shrink-0" />
+      </div>
+    </button>
+  );
+}
+
+function PeopleCard({
+  users,
+  loading,
+}: {
+  users: TeamMember[];
+  loading: boolean;
+}) {
+  return (
+    <section className="glass rounded-2xl overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">People</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {users.length} teammate{users.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <Link href="/team" className="text-xs text-primary hover:underline">
+          View all →
+        </Link>
+      </div>
+      <div className="p-3">
+        {loading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : users.length === 0 ? (
+          <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+            No teammates yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {users.slice(0, 8).map((u) => (
+              <Link
+                key={u.id}
+                href="/team"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/20 text-primary text-[11px] font-bold flex items-center justify-center flex-shrink-0">
+                  {getInitials(u.name)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground truncate">
+                    {u.name}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    {u._count.tasks} task{u._count.tasks === 1 ? "" : "s"} ·{" "}
+                    {u._count.projects} proj
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

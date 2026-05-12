@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
     orderBy: { created_at: "desc" },
     include: {
       owner: { select: { id: true, name: true, email: true } },
+      space: { select: { id: true, name: true, icon: true } },
       _count: { select: { tasks: true } },
     },
   });

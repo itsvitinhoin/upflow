@@ -41,19 +41,27 @@ export async function PATCH(
     description?: string;
     status?: string;
     due_date?: string | null;
+    space_id?: string | null;
   };
-  const { name, description, status, due_date } = body;
+  const { name, description, status, due_date, space_id } = body;
+
+  if (space_id) {
+    const space = await prisma.space.findUnique({ where: { id: space_id } });
+    if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
+  }
 
   const updated = await prisma.project.update({
     where: { id: params.id },
     data: {
       ...(name !== undefined && { name }),
       ...(description !== undefined && { description }),
-      ...(status !== undefined && { status }),
+      ...(status !== undefined && { status: status as "active" | "archived" }),
       ...(due_date !== undefined && { due_date: due_date ? new Date(due_date) : null }),
+      ...(space_id !== undefined && { space_id: space_id || null }),
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },
+      space: { select: { id: true, name: true, icon: true } },
       _count: { select: { tasks: true } },
     },
   });
