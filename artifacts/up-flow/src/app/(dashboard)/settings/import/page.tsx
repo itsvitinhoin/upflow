@@ -135,8 +135,12 @@ export default function ClickUpImportPage() {
       window.dispatchEvent(new Event("upflow:sidebar-refresh"));
       if (last && last.done && last.stage !== "failed" && last.errors.length === 0) {
         toast.success("Import complete");
+      } else if (last && last.stage === "failed") {
+        toast.error(last.errors[0] || "Import failed");
       } else if (last && last.errors.length > 0) {
-        toast.warning(`Import finished with ${last.errors.length} error${last.errors.length === 1 ? "" : "s"}`);
+        toast.warning(
+          `Import finished with ${last.errors.length} error${last.errors.length === 1 ? "" : "s"}: ${last.errors[0]}`,
+        );
       } else {
         toast.error("Import did not complete");
       }

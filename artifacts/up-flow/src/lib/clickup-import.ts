@@ -430,7 +430,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportProgress> {
     emit();
     return progress;
   } catch (e) {
-    progress.errors.push((e as Error).message);
+    console.error("[clickup-import] runImport error:", e);
+    progress.errors.push((e as Error).message || String(e));
     progress.stage = "failed";
     progress.done = true;
     emit();

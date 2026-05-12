@@ -38,10 +38,25 @@ export async function POST(req: NextRequest) {
           onProgress: send,
         });
       } catch (e) {
+        console.error("[clickup-import] fatal:", e);
         try {
           controller.enqueue(
             encoder.encode(
-              JSON.stringify({ stage: "failed", error: (e as Error).message, done: true }) + "\n",
+              JSON.stringify({
+                stage: "failed",
+                spaces_done: 0,
+                spaces_total: 0,
+                folders_done: 0,
+                folders_total: 0,
+                lists_done: 0,
+                lists_total: 0,
+                tasks_done: 0,
+                tasks_total: 0,
+                created: { spaces: 0, folders: 0, lists: 0, tasks: 0, users: 0 },
+                updated: { spaces: 0, folders: 0, lists: 0, tasks: 0 },
+                errors: [(e as Error).message || String(e)],
+                done: true,
+              }) + "\n",
             ),
           );
         } catch {}
