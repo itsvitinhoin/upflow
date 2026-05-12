@@ -988,12 +988,12 @@ function RightPanel({
               </div>
             )
         )}
-        <button
-          onClick={() => toast("All meetings — calendar view coming soon")}
-          className="text-xs text-primary hover:text-primary/80 mt-1"
+        <Link
+          href="/calendar"
+          className="inline-block text-xs text-primary hover:text-primary/80 mt-1"
         >
           View all →
-        </button>
+        </Link>
       </div>
 
       {/* Activity */}
