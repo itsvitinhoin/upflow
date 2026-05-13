@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
-import type { TaskStatus, TaskPriority } from "@prisma/client";
+import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
+
+function parseDueDate(input: unknown): Date | null | "invalid" {
+  if (input === null || input === undefined || input === "") return null;
+  if (typeof input !== "string") return "invalid";
+  const d = new Date(input);
+  return isNaN(d.getTime()) ? "invalid" : d;
+}
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
@@ -51,12 +58,50 @@ export async function POST(req: NextRequest) {
     assignee_id?: string;
     due_date?: string;
     parent_id?: string;
+    custom_fields?: Array<{ definition_id: string; value: unknown }>;
   };
 
-  const { title, description, status, priority, project_id, assignee_id, due_date, parent_id } = body;
+  const { title, description, status, priority, project_id, assignee_id, parent_id, custom_fields } = body;
 
   if (!title?.trim()) return NextResponse.json({ error: "Title is required" }, { status: 400 });
   if (!project_id) return NextResponse.json({ error: "project_id is required" }, { status: 400 });
+
+  if (custom_fields !== undefined && !Array.isArray(custom_fields)) {
+    return NextResponse.json(
+      { error: "custom_fields must be an array of { definition_id, value }" },
+      { status: 400 }
+    );
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: project_id },
+    select: { id: true, owner_id: true },
+  });
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  if (auth.prismaUser.role !== "admin" && project.owner_id !== auth.prismaUser.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const dueDate = parseDueDate(body.due_date);
+  if (dueDate === "invalid") {
+    return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
+  }
+
+  if (parent_id) {
+    const parent = await prisma.task.findUnique({
+      where: { id: parent_id },
+      select: { project_id: true },
+    });
+    if (!parent) {
+      return NextResponse.json({ error: "Parent task not found" }, { status: 404 });
+    }
+    if (parent.project_id !== project_id) {
+      return NextResponse.json(
+        { error: "Subtask must be in the same project as its parent" },
+        { status: 400 }
+      );
+    }
+  }
 
   const userId = auth.prismaUser.id;
 
@@ -66,22 +111,53 @@ export async function POST(req: NextRequest) {
   });
   const position = (lastTask?.position ?? -1) + 1;
 
-  const task = await prisma.task.create({
-    data: {
-      title: title.trim(),
-      description: description || null,
-      status: status ?? "todo",
-      priority: priority ?? "medium",
-      project_id,
-      assignee_id: assignee_id || null,
-      due_date: due_date ? new Date(due_date) : null,
-      parent_id: parent_id || null,
-      position,
-    },
-    include: {
-      assignee: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true } },
-    },
+  const cfEntries = (custom_fields ?? []).filter(
+    (e) => e && e.definition_id && e.value !== undefined && e.value !== "" && e.value !== null
+  );
+
+  if (cfEntries.length > 0) {
+    const defs = await prisma.customFieldDefinition.findMany({
+      where: { id: { in: cfEntries.map((e) => e.definition_id) } },
+      select: { id: true, project_id: true },
+    });
+    if (defs.length !== cfEntries.length || defs.some((d) => d.project_id !== project_id)) {
+      return NextResponse.json(
+        { error: "Invalid custom field for this project" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const task = await prisma.$transaction(async (tx) => {
+    const created = await tx.task.create({
+      data: {
+        title: title.trim(),
+        description: description || null,
+        status: status ?? "todo",
+        priority: priority ?? "medium",
+        project_id,
+        assignee_id: assignee_id || null,
+        due_date: dueDate,
+        parent_id: parent_id || null,
+        position,
+      },
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        project: { select: { id: true, name: true } },
+      },
+    });
+
+    if (cfEntries.length > 0) {
+      await tx.customFieldValue.createMany({
+        data: cfEntries.map((e) => ({
+          task_id: created.id,
+          definition_id: e.definition_id,
+          value: e.value as Prisma.InputJsonValue,
+        })),
+      });
+    }
+
+    return created;
   });
 
   if (assignee_id && assignee_id !== userId) {

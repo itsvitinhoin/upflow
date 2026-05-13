@@ -52,3 +52,21 @@ export async function PATCH(
 
   return NextResponse.json(updated);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  void req;
+
+  const notification = await prisma.notification.findUnique({ where: { id: params.id } });
+  if (!notification) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (notification.user_id !== auth.prismaUser.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await prisma.notification.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}

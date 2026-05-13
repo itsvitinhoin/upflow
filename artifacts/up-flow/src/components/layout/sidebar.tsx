@@ -174,7 +174,7 @@ export default function Sidebar({ user }: SidebarProps) {
     setCollapsed((c) => ({ ...c, [id]: !c[id] }));
 
   const handleDeleteSpace = async (sp: Space) => {
-    if (!confirm(`Delete space "${sp.name}"? Folders and lists inside will be removed.`)) return;
+    if (!confirm(`Delete space "${sp.name}"? Folders inside will be deleted; lists will become unfiled.`)) return;
     const res = await fetch(`/api/spaces/${sp.id}`, { method: "DELETE" });
     if (res.ok) {
       toast.success("Space deleted");
@@ -1147,6 +1147,8 @@ function NewListDialog({
   onSaved: () => void;
 }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -1154,11 +1156,16 @@ function NewListDialog({
     if (!name.trim()) return;
     setLoading(true);
     try {
+      const base = {
+        name: name.trim(),
+        description: description.trim() || null,
+        due_date: dueDate || null,
+      };
       const body =
         target.kind === "space"
-          ? { name: name.trim(), space_id: target.space.id }
+          ? { ...base, space_id: target.space.id }
           : {
-              name: name.trim(),
+              ...base,
               space_id: target.folder.space_id,
               folder_id: target.folder.id,
             };
@@ -1208,6 +1215,25 @@ function NewListDialog({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Sprint 12"
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
+          Description <span className="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={2}
+          placeholder="What is this list about?"
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+        />
+        <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
+          Due date <span className="text-muted-foreground font-normal">(optional)</span>
+        </label>
+        <input
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <div className="flex gap-2 mt-6">
           <button

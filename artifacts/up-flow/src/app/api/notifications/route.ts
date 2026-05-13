@@ -24,3 +24,18 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(notifications);
 }
+
+export async function DELETE(req: NextRequest) {
+  const auth = await getAuthUser();
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const onlyRead = searchParams.get("read") === "true";
+
+  const where = onlyRead
+    ? { user_id: auth.prismaUser.id, read: true }
+    : { user_id: auth.prismaUser.id };
+
+  const result = await prisma.notification.deleteMany({ where });
+  return NextResponse.json({ deleted: result.count });
+}

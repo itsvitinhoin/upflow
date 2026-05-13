@@ -154,6 +154,20 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
     }
   };
 
+  const deleteSubtask = async (subtaskId: string) => {
+    if (!confirm("Delete this subtask?")) return;
+    try {
+      const res = await fetch(`/api/tasks/${subtaskId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setCurrentTask((prev) => ({
+        ...prev,
+        subtasks: (prev.subtasks ?? []).filter((s) => s.id !== subtaskId),
+      }));
+    } catch {
+      toast.error("Failed to delete subtask");
+    }
+  };
+
   const toggleSubtask = async (subtaskId: string, done: boolean) => {
     try {
       const res = await fetch(`/api/tasks/${subtaskId}`, {
@@ -323,6 +337,15 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
                           {getInitials(s.assignee.name)}
                         </div>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => deleteSubtask(s.id)}
+                        title="Delete subtask"
+                        aria-label="Delete subtask"
+                        className="text-muted-foreground/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   ))}
                   {subtasks.length === 0 && (

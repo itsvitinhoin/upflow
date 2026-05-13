@@ -64,6 +64,10 @@ export default function CreateTaskPanel({
     }
     setSubmitting(true);
     try {
+      const customFieldEntries = Object.entries(fieldValues)
+        .filter(([, v]) => v !== null && v !== undefined && v !== "")
+        .map(([definition_id, value]) => ({ definition_id, value }));
+
       const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,41 +79,12 @@ export default function CreateTaskPanel({
           project_id: projectId,
           assignee_id: assigneeId || null,
           due_date: dueDate || null,
+          custom_fields: customFieldEntries,
         }),
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error || "Failed to create task");
-      }
-      const created = (await res.json()) as { id: string };
-
-      const entries = Object.entries(fieldValues).filter(
-        ([, v]) => v !== null && v !== undefined && v !== "",
-      );
-      const failed: string[] = [];
-      for (const [definition_id, value] of entries) {
-        try {
-          const r = await fetch(`/api/tasks/${created.id}/custom-fields`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ definition_id, value }),
-          });
-          if (!r.ok) {
-            const def = customFields.find((f) => f.id === definition_id);
-            failed.push(def?.name ?? definition_id);
-          }
-        } catch {
-          const def = customFields.find((f) => f.id === definition_id);
-          failed.push(def?.name ?? definition_id);
-        }
-      }
-
-      if (failed.length > 0) {
-        toast.error(
-          `Task created, but failed to save: ${failed.join(", ")}. Open the task to retry.`,
-        );
-        onCreated();
-        return;
       }
 
       onCreated();

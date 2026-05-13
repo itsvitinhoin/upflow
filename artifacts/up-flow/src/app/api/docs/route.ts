@@ -9,9 +9,28 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("project_id");
+  const isAdmin = auth.prismaUser.role === "admin";
+  const userId = auth.prismaUser.id;
+
+  if (projectId) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { owner_id: true },
+    });
+    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    if (!isAdmin && project.owner_id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  const where = projectId
+    ? { project_id: projectId }
+    : isAdmin
+      ? undefined
+      : { project: { owner_id: userId } };
 
   const docs = await prisma.doc.findMany({
-    where: projectId ? { project_id: projectId } : undefined,
+    where,
     orderBy: { updated_at: "desc" },
     include: {
       project: { select: { id: true, name: true } },
@@ -31,23 +50,26 @@ export async function POST(req: NextRequest) {
   const userId = auth.prismaUser.id;
 
   let pid = project_id;
-  if (!pid) {
+  if (pid) {
+    const target = await prisma.project.findUnique({ where: { id: pid } });
+    if (!target) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (auth.prismaUser.role !== "admin" && target.owner_id !== userId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } else {
     const firstProject = await prisma.project.findFirst({
       where: { owner_id: userId },
       orderBy: { created_at: "desc" },
     });
     if (!firstProject) {
-      const anyProject = await prisma.project.findFirst({ orderBy: { created_at: "desc" } });
-      if (!anyProject) {
-        return NextResponse.json(
-          { error: "Create a project first before adding docs" },
-          { status: 400 }
-        );
-      }
-      pid = anyProject.id;
-    } else {
-      pid = firstProject.id;
+      return NextResponse.json(
+        { error: "Create a project first before adding docs" },
+        { status: 400 }
+      );
     }
+    pid = firstProject.id;
   }
 
   const doc = await prisma.doc.create({

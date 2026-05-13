@@ -13,13 +13,21 @@ export async function GET(
   const doc = await prisma.doc.findUnique({
     where: { id: params.id },
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, owner_id: true } },
       author: { select: { id: true, name: true } },
     },
   });
 
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(doc);
+  const isAdmin = auth.prismaUser.role === "admin";
+  if (!isAdmin && doc.project.owner_id !== auth.prismaUser.id && doc.author_id !== auth.prismaUser.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const { project, ...rest } = doc;
+  return NextResponse.json({
+    ...rest,
+    project: { id: project.id, name: project.name },
+  });
 }
 
 export async function PATCH(

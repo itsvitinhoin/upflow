@@ -6,7 +6,6 @@ export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   void req;
-
   const spaces = await prisma.space.findMany({
     where:
       auth.prismaUser.role === "admin"

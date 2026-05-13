@@ -37,6 +37,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
   }
 
+  let parsedDueDate: Date | null = null;
+  if (due_date) {
+    const d = new Date(due_date);
+    if (isNaN(d.getTime())) {
+      return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
+    }
+    parsedDueDate = d;
+  }
+
   if (space_id) {
     const space = await prisma.space.findUnique({ where: { id: space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
@@ -56,7 +65,7 @@ export async function POST(req: NextRequest) {
     data: {
       name: name.trim(),
       description: description || null,
-      due_date: due_date ? new Date(due_date) : null,
+      due_date: parsedDueDate,
       owner_id: auth.prismaUser.id,
       space_id: space_id || null,
       folder_id: folder_id || null,

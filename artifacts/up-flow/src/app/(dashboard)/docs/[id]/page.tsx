@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Check } from "lucide-react";
+import { ArrowLeft, Loader2, Check, Trash2 } from "lucide-react";
 import Link from "next/link";
 import TiptapEditor from "@/components/docs/tiptap-editor";
 import { cn } from "@/lib/utils";
@@ -200,6 +200,24 @@ export default function DocPage() {
             className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
             Save
+          </button>
+          <button
+            onClick={async () => {
+              if (!confirm(`Delete "${title || "this doc"}"? This cannot be undone.`)) return;
+              try {
+                const res = await fetch(`/api/docs/${id}`, { method: "DELETE" });
+                if (!res.ok) throw new Error();
+                toast.success("Doc deleted");
+                router.push("/docs");
+              } catch {
+                toast.error("Failed to delete doc");
+              }
+            }}
+            title="Delete doc"
+            aria-label="Delete doc"
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
