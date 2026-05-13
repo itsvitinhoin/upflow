@@ -24,11 +24,20 @@ export async function GET(
     select: { owner_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Reads: owner, admin, or any user assigned to a task in this project.
+  // Writes (POST/PATCH/DELETE) remain owner/admin-only.
   if (
     auth.prismaUser.role !== "admin" &&
     project.owner_id !== auth.prismaUser.id
   ) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const assigned = await prisma.task.findFirst({
+      where: { project_id: params.id, assignee_id: auth.prismaUser.id },
+      select: { id: true },
+    });
+    if (!assigned) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
   }
 
   const fields = await prisma.customFieldDefinition.findMany({
