@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Bell, UserCheck, MessageSquare, Clock } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
+import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -92,28 +93,6 @@ export default function Header({ title }: HeaderProps) {
     };
   }, [panelOpen]);
 
-  useEffect(() => {
-    function handleShortcut(e: KeyboardEvent) {
-      if (!((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k")) return;
-      const target = e.target as HTMLElement | null;
-      if (target) {
-        const tag = target.tagName;
-        const isEditable =
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          tag === "SELECT" ||
-          target.isContentEditable;
-        // Allow Cmd/Ctrl+K from our own search input (re-focus is fine), but
-        // skip when the user is editing other inputs/textareas/contenteditable.
-        if (isEditable && target !== searchRef.current) return;
-      }
-      e.preventDefault();
-      searchRef.current?.focus();
-      searchRef.current?.select();
-    }
-    document.addEventListener("keydown", handleShortcut);
-    return () => document.removeEventListener("keydown", handleShortcut);
-  }, []);
 
   const handleMarkAllRead = async () => {
     const unread = notifications.filter((n) => !n.read);
@@ -248,6 +227,8 @@ export default function Header({ title }: HeaderProps) {
           router.refresh();
         }}
       />
+
+      <CommandPalette />
     </>
   );
 }

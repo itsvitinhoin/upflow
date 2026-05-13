@@ -12,9 +12,23 @@ export async function PUT(
 
   const task = await prisma.task.findUnique({
     where: { id: params.id },
-    select: { id: true, project_id: true },
+    select: {
+      id: true,
+      project_id: true,
+      assignee_id: true,
+      project: { select: { owner_id: true } },
+    },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { prismaUser } = auth;
+  const canWrite =
+    prismaUser.role === "admin" ||
+    task.project.owner_id === prismaUser.id ||
+    task.assignee_id === prismaUser.id;
+  if (!canWrite) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     definition_id?: string;

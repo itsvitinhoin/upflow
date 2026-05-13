@@ -19,6 +19,18 @@ export async function GET(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const project = await prisma.project.findUnique({
+    where: { id: params.id },
+    select: { owner_id: true },
+  });
+  if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (
+    auth.prismaUser.role !== "admin" &&
+    project.owner_id !== auth.prismaUser.id
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const fields = await prisma.customFieldDefinition.findMany({
     where: { project_id: params.id },
     orderBy: [{ position: "asc" }, { created_at: "asc" }],

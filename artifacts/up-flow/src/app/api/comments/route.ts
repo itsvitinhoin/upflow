@@ -12,6 +12,23 @@ export async function GET(req: NextRequest) {
 
   if (!taskId) return NextResponse.json({ error: "task_id required" }, { status: 400 });
 
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: {
+      assignee_id: true,
+      project: { select: { owner_id: true } },
+    },
+  });
+  if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const { prismaUser } = auth;
+  const canRead =
+    prismaUser.role === "admin" ||
+    task.project.owner_id === prismaUser.id ||
+    task.assignee_id === prismaUser.id;
+  if (!canRead) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const comments = await prisma.comment.findMany({
     where: { task_id: taskId, parent_id: null },
     orderBy: { created_at: "asc" },
@@ -43,6 +60,37 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = auth.prismaUser.id;
+
+  const taskRecord = await prisma.task.findUnique({
+    where: { id: task_id },
+    select: {
+      assignee_id: true,
+      project: { select: { owner_id: true } },
+    },
+  });
+  if (!taskRecord) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+  const canComment =
+    auth.prismaUser.role === "admin" ||
+    taskRecord.project.owner_id === userId ||
+    taskRecord.assignee_id === userId;
+  if (!canComment) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (parent_id) {
+    const parent = await prisma.comment.findUnique({
+      where: { id: parent_id },
+      select: { task_id: true },
+    });
+    if (!parent || parent.task_id !== task_id) {
+      return NextResponse.json(
+        { error: "Reply parent must belong to the same task" },
+        { status: 400 }
+      );
+    }
+  }
 
   const comment = await prisma.comment.create({
     data: {

@@ -7,16 +7,20 @@ export async function GET(req: NextRequest) {
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   void req;
 
+  const isAdmin = auth.prismaUser.role === "admin";
+
   const users = await prisma.user.findMany({
     orderBy: { name: "asc" },
     select: {
       id: true,
       name: true,
       email: true,
-      role: true,
       avatar_url: true,
-      created_at: true,
-      _count: { select: { tasks: true, projects: true } },
+      ...(isAdmin && {
+        role: true,
+        created_at: true,
+        _count: { select: { tasks: true, projects: true } },
+      }),
     },
   });
 

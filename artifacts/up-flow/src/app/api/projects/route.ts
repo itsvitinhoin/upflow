@@ -8,6 +8,10 @@ export async function GET(req: NextRequest) {
   void req;
 
   const projects = await prisma.project.findMany({
+    where:
+      auth.prismaUser.role === "admin"
+        ? undefined
+        : { owner_id: auth.prismaUser.id },
     orderBy: { created_at: "desc" },
     include: {
       owner: { select: { id: true, name: true, email: true } },

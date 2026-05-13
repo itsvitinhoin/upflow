@@ -14,7 +14,7 @@ export async function GET(
     where: { id: params.id },
     include: {
       assignee: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, owner_id: true } },
       subtasks: {
         include: { assignee: { select: { id: true, name: true, email: true } } },
         orderBy: { created_at: "asc" },
@@ -34,6 +34,16 @@ export async function GET(
   });
 
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { prismaUser } = auth;
+  const canRead =
+    prismaUser.role === "admin" ||
+    task.project.owner_id === prismaUser.id ||
+    task.assignee_id === prismaUser.id;
+  if (!canRead) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   return NextResponse.json(task);
 }
 

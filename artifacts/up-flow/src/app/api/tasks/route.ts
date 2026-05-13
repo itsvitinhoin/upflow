@@ -19,15 +19,34 @@ export async function GET(req: NextRequest) {
   const projectId = searchParams.get("project_id");
   const mine = searchParams.get("mine") === "true";
   const parentId = searchParams.get("parent_id");
+  const isAdmin = auth.prismaUser.role === "admin";
+
+  // Only enforce project ownership when the caller is asking for the WHOLE
+  // project's tasks. If `mine=true` is also set, the where-clause restricts to
+  // the caller's own assignments, which is safe regardless of ownership.
+  if (projectId && !isAdmin && !mine) {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { owner_id: true },
+    });
+    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (project.owner_id !== auth.prismaUser.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   const where: {
     project_id?: string;
     assignee_id?: string;
     parent_id?: string | null;
+    project?: { owner_id: string };
   } = {};
   if (projectId) where.project_id = projectId;
   if (mine) where.assignee_id = auth.prismaUser.id;
   if (parentId) where.parent_id = parentId;
+  if (!isAdmin && !projectId && !mine) {
+    where.project = { owner_id: auth.prismaUser.id };
+  }
 
   const tasks = await prisma.task.findMany({
     where,
