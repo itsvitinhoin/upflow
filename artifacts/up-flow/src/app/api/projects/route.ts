@@ -5,14 +5,22 @@ import { getAuthUser } from "@/lib/auth-helpers";
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  void req;
+
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(
+    Math.max(1, parseInt(searchParams.get("limit") || "500", 10) || 500),
+    1000
+  );
+  const cursor = searchParams.get("cursor");
 
   const projects = await prisma.project.findMany({
     where:
       auth.prismaUser.role === "admin"
         ? undefined
         : { owner_id: auth.prismaUser.id },
-    orderBy: { created_at: "desc" },
+    take: limit,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    orderBy: [{ created_at: "desc" }, { id: "desc" }],
     include: {
       owner: { select: { id: true, name: true, email: true } },
       space: { select: { id: true, name: true, icon: true } },

@@ -113,7 +113,7 @@ export default function Header({ title }: HeaderProps) {
     (e: React.FormEvent) => {
       e.preventDefault();
       if (search.trim()) {
-        router.push(`/projects?search=${encodeURIComponent(search.trim())}`);
+        router.push(`/search?q=${encodeURIComponent(search.trim())}`);
       }
     },
     [search, router]

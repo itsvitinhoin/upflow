@@ -48,9 +48,19 @@ export async function GET(req: NextRequest) {
     where.project = { owner_id: auth.prismaUser.id };
   }
 
+  // Hard cap on rows per request to prevent unbounded reads. Callers that
+  // need more should paginate by passing ?cursor=<lastTaskId>&limit=<n>.
+  const limit = Math.min(
+    Math.max(1, parseInt(searchParams.get("limit") || "500", 10) || 500),
+    1000
+  );
+  const cursor = searchParams.get("cursor");
+
   const tasks = await prisma.task.findMany({
     where,
-    orderBy: [{ position: "asc" }, { created_at: "desc" }],
+    take: limit,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    orderBy: [{ position: "asc" }, { created_at: "desc" }, { id: "asc" }],
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       project: { select: { id: true, name: true } },
