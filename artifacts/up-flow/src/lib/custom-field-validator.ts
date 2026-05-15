@@ -149,6 +149,25 @@ function firstError(err: z.ZodError): string {
 }
 
 /**
+ * Pull every user id referenced by `people`-type entries in a validated batch.
+ * Callers use this to do a single existence + workspace-membership check
+ * against the DB before persisting.
+ */
+export function collectPeopleIds(
+  defs: Array<{ id: string; type: CustomFieldType }>,
+  normalized: Map<string, unknown>,
+): string[] {
+  const ids = new Set<string>();
+  for (const def of defs) {
+    if (def.type !== "people") continue;
+    const v = normalized.get(def.id);
+    if (!Array.isArray(v)) continue;
+    for (const id of v) if (typeof id === "string") ids.add(id);
+  }
+  return Array.from(ids);
+}
+
+/**
  * Validate a batch of `{ definition_id, value }` entries against the supplied
  * definitions, returning a map of normalized values keyed by definition id.
  * Stops on the first failure and returns the offending field name + error.

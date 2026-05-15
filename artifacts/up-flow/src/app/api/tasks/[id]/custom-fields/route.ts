@@ -62,6 +62,30 @@ export async function PUT(
     );
   }
 
+  // People-type fields: ensure every referenced id is a workspace member.
+  if (def.type === "people" && Array.isArray(validated.value)) {
+    const ids = (validated.value as string[]).filter((s) => typeof s === "string");
+    if (ids.length > 0) {
+      const members = await prisma.workspaceMember.findMany({
+        where: {
+          workspace_id: task.project.workspace_id,
+          user_id: { in: ids },
+        },
+        select: { user_id: true },
+      });
+      const memberSet = new Set(members.map((m) => m.user_id));
+      const bad = ids.find((id) => !memberSet.has(id));
+      if (bad) {
+        return NextResponse.json(
+          {
+            error: `Invalid value for "${def.name}": user ${bad} is not a member of this workspace`,
+          },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   const upserted = await prisma.customFieldValue.upsert({
     where: {
       task_id_definition_id: {

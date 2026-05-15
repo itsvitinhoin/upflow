@@ -4,7 +4,7 @@ import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
 import { buildPage, parsePagination } from "@/lib/pagination";
-import { validateCustomFieldBatch } from "@/lib/custom-field-validator";
+import { collectPeopleIds, validateCustomFieldBatch } from "@/lib/custom-field-validator";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -171,6 +171,32 @@ export async function POST(req: NextRequest) {
       );
     }
     result.normalized.forEach((v, k) => cfNormalized.set(k, v));
+
+    // People-type fields: every referenced user must be a member of the
+    // project's workspace. We do this in the API layer (not the shared
+    // validator) so the validator stays pure / usable on the client.
+    const peopleIds = collectPeopleIds(defs, result.normalized);
+    if (peopleIds.length > 0) {
+      const members = await prisma.workspaceMember.findMany({
+        where: { workspace_id: project.workspace_id, user_id: { in: peopleIds } },
+        select: { user_id: true },
+      });
+      const memberSet = new Set(members.map((m) => m.user_id));
+      for (const def of defs) {
+        if (def.type !== "people") continue;
+        const v = cfNormalized.get(def.id);
+        if (!Array.isArray(v)) continue;
+        const bad = (v as string[]).find((id) => !memberSet.has(id));
+        if (bad) {
+          return NextResponse.json(
+            {
+              error: `Invalid value for "${def.name}": user ${bad} is not a member of this workspace`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+    }
   }
 
   const task = await prisma.$transaction(async (tx) => {
