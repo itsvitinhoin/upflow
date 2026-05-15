@@ -38,15 +38,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true },
-  });
-  if (existing) {
-    // Neutral 409, no PII echoed back.
-    return NextResponse.json({ error: "Email already in use" }, { status: 409 });
-  }
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
@@ -54,6 +45,23 @@ export async function POST(req: NextRequest) {
       { error: "Server misconfigured: SUPABASE_SERVICE_ROLE_KEY is not set" },
       { status: 500 },
     );
+  }
+
+  // Neutral response on success OR if the email is already in use, so the
+  // endpoint can't be used to enumerate accounts. We log the duplicate case
+  // server-side for the admin to follow up on out of band.
+  const NEUTRAL_RESPONSE = NextResponse.json(
+    { status: "accepted" },
+    { status: 202 },
+  );
+
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (existing) {
+    console.info(`[register] admin ${auth.prismaUser.email} attempted to invite existing user`);
+    return NEUTRAL_RESPONSE;
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
@@ -64,13 +72,19 @@ export async function POST(req: NextRequest) {
     user_metadata: { name },
   });
   if (supabaseErr) {
+    // If Supabase rejects because the user already exists there, stay neutral.
+    const msg = supabaseErr.message.toLowerCase();
+    if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
+      console.info(`[register] supabase reports duplicate for invite by ${auth.prismaUser.email}`);
+      return NEUTRAL_RESPONSE;
+    }
     return NextResponse.json({ error: supabaseErr.message }, { status: 400 });
   }
 
-  const user = await prisma.user.create({
+  await prisma.user.create({
     data: { email, name: name ?? email.split("@")[0], role: "member" },
-    select: { id: true, email: true, name: true, role: true },
+    select: { id: true },
   });
 
-  return NextResponse.json(user, { status: 201 });
+  return NEUTRAL_RESPONSE;
 }

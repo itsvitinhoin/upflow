@@ -61,6 +61,7 @@ export default function ClickUpImportPage() {
         body: JSON.stringify({ token: token.trim() }),
       });
       const data = await res.json();
+      if (res.status === 403) throw new Error("Only admins can run the ClickUp import.");
       if (!res.ok) throw new Error(data.error || "Could not connect");
       setTeams(data.teams);
       if (data.teams.length === 1) setTeamId(data.teams[0].id);
@@ -83,6 +84,7 @@ export default function ClickUpImportPage() {
         body: JSON.stringify({ token: token.trim(), team_id: teamId }),
       });
       const data = await res.json();
+      if (res.status === 403) throw new Error("Only admins can run the ClickUp import.");
       if (!res.ok) throw new Error(data.error || "Preview failed");
       setPreview(data);
     } catch (e) {
@@ -108,6 +110,9 @@ export default function ClickUpImportPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: token.trim(), team_id: teamId }),
       });
+      if (res.status === 403) {
+        throw new Error("Only admins can run the ClickUp import.");
+      }
       if (!res.ok || !res.body) {
         const t = await res.text().catch(() => "");
         throw new Error(t || "Import failed");
