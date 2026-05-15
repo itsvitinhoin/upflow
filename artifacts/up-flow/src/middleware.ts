@@ -1,10 +1,10 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { TEST_AUTH_COOKIE } from "@/lib/test-auth";
 
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({ request: { headers: req.headers } });
-  const cookieMutations: Array<{ name: string; value: string; options?: Parameters<typeof response.cookies.set>[0] }> = [];
+  const cookieMutations: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
   // Dev/CI-only login bypass — gated by NODE_ENV (Edge runtime can't reliably
   // see arbitrary env vars during dev, so we only check the cookie shape
@@ -25,16 +25,15 @@ export async function middleware(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          get(name: string) {
-            return req.cookies.get(name)?.value;
+          getAll() {
+            return req.cookies.getAll().map(({ name, value }) => ({ name, value }));
           },
-          set(name: string, value: string, options: Parameters<typeof response.cookies.set>[0]) {
-            cookieMutations.push({ name, value, options });
-            response.cookies.set({ name, value, ...options });
-          },
-          remove(name: string, options: Parameters<typeof response.cookies.set>[0]) {
-            cookieMutations.push({ name, value: "", options });
-            response.cookies.set({ name, value: "", ...options });
+          setAll(cookiesToSet) {
+            for (const { name, value, options } of cookiesToSet) {
+              const opts: CookieOptions = options ?? {};
+              cookieMutations.push({ name, value, options: opts });
+              response.cookies.set({ name, value, ...opts });
+            }
           },
         },
       }
@@ -71,7 +70,8 @@ export async function middleware(req: NextRequest) {
   }
 
   for (const cookie of cookieMutations) {
-    response.cookies.set({ name: cookie.name, value: cookie.value, ...(cookie.options ?? {}) });
+    const opts: CookieOptions = cookie.options ?? {};
+    response.cookies.set({ name: cookie.name, value: cookie.value, ...opts });
   }
 
   return response;
