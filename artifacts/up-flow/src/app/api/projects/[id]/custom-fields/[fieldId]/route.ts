@@ -3,31 +3,15 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
 
-async function assertCanEdit(
-  projectId: string,
-  fieldId: string,
-  userId: string,
-  role: string,
-) {
-  const [project, field] = await Promise.all([
-    prisma.project.findUnique({
-      where: { id: projectId },
-      select: { owner_id: true },
-    }),
-    prisma.customFieldDefinition.findUnique({
-      where: { id: fieldId },
-      select: { project_id: true },
-    }),
-  ]);
-  if (!project || !field) return { ok: false as const, status: 404 };
-  if (field.project_id !== projectId) return { ok: false as const, status: 404 };
-  if (role !== "admin") {
-    return { ok: false as const, status: 403 };
+async function assertCanEdit(projectId: string, fieldId: string, role: string) {
+  if (role !== "admin") return { ok: false as const, status: 403 };
+  const field = await prisma.customFieldDefinition.findUnique({
+    where: { id: fieldId },
+    select: { project_id: true },
+  });
+  if (!field || field.project_id !== projectId) {
+    return { ok: false as const, status: 404 };
   }
-  // Defensive: keep project ownership consistent (not strictly required when
-  // admin-only, but cheap and protects against future relaxations).
-  void project;
-  void userId;
   return { ok: true as const };
 }
 
@@ -38,13 +22,11 @@ export async function PATCH(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const guard = await assertCanEdit(
-    params.id,
-    params.fieldId,
-    auth.prismaUser.id,
-    auth.prismaUser.role,
-  );
-  if (!guard.ok) return NextResponse.json({ error: "Not found" }, { status: guard.status });
+  const guard = await assertCanEdit(params.id, params.fieldId, auth.prismaUser.role);
+  if (!guard.ok) {
+    const message = guard.status === 403 ? "Forbidden" : "Not found";
+    return NextResponse.json({ error: message }, { status: guard.status });
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     name?: string;
@@ -74,13 +56,11 @@ export async function DELETE(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const guard = await assertCanEdit(
-    params.id,
-    params.fieldId,
-    auth.prismaUser.id,
-    auth.prismaUser.role,
-  );
-  if (!guard.ok) return NextResponse.json({ error: "Not found" }, { status: guard.status });
+  const guard = await assertCanEdit(params.id, params.fieldId, auth.prismaUser.role);
+  if (!guard.ok) {
+    const message = guard.status === 403 ? "Forbidden" : "Not found";
+    return NextResponse.json({ error: message }, { status: guard.status });
+  }
 
   await prisma.customFieldDefinition.delete({ where: { id: params.fieldId } });
   return NextResponse.json({ ok: true });

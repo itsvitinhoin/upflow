@@ -142,14 +142,6 @@ export default function ListView({
 
             {!isCollapsed && (
               <div>
-                {g.tasks.length === 0 && (
-                  <button
-                    onClick={() => onAddTask(g.key)}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-5 py-2 w-full text-left"
-                  >
-                    <Plus className="w-3 h-3" /> Add task
-                  </button>
-                )}
                 {g.tasks.map((t) => {
                   const valueMap = new Map(
                     (t.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
@@ -218,6 +210,12 @@ export default function ListView({
                     </div>
                   );
                 })}
+                <button
+                  onClick={() => onAddTask(g.key)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-5 py-2 w-full text-left border-t border-border/60"
+                >
+                  <Plus className="w-3 h-3" /> Add task
+                </button>
               </div>
             )}
           </div>
@@ -227,15 +225,6 @@ export default function ListView({
       {groups.length === 0 && (
         <div className="text-center py-12 text-sm text-muted-foreground">No tasks</div>
       )}
-
-      <div className="px-3 py-2 border-t border-border">
-        <button
-          onClick={() => onAddTask()}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <Plus className="w-3 h-3" /> Add task
-        </button>
-      </div>
     </div>
   );
 }

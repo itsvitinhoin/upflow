@@ -86,9 +86,9 @@ export default function ProjectPage() {
   }, [id]);
 
   const canManageFields = useMemo(() => {
-    if (!me || !project) return false;
-    return me.role === "admin" || me.id === project.owner_id;
-  }, [me, project]);
+    if (!me) return false;
+    return me.role === "admin";
+  }, [me]);
 
   if (loading) {
     return (
