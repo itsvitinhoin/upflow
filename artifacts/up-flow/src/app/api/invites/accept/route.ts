@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
 
 // Look up an invite by token (used by the accept page to render workspace info).
@@ -31,10 +31,9 @@ export async function GET(req: NextRequest) {
 // Accept an invite. The caller must be authenticated; if their email matches
 // the invite, we attach them to the workspace and switch their active one.
 export async function POST(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) {
-    return NextResponse.json({ error: "Sign in to accept" }, { status: 401 });
-  }
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const body = (await req.json().catch(() => ({}))) as { token?: string };
   const token = body.token?.trim();

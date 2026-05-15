@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ items: [], nextCursor: null });
   }
@@ -25,8 +26,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }

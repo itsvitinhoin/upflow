@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  getAuthUser,
   canAccessWorkspace,
 } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 
 type ColumnKey = "todo" | "in_progress" | "done";
 const VALID_COLUMNS: ColumnKey[] = ["todo", "in_progress", "done"];
@@ -16,8 +16,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const project = await prisma.project.findUnique({
     where: { id: params.id },

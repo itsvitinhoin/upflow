@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
+import { canAccessWorkspace } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { isEmptyValue, validateCustomFieldValue } from "@/lib/custom-field-validator";
 import { logError } from "@/lib/log-error";
 
@@ -9,8 +10,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const task = await prisma.task.findUnique({
     where: { id: params.id },

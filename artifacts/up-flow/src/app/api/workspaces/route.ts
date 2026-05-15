@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 
 // List the caller's workspaces + current active one.
 export async function GET() {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   return NextResponse.json({
     workspaces: auth.memberships.map((m) => ({
@@ -21,8 +22,9 @@ export async function GET() {
 
 // Create a new workspace; caller becomes its owner.
 export async function POST(req: Request) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const body = (await req.json().catch(() => ({}))) as { name?: string };
   const name = body.name?.trim();

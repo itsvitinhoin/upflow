@@ -60,6 +60,7 @@ export async function getAuthResult(): Promise<AuthResult> {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    // No session = genuinely anonymous (login screen is correct).
     if (!user?.email) return { kind: "anonymous" };
     email = user.email;
     supabaseId = user.id;
@@ -67,10 +68,12 @@ export async function getAuthResult(): Promise<AuthResult> {
       (user.user_metadata?.name as string | undefined) ||
       (user.user_metadata?.full_name as string | undefined);
   } catch (err) {
-    // Cookie parse / Supabase upstream blip — treat as anonymous so the
-    // user gets the login redirect rather than a confusing 503.
+    // Supabase upstream blip / network error while validating the session
+    // — the user MAY be logged in, we just can't tell right now. Surface
+    // this as an outage so callers can return 503 instead of falsely
+    // bouncing the user to /login.
     logError("auth:supabase-getUser", err);
-    return { kind: "anonymous" };
+    return { kind: "error", error: err as Error };
   }
 
   // Step 2: look up (or, on first sign-in, create) the Prisma user.

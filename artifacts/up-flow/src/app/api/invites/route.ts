@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 function generateToken(): string {
@@ -10,8 +11,9 @@ function generateToken(): string {
 
 // GET: list pending invites for the active workspace (admin only)
 export async function GET() {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   if (!isWorkspaceAdmin(auth) || !auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -35,8 +37,9 @@ export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, { windowMs: 60_000, max: 20, key: "invite" });
   if (!rl.ok) return rateLimitResponse(rl);
 
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   if (!isWorkspaceAdmin(auth) || !auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

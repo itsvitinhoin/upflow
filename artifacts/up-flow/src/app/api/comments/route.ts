@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
+import { canAccessWorkspace } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { logError } from "@/lib/log-error";
 
 export async function GET(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const { searchParams } = new URL(req.url);
   const taskId = searchParams.get("task_id");
@@ -42,8 +44,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const body = await req.json() as {
     task_id?: string;

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, isSuperAdmin } from "@/lib/auth-helpers";
+import { isSuperAdmin } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 
 // Returns every user who shares at least one workspace with the caller, so the
@@ -11,8 +12,9 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 // Optional ?workspace_id= narrows the result to that workspace only (still
 // requires the caller to be a member of that workspace, except super-admin).
 export async function GET(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const { searchParams } = new URL(req.url);
   const workspaceFilter = searchParams.get("workspace_id");

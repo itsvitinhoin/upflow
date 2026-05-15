@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthUser, isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logError } from "@/lib/log-error";
 
@@ -11,10 +12,9 @@ export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
   if (!rl.ok) return rateLimitResponse(rl);
 
-  const auth = await getAuthUser();
-  if (!auth) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   if (!isWorkspaceAdmin(auth) || !auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
-  getAuthUser,
   canAccessWorkspace,
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const folder = await prisma.folder.findUnique({ where: { id: params.id } });
   if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,8 +63,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   void req;
 
   const folder = await prisma.folder.findUnique({ where: { id: params.id } });

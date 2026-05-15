@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 
 export async function GET() {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   const u = auth.prismaUser;
   return NextResponse.json({
     id: u.id,

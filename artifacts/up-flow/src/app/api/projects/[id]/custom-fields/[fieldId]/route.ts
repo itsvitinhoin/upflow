@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  getAuthUser,
   canAccessWorkspace,
   isWorkspaceAdminFor,
   type AuthUser,
 } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 
 async function assertCanEdit(
   projectId: string,
@@ -38,8 +38,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string; fieldId: string } },
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const guard = await assertCanEdit(params.id, params.fieldId, auth);
   if (!guard.ok) {
@@ -72,8 +73,9 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: { id: string; fieldId: string } },
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const guard = await assertCanEdit(params.id, params.fieldId, auth);
   if (!guard.ok) {

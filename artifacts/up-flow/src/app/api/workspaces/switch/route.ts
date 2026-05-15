@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const body = (await req.json().catch(() => ({}))) as { workspace_id?: string };
   const target = body.workspace_id;

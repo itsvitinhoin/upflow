@@ -11,7 +11,7 @@ import { logError } from "@/lib/log-error";
 interface ProjectRowProps {
   project: Project;
   onMove: () => void;
-  onNavigate: () => void;
+  onNavigate?: () => void;
   onDeleted: () => void;
   isActive: boolean;
 }

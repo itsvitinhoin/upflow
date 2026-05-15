@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { runImport, type ImportProgress } from "@/lib/clickup-import";
 import { logError } from "@/lib/log-error";
 
@@ -7,8 +7,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthUser();
-  if (!auth) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   if (auth.prismaUser.role !== "admin") {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
   }

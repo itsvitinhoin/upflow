@@ -2,18 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import type { TaskPriority, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  getAuthUser,
   canAccessWorkspace,
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
+import { requireAuth } from "@/lib/auth-response";
 import { logError } from "@/lib/log-error";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   void req;
 
   const task = await prisma.task.findUnique({
@@ -51,8 +52,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
 
   const { prismaUser } = auth;
 
@@ -125,8 +127,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = await getAuthUser();
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
   void req;
 
   const { prismaUser } = auth;
