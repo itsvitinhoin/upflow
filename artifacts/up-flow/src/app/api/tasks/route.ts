@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isSuperAdmin,
+} from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
 
@@ -19,37 +23,35 @@ export async function GET(req: NextRequest) {
   const projectId = searchParams.get("project_id");
   const mine = searchParams.get("mine") === "true";
   const parentId = searchParams.get("parent_id");
-  const isAdmin = auth.prismaUser.role === "admin";
 
-  // Only enforce project ownership when the caller is asking for the WHOLE
-  // project's tasks. If `mine=true` is also set, the where-clause restricts to
-  // the caller's own assignments, which is safe regardless of ownership.
-  if (projectId && !isAdmin && !mine) {
+  if (projectId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { owner_id: true },
+      select: { workspace_id: true },
     });
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (project.owner_id !== auth.prismaUser.id) {
+    if (!canAccessWorkspace(auth, project.workspace_id)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
 
-  const where: {
-    project_id?: string;
-    assignee_id?: string;
-    parent_id?: string | null;
-    project?: { owner_id: string };
-  } = {};
+  const where: Prisma.TaskWhereInput = {};
   if (projectId) where.project_id = projectId;
   if (mine) where.assignee_id = auth.prismaUser.id;
   if (parentId) where.parent_id = parentId;
-  if (!isAdmin && !projectId && !mine) {
-    where.project = { owner_id: auth.prismaUser.id };
-  }
 
-  // Hard cap on rows per request to prevent unbounded reads. Callers that
-  // need more should paginate by passing ?cursor=<lastTaskId>&limit=<n>.
+  // If no projectId filter, scope to the active workspace so the UI stays
+  // consistent with the workspace switcher. Super-admins also see only the
+  // active workspace here on purpose.
+  if (!projectId) {
+    if (!auth.currentWorkspaceId) {
+      return NextResponse.json([], { status: 200 });
+    }
+    where.project = { workspace_id: auth.currentWorkspaceId };
+  }
+  // Silence unused-import lint when isSuperAdmin isn't referenced.
+  void isSuperAdmin;
+
   const limit = Math.min(
     Math.max(1, parseInt(searchParams.get("limit") || "500", 10) || 500),
     1000
@@ -104,11 +106,25 @@ export async function POST(req: NextRequest) {
 
   const project = await prisma.project.findUnique({
     where: { id: project_id },
-    select: { id: true, owner_id: true },
+    select: { id: true, workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  if (auth.prismaUser.role !== "admin" && project.owner_id !== auth.prismaUser.id) {
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (assignee_id) {
+    // Assignee must be a member of the project's workspace.
+    const ok = await prisma.workspaceMember.findFirst({
+      where: { workspace_id: project.workspace_id, user_id: assignee_id },
+      select: { id: true },
+    });
+    if (!ok) {
+      return NextResponse.json(
+        { error: "Assignee is not a member of this workspace" },
+        { status: 400 },
+      );
+    }
   }
 
   const dueDate = parseDueDate(body.due_date);

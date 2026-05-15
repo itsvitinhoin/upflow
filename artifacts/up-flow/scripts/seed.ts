@@ -43,38 +43,63 @@ async function main() {
 
   console.log("Users:", admin.email, sarah.email, mike.email);
 
+  // Default workspace where everyone is a member.
+  const acme = await prisma.workspace.upsert({
+    where: { slug: "acme" },
+    update: {},
+    create: { name: "Acme", slug: "acme" },
+  });
+
+  for (const [user, role] of [
+    [admin, "owner"],
+    [sarah, "member"],
+    [mike, "member"],
+  ] as const) {
+    await prisma.workspaceMember.upsert({
+      where: {
+        workspace_id_user_id: { workspace_id: acme.id, user_id: user.id },
+      },
+      create: { workspace_id: acme.id, user_id: user.id, role },
+      update: { role },
+    });
+  }
+  console.log("Workspace:", acme.name);
+
   const p1 = await prisma.project.upsert({
     where: { id: "project-website-redesign" },
-    update: {},
+    update: { workspace_id: acme.id },
     create: {
       id: "project-website-redesign",
       name: "Website Redesign",
       description: "Modernize the company website with new branding and improved UX.",
       status: "active",
+      workspace_id: acme.id,
       owner_id: admin.id,
     },
   });
 
   const p2 = await prisma.project.upsert({
     where: { id: "project-mobile-app" },
-    update: {},
+    update: { workspace_id: acme.id },
     create: {
       id: "project-mobile-app",
       name: "Mobile App Launch",
       description: "Build and launch the iOS and Android mobile application.",
       status: "active",
+      workspace_id: acme.id,
       owner_id: sarah.id,
     },
   });
 
   const p3 = await prisma.project.upsert({
     where: { id: "project-api-v2" },
-    update: {},
+    update: { workspace_id: acme.id },
     create: {
       id: "project-api-v2",
       name: "API v2 Migration",
       description: "Migrate all endpoints to RESTful v2 API with OpenAPI docs.",
       status: "active",
+      workspace_id: acme.id,
       owner_id: mike.id,
     },
   });
@@ -107,15 +132,12 @@ async function main() {
 
   console.log(`Created ${createdTasks.length} tasks`);
 
-  // Create notifications for admin (assigned tasks)
   const adminTasks = createdTasks.filter((t) => t.assignee_id === admin.id);
   for (const task of adminTasks.slice(0, 2)) {
     await prisma.notification.create({
       data: { type: "assigned", user_id: admin.id, task_id: task.id, read: false },
     });
   }
-
-  // Create a due_soon notification
   if (adminTasks.length > 0) {
     await prisma.notification.create({
       data: { type: "due_soon", user_id: admin.id, task_id: adminTasks[0].id, read: false },

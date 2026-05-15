@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { getAuthUser, isSuperAdmin } from "@/lib/auth-helpers";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -23,16 +23,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Query too long" }, { status: 400 });
   }
 
-  const userId = auth.prismaUser.id;
-  const isAdmin = auth.prismaUser.role === "admin";
+  // Search is scoped to the active workspace so results stay focused.
+  // Super-admins still see only the active workspace they're currently in
+  // for UX consistency; switching workspaces switches search scope.
+  const workspaceId = auth.currentWorkspaceId;
+  if (!workspaceId && !isSuperAdmin(auth)) {
+    return NextResponse.json({ q, tasks: [], projects: [], docs: [] });
+  }
 
-  const projectScope = isAdmin
-    ? {}
-    : { OR: [{ owner_id: userId }, { tasks: { some: { assignee_id: userId } } }] };
-
-  const taskScope = isAdmin
-    ? {}
-    : { OR: [{ assignee_id: userId }, { project: { owner_id: userId } }] };
+  const projectScope = { workspace_id: workspaceId };
+  const taskScope = { project: { workspace_id: workspaceId } };
+  const docScope = { workspace_id: workspaceId };
 
   const [tasks, projects, docs] = await Promise.all([
     prisma.task.findMany({
@@ -81,17 +82,7 @@ export async function GET(req: NextRequest) {
     }),
     prisma.doc.findMany({
       where: {
-        AND: [
-          isAdmin
-            ? {}
-            : {
-                OR: [
-                  { author_id: userId },
-                  { project: { owner_id: userId } },
-                ],
-              },
-          { title: { contains: q, mode: "insensitive" } },
-        ],
+        AND: [docScope, { title: { contains: q, mode: "insensitive" } }],
       },
       take: MAX_PER_TYPE,
       orderBy: { updated_at: "desc" },

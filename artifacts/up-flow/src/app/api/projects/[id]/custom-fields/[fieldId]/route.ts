@@ -1,18 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isWorkspaceAdmin,
+  type AuthUser,
+} from "@/lib/auth-helpers";
 
-async function assertCanEdit(projectId: string, fieldId: string, role: string) {
-  if (role !== "admin") return { ok: false as const, status: 403 };
+async function assertCanEdit(
+  projectId: string,
+  fieldId: string,
+  auth: AuthUser,
+): Promise<{ ok: true } | { ok: false; status: number }> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspace_id: true },
+  });
+  if (!project) return { ok: false, status: 404 };
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
+    return { ok: false, status: 403 };
+  }
+  if (!isWorkspaceAdmin(auth)) {
+    return { ok: false, status: 403 };
+  }
   const field = await prisma.customFieldDefinition.findUnique({
     where: { id: fieldId },
     select: { project_id: true },
   });
   if (!field || field.project_id !== projectId) {
-    return { ok: false as const, status: 404 };
+    return { ok: false, status: 404 };
   }
-  return { ok: true as const };
+  return { ok: true };
 }
 
 export async function PATCH(
@@ -22,7 +41,7 @@ export async function PATCH(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const guard = await assertCanEdit(params.id, params.fieldId, auth.prismaUser.role);
+  const guard = await assertCanEdit(params.id, params.fieldId, auth);
   if (!guard.ok) {
     const message = guard.status === 403 ? "Forbidden" : "Not found";
     return NextResponse.json({ error: message }, { status: guard.status });
@@ -56,7 +75,7 @@ export async function DELETE(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const guard = await assertCanEdit(params.id, params.fieldId, auth.prismaUser.role);
+  const guard = await assertCanEdit(params.id, params.fieldId, auth);
   if (!guard.ok) {
     const message = guard.status === 403 ? "Forbidden" : "Not found";
     return NextResponse.json({ error: message }, { status: guard.status });

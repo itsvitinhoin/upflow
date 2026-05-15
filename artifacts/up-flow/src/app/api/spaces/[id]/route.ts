@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isWorkspaceAdmin,
+} from "@/lib/auth-helpers";
 
 export async function PATCH(
   req: NextRequest,
@@ -11,7 +15,11 @@ export async function PATCH(
 
   const space = await prisma.space.findUnique({ where: { id: params.id } });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (space.owner_id !== auth.prismaUser.id && auth.prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, space.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // Owner of the space OR workspace admin can edit.
+  if (space.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -45,7 +53,10 @@ export async function DELETE(
 
   const space = await prisma.space.findUnique({ where: { id: params.id } });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (space.owner_id !== auth.prismaUser.id && auth.prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, space.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (space.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

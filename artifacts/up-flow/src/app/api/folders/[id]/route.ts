@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isWorkspaceAdmin,
+} from "@/lib/auth-helpers";
 
 export async function PATCH(
   req: NextRequest,
@@ -11,7 +15,10 @@ export async function PATCH(
 
   const folder = await prisma.folder.findUnique({ where: { id: params.id } });
   if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (folder.owner_id !== auth.prismaUser.id && auth.prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, folder.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (folder.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -31,8 +38,11 @@ export async function PATCH(
   if (body.space_id) {
     const space = await prisma.space.findUnique({ where: { id: body.space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
-    if (auth.prismaUser.role !== "admin" && space.owner_id !== auth.prismaUser.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (space.workspace_id !== folder.workspace_id) {
+      return NextResponse.json(
+        { error: "Cannot move folder across workspaces" },
+        { status: 400 },
+      );
     }
   }
   const updated = await prisma.folder.update({
@@ -58,7 +68,10 @@ export async function DELETE(
 
   const folder = await prisma.folder.findUnique({ where: { id: params.id } });
   if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (folder.owner_id !== auth.prismaUser.id && auth.prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, folder.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (folder.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

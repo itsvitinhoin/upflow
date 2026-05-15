@@ -46,6 +46,46 @@ Database migrations run automatically before the server starts accepting traffic
 - ClickUp import + preview + teams routes are admin-only.
 - Custom-field write APIs are admin-only.
 
+## Workspace / multi-tenant model
+
+Up Flow is now multi-workspace. Every Space, Folder, Project and Doc belongs to a
+`Workspace` (FK `workspace_id`). Membership is modeled with `WorkspaceMember`
+(`role` ∈ `owner | admin | member`). The active workspace is selected via the
+`upflow_ws` cookie (not httpOnly) and falls back to the first membership.
+
+Key helpers (`src/lib/workspace.ts`, `src/lib/auth-helpers.ts`):
+- `ensurePersonalWorkspace(userId)` — creates a personal workspace on first login.
+- `getAuthUser()` enriches the session with `memberships`, `currentWorkspaceId`,
+  `currentRole`.
+- `isSuperAdmin` — global `User.role === 'admin'` (provisioned via `ADMIN_EMAILS`).
+  Bypasses workspace membership checks.
+- `isWorkspaceAdmin` — owner/admin in the active workspace OR super-admin. Used
+  for destructive workspace operations (custom fields, invites, register).
+- `canAccessWorkspace(auth, wsId)` — membership test (or super-admin).
+
+All resource APIs (`/api/spaces`, `/api/folders`, `/api/projects`, `/api/tasks`,
+`/api/docs`, `/api/comments`, `/api/search`, `/api/users`) are scoped by the
+caller's active workspace. The ClickUp import writes into the active workspace.
+
+New endpoints:
+- `GET/POST /api/workspaces` — list / create.
+- `POST /api/workspaces/switch` — set the `upflow_ws` cookie.
+- `GET/POST /api/invites` — admin-only invite management; POST returns
+  `accept_url` (no email delivery in scope).
+- `GET/POST /api/invites/accept` — invite lookup + accept (binds the caller to
+  the workspace and switches their cookie).
+
+UI:
+- `src/components/layout/workspace-switcher.tsx` is mounted at the top of the
+  sidebar.
+- `src/app/invite/[token]/page.tsx` is the accept page.
+
+DB note: DIRECT_URL in this environment is IPv6-only and unreachable, so
+`prisma migrate dev` cannot be used. Apply migrations via
+`prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma \
+   --script | psql "$DATABASE_URL"` and seed `_prisma_migrations` manually if
+needed.
+
 ## User preferences
 
 (none recorded yet)

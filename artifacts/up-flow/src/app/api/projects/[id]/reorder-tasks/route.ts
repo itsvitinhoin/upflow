@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+} from "@/lib/auth-helpers";
 
 type ColumnKey = "todo" | "in_progress" | "done";
 const VALID_COLUMNS: ColumnKey[] = ["todo", "in_progress", "done"];
@@ -16,13 +19,14 @@ export async function POST(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { prismaUser } = auth;
-
   const project = await prisma.project.findUnique({
     where: { id: params.id },
-    select: { id: true, owner_id: true },
+    select: { id: true, workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = (await req.json()) as {
     movedTaskId?: string;
@@ -59,13 +63,6 @@ export async function POST(
       { error: "Source column does not match task's current status" },
       { status: 409 },
     );
-  }
-
-  const isProjectOwner = project.owner_id === prismaUser.id;
-  const isAdmin = prismaUser.role === "admin";
-  const isAssignee = movedTask.assignee_id === prismaUser.id;
-  if (!isProjectOwner && !isAdmin && !isAssignee) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const affectedColumns: ColumnKey[] =

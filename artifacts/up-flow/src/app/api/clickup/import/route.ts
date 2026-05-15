@@ -11,6 +11,9 @@ export async function POST(req: NextRequest) {
   if (auth.prismaUser.role !== "admin") {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
   }
+  if (!auth.currentWorkspaceId) {
+    return new Response(JSON.stringify({ error: "No active workspace" }), { status: 400 });
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     token?: string;
@@ -37,6 +40,7 @@ export async function POST(req: NextRequest) {
           token,
           teamId,
           ownerUserId,
+          workspaceId: auth.currentWorkspaceId,
           signal: req.signal,
           onProgress: send,
         });

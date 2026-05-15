@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!auth.currentWorkspaceId) {
+    return NextResponse.json([], { status: 200 });
+  }
   void req;
 
   const folders = await prisma.folder.findMany({
-    where:
-      auth.prismaUser.role === "admin"
-        ? undefined
-        : { owner_id: auth.prismaUser.id },
+    where: { workspace_id: auth.currentWorkspaceId },
     orderBy: [{ position: "asc" }, { created_at: "asc" }],
     include: {
       _count: { select: { projects: true } },
@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!auth.currentWorkspaceId) {
+    return NextResponse.json({ error: "No active workspace" }, { status: 400 });
+  }
 
   const body = (await req.json()) as {
     name?: string;
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   const space = await prisma.space.findUnique({ where: { id: space_id } });
   if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
-  if (auth.prismaUser.role !== "admin" && space.owner_id !== auth.prismaUser.id) {
+  if (!canAccessWorkspace(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -52,6 +55,7 @@ export async function POST(req: NextRequest) {
       name,
       icon: body.icon ?? null,
       space_id,
+      workspace_id: space.workspace_id,
       owner_id: auth.prismaUser.id,
       position,
     },

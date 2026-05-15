@@ -13,6 +13,12 @@ enum Role {
   member
 }
 
+enum WorkspaceRole {
+  owner
+  admin
+  member
+}
+
 enum ProjectStatus {
   active
   archived
@@ -46,99 +52,155 @@ enum CustomFieldType {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
+  id            String            @id @default(uuid())
+  email         String            @unique
   name          String
   avatar_url    String?
-  role          Role           @default(member)
+  role          Role              @default(member)
   password_hash String?
-  created_at    DateTime       @default(now())
+  created_at    DateTime          @default(now())
   projects      Project[]
-  tasks         Task[]         @relation("AssignedTasks")
+  tasks         Task[]            @relation("AssignedTasks")
   comments      Comment[]
   docs          Doc[]
   notifications Notification[]
   spaces        Space[]
   folders       Folder[]
+  memberships   WorkspaceMember[]
+  invites_sent  WorkspaceInvite[] @relation("Inviter")
+}
+
+model Workspace {
+  id         String            @id @default(uuid())
+  name       String
+  slug       String            @unique
+  created_at DateTime          @default(now())
+  members    WorkspaceMember[]
+  invites    WorkspaceInvite[]
+  spaces     Space[]
+  folders    Folder[]
+  projects   Project[]
+  docs       Doc[]
+}
+
+model WorkspaceMember {
+  id           String        @id @default(uuid())
+  workspace_id String
+  user_id      String
+  role         WorkspaceRole @default(member)
+  created_at   DateTime      @default(now())
+  workspace    Workspace     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([workspace_id, user_id])
+  @@index([user_id])
+}
+
+model WorkspaceInvite {
+  id           String        @id @default(uuid())
+  workspace_id String
+  email        String
+  role         WorkspaceRole @default(member)
+  token        String        @unique
+  invited_by   String
+  accepted_at  DateTime?
+  created_at   DateTime      @default(now())
+  workspace    Workspace     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  inviter      User          @relation("Inviter", fields: [invited_by], references: [id])
+
+  @@index([workspace_id])
+  @@index([email])
 }
 
 model Space {
-  id          String    @id @default(uuid())
-  name        String
-  icon        String?
-  owner_id    String
-  position    Int       @default(0)
-  clickup_id  String?   @unique
-  created_at  DateTime  @default(now())
-  owner       User      @relation(fields: [owner_id], references: [id])
-  projects    Project[]
-  folders     Folder[]
+  id           String    @id @default(uuid())
+  name         String
+  icon         String?
+  workspace_id String
+  owner_id     String
+  position     Int       @default(0)
+  clickup_id   String?   @unique
+  created_at   DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  owner        User      @relation(fields: [owner_id], references: [id])
+  projects     Project[]
+  folders      Folder[]
+
+  @@index([workspace_id])
 }
 
 model Folder {
-  id         String    @id @default(uuid())
-  name       String
-  icon       String?
-  space_id   String
-  owner_id   String
-  position   Int       @default(0)
-  clickup_id String?   @unique
-  created_at DateTime  @default(now())
-  space      Space     @relation(fields: [space_id], references: [id], onDelete: Cascade)
-  owner      User      @relation(fields: [owner_id], references: [id])
-  projects   Project[]
+  id           String    @id @default(uuid())
+  name         String
+  icon         String?
+  space_id     String
+  workspace_id String
+  owner_id     String
+  position     Int       @default(0)
+  clickup_id   String?   @unique
+  created_at   DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  space        Space     @relation(fields: [space_id], references: [id], onDelete: Cascade)
+  owner        User      @relation(fields: [owner_id], references: [id])
+  projects     Project[]
+
+  @@index([workspace_id])
 }
 
 model Project {
-  id          String        @id @default(uuid())
-  name        String
-  description String?
-  status      ProjectStatus @default(active)
-  owner_id    String
-  space_id    String?
-  folder_id   String?
-  due_date    DateTime?
-  clickup_id  String?       @unique
-  created_at  DateTime      @default(now())
-  owner       User          @relation(fields: [owner_id], references: [id])
-  space       Space?        @relation(fields: [space_id], references: [id], onDelete: SetNull)
-  folder      Folder?       @relation(fields: [folder_id], references: [id], onDelete: SetNull)
-  tasks       Task[]
-  docs        Doc[]
+  id            String                  @id @default(uuid())
+  name          String
+  description   String?
+  status        ProjectStatus           @default(active)
+  workspace_id  String
+  owner_id      String
+  space_id      String?
+  folder_id     String?
+  due_date      DateTime?
+  clickup_id    String?                 @unique
+  created_at    DateTime                @default(now())
+  workspace     Workspace               @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  owner         User                    @relation(fields: [owner_id], references: [id])
+  space         Space?                  @relation(fields: [space_id], references: [id], onDelete: SetNull)
+  folder        Folder?                 @relation(fields: [folder_id], references: [id], onDelete: SetNull)
+  tasks         Task[]
+  docs          Doc[]
   custom_fields CustomFieldDefinition[]
+
+  @@index([workspace_id])
 }
 
 model Task {
-  id            String         @id @default(uuid())
-  title         String
-  description   String?
-  status        TaskStatus     @default(todo)
-  priority      TaskPriority   @default(medium)
-  project_id    String
-  assignee_id   String?
-  parent_id     String?
-  due_date      DateTime?
-  position      Int            @default(0)
-  clickup_id    String?        @unique
-  created_at    DateTime       @default(now())
-  project       Project        @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  assignee      User?          @relation("AssignedTasks", fields: [assignee_id], references: [id])
-  parent        Task?          @relation("Subtasks", fields: [parent_id], references: [id])
-  subtasks      Task[]         @relation("Subtasks")
-  comments      Comment[]
-  notifications Notification[]
+  id                  String             @id @default(uuid())
+  title               String
+  description         String?
+  status              TaskStatus         @default(todo)
+  priority            TaskPriority       @default(medium)
+  project_id          String
+  assignee_id         String?
+  parent_id           String?
+  due_date            DateTime?
+  position            Int                @default(0)
+  clickup_id          String?            @unique
+  created_at          DateTime           @default(now())
+  project             Project            @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  assignee            User?              @relation("AssignedTasks", fields: [assignee_id], references: [id])
+  parent              Task?              @relation("Subtasks", fields: [parent_id], references: [id])
+  subtasks            Task[]             @relation("Subtasks")
+  comments            Comment[]
+  notifications       Notification[]
   custom_field_values CustomFieldValue[]
 }
 
 model CustomFieldDefinition {
-  id         String           @id @default(uuid())
+  id         String             @id @default(uuid())
   project_id String
   name       String
   type       CustomFieldType
   options    Json?
-  position   Int              @default(0)
-  created_at DateTime         @default(now())
-  project    Project          @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  position   Int                @default(0)
+  created_at DateTime           @default(now())
+  project    Project            @relation(fields: [project_id], references: [id], onDelete: Cascade)
   values     CustomFieldValue[]
 
   @@index([project_id])
@@ -171,14 +233,18 @@ model Comment {
 }
 
 model Doc {
-  id         String   @id @default(uuid())
-  title      String
-  content    Json?
-  project_id String
-  author_id  String
-  updated_at DateTime @updatedAt
-  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
-  author     User     @relation(fields: [author_id], references: [id])
+  id           String    @id @default(uuid())
+  title        String
+  content      Json?
+  project_id   String
+  workspace_id String
+  author_id    String
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  project      Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  author       User      @relation(fields: [author_id], references: [id])
+
+  @@index([workspace_id])
 }
 
 model Notification {

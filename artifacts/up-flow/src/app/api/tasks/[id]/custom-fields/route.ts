@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 
 export async function PUT(
   req: NextRequest,
@@ -15,18 +15,11 @@ export async function PUT(
     select: {
       id: true,
       project_id: true,
-      assignee_id: true,
-      project: { select: { owner_id: true } },
+      project: { select: { workspace_id: true } },
     },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const { prismaUser } = auth;
-  const canWrite =
-    prismaUser.role === "admin" ||
-    task.project.owner_id === prismaUser.id ||
-    task.assignee_id === prismaUser.id;
-  if (!canWrite) {
+  if (!canAccessWorkspace(auth, task.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isWorkspaceAdmin,
+} from "@/lib/auth-helpers";
 
 export async function GET(
   req: NextRequest,
@@ -19,10 +23,7 @@ export async function GET(
   });
 
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (
-    auth.prismaUser.role !== "admin" &&
-    project.owner_id !== auth.prismaUser.id
-  ) {
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return NextResponse.json(project);
@@ -35,10 +36,12 @@ export async function PATCH(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { prismaUser } = auth;
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (project.owner_id !== prismaUser.id && prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (project.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -55,15 +58,15 @@ export async function PATCH(
   if (space_id) {
     const space = await prisma.space.findUnique({ where: { id: space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
-    if (prismaUser.role !== "admin" && space.owner_id !== prismaUser.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (space.workspace_id !== project.workspace_id) {
+      return NextResponse.json({ error: "Cannot move across workspaces" }, { status: 400 });
     }
   }
   if (folder_id) {
     const folder = await prisma.folder.findUnique({ where: { id: folder_id } });
     if (!folder) return NextResponse.json({ error: "Folder not found" }, { status: 400 });
-    if (prismaUser.role !== "admin" && folder.owner_id !== prismaUser.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (folder.workspace_id !== project.workspace_id) {
+      return NextResponse.json({ error: "Cannot move across workspaces" }, { status: 400 });
     }
   }
 
@@ -96,10 +99,12 @@ export async function DELETE(
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   void req;
 
-  const { prismaUser } = auth;
   const project = await prisma.project.findUnique({ where: { id: params.id } });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (project.owner_id !== prismaUser.id && prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (project.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

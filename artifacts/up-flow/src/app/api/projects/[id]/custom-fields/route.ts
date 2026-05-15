@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, type CustomFieldType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isWorkspaceAdmin,
+} from "@/lib/auth-helpers";
 
 const VALID_TYPES: CustomFieldType[] = [
   "text",
@@ -21,23 +25,11 @@ export async function GET(
 
   const project = await prisma.project.findUnique({
     where: { id: params.id },
-    select: { owner_id: true },
+    select: { workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  // Reads: owner, admin, or any user assigned to a task in this project.
-  // Writes (POST/PATCH/DELETE) remain owner/admin-only.
-  if (
-    auth.prismaUser.role !== "admin" &&
-    project.owner_id !== auth.prismaUser.id
-  ) {
-    const assigned = await prisma.task.findFirst({
-      where: { project_id: params.id, assignee_id: auth.prismaUser.id },
-      select: { id: true },
-    });
-    if (!assigned) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const fields = await prisma.customFieldDefinition.findMany({
@@ -54,14 +46,17 @@ export async function POST(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (auth.prismaUser.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   const project = await prisma.project.findUnique({
     where: { id: params.id },
-    select: { owner_id: true },
+    select: { workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessWorkspace(auth, project.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!isWorkspaceAdmin(auth)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = (await req.json().catch(() => ({}))) as {
     name?: string;

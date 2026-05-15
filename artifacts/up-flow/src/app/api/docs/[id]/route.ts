@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import {
+  getAuthUser,
+  canAccessWorkspace,
+  isWorkspaceAdmin,
+} from "@/lib/auth-helpers";
 
 export async function GET(
   req: NextRequest,
@@ -13,21 +18,16 @@ export async function GET(
   const doc = await prisma.doc.findUnique({
     where: { id: params.id },
     include: {
-      project: { select: { id: true, name: true, owner_id: true } },
+      project: { select: { id: true, name: true } },
       author: { select: { id: true, name: true } },
     },
   });
 
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const isAdmin = auth.prismaUser.role === "admin";
-  if (!isAdmin && doc.project.owner_id !== auth.prismaUser.id && doc.author_id !== auth.prismaUser.id) {
+  if (!canAccessWorkspace(auth, doc.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const { project, ...rest } = doc;
-  return NextResponse.json({
-    ...rest,
-    project: { id: project.id, name: project.name },
-  });
+  return NextResponse.json(doc);
 }
 
 export async function PATCH(
@@ -37,11 +37,12 @@ export async function PATCH(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { prismaUser } = auth;
-
   const existing = await prisma.doc.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (existing.author_id !== prismaUser.id && prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, existing.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (existing.author_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -52,7 +53,12 @@ export async function PATCH(
     where: { id: params.id },
     data: {
       ...(title !== undefined && { title }),
-      ...(content !== undefined && { content }),
+      ...(content !== undefined && {
+        content:
+          content === null
+            ? Prisma.JsonNull
+            : (content as Prisma.InputJsonValue),
+      }),
     },
     include: {
       project: { select: { id: true, name: true } },
@@ -71,11 +77,12 @@ export async function DELETE(
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   void req;
 
-  const { prismaUser } = auth;
-
   const existing = await prisma.doc.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (existing.author_id !== prismaUser.id && prismaUser.role !== "admin") {
+  if (!canAccessWorkspace(auth, existing.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (existing.author_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

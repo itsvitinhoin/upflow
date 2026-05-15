@@ -116,6 +116,7 @@ export interface ImportOptions {
   token: string;
   teamId: string;
   ownerUserId: string;
+  workspaceId: string;
   signal?: AbortSignal;
   onProgress?: (p: ImportProgress) => void;
 }
@@ -158,7 +159,7 @@ export async function previewImport(opts: {
 }
 
 export async function runImport(opts: ImportOptions): Promise<ImportProgress> {
-  const { token, teamId, ownerUserId, signal, onProgress } = opts;
+  const { token, teamId, ownerUserId, workspaceId, signal, onProgress } = opts;
   const progress = emptyProgress();
   const userCache = new Map<number, string>();
   const emit = () => onProgress?.({ ...progress });
@@ -230,10 +231,14 @@ export async function runImport(opts: ImportOptions): Promise<ImportProgress> {
         spaceIdByClickup.set(sp.id, updated.id);
         progress.updated.spaces++;
       } else {
-        const last = await prisma.space.findFirst({ orderBy: { position: "desc" } });
+        const last = await prisma.space.findFirst({
+          where: { workspace_id: workspaceId },
+          orderBy: { position: "desc" },
+        });
         const created = await prisma.space.create({
           data: {
             name: sp.name,
+            workspace_id: workspaceId,
             owner_id: ownerUserId,
             position: (last?.position ?? -1) + 1 + i,
             clickup_id: sp.id,
@@ -271,6 +276,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportProgress> {
           data: {
             name: fi.folder.name,
             space_id: spaceId,
+            workspace_id: workspaceId,
             owner_id: ownerUserId,
             position: (last?.position ?? -1) + 1,
             clickup_id: fi.folder.id,
@@ -315,6 +321,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportProgress> {
           data: {
             name: li.list.name,
             description: li.list.content || null,
+            workspace_id: workspaceId,
             owner_id: ownerUserId,
             space_id: spaceId,
             folder_id: folderId,

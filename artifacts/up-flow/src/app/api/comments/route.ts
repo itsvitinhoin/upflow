@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 
 export async function GET(req: NextRequest) {
@@ -9,23 +9,14 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const taskId = searchParams.get("task_id");
-
   if (!taskId) return NextResponse.json({ error: "task_id required" }, { status: 400 });
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: {
-      assignee_id: true,
-      project: { select: { owner_id: true } },
-    },
+    select: { project: { select: { workspace_id: true } } },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const { prismaUser } = auth;
-  const canRead =
-    prismaUser.role === "admin" ||
-    task.project.owner_id === prismaUser.id ||
-    task.assignee_id === prismaUser.id;
-  if (!canRead) {
+  if (!canAccessWorkspace(auth, task.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -63,19 +54,12 @@ export async function POST(req: NextRequest) {
 
   const taskRecord = await prisma.task.findUnique({
     where: { id: task_id },
-    select: {
-      assignee_id: true,
-      project: { select: { owner_id: true } },
-    },
+    select: { project: { select: { workspace_id: true } } },
   });
   if (!taskRecord) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  const canComment =
-    auth.prismaUser.role === "admin" ||
-    taskRecord.project.owner_id === userId ||
-    taskRecord.assignee_id === userId;
-  if (!canComment) {
+  if (!canAccessWorkspace(auth, taskRecord.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

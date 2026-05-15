@@ -28,6 +28,7 @@ import { cn, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AppUser, Project, Space, Folder as FolderT } from "@/lib/types";
+import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
 
 interface SidebarProps {
   user: AppUser;
@@ -282,6 +283,7 @@ export default function Sidebar({ user }: SidebarProps) {
 
   const Panel = () => (
     <div className="flex flex-col h-full w-full glass-rail border-l border-white/5">
+      <WorkspaceSwitcher />
       <div className="px-4 pt-4 pb-1">
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Navigation

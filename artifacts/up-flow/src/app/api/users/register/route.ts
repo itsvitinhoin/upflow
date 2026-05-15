@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
-import { getAuthUser } from "@/lib/auth-helpers";
+import { getAuthUser, isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
-// Admin-only invite-style registration. Public sign-up still happens through
-// Supabase on the client; this route only exists for an admin to provision a
-// teammate by email + password.
+// Workspace-admin-only direct provisioning. Creates the auth user in
+// Supabase and adds them as a member of the caller's active workspace.
 export async function POST(req: NextRequest) {
   const rl = checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
   if (!rl.ok) return rateLimitResponse(rl);
@@ -15,7 +14,7 @@ export async function POST(req: NextRequest) {
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (auth.prismaUser.role !== "admin") {
+  if (!isWorkspaceAdmin(auth) || !auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -47,9 +46,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Neutral response on success OR if the email is already in use, so the
-  // endpoint can't be used to enumerate accounts. We log the duplicate case
-  // server-side for the admin to follow up on out of band.
   const NEUTRAL_RESPONSE = NextResponse.json(
     { status: "accepted" },
     { status: 202 },
@@ -60,7 +56,24 @@ export async function POST(req: NextRequest) {
     select: { id: true },
   });
   if (existing) {
-    console.info(`[register] admin ${auth.prismaUser.email} attempted to invite existing user`);
+    // If the user already exists in Prisma, attach them to this workspace
+    // if not already a member, then return neutral.
+    await prisma.workspaceMember
+      .upsert({
+        where: {
+          workspace_id_user_id: {
+            workspace_id: auth.currentWorkspaceId,
+            user_id: existing.id,
+          },
+        },
+        create: {
+          workspace_id: auth.currentWorkspaceId,
+          user_id: existing.id,
+          role: "member",
+        },
+        update: {},
+      })
+      .catch(() => {});
     return NEUTRAL_RESPONSE;
   }
 
@@ -72,19 +85,27 @@ export async function POST(req: NextRequest) {
     user_metadata: { name },
   });
   if (supabaseErr) {
-    // If Supabase rejects because the user already exists there, stay neutral.
     const msg = supabaseErr.message.toLowerCase();
     if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
-      console.info(`[register] supabase reports duplicate for invite by ${auth.prismaUser.email}`);
       return NEUTRAL_RESPONSE;
     }
     return NextResponse.json({ error: supabaseErr.message }, { status: 400 });
   }
 
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: { email, name: name ?? email.split("@")[0], role: "member" },
     select: { id: true },
   });
+
+  await prisma.workspaceMember
+    .create({
+      data: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: created.id,
+        role: "member",
+      },
+    })
+    .catch(() => {});
 
   return NEUTRAL_RESPONSE;
 }
