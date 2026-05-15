@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Zap } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +21,9 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      if (res.status === 429) {
+        toast.error("Too many login attempts. Please wait a minute and try again.");
+      } else if (!res.ok) {
         toast.error(body.error || "Login failed");
       } else {
         router.push("/");
@@ -35,42 +36,6 @@ export default function LoginPage() {
     }
   }
 
-  async function handleRegister() {
-    if (!email || !password) {
-      toast.error("Enter email and password to register");
-      return;
-    }
-    setLoading(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error: signUpErr } = await supabase.auth.signUp({ email, password });
-      if (signUpErr) throw signUpErr;
-
-      await fetch("/api/users/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name: email.split("@")[0] }),
-      });
-
-      if (!data.session) {
-        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInErr) throw signInErr;
-        if (!signInData.session) throw new Error("Registration did not create a session");
-      }
-
-      toast.success("Account created! Signing in...");
-      router.push("/");
-      router.refresh();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Registration failed";
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
@@ -136,14 +101,7 @@ export default function LoginPage() {
 
           <div className="mt-6 pt-6 border-t border-border text-center">
             <p className="text-muted-foreground text-sm">
-              Don&apos;t have an account?{" "}
-              <button
-                onClick={handleRegister}
-                disabled={loading}
-                className="text-primary hover:text-primary/80 font-medium transition-colors disabled:opacity-50"
-              >
-                Create account
-              </button>
+              Need access? Ask your workspace admin to invite you.
             </p>
           </div>
         </div>

@@ -1,42 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
+import { getAuthUser } from "@/lib/auth-helpers";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
+// Admin-only invite-style registration. Public sign-up still happens through
+// Supabase on the client; this route only exists for an admin to provision a
+// teammate by email + password.
 export async function POST(req: NextRequest) {
-  const body = await req.json() as { email?: string; password?: string; name?: string };
-  const { email, password, name } = body;
+  const rl = checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
+  if (!rl.ok) return rateLimitResponse(rl);
+
+  const auth = await getAuthUser();
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (auth.prismaUser.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as {
+    email?: string;
+    password?: string;
+    name?: string;
+  };
+  const email = body.email?.trim().toLowerCase();
+  const password = body.password;
+  const name = body.name?.trim() || (email ? email.split("@")[0] : undefined);
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return NextResponse.json({ id: existing.id, email: existing.email, name: existing.name, role: existing.role });
+  if (!password || password.length < 8) {
+    return NextResponse.json(
+      { error: "Password is required (minimum 8 characters)" },
+      { status: 400 },
+    );
   }
 
-  if (email && password) {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (existing) {
+    // Neutral 409, no PII echoed back.
+    return NextResponse.json({ error: "Email already in use" }, { status: 409 });
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return NextResponse.json(
+      { error: "Server misconfigured: SUPABASE_SERVICE_ROLE_KEY is not set" },
+      { status: 500 },
     );
-    const { error } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name: name || email.split("@")[0] },
-    });
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey);
+  const { error: supabaseErr } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name },
+  });
+  if (supabaseErr) {
+    return NextResponse.json({ error: supabaseErr.message }, { status: 400 });
   }
 
   const user = await prisma.user.create({
-    data: {
-      email,
-      name: name || email.split("@")[0],
-      role: "member",
-    },
+    data: { email, name: name ?? email.split("@")[0], role: "member" },
     select: { id: true, email: true, name: true, role: true },
   });
 

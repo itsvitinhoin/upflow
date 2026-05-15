@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser } from "@/lib/auth-helpers";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 const MAX_PER_TYPE = 20;
 
 export async function GET(req: NextRequest) {
+  const rl = checkRateLimit(req, { windowMs: 60_000, max: 60, key: "search" });
+  if (!rl.ok) return rateLimitResponse(rl);
+
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
