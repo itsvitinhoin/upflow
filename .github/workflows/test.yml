@@ -7,7 +7,7 @@ on:
 
 jobs:
   typecheck:
-    name: Up Flow typecheck
+    name: Workspace typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -30,7 +30,7 @@ jobs:
         run: pnpm --filter @workspace/up-flow run db:generate
 
       - name: Typecheck
-        run: pnpm --filter @workspace/up-flow run typecheck
+        run: pnpm run typecheck
 
   lint:
     name: Up Flow lint
