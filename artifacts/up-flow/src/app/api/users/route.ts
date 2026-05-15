@@ -40,11 +40,9 @@ export async function GET(req: NextRequest) {
       name: true,
       email: true,
       avatar_url: true,
-      ...(superAdmin && {
-        role: true,
-        created_at: true,
-        _count: { select: { tasks: true, projects: true } },
-      }),
+      role: true,
+      created_at: true,
+      _count: { select: { tasks: true, projects: true } },
       memberships: {
         where: workspaceFilter
           ? { workspace_id: workspaceFilter }

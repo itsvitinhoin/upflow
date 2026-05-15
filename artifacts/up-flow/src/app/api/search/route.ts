@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthUser, isSuperAdmin } from "@/lib/auth-helpers";
+import { getAuthUser } from "@/lib/auth-helpers";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -23,16 +23,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Query too long" }, { status: 400 });
   }
 
-  // Search is scoped to the active workspace so results stay focused.
-  // Super-admins still see only the active workspace they're currently in
-  // for UX consistency; switching workspaces switches search scope. If
-  // there is no active workspace yet (e.g. brand-new account), we return
-  // an empty result regardless of role so the semantics stay consistent.
+  // Search is scoped to the caller's active workspace.
   const workspaceId = auth.currentWorkspaceId;
   if (!workspaceId) {
     return NextResponse.json({ q, tasks: [], projects: [], docs: [] });
   }
-  void isSuperAdmin;
 
   const projectScope = { workspace_id: workspaceId };
   const taskScope = { project: { workspace_id: workspaceId } };
