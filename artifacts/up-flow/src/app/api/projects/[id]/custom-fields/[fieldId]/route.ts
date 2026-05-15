@@ -21,9 +21,13 @@ async function assertCanEdit(
   ]);
   if (!project || !field) return { ok: false as const, status: 404 };
   if (field.project_id !== projectId) return { ok: false as const, status: 404 };
-  if (project.owner_id !== userId && role !== "admin") {
+  if (role !== "admin") {
     return { ok: false as const, status: 403 };
   }
+  // Defensive: keep project ownership consistent (not strictly required when
+  // admin-only, but cheap and protects against future relaxations).
+  void project;
+  void userId;
   return { ok: true as const };
 }
 

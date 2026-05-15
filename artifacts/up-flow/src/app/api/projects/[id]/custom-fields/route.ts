@@ -54,14 +54,14 @@ export async function POST(
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (auth.prismaUser.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const project = await prisma.project.findUnique({
     where: { id: params.id },
     select: { owner_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (project.owner_id !== auth.prismaUser.id && auth.prismaUser.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const body = (await req.json().catch(() => ({}))) as {
     name?: string;

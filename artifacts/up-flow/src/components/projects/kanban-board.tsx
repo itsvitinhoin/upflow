@@ -98,6 +98,10 @@ export default function KanbanBoard({
     isDraggingRef.current = true;
   };
 
+  const visibleCustomFields = customFields.filter(
+    (f) => toolbar?.visibleColumns?.[f.id] ?? true,
+  );
+
   const handleDragEnd = async (result: DropResult) => {
     setTimeout(() => {
       isDraggingRef.current = false;
@@ -237,9 +241,9 @@ export default function KanbanBoard({
                                 )}
                               </div>
 
-                              {customFields.length > 0 && (
+                              {visibleCustomFields.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                  {customFields.slice(0, 4).map((f) => (
+                                  {visibleCustomFields.map((f) => (
                                     <CustomFieldChip
                                       key={f.id}
                                       definition={f}
