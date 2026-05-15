@@ -86,6 +86,12 @@ DB note: DIRECT_URL in this environment is IPv6-only and unreachable, so
    --script | psql "$DATABASE_URL"` and seed `_prisma_migrations` manually if
 needed.
 
+Backfill: the workspace migration explicitly assigns ALL pre-existing Spaces,
+Folders, Projects and Docs to a single shared "Acme" workspace (slug `acme`).
+This is intentional — Up Flow's day-1 model is a shared org, not per-user silos.
+New users auto-join Acme on first login. Personal workspaces are only created
+when no Acme exists (e.g. after a fresh DB without seed).
+
 ## User preferences
 
 (none recorded yet)

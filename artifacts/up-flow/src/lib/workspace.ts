@@ -81,8 +81,14 @@ export async function ensureDefaultWorkspace(userId: string, displayName: string
         members: { create: { user_id: userId, role: "owner" } },
       },
     });
-  } catch {
-    // Lost a concurrency race — another request finished provisioning first.
+  } catch (err) {
+    // The only expected failure mode is a unique-constraint race when two
+    // concurrent first-logins try to provision at the same time. Anything
+    // else is genuinely unexpected, so log it instead of swallowing.
+    const code = (err as { code?: string }).code;
+    if (code !== "P2002") {
+      console.error("ensureDefaultWorkspace failed", err);
+    }
   }
 }
 

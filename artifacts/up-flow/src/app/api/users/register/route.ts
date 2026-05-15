@@ -73,7 +73,9 @@ export async function POST(req: NextRequest) {
         },
         update: {},
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error("workspaceMember upsert (existing user) failed", err);
+      });
     return NEUTRAL_RESPONSE;
   }
 
@@ -105,7 +107,9 @@ export async function POST(req: NextRequest) {
         role: "member",
       },
     })
-    .catch(() => {});
+    .catch((err) => {
+      console.error("workspaceMember create (new user) failed", err);
+    });
 
   return NEUTRAL_RESPONSE;
 }
