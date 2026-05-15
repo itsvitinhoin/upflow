@@ -1,33 +1,48 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { TEST_AUTH_COOKIE } from "@/lib/test-auth";
 
 export async function middleware(req: NextRequest) {
   let response = NextResponse.next({ request: { headers: req.headers } });
   const cookieMutations: Array<{ name: string; value: string; options?: Parameters<typeof response.cookies.set>[0] }> = [];
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: Parameters<typeof response.cookies.set>[0]) {
-          cookieMutations.push({ name, value, options });
-          response.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: Parameters<typeof response.cookies.set>[0]) {
-          cookieMutations.push({ name, value: "", options });
-          response.cookies.set({ name, value: "", ...options });
-        },
-      },
-    }
-  );
+  // Dev/CI-only login bypass — gated by NODE_ENV (Edge runtime can't reliably
+  // see arbitrary env vars during dev, so we only check the cookie shape
+  // here; `getAuthResult()` does the actual HMAC verification in the Node
+  // runtime, which is the source of truth for whether the bypass is on).
+  const rawTestCookie = req.cookies.get(TEST_AUTH_COOKIE)?.value;
+  const testCookieShapeOk =
+    process.env.NODE_ENV !== "production" &&
+    Boolean(rawTestCookie) &&
+    /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(rawTestCookie!);
+  let user: { email?: string | null } | null = testCookieShapeOk
+    ? { email: "pending-server-verify" }
+    : null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (!user) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return req.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: Parameters<typeof response.cookies.set>[0]) {
+            cookieMutations.push({ name, value, options });
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name: string, options: Parameters<typeof response.cookies.set>[0]) {
+            cookieMutations.push({ name, value: "", options });
+            response.cookies.set({ name, value: "", ...options });
+          },
+        },
+      }
+    );
+
+    const got = await supabase.auth.getUser();
+    user = got.data.user;
+  }
 
   const { pathname } = req.nextUrl;
   const isLoginPage = pathname === "/login";

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import type { User, WorkspaceRole } from "@prisma/client";
@@ -10,6 +11,7 @@ import {
   type MembershipLite,
 } from "@/lib/workspace";
 import { logError } from "@/lib/log-error";
+import { TEST_AUTH_COOKIE, verifyTestAuthCookie } from "@/lib/test-auth";
 
 export interface AuthUser {
   supabaseId: string;
@@ -55,25 +57,35 @@ export async function getAuthResult(): Promise<AuthResult> {
   let email: string | null = null;
   let supabaseId: string | null = null;
   let metadataName: string | undefined;
-  try {
-    const supabase = createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    // No session = genuinely anonymous (login screen is correct).
-    if (!user?.email) return { kind: "anonymous" };
-    email = user.email;
-    supabaseId = user.id;
-    metadataName =
-      (user.user_metadata?.name as string | undefined) ||
-      (user.user_metadata?.full_name as string | undefined);
-  } catch (err) {
-    // Supabase upstream blip / network error while validating the session
-    // — the user MAY be logged in, we just can't tell right now. Surface
-    // this as an outage so callers can return 503 instead of falsely
-    // bouncing the user to /login.
-    logError("auth:supabase-getUser", err);
-    return { kind: "error", error: err as Error };
+
+  // Dev/CI-only bypass — see `lib/test-auth.ts`. Hard-gated on
+  // NODE_ENV !== "production" AND a TEST_LOGIN_TOKEN env var being set,
+  // so this is a no-op in any deployed environment.
+  const testEmail = await verifyTestAuthCookie(cookies().get(TEST_AUTH_COOKIE)?.value);
+  if (testEmail) {
+    email = testEmail;
+    supabaseId = `test:${testEmail}`;
+  } else {
+    try {
+      const supabase = createSupabaseServerClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      // No session = genuinely anonymous (login screen is correct).
+      if (!user?.email) return { kind: "anonymous" };
+      email = user.email;
+      supabaseId = user.id;
+      metadataName =
+        (user.user_metadata?.name as string | undefined) ||
+        (user.user_metadata?.full_name as string | undefined);
+    } catch (err) {
+      // Supabase upstream blip / network error while validating the session
+      // — the user MAY be logged in, we just can't tell right now. Surface
+      // this as an outage so callers can return 503 instead of falsely
+      // bouncing the user to /login.
+      logError("auth:supabase-getUser", err);
+      return { kind: "error", error: err as Error };
+    }
   }
 
   // Step 2: look up (or, on first sign-in, create) the Prisma user.

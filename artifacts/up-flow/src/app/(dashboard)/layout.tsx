@@ -1,23 +1,35 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import Sidebar from "@/components/layout/sidebar";
 import { UserProvider } from "@/components/user-provider";
 import type { AppUser } from "@/lib/types";
+import { TEST_AUTH_COOKIE, verifyTestAuthCookie } from "@/lib/test-auth";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user: supabaseUser },
-  } = await supabase.auth.getUser();
+  // Dev/CI-only login bypass — see `lib/test-auth.ts`. Hard-gated on
+  // NODE_ENV !== "production" AND TEST_LOGIN_TOKEN being set.
+  let resolvedEmail: string | null = await verifyTestAuthCookie(
+    cookies().get(TEST_AUTH_COOKIE)?.value,
+  );
 
-  if (!supabaseUser?.email) {
+  if (!resolvedEmail) {
+    const supabase = createSupabaseServerClient();
+    const {
+      data: { user: supabaseUser },
+    } = await supabase.auth.getUser();
+    resolvedEmail = supabaseUser?.email ?? null;
+  }
+
+  if (!resolvedEmail) {
     redirect("/login");
   }
+  const supabaseUser = { email: resolvedEmail, user_metadata: {} as Record<string, unknown> };
 
   // Upsert: auto-create Prisma row on first login so any Supabase user can access the app
   const prismaUser = await prisma.user.upsert({

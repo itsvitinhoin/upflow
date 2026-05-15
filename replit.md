@@ -21,6 +21,23 @@ These must be set in any environment that runs Up Flow. In production the server
 | `SUPABASE_SERVICE_ROLE_KEY` | Replit secret | Required for admin invite-style user registration |
 | `ADMIN_EMAILS` | Replit secret / `.env.local` | Comma-separated email allowlist of users auto-promoted to `admin`. Defaults to `admin@upflow.io` if unset (dev only) |
 | `CLICKUP_API_TOKEN` | Optional | Default token for the admin ClickUp import |
+| `TEST_LOGIN_TOKEN` | `.env.local` (dev/CI only) | Enables the Playwright login bypass route. **Must be unset in production** — the bypass is also hard-gated on `NODE_ENV !== "production"` |
+
+## Running tests
+
+End-to-end tests live in `artifacts/up-flow/tests/` and exercise the JSON API (Playwright `request` fixture — no browser needed) plus one optional UI smoke that auto-skips when Chromium can't launch (e.g. the Replit Nix sandbox lacks `glib`).
+
+```bash
+# one-off browser download (optional — only used by ui.spec.ts)
+pnpm --filter @workspace/up-flow run test:e2e:install
+
+# run the suite against the running dev server (workflow `artifacts/up-flow: web`)
+pnpm --filter @workspace/up-flow run test:e2e
+```
+
+Requirements: the dev workflow must be running, `TEST_LOGIN_TOKEN` must be set in `.env.local`, and the seeded users `admin@upflow.io` / `sarah@upflow.io` must exist (see `prisma/seed.ts`). The `test:e2e` script reuses the live dev server on `http://localhost:80`; override with `PLAYWRIGHT_BASE_URL` if needed.
+
+The login bypass is implemented in three places: `POST /api/auth/test-login` mints an HMAC-signed `upflow_test_user` cookie; `middleware.ts` lets requests through when the cookie is shape-valid (Edge runtime can't always read env vars, so the real HMAC check happens server-side); `getAuthResult()` and `app/(dashboard)/layout.tsx` do the actual signature verification before granting access. The whole mechanism is a no-op in production.
 
 ## Deploying
 
