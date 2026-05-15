@@ -76,9 +76,9 @@ export default function CommandPalette() {
         fetch("/api/spaces"),
         fetch("/api/tasks?mine=true"),
       ]);
-      if (pRes.ok) setProjects(await pRes.json());
-      if (sRes.ok) setSpaces(await sRes.json());
-      if (tRes.ok) setTasks((await tRes.json()).slice(0, 20));
+      if (pRes.ok) setProjects((await pRes.json()).items ?? []);
+      if (sRes.ok) setSpaces((await sRes.json()).items ?? []);
+      if (tRes.ok) setTasks(((await tRes.json()).items ?? []).slice(0, 20));
     } catch {
       /* ignore */
     } finally {

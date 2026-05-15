@@ -63,14 +63,14 @@ export default function ProjectPage() {
       }
       const [p, t, u, f, m] = await Promise.all([
         pRes.json() as Promise<Project>,
-        tRes.json() as Promise<Task[]>,
-        uRes.ok ? (uRes.json() as Promise<TaskAssignee[]>) : Promise.resolve([]),
-        fRes.ok ? (fRes.json() as Promise<CustomFieldDefinition[]>) : Promise.resolve([]),
+        tRes.json() as Promise<{ items: Task[] }>,
+        uRes.ok ? (uRes.json() as Promise<{ items: TaskAssignee[] }>) : Promise.resolve({ items: [] as TaskAssignee[] }),
+        fRes.ok ? (fRes.json() as Promise<CustomFieldDefinition[]>) : Promise.resolve([] as CustomFieldDefinition[]),
         meRes.ok ? (meRes.json() as Promise<AppUser>) : Promise.resolve(null as AppUser | null),
       ]);
       setProject(p);
-      setTasks(t);
-      setUsers(u);
+      setTasks(t.items ?? []);
+      setUsers(u.items ?? []);
       setCustomFields(f);
       setMe(m);
     } catch {

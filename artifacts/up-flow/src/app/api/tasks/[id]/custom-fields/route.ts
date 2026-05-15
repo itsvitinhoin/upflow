@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
+import { isEmptyValue, validateCustomFieldValue } from "@/lib/custom-field-validator";
 
 export async function PUT(
   req: NextRequest,
@@ -33,19 +34,13 @@ export async function PUT(
 
   const def = await prisma.customFieldDefinition.findUnique({
     where: { id: body.definition_id },
-    select: { project_id: true },
+    select: { project_id: true, name: true, type: true, options: true },
   });
   if (!def || def.project_id !== task.project_id) {
     return NextResponse.json({ error: "Field not in this project" }, { status: 400 });
   }
 
-  const isEmpty =
-    body.value === null ||
-    body.value === undefined ||
-    body.value === "" ||
-    (Array.isArray(body.value) && body.value.length === 0);
-
-  if (isEmpty) {
+  if (isEmptyValue(body.value)) {
     await prisma.customFieldValue
       .delete({
         where: {
@@ -59,6 +54,14 @@ export async function PUT(
     return NextResponse.json({ ok: true, value: null });
   }
 
+  const validated = validateCustomFieldValue(def, body.value);
+  if (!validated.ok) {
+    return NextResponse.json(
+      { error: `Invalid value for "${def.name}": ${validated.error}` },
+      { status: 400 },
+    );
+  }
+
   const upserted = await prisma.customFieldValue.upsert({
     where: {
       task_id_definition_id: {
@@ -66,11 +69,11 @@ export async function PUT(
         definition_id: body.definition_id,
       },
     },
-    update: { value: body.value as Prisma.InputJsonValue },
+    update: { value: validated.value as Prisma.InputJsonValue },
     create: {
       task_id: task.id,
       definition_id: body.definition_id,
-      value: body.value as Prisma.InputJsonValue,
+      value: validated.value as Prisma.InputJsonValue,
     },
   });
 

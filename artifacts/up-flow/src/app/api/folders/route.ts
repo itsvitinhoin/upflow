@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!auth.currentWorkspaceId) {
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ items: [], nextCursor: null });
   }
-  void req;
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
 
-  const folders = await prisma.folder.findMany({
+  const rows = await prisma.folder.findMany({
     where: { workspace_id: auth.currentWorkspaceId },
-    orderBy: [{ position: "asc" }, { created_at: "asc" }],
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
     include: {
       _count: { select: { projects: true } },
     },
   });
 
-  return NextResponse.json(folders);
+  return NextResponse.json(buildPage(rows, limit));
 }
 
 export async function POST(req: NextRequest) {

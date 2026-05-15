@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
@@ -20,9 +21,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const comments = await prisma.comment.findMany({
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 100, maxLimit: 500 });
+
+  const rows = await prisma.comment.findMany({
     where: { task_id: taskId, parent_id: null },
-    orderBy: { created_at: "asc" },
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
     include: {
       author: { select: { id: true, name: true, email: true } },
       replies: {
@@ -32,7 +37,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(comments);
+  return NextResponse.json(buildPage(rows, limit));
 }
 
 export async function POST(req: NextRequest) {

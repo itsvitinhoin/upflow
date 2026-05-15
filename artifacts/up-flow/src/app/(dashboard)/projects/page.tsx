@@ -23,8 +23,8 @@ export default function ProjectsPage() {
     setLoading(true);
     fetch("/api/projects")
       .then((r) => r.json())
-      .then((data: Project[]) => {
-        setProjects(data);
+      .then((data: { items: Project[] }) => {
+        setProjects(data.items ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -33,7 +33,7 @@ export default function ProjectsPage() {
   const loadSpaces = () => {
     fetch("/api/spaces")
       .then((r) => r.json())
-      .then((data: Space[]) => setSpaces(data))
+      .then((data: { items: Space[] }) => setSpaces(data.items ?? []))
       .catch(() => {});
   };
 

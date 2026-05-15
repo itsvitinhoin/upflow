@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!auth.currentWorkspaceId) {
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ items: [], nextCursor: null });
   }
 
   const { searchParams } = new URL(req.url);
@@ -24,20 +25,24 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
+
   const where = projectId
     ? { project_id: projectId }
     : { workspace_id: auth.currentWorkspaceId };
 
-  const docs = await prisma.doc.findMany({
+  const rows = await prisma.doc.findMany({
     where,
-    orderBy: { updated_at: "desc" },
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    orderBy: [{ updated_at: "desc" }, { id: "asc" }],
     include: {
       project: { select: { id: true, name: true } },
       author: { select: { id: true, name: true } },
     },
   });
 
-  return NextResponse.json(docs);
+  return NextResponse.json(buildPage(rows, limit));
 }
 
 export async function POST(req: NextRequest) {

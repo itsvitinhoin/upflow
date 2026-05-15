@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, isSuperAdmin } from "@/lib/auth-helpers";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 // Returns every user who shares at least one workspace with the caller, so the
 // UI can populate assignee pickers, team views, etc. Super-admins see all
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const workspaceFilter = searchParams.get("workspace_id");
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
 
   const superAdmin = isSuperAdmin(auth);
 
@@ -27,14 +29,18 @@ export async function GET(req: NextRequest) {
     where = { memberships: { some: { workspace_id: workspaceFilter } } };
   } else if (!superAdmin) {
     const wsIds = auth.memberships.map((m) => m.workspace_id);
-    if (wsIds.length === 0) return NextResponse.json([], { status: 200 });
+    if (wsIds.length === 0) {
+      return NextResponse.json({ items: [], nextCursor: null });
+    }
     where = { memberships: { some: { workspace_id: { in: wsIds } } } };
   }
   // super-admin + no filter → no where clause, returns everyone.
 
-  const users = await prisma.user.findMany({
+  const rows = await prisma.user.findMany({
     where,
-    orderBy: { name: "asc" },
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,
       name: true,
@@ -54,9 +60,8 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  // Flatten: surface a single `workspace_role` matching the active workspace
-  // when applicable, so existing UI keeps working.
-  const result = users.map((u) => {
+  // Flatten memberships into `workspace_role` (active workspace) + `workspaces` list.
+  const flattened = rows.map((u) => {
     const activeMembership = u.memberships.find(
       (m) => m.workspace_id === auth.currentWorkspaceId,
     );
@@ -72,5 +77,5 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  return NextResponse.json(result);
+  return NextResponse.json(buildPage(flattened, limit));
 }

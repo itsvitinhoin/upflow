@@ -29,7 +29,7 @@ export default function TimePage() {
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
-        setProjects(Array.isArray(d) ? d : d.projects ?? []);
+        setProjects(Array.isArray(d) ? d : d.items ?? d.projects ?? []);
       })
       .catch(() => {})
       .finally(() => alive && setLoading(false));

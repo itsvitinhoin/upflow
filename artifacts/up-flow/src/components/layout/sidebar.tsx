@@ -94,14 +94,14 @@ export default function Sidebar({ user }: SidebarProps) {
   const loadPanel = () => {
     setLoadingPanel(true);
     Promise.all([
-      fetch("/api/spaces").then((r) => r.json() as Promise<Space[]>),
-      fetch("/api/projects").then((r) => r.json() as Promise<Project[]>),
-      fetch("/api/folders").then((r) => r.json() as Promise<FolderT[]>),
+      fetch("/api/spaces").then((r) => r.json() as Promise<{ items: Space[] }>),
+      fetch("/api/projects").then((r) => r.json() as Promise<{ items: Project[] }>),
+      fetch("/api/folders").then((r) => r.json() as Promise<{ items: FolderT[] }>),
     ])
       .then(([s, p, f]) => {
-        setSpaces(s);
-        setProjects(p);
-        setFolders(f);
+        setSpaces(s.items ?? []);
+        setProjects(p.items ?? []);
+        setFolders(f.items ?? []);
       })
       .catch(() => {})
       .finally(() => setLoadingPanel(false));

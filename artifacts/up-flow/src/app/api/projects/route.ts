@@ -1,26 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!auth.currentWorkspaceId) {
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ items: [], nextCursor: null });
   }
 
-  const { searchParams } = new URL(req.url);
-  const limit = Math.min(
-    Math.max(1, parseInt(searchParams.get("limit") || "500", 10) || 500),
-    1000
-  );
-  const cursor = searchParams.get("cursor");
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
 
-  const projects = await prisma.project.findMany({
+  const rows = await prisma.project.findMany({
     where: { workspace_id: auth.currentWorkspaceId },
-    take: limit,
+    take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    orderBy: [{ created_at: "desc" }, { id: "desc" }],
+    orderBy: [{ created_at: "desc" }, { id: "asc" }],
     include: {
       owner: { select: { id: true, name: true, email: true } },
       space: { select: { id: true, name: true, icon: true } },
@@ -29,7 +25,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(projects);
+  return NextResponse.json(buildPage(rows, limit));
 }
 
 export async function POST(req: NextRequest) {

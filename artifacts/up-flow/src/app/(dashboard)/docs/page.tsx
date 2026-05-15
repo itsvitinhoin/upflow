@@ -15,8 +15,8 @@ export default function DocsPage() {
   useEffect(() => {
     fetch("/api/docs")
       .then((r) => r.json())
-      .then((data: Doc[]) => {
-        setDocs(data);
+      .then((data: { items: Doc[] }) => {
+        setDocs(data.items ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));

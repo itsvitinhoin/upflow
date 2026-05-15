@@ -52,7 +52,7 @@ export default function CalendarPage() {
       .then((r) => r.json())
       .then((d) => {
         if (!alive) return;
-        const list = (Array.isArray(d) ? d : d.tasks ?? []) as Task[];
+        const list = (Array.isArray(d) ? d : d.items ?? d.tasks ?? []) as Task[];
         setTasks(list);
       })
       .catch(() => {})

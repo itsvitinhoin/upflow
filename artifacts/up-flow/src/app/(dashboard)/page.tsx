@@ -72,14 +72,14 @@ export default function DashboardPage() {
 
   const loadData = () => {
     Promise.all([
-      fetch("/api/tasks?mine=true").then((r) => r.json() as Promise<Task[]>),
-      fetch("/api/projects").then((r) => r.json() as Promise<Project[]>),
-      fetch("/api/users").then((r) => r.json() as Promise<TeamMember[]>),
+      fetch("/api/tasks?mine=true").then((r) => r.json() as Promise<{ items: Task[] }>),
+      fetch("/api/projects").then((r) => r.json() as Promise<{ items: Project[] }>),
+      fetch("/api/users").then((r) => r.json() as Promise<{ items: TeamMember[] }>),
     ])
       .then(([t, p, u]) => {
-        setTasks(t);
-        setProjects(p);
-        setUsers(u);
+        setTasks(t.items ?? []);
+        setProjects(p.items ?? []);
+        setUsers(u.items ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));

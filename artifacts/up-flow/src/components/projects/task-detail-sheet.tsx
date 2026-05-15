@@ -36,7 +36,7 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
     loadTaskDetails();
     fetch("/api/users")
       .then((r) => r.json())
-      .then((data: TaskAssignee[]) => setUsers(data))
+      .then((data: { items: TaskAssignee[] }) => setUsers(data.items ?? []))
       .catch(() => {});
   }, [task.id]);
 

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
+import { buildPage, parsePagination } from "@/lib/pagination";
+import { validateCustomFieldBatch } from "@/lib/custom-field-validator";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -40,20 +42,16 @@ export async function GET(req: NextRequest) {
   // consistent with the workspace switcher.
   if (!projectId) {
     if (!auth.currentWorkspaceId) {
-      return NextResponse.json([], { status: 200 });
+      return NextResponse.json({ items: [], nextCursor: null });
     }
     where.project = { workspace_id: auth.currentWorkspaceId };
   }
 
-  const limit = Math.min(
-    Math.max(1, parseInt(searchParams.get("limit") || "500", 10) || 500),
-    1000
-  );
-  const cursor = searchParams.get("cursor");
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 500, maxLimit: 1000 });
 
-  const tasks = await prisma.task.findMany({
+  const rows = await prisma.task.findMany({
     where,
-    take: limit,
+    take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: [{ position: "asc" }, { created_at: "desc" }, { id: "asc" }],
     include: {
@@ -66,7 +64,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(tasks);
+  return NextResponse.json(buildPage(rows, limit));
 }
 
 export async function POST(req: NextRequest) {
@@ -153,10 +151,11 @@ export async function POST(req: NextRequest) {
     (e) => e && e.definition_id && e.value !== undefined && e.value !== "" && e.value !== null
   );
 
+  const cfNormalized = new Map<string, unknown>();
   if (cfEntries.length > 0) {
     const defs = await prisma.customFieldDefinition.findMany({
       where: { id: { in: cfEntries.map((e) => e.definition_id) } },
-      select: { id: true, project_id: true },
+      select: { id: true, name: true, type: true, options: true, project_id: true },
     });
     if (defs.length !== cfEntries.length || defs.some((d) => d.project_id !== project_id)) {
       return NextResponse.json(
@@ -164,6 +163,14 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const result = validateCustomFieldBatch(defs, cfEntries);
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: `Invalid value for "${result.field}": ${result.error}` },
+        { status: 400 }
+      );
+    }
+    result.normalized.forEach((v, k) => cfNormalized.set(k, v));
   }
 
   const task = await prisma.$transaction(async (tx) => {
@@ -187,11 +194,16 @@ export async function POST(req: NextRequest) {
 
     if (cfEntries.length > 0) {
       await tx.customFieldValue.createMany({
-        data: cfEntries.map((e) => ({
-          task_id: created.id,
-          definition_id: e.definition_id,
-          value: e.value as Prisma.InputJsonValue,
-        })),
+        data: cfEntries
+          .filter((e) => {
+            const v = cfNormalized.get(e.definition_id);
+            return v !== null && v !== undefined;
+          })
+          .map((e) => ({
+            task_id: created.id,
+            definition_id: e.definition_id,
+            value: cfNormalized.get(e.definition_id) as Prisma.InputJsonValue,
+          })),
       });
     }
 

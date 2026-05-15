@@ -36,9 +36,9 @@ export default function NewTaskDialog({
       fetch("/api/projects").then((r) => r.json()),
       fetch("/api/users").then((r) => r.json()),
     ])
-      .then(([p, u]: [Project[], TaskAssignee[]]) => {
-        setProjects(p);
-        setUsers(u);
+      .then(([p, u]: [{ items: Project[] }, { items: TaskAssignee[] }]) => {
+        setProjects(p.items ?? []);
+        setUsers(u.items ?? []);
       })
       .catch(() => {});
   }, [open]);

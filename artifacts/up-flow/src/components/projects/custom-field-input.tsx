@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
+import { validateCustomFieldValue } from "@/lib/custom-field-validator";
 
 interface Props {
   definition: CustomFieldDefinition;
@@ -16,6 +17,30 @@ interface Props {
 const inputCls =
   "w-full text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
+const errorCls = "border-destructive focus:ring-destructive";
+
+/**
+ * Wrap an onChange so we run the shared validator first. If invalid, we keep
+ * the user's raw input visible (via local state) and surface the error inline
+ * instead of bubbling a bad value to the server.
+ */
+function useValidated(
+  definition: CustomFieldDefinition,
+  onChange: (value: unknown) => void,
+) {
+  const [error, setError] = useState<string | null>(null);
+  const commit = (raw: unknown) => {
+    const result = validateCustomFieldValue(definition, raw);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setError(null);
+    onChange(result.value);
+  };
+  return { error, commit };
+}
+
 export default function CustomFieldInput({
   definition,
   value,
@@ -23,37 +48,45 @@ export default function CustomFieldInput({
   users = [],
   compact = false,
 }: Props) {
+  const { error, commit } = useValidated(definition, onChange);
+
   if (definition.type === "text") {
     return (
-      <input
-        type="text"
-        defaultValue={(value as string) ?? ""}
-        onBlur={(e) => onChange(e.target.value || null)}
-        placeholder="—"
-        className={inputCls}
-      />
+      <FieldWrap error={error}>
+        <input
+          type="text"
+          defaultValue={(value as string) ?? ""}
+          onBlur={(e) => commit(e.target.value || null)}
+          placeholder="—"
+          className={cn(inputCls, error && errorCls)}
+        />
+      </FieldWrap>
     );
   }
   if (definition.type === "number") {
     return (
-      <input
-        type="number"
-        defaultValue={value === null || value === undefined ? "" : String(value)}
-        onBlur={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-        placeholder="—"
-        className={inputCls}
-      />
+      <FieldWrap error={error}>
+        <input
+          type="number"
+          defaultValue={value === null || value === undefined ? "" : String(value)}
+          onBlur={(e) => commit(e.target.value === "" ? null : e.target.value)}
+          placeholder="—"
+          className={cn(inputCls, error && errorCls)}
+        />
+      </FieldWrap>
     );
   }
   if (definition.type === "date") {
     const dateVal = typeof value === "string" ? value.slice(0, 10) : "";
     return (
-      <input
-        type="date"
-        defaultValue={dateVal}
-        onBlur={(e) => onChange(e.target.value || null)}
-        className={inputCls}
-      />
+      <FieldWrap error={error}>
+        <input
+          type="date"
+          defaultValue={dateVal}
+          onBlur={(e) => commit(e.target.value || null)}
+          className={cn(inputCls, error && errorCls)}
+        />
+      </FieldWrap>
     );
   }
   if (definition.type === "checkbox") {
@@ -61,7 +94,7 @@ export default function CustomFieldInput({
     return (
       <button
         type="button"
-        onClick={() => onChange(!checked)}
+        onClick={() => commit(!checked)}
         aria-pressed={checked}
         className={cn(
           "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
@@ -75,21 +108,23 @@ export default function CustomFieldInput({
   if (definition.type === "dropdown") {
     const options = definition.options ?? [];
     return (
-      <div className="relative">
-        <select
-          value={(value as string) ?? ""}
-          onChange={(e) => onChange(e.target.value || null)}
-          className={cn(inputCls, "appearance-none pr-8")}
-        >
-          <option value="">—</option>
-          {options.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-      </div>
+      <FieldWrap error={error}>
+        <div className="relative">
+          <select
+            value={(value as string) ?? ""}
+            onChange={(e) => commit(e.target.value || null)}
+            className={cn(inputCls, "appearance-none pr-8", error && errorCls)}
+          >
+            <option value="">—</option>
+            {options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        </div>
+      </FieldWrap>
     );
   }
   if (definition.type === "people") {
@@ -97,12 +132,31 @@ export default function CustomFieldInput({
       <PeoplePicker
         selected={Array.isArray(value) ? (value as string[]) : []}
         users={users}
-        onChange={(ids) => onChange(ids.length === 0 ? null : ids)}
+        onChange={(ids) => commit(ids.length === 0 ? null : ids)}
         compact={compact}
       />
     );
   }
   return null;
+}
+
+function FieldWrap({
+  error,
+  children,
+}: {
+  error: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      {children}
+      {error && (
+        <p className="text-[11px] text-destructive mt-1" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function PeoplePicker({

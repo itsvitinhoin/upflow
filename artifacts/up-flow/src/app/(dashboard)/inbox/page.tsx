@@ -54,8 +54,8 @@ export default function InboxPage() {
     try {
       const res = await fetch("/api/notifications");
       if (res.ok) {
-        const data = (await res.json()) as Notification[];
-        setNotifications(data);
+        const data = (await res.json()) as { items: Notification[] };
+        setNotifications(data.items ?? []);
       }
     } catch {
       /* ignore */

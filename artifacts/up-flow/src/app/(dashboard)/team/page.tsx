@@ -13,8 +13,8 @@ export default function TeamPage() {
   useEffect(() => {
     fetch("/api/users")
       .then((r) => r.json())
-      .then((data: TeamMember[]) => {
-        setUsers(data);
+      .then((data: { items: TeamMember[] }) => {
+        setUsers(data.items ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));

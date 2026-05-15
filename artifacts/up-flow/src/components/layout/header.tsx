@@ -43,9 +43,10 @@ export default function Header({ title }: HeaderProps) {
     try {
       const res = await fetch("/api/notifications");
       if (res.ok) {
-        const data = (await res.json()) as Notification[];
-        setNotifications(data);
-        setUnreadCount(data.filter((n) => !n.read).length);
+        const data = (await res.json()) as { items: Notification[] };
+        const items = data.items ?? [];
+        setNotifications(items);
+        setUnreadCount(items.filter((n) => !n.read).length);
       }
     } catch {
       /* ignore */
