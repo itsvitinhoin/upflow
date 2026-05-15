@@ -60,7 +60,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && isLoginPage) {
+  // Only redirect away from /login when we have a *real* Supabase session.
+  // The test-cookie path here is shape-only; if it's stale or forged, the
+  // Node-runtime auth check would bounce us back here and we'd loop. So
+  // when the bypass path is in play, leave the login page reachable.
+  if (user && isLoginPage && !testCookieShapeOk) {
     const homeUrl = req.nextUrl.clone();
     homeUrl.pathname = "/";
     return NextResponse.redirect(homeUrl);

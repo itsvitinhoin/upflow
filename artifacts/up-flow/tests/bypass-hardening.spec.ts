@@ -36,6 +36,21 @@ test.describe("test-login bypass hardening", () => {
     await ctx.dispose();
   });
 
+  test("a forged shape-valid cookie does not cause a /login redirect loop", async ({ playwright, baseURL }) => {
+    const ctx = await playwright.request.newContext({
+      baseURL,
+      extraHTTPHeaders: {
+        cookie: "upflow_test_user=YWRtaW5AdXBmbG93Lmlv.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      },
+    });
+    // /login must remain reachable (no auto-redirect to /) when the bypass
+    // cookie is stale/forged — otherwise the dashboard layout's HMAC check
+    // would bounce back to /login and create an infinite loop.
+    const res = await ctx.get("/login", { maxRedirects: 0 });
+    expect(res.status(), `/login should not redirect, got ${res.status()}`).toBeLessThan(300);
+    await ctx.dispose();
+  });
+
   test("logout clears the test-login cookie", async ({ playwright, baseURL }) => {
     const ctx = await playwright.request.newContext({ baseURL });
     await loginAs(ctx, SEEDED.admin.email);
