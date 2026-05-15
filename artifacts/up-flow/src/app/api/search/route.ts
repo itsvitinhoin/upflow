@@ -25,11 +25,14 @@ export async function GET(req: NextRequest) {
 
   // Search is scoped to the active workspace so results stay focused.
   // Super-admins still see only the active workspace they're currently in
-  // for UX consistency; switching workspaces switches search scope.
+  // for UX consistency; switching workspaces switches search scope. If
+  // there is no active workspace yet (e.g. brand-new account), we return
+  // an empty result regardless of role so the semantics stay consistent.
   const workspaceId = auth.currentWorkspaceId;
-  if (!workspaceId && !isSuperAdmin(auth)) {
+  if (!workspaceId) {
     return NextResponse.json({ q, tasks: [], projects: [], docs: [] });
   }
+  void isSuperAdmin;
 
   const projectScope = { workspace_id: workspaceId };
   const taskScope = { project: { workspace_id: workspaceId } };

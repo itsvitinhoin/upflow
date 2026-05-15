@@ -78,20 +78,37 @@ export async function POST(req: NextRequest) {
     req.headers.get("origin") ||
     `https://${req.headers.get("host") ?? "localhost"}`;
 
+  // Reuse an existing pending invite (workspace_id + email + role) so admins
+  // calling this endpoint twice with the same address don't generate a pile
+  // of dead tokens. If only the role differs we still create a fresh invite.
   const created = await Promise.all(
     unique.map(async (email) => {
-      const token = generateToken();
-      const invite = await prisma.workspaceInvite.create({
-        data: {
-          workspace_id: auth.currentWorkspaceId,
+      const existing = await prisma.workspaceInvite.findFirst({
+        where: {
+          workspace_id: auth.currentWorkspaceId!,
           email,
           role,
-          token,
-          invited_by: auth.prismaUser.id,
+          accepted_at: null,
         },
         select: { id: true, email: true, role: true, token: true, created_at: true },
       });
-      return { ...invite, accept_url: `${origin}/invite/${invite.token}` };
+      const invite =
+        existing ??
+        (await prisma.workspaceInvite.create({
+          data: {
+            workspace_id: auth.currentWorkspaceId!,
+            email,
+            role,
+            token: generateToken(),
+            invited_by: auth.prismaUser.id,
+          },
+          select: { id: true, email: true, role: true, token: true, created_at: true },
+        }));
+      return {
+        ...invite,
+        accept_url: `${origin}/invite/${invite.token}`,
+        reused: existing !== null,
+      };
     }),
   );
 
