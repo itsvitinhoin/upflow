@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { logError } from "@/lib/log-error";
 import {
   getSpaces,
   getFolders,
@@ -437,7 +438,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportProgress> {
     emit();
     return progress;
   } catch (e) {
-    console.error("[clickup-import] runImport error:", e);
+    logError("clickup-import:runImport", e);
     progress.errors.push((e as Error).message || String(e));
     progress.stage = "failed";
     progress.done = true;

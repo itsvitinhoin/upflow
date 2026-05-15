@@ -5,6 +5,7 @@ import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { collectPeopleIds, validateCustomFieldBatch } from "@/lib/custom-field-validator";
+import { logError } from "@/lib/log-error";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -239,7 +240,7 @@ export async function POST(req: NextRequest) {
   if (assignee_id && assignee_id !== userId) {
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
-      .catch(() => {});
+      .catch((err) => logError("api:tasks:POST:notify", err, { task_id: task.id }));
     await broadcastNotification(assignee_id);
   }
 

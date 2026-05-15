@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
+import { logError } from "@/lib/log-error";
 import type { Project, TaskAssignee } from "@/lib/types";
 
 interface NewTaskDialogProps {
@@ -40,7 +41,7 @@ export default function NewTaskDialog({
         setProjects(p.items ?? []);
         setUsers(u.items ?? []);
       })
-      .catch(() => {});
+      .catch((err) => logError("new-task-dialog:load", err));
   }, [open]);
 
   if (!open) return null;

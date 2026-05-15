@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAuthUser } from "@/lib/auth-helpers";
 import { runImport, type ImportProgress } from "@/lib/clickup-import";
+import { logError } from "@/lib/log-error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest) {
       const send = (p: ImportProgress) => {
         try {
           controller.enqueue(encoder.encode(JSON.stringify(p) + "\n"));
-        } catch {}
+        } catch {
+          // Controller is closed (client disconnected mid-import) — drop the
+          // progress event silently; the import itself continues server-side.
+        }
       };
       try {
         await runImport({
@@ -45,7 +49,7 @@ export async function POST(req: NextRequest) {
           onProgress: send,
         });
       } catch (e) {
-        console.error("[clickup-import] fatal:", e);
+        logError("api:clickup:import:fatal", e);
         try {
           controller.enqueue(
             encoder.encode(
@@ -66,7 +70,10 @@ export async function POST(req: NextRequest) {
               }) + "\n",
             ),
           );
-        } catch {}
+        } catch {
+          // Client disconnected — nothing more we can do, the error is
+          // already logged via logError above.
+        }
       } finally {
         controller.close();
       }

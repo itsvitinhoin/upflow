@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthUser, isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { logError } from "@/lib/log-error";
 
 // Workspace-admin-only direct provisioning. Creates the auth user in
 // Supabase and adds them as a member of the caller's active workspace.
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
         update: {},
       })
       .catch((err) => {
-        console.error("workspaceMember upsert (existing user) failed", err);
+        logError("users:register:wsm-upsert", err, { user_id: existing.id });
       });
     return NEUTRAL_RESPONSE;
   }
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
       },
     })
     .catch((err) => {
-      console.error("workspaceMember create (new user) failed", err);
+      logError("users:register:wsm-create", err, { user_id: created.id });
     });
 
   return NEUTRAL_RESPONSE;

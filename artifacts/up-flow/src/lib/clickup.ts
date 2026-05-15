@@ -96,7 +96,11 @@ async function clickupFetch<T>(path: string, opts: FetchOpts): Promise<T> {
       let body = "";
       try {
         body = await res.text();
-      } catch {}
+      } catch {
+        // Body not readable (already consumed / network reset). Fall through
+        // with empty body — the status + statusText below are enough to
+        // diagnose the failure.
+      }
       throw new ClickUpError(
         `ClickUp ${res.status}: ${body.slice(0, 240) || res.statusText}`,
         res.status,

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/header";
 import { Clock, TrendingUp, Calendar as CalendarIcon, FolderKanban } from "lucide-react";
+import { logError } from "@/lib/log-error";
 import { weekActivity } from "@/lib/dashboard-mocks";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,7 @@ export default function TimePage() {
         if (!alive) return;
         setProjects(Array.isArray(d) ? d : d.items ?? d.projects ?? []);
       })
-      .catch(() => {})
+      .catch((err) => logError("time:load-projects", err))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;

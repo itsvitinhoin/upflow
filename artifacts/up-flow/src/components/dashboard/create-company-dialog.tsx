@@ -57,7 +57,12 @@ export default function CreateCompanyDialog({
     try {
       const existing = loadCompanies();
       localStorage.setItem(COMPANIES_KEY, JSON.stringify([company, ...existing]));
-    } catch {}
+    } catch (err) {
+      // localStorage can throw on quota-exceeded or in privacy modes; the
+      // company is still surfaced via the toast + onCreated callback so the
+      // user can see it for the rest of the session.
+      console.warn("[upflow] create-company-dialog: localStorage write failed", err);
+    }
     toast.success(`Created ${company.name}`);
     onCreated?.(company);
     setName("");

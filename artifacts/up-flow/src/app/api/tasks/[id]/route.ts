@@ -6,6 +6,7 @@ import {
   canAccessWorkspace,
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
+import { logError } from "@/lib/log-error";
 
 export async function GET(
   req: NextRequest,
@@ -114,7 +115,7 @@ export async function PATCH(
   if (assignee_id && assignee_id !== prismaUser.id && assignee_id !== oldTask.assignee_id) {
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
-      .catch(() => {});
+      .catch((err) => logError("api:tasks:PATCH:notify", err, { task_id: task.id }));
   }
 
   return NextResponse.json(task);

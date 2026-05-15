@@ -56,7 +56,12 @@ export default function ScheduleMeetingDialog({
       const existing = loadStoredMeetings();
       const next = [...existing, meeting].sort((a, b) => a.time.localeCompare(b.time));
       localStorage.setItem(MEETINGS_KEY, JSON.stringify(next));
-    } catch {}
+    } catch (err) {
+      // localStorage can throw on quota-exceeded or in privacy modes; the
+      // meeting is still surfaced via the toast + onScheduled callback for
+      // the current session.
+      console.warn("[upflow] schedule-meeting-dialog: localStorage write failed", err);
+    }
     toast.success("Meeting scheduled");
     onScheduled(meeting);
     setTitle("");

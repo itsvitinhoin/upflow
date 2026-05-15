@@ -9,6 +9,7 @@ import {
   isAdminRole,
   type MembershipLite,
 } from "@/lib/workspace";
+import { logError } from "@/lib/log-error";
 
 export interface AuthUser {
   supabaseId: string;
@@ -34,41 +35,87 @@ export function isAdminEmail(email: string | null | undefined): boolean {
   return adminAllowlist().includes(email.toLowerCase());
 }
 
-export async function getAuthUser(): Promise<AuthUser | null> {
+/**
+ * Discriminated result for callers that need to distinguish "no session"
+ * (return 401) from "session check / DB lookup failed" (return 503 — the
+ * user IS logged in, we just couldn't tell). `getAuthUser()` collapses both
+ * back to `null` for legacy call sites; new code should prefer
+ * `getAuthResult()`.
+ */
+export type AuthResult =
+  | { kind: "ok"; user: AuthUser }
+  | { kind: "anonymous" }
+  | { kind: "error"; error: Error };
+
+export async function getAuthResult(): Promise<AuthResult> {
+  // Step 1: ask Supabase who the user is. Network/parse failures here are
+  // treated as "anonymous" — Supabase already returns `{ data: { user: null } }`
+  // for an unauthenticated cookie, so a thrown error is the unusual case and
+  // matches the old behavior of "no session" for legacy callers.
+  let email: string | null = null;
+  let supabaseId: string | null = null;
+  let metadataName: string | undefined;
   try {
     const supabase = createSupabaseServerClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
-    if (!user?.email) return null;
-
-    const wantsAdmin = isAdminEmail(user.email);
-    const displayName =
+    if (!user?.email) return { kind: "anonymous" };
+    email = user.email;
+    supabaseId = user.id;
+    metadataName =
       (user.user_metadata?.name as string | undefined) ||
-      (user.user_metadata?.full_name as string | undefined) ||
-      user.email.split("@")[0];
+      (user.user_metadata?.full_name as string | undefined);
+  } catch (err) {
+    // Cookie parse / Supabase upstream blip — treat as anonymous so the
+    // user gets the login redirect rather than a confusing 503.
+    logError("auth:supabase-getUser", err);
+    return { kind: "anonymous" };
+  }
 
-    const prismaUser = await prisma.user.upsert({
-      where: { email: user.email },
-      update: {},
-      create: {
-        email: user.email,
-        name: displayName,
-        role: wantsAdmin ? "admin" : "member",
-      },
-    });
+  // Step 2: look up (or, on first sign-in, create) the Prisma user.
+  // DB errors here are real outages — surface them to the caller instead of
+  // pretending the user is logged out.
+  try {
+    const wantsAdmin = isAdminEmail(email);
+    const displayName = metadataName || email.split("@")[0];
 
+    let prismaUser = await prisma.user.findUnique({ where: { email } });
+    if (!prismaUser) {
+      // True first sign-in: create the row. Two concurrent first-login
+      // requests can both pass the findUnique above and race here — the
+      // loser hits a P2002 unique-constraint violation, in which case we
+      // simply re-fetch the row the winner just inserted.
+      try {
+        prismaUser = await prisma.user.create({
+          data: {
+            email,
+            name: displayName,
+            role: wantsAdmin ? "admin" : "member",
+          },
+        });
+      } catch (err) {
+        const code = (err as { code?: string })?.code;
+        if (code === "P2002") {
+          prismaUser = await prisma.user.findUnique({ where: { email } });
+          if (!prismaUser) throw err;
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    // Promote to admin if the env allowlist now includes this email.
     if (wantsAdmin && prismaUser.role !== "admin") {
-      await prisma.user.update({
+      prismaUser = await prisma.user.update({
         where: { id: prismaUser.id },
         data: { role: "admin" },
       });
-      prismaUser.role = "admin";
     }
 
     // First login: auto-join the default workspace (or create a personal one
-    // if no default exists).
+    // if no default exists). This is cheap when memberships already exist —
+    // it's a single indexed read of WorkspaceMember.
     await ensureDefaultWorkspace(prismaUser.id, prismaUser.name);
 
     const memberships = await loadMemberships(prismaUser.id);
@@ -80,15 +127,29 @@ export async function getAuthUser(): Promise<AuthUser | null> {
       memberships.find((m) => m.workspace_id === currentWorkspaceId)?.role ?? null;
 
     return {
-      supabaseId: user.id,
-      prismaUser,
-      memberships,
-      currentWorkspaceId,
-      currentRole,
+      kind: "ok",
+      user: {
+        supabaseId: supabaseId!,
+        prismaUser,
+        memberships,
+        currentWorkspaceId,
+        currentRole,
+      },
     };
-  } catch {
-    return null;
+  } catch (err) {
+    logError("auth:db-lookup", err, { email });
+    return { kind: "error", error: err as Error };
   }
+}
+
+/**
+ * Legacy helper: returns the user or `null` for both "anonymous" and
+ * "lookup failed". Prefer `getAuthResult()` for new code so DB outages
+ * can surface a 503 instead of an incorrect 401.
+ */
+export async function getAuthUser(): Promise<AuthUser | null> {
+  const r = await getAuthResult();
+  return r.kind === "ok" ? r.user : null;
 }
 
 /** Cross-workspace super-admin (provisioned via ADMIN_EMAILS). */

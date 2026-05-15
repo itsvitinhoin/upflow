@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { logError } from "@/lib/log-error";
 import { toast } from "sonner";
 import { FolderOpen, Plus, Calendar, CheckSquare, Folder } from "lucide-react";
 import Header from "@/components/layout/header";
@@ -34,7 +35,7 @@ export default function ProjectsPage() {
     fetch("/api/spaces")
       .then((r) => r.json())
       .then((data: { items: Space[] }) => setSpaces(data.items ?? []))
-      .catch(() => {});
+      .catch((err) => logError("projects-page:load-spaces", err));
   };
 
   useEffect(() => {

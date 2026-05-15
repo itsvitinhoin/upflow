@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateEnv } from "@/lib/env";
+import { logError } from "@/lib/log-error";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +12,11 @@ export async function GET() {
     await prisma.$queryRaw`SELECT 1`;
   } catch (err) {
     // Log full diagnostics server-side; do NOT leak details over the wire.
-    console.error("[health] db check failed", err);
+    logError("health:db", err);
     db = "error";
   }
   if (!env.ok) {
-    console.error("[health] missing env vars", env.missing);
+    logError("health:env", new Error("missing env vars"), { missing: env.missing });
   }
 
   const ok = env.ok && db === "ok";

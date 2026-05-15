@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { buildPage, parsePagination } from "@/lib/pagination";
+import { logError } from "@/lib/log-error";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
@@ -101,7 +102,7 @@ export async function POST(req: NextRequest) {
   if (task?.assignee_id && task.assignee_id !== userId) {
     await prisma.notification
       .create({ data: { type: "commented", user_id: task.assignee_id, task_id } })
-      .catch(() => {});
+      .catch((err) => logError("api:comments:notify", err, { task_id }));
     await broadcastNotification(task.assignee_id);
   }
 

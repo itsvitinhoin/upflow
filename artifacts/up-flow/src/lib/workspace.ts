@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { WorkspaceRole } from "@prisma/client";
+import { logError } from "@/lib/log-error";
 
 export const WORKSPACE_COOKIE = "upflow_ws";
 
@@ -87,7 +88,7 @@ export async function ensureDefaultWorkspace(userId: string, displayName: string
     // else is genuinely unexpected, so log it instead of swallowing.
     const code = (err as { code?: string }).code;
     if (code !== "P2002") {
-      console.error("ensureDefaultWorkspace failed", err);
+      logError("workspace:ensureDefault", err, { userId });
     }
   }
 }

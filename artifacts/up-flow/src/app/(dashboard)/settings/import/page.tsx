@@ -134,7 +134,11 @@ export default function ClickUpImportPage() {
             const p = JSON.parse(trimmed) as Progress;
             setProgress(p);
             last = p;
-          } catch {}
+          } catch {
+            // Stream chunk wasn't a complete JSON object — most likely a
+            // mid-line buffer split. Safe to skip; the next chunk will
+            // contain the full line.
+          }
         }
       }
       window.dispatchEvent(new Event("upflow:sidebar-refresh"));

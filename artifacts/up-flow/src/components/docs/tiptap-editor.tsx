@@ -17,7 +17,9 @@ interface TiptapEditorProps {
 
 export default function TiptapEditor({ content, onChange, editable = true }: TiptapEditorProps) {
   const onChangeRef = useRef(onChange);
-  useEffect(() => { onChangeRef.current = onChange; });
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const editor = useEditor({
     extensions: [StarterKit],

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import { logError } from "@/lib/log-error";
 import {
   Inbox as InboxIcon,
   UserCheck,
@@ -92,7 +93,7 @@ export default function InboxPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ read: true }),
-    }).catch(() => {});
+    }).catch((err) => logError("inbox:mark-read", err, { id }));
   };
 
   const markAllRead = async () => {

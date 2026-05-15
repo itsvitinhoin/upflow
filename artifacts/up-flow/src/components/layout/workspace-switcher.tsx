@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { logError } from "@/lib/log-error";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceLite {
@@ -28,7 +29,7 @@ export default function WorkspaceSwitcher() {
     fetch("/api/workspaces")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => setData(d))
-      .catch(() => {});
+      .catch((err) => logError("workspace-switcher:load", err));
   }, []);
 
   useEffect(() => {

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import { logError } from "@/lib/log-error";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/lib/types";
@@ -55,7 +56,7 @@ export default function CalendarPage() {
         const list = (Array.isArray(d) ? d : d.items ?? d.tasks ?? []) as Task[];
         setTasks(list);
       })
-      .catch(() => {})
+      .catch((err) => logError("calendar:load-tasks", err))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;

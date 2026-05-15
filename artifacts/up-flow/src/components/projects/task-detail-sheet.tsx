@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
 } from "lucide-react";
 import { cn, formatDate, getInitials } from "@/lib/utils";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
+import { logError } from "@/lib/log-error";
 
 interface TaskDetailSheetProps {
   task: Task;
@@ -37,7 +38,7 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
     fetch("/api/users")
       .then((r) => r.json())
       .then((data: { items: TaskAssignee[] }) => setUsers(data.items ?? []))
-      .catch(() => {});
+      .catch((err) => logError("task-sheet:load-users", err));
   }, [task.id]);
 
   const loadTaskDetails = () => {
@@ -47,26 +48,40 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
         setCurrentTask(data);
         setComments(data.comments ?? []);
       })
-      .catch(() => {});
+      .catch((err) => logError("task-sheet:load-details", err, { id: task.id }));
   };
 
-  const update = async (patch: Partial<Task>) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/tasks/${currentTask.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      if (!res.ok) throw new Error();
-      const updated = await res.json() as Task;
-      setCurrentTask((prev) => ({ ...prev, ...updated }));
-      toast.success("Updated");
-    } catch {
-      toast.error("Failed to update");
-    } finally {
-      setSaving(false);
-    }
+  // Single-flight queue: rapid blur events on different fields used to fire
+  // overlapping PATCH requests whose responses could land out-of-order and
+  // overwrite each other. We chain them so each patch waits for the previous
+  // request to settle, and we always merge the server's authoritative
+  // response back into state.
+  const updateChain = useRef<Promise<void>>(Promise.resolve());
+
+  const update = (patch: Partial<Task>) => {
+    const next = updateChain.current.then(async () => {
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/tasks/${currentTask.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        if (!res.ok) throw new Error(`PATCH /api/tasks/${currentTask.id} → ${res.status}`);
+        const updated = (await res.json()) as Task;
+        setCurrentTask((prev) => ({ ...prev, ...updated }));
+        toast.success("Updated");
+      } catch (err) {
+        logError("task-sheet:update", err, { id: currentTask.id, patch });
+        toast.error("Failed to update");
+      } finally {
+        setSaving(false);
+      }
+    });
+    // Don't let a single rejection poison the chain — swallow here AFTER
+    // logging above, so the next queued update still runs.
+    updateChain.current = next.catch(() => {});
+    return next;
   };
 
   const deleteTask = async () => {

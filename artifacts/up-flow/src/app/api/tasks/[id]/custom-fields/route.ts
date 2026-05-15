@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { isEmptyValue, validateCustomFieldValue } from "@/lib/custom-field-validator";
+import { logError } from "@/lib/log-error";
 
 export async function PUT(
   req: NextRequest,
@@ -50,7 +51,12 @@ export async function PUT(
           },
         },
       })
-      .catch(() => {});
+      .catch((err) => {
+        // P2025 (row not found) is expected when clearing an already-empty
+        // field; only log unexpected errors.
+        const code = (err as { code?: string })?.code;
+        if (code !== "P2025") logError("api:custom-fields:delete", err, { task_id: task.id });
+      });
     return NextResponse.json({ ok: true, value: null });
   }
 
