@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import {
   LayoutGrid,
   Users,
@@ -61,7 +62,14 @@ export function Rail({
         className="flex items-center justify-center w-9 h-9 rounded-xl mb-6 overflow-hidden bg-background/10 shadow-lg shadow-primary/20"
         aria-label="Up Flow"
       >
-        <img src="/assets/UP_LOGO_1778594851568.png" alt="Up Flow" className="w-full h-full object-contain" />
+        <Image
+          src="/assets/UP_LOGO_1778594851568.png"
+          alt="Up Flow"
+          width={36}
+          height={36}
+          className="w-full h-full object-contain"
+          priority
+        />
       </Link>
 
       <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1">

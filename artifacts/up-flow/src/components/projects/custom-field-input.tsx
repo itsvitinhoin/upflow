@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
@@ -171,17 +171,11 @@ function PeoplePicker({
   compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [local, setLocal] = useState(selected);
 
-  useEffect(() => {
-    setLocal(selected);
-  }, [selected.join(",")]);
-
-  const selectedUsers = users.filter((u) => local.includes(u.id));
+  const selectedUsers = users.filter((u) => selected.includes(u.id));
 
   const toggle = (id: string) => {
-    const next = local.includes(id) ? local.filter((x) => x !== id) : [...local, id];
-    setLocal(next);
+    const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id];
     onChange(next);
   };
 
@@ -225,7 +219,7 @@ function PeoplePicker({
               <div className="px-3 py-2 text-xs text-muted-foreground">No teammates</div>
             )}
             {users.map((u) => {
-              const on = local.includes(u.id);
+              const on = selected.includes(u.id);
               return (
                 <button
                   key={u.id}
@@ -241,13 +235,10 @@ function PeoplePicker({
                 </button>
               );
             })}
-            {local.length > 0 && (
+            {selected.length > 0 && (
               <button
                 type="button"
-                onClick={() => {
-                  setLocal([]);
-                  onChange([]);
-                }}
+                onClick={() => onChange([])}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted border-t border-border mt-1"
               >
                 <X className="w-3.5 h-3.5" /> Clear

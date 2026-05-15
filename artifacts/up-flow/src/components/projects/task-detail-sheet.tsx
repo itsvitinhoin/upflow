@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import {
   X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
@@ -33,15 +33,7 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [subtasksExpanded, setSubtasksExpanded] = useState(true);
 
-  useEffect(() => {
-    loadTaskDetails();
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data: { items: TaskAssignee[] }) => setUsers(data.items ?? []))
-      .catch((err) => logError("task-sheet:load-users", err));
-  }, [task.id]);
-
-  const loadTaskDetails = () => {
+  const loadTaskDetails = useCallback(() => {
     fetch(`/api/tasks/${task.id}`)
       .then((r) => r.json())
       .then((data: DetailTask) => {
@@ -49,7 +41,15 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
         setComments(data.comments ?? []);
       })
       .catch((err) => logError("task-sheet:load-details", err, { id: task.id }));
-  };
+  }, [task.id]);
+
+  useEffect(() => {
+    loadTaskDetails();
+    fetch("/api/users")
+      .then((r) => r.json())
+      .then((data: { items: TaskAssignee[] }) => setUsers(data.items ?? []))
+      .catch((err) => logError("task-sheet:load-users", err));
+  }, [loadTaskDetails]);
 
   // Single-flight queue: rapid blur events on different fields used to fire
   // overlapping PATCH requests whose responses could land out-of-order and
