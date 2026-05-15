@@ -13,6 +13,12 @@ test.describe("Up Flow smoke (UI)", () => {
       const browser = await chromium.launch();
       await browser.close();
     } catch (err) {
+      // In CI we want a hard failure if Chromium can't launch — the workflow
+      // explicitly installs system deps for it. Locally (e.g. Replit Nix
+      // sandbox without glib) we skip so the rest of the suite still runs.
+      if (process.env.CI) {
+        throw err;
+      }
       test.skip(
         true,
         `Skipping UI smoke — Chromium failed to launch: ${(err as Error).message.split("\n")[0]}`,

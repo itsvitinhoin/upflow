@@ -21,7 +21,7 @@ These must be set in any environment that runs Up Flow. In production the server
 | `SUPABASE_SERVICE_ROLE_KEY` | Replit secret | Required for admin invite-style user registration |
 | `ADMIN_EMAILS` | Replit secret / `.env.local` | Comma-separated email allowlist of users auto-promoted to `admin`. Defaults to `admin@upflow.io` if unset (dev only) |
 | `CLICKUP_API_TOKEN` | Optional | Default token for the admin ClickUp import |
-| `TEST_LOGIN_TOKEN` | `.env.local` (dev/CI only) | Enables the Playwright login bypass route. **Must be unset in production** — the bypass is also hard-gated on `NODE_ENV !== "production"` |
+| `TEST_LOGIN_TOKEN` | `.env.local` (dev) / GitHub Actions secret (CI) | Enables the Playwright login bypass route. **Must be unset in production** — the bypass is also hard-gated on `NODE_ENV !== "production"`. In CI, set as a repository secret named `TEST_LOGIN_TOKEN` (Settings → Secrets and variables → Actions); the workflow fails fast if it's missing |
 
 ## Running tests
 
@@ -35,7 +35,11 @@ pnpm --filter @workspace/up-flow run test:e2e:install
 pnpm --filter @workspace/up-flow run test:e2e
 ```
 
-Requirements: the dev workflow must be running, `TEST_LOGIN_TOKEN` must be set in `.env.local`, and the seeded users `admin@upflow.io` / `sarah@upflow.io` must exist (see `prisma/seed.ts`). The `test:e2e` script reuses the live dev server on `http://localhost:80`; override with `PLAYWRIGHT_BASE_URL` if needed.
+Requirements: the dev workflow must be running, `TEST_LOGIN_TOKEN` must be set in `.env.local`, and the seeded users `admin@upflow.io` / `sarah@upflow.io` must exist (see `scripts/seed.ts`, run via `pnpm --filter @workspace/up-flow run db:seed`). The `test:e2e` script reuses the live dev server on `http://localhost:80`; override with `PLAYWRIGHT_BASE_URL` if needed.
+
+### CI
+
+`.github/workflows/test.yml` runs the suite on every push and pull request. The job spins up a fresh Postgres 16 service, applies migrations, seeds the database, installs Playwright + Chromium system deps, boots the Next.js dev server (`PLAYWRIGHT_START_SERVER=1`), and runs `pnpm --filter @workspace/up-flow run test:e2e`. The UI smoke (`tests/ui.spec.ts`) only auto-skips locally when Chromium fails to launch; in CI (`process.env.CI` is set) it hard-fails instead, so a broken UI smoke can't ship silently. The job fails fast if the `TEST_LOGIN_TOKEN` repository secret is missing and uploads `playwright-report` + `test-results` as artifacts on failure.
 
 The login bypass is implemented in three places: `POST /api/auth/test-login` mints an HMAC-signed `upflow_test_user` cookie; `middleware.ts` lets requests through when the cookie is shape-valid (Edge runtime can't always read env vars, so the real HMAC check happens server-side); `getAuthResult()` and `app/(dashboard)/layout.tsx` do the actual signature verification before granting access. The whole mechanism is a no-op in production.
 

@@ -1,0 +1,90 @@
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  e2e:
+    name: Up Flow e2e (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: upflow
+          POSTGRES_PASSWORD: upflow
+          POSTGRES_DB: upflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U upflow"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      CI: "true"
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgresql://upflow:upflow@localhost:5432/upflow_test
+      DIRECT_URL: postgresql://upflow:upflow@localhost:5432/upflow_test
+      # Dummy Supabase values — required by env validation, never actually
+      # hit during tests because we use the TEST_LOGIN_TOKEN bypass.
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      ADMIN_EMAILS: admin@upflow.io
+      TEST_LOGIN_TOKEN: ${{ secrets.TEST_LOGIN_TOKEN }}
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      PLAYWRIGHT_START_SERVER: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail fast if TEST_LOGIN_TOKEN secret is not configured
+        run: |
+          if [ -z "${TEST_LOGIN_TOKEN}" ]; then
+            echo "::error::TEST_LOGIN_TOKEN repository secret is not set. Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @workspace/up-flow run db:generate
+
+      - name: Apply migrations
+        run: pnpm --filter @workspace/up-flow run db:migrate:deploy
+
+      - name: Seed database
+        run: pnpm --filter @workspace/up-flow run db:seed
+
+      - name: Install Playwright browsers (with system deps)
+        run: pnpm --filter @workspace/up-flow run test:e2e:install
+
+      - name: Run Playwright tests
+        run: pnpm --filter @workspace/up-flow run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            artifacts/up-flow/playwright-report
+            artifacts/up-flow/test-results
+          if-no-files-found: ignore
+          retention-days: 7
