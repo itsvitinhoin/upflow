@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  getAuthUser,
-  canAccessWorkspace,
-  isSuperAdmin,
-} from "@/lib/auth-helpers";
+import { getAuthUser, canAccessWorkspace } from "@/lib/auth-helpers";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
 
@@ -41,16 +37,13 @@ export async function GET(req: NextRequest) {
   if (parentId) where.parent_id = parentId;
 
   // If no projectId filter, scope to the active workspace so the UI stays
-  // consistent with the workspace switcher. Super-admins also see only the
-  // active workspace here on purpose.
+  // consistent with the workspace switcher.
   if (!projectId) {
     if (!auth.currentWorkspaceId) {
       return NextResponse.json([], { status: 200 });
     }
     where.project = { workspace_id: auth.currentWorkspaceId };
   }
-  // Silence unused-import lint when isSuperAdmin isn't referenced.
-  void isSuperAdmin;
 
   const limit = Math.min(
     Math.max(1, parseInt(searchParams.get("limit") || "500", 10) || 500),

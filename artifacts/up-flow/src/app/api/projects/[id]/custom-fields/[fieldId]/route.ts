@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getAuthUser,
   canAccessWorkspace,
-  isWorkspaceAdmin,
+  isWorkspaceAdminFor,
   type AuthUser,
 } from "@/lib/auth-helpers";
 
@@ -21,7 +21,7 @@ async function assertCanEdit(
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return { ok: false, status: 403 };
   }
-  if (!isWorkspaceAdmin(auth)) {
+  if (!isWorkspaceAdminFor(auth, project.workspace_id)) {
     return { ok: false, status: 403 };
   }
   const field = await prisma.customFieldDefinition.findUnique({

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import {
-  getAuthUser,
-  isWorkspaceAdmin,
-} from "@/lib/auth-helpers";
+import { getAuthUser } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
   const auth = await getAuthUser();
@@ -53,5 +50,3 @@ export async function POST(req: NextRequest) {
   });
   return NextResponse.json(space, { status: 201 });
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _ensureWorkspaceAdminImported = isWorkspaceAdmin;

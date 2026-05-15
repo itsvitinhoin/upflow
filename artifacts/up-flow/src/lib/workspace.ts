@@ -39,32 +39,55 @@ async function uniqueSlug(base: string): Promise<string> {
  * Ensure the user has at least one workspace membership. First-login users
  * get a personal workspace where they are the owner.
  */
-export async function ensurePersonalWorkspace(userId: string, displayName: string) {
-  // Re-check inside a transaction and rely on the unique (workspace_id, user_id)
-  // index on WorkspaceMember + unique workspace.slug to make concurrent
-  // first-logins idempotent.
+/**
+ * Make sure a freshly-logged-in user always lands in a workspace.
+ *
+ * Order of preference (first match wins):
+ *   1) If the default "acme" workspace exists, auto-join the user as a
+ *      `member`. This preserves continuity with the seeded sample data and
+ *      gives every new user access to the shared org by default.
+ *   2) Otherwise, provision a personal workspace where the user is `owner`.
+ *
+ * The implementation is idempotent: it returns early if the user already
+ * has any membership, and any unique-constraint races are swallowed since
+ * losing the race just means another concurrent login already finished
+ * provisioning.
+ */
+export async function ensureDefaultWorkspace(userId: string, displayName: string) {
   try {
-    await prisma.$transaction(async (tx) => {
-      const existing = await tx.workspaceMember.findFirst({
-        where: { user_id: userId },
-        select: { id: true },
+    const existing = await prisma.workspaceMember.findFirst({
+      where: { user_id: userId },
+      select: { id: true },
+    });
+    if (existing) return;
+
+    const acme = await prisma.workspace.findUnique({
+      where: { slug: "acme" },
+      select: { id: true },
+    });
+    if (acme) {
+      await prisma.workspaceMember.create({
+        data: { workspace_id: acme.id, user_id: userId, role: "member" },
       });
-      if (existing) return;
-      const name = `${displayName}'s Workspace`;
-      const slug = await uniqueSlug(displayName);
-      await tx.workspace.create({
-        data: {
-          name,
-          slug,
-          members: { create: { user_id: userId, role: "owner" } },
-        },
-      });
+      return;
+    }
+
+    const name = `${displayName}'s Workspace`;
+    const slug = await uniqueSlug(displayName);
+    await prisma.workspace.create({
+      data: {
+        name,
+        slug,
+        members: { create: { user_id: userId, role: "owner" } },
+      },
     });
   } catch {
-    // Lost a race — another concurrent call already provisioned the workspace.
-    // The user will see their membership on the next read.
+    // Lost a concurrency race — another request finished provisioning first.
   }
 }
+
+// Backwards-compat alias for callers expecting the original name.
+export const ensurePersonalWorkspace = ensureDefaultWorkspace;
 
 export async function loadMemberships(userId: string): Promise<MembershipLite[]> {
   const rows = await prisma.workspaceMember.findMany({

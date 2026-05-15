@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getAuthUser,
   canAccessWorkspace,
-  isWorkspaceAdmin,
+  isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 
 const VALID_TYPES: CustomFieldType[] = [
@@ -54,7 +54,7 @@ export async function POST(
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (!isWorkspaceAdmin(auth)) {
+  if (!isWorkspaceAdminFor(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

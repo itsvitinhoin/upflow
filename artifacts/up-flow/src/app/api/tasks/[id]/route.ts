@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getAuthUser,
   canAccessWorkspace,
-  isWorkspaceAdmin,
+  isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 
 export async function GET(
@@ -66,7 +66,7 @@ export async function PATCH(
 
   const isProjectOwner = oldTask.project.owner_id === prismaUser.id;
   const isAssignee = oldTask.assignee_id === prismaUser.id;
-  if (!isProjectOwner && !isAssignee && !isWorkspaceAdmin(auth)) {
+  if (!isProjectOwner && !isAssignee && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -142,7 +142,7 @@ export async function DELETE(
   if (
     task.project.owner_id !== prismaUser.id &&
     task.assignee_id !== prismaUser.id &&
-    !isWorkspaceAdmin(auth)
+    !isWorkspaceAdminFor(auth, task.project.workspace_id)
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

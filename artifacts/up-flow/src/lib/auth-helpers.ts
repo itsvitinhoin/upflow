@@ -2,7 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import type { User, WorkspaceRole } from "@prisma/client";
 import {
-  ensurePersonalWorkspace,
+  ensureDefaultWorkspace,
   loadMemberships,
   readWorkspaceCookie,
   resolveCurrentWorkspaceId,
@@ -67,9 +67,9 @@ export async function getAuthUser(): Promise<AuthUser | null> {
       prismaUser.role = "admin";
     }
 
-    // First login: give the user a personal workspace so they always have a
-    // home before accepting any invites.
-    await ensurePersonalWorkspace(prismaUser.id, prismaUser.name);
+    // First login: auto-join the default workspace (or create a personal one
+    // if no default exists).
+    await ensureDefaultWorkspace(prismaUser.id, prismaUser.name);
 
     const memberships = await loadMemberships(prismaUser.id);
     const currentWorkspaceId = resolveCurrentWorkspaceId(
@@ -99,6 +99,18 @@ export function isSuperAdmin(auth: AuthUser): boolean {
 /** Owner or admin in the currently-active workspace, OR super-admin. */
 export function isWorkspaceAdmin(auth: AuthUser): boolean {
   return isSuperAdmin(auth) || isAdminRole(auth.currentRole);
+}
+
+/**
+ * Owner/admin role check against a specific target workspace (not the
+ * caller's active one). Use this for any write that mutates a resource —
+ * the relevant role is the role in the resource's workspace, NOT the
+ * cookie-selected active workspace.
+ */
+export function isWorkspaceAdminFor(auth: AuthUser, workspaceId: string): boolean {
+  if (isSuperAdmin(auth)) return true;
+  const m = auth.memberships.find((mm) => mm.workspace_id === workspaceId);
+  return isAdminRole(m?.role);
 }
 
 /** True if the user is a member of (or super-admin over) the workspace. */

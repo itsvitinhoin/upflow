@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import {
   getAuthUser,
   canAccessWorkspace,
-  isWorkspaceAdmin,
+  isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 
 export async function GET(
@@ -41,7 +41,7 @@ export async function PATCH(
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (project.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
+  if (project.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -104,7 +104,7 @@ export async function DELETE(
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (project.owner_id !== auth.prismaUser.id && !isWorkspaceAdmin(auth)) {
+  if (project.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
