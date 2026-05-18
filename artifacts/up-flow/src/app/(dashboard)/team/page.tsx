@@ -1,24 +1,76 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Users } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Users, Mail, RotateCw } from "lucide-react";
 import Header from "@/components/layout/header";
 import { cn, getInitials } from "@/lib/utils";
 import type { TeamMember } from "@/lib/types";
 
+interface PendingInvite {
+  id: string;
+  email: string;
+  role: "admin" | "member";
+  token: string;
+  created_at: string;
+  inviter: { id: string; name: string; email: string } | null;
+}
+
 export default function TeamPage() {
   const [users, setUsers] = useState<TeamMember[]>([]);
+  const [pending, setPending] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resending, setResending] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const loadPending = useCallback(async () => {
+    try {
+      const r = await fetch("/api/invites");
+      if (!r.ok) return; // non-admin or no workspace — silently hide section
+      const data = (await r.json()) as PendingInvite[];
+      setPending(Array.isArray(data) ? data : []);
+    } catch {
+      /* noop */
+    }
+  }, []);
 
   useEffect(() => {
     fetch("/api/users")
       .then((r) => r.json())
       .then((data: { items: TeamMember[] }) => {
         setUsers(data.items ?? []);
-        setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    loadPending();
+  }, [loadPending]);
+
+  async function resendInvite(invite: PendingInvite) {
+    setResending(invite.id);
+    setToast(null);
+    try {
+      const r = await fetch("/api/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emails: [invite.email], role: invite.role }),
+      });
+      if (!r.ok) {
+        setToast(`Couldn't resend to ${invite.email}`);
+      } else {
+        const json = (await r.json()) as { mailed?: number };
+        setToast(
+          json.mailed && json.mailed > 0
+            ? `Invite re-sent to ${invite.email}`
+            : `Re-sent (email backend offline) — copy the link from the API response.`,
+        );
+        loadPending();
+      }
+    } catch {
+      setToast(`Couldn't resend to ${invite.email}`);
+    } finally {
+      setResending(null);
+      setTimeout(() => setToast(null), 4000);
+    }
+  }
 
   return (
     <>
@@ -90,7 +142,7 @@ export default function TeamPage() {
                           "text-xs px-2.5 py-1 rounded-full font-medium capitalize",
                           user.role === "admin"
                             ? "bg-primary/15 text-primary"
-                            : "bg-muted text-muted-foreground"
+                            : "bg-muted text-muted-foreground",
                         )}
                       >
                         {user.role}
@@ -100,6 +152,62 @@ export default function TeamPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {pending.length > 0 && (
+          <div className="mt-8">
+            <div className="mb-3 flex items-end justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Pending invites</h3>
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  {pending.length} invite{pending.length !== 1 ? "s" : ""} awaiting acceptance
+                </p>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-xl overflow-hidden">
+              <ul className="divide-y divide-border">
+                {pending.map((p) => (
+                  <li
+                    key={p.id}
+                    data-testid="pending-invite"
+                    className="flex items-center justify-between gap-3 px-6 py-3"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{p.email}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {p.role}
+                          {p.inviter ? ` · invited by ${p.inviter.name || p.inviter.email}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => resendInvite(p)}
+                      disabled={resending === p.id}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5",
+                        "text-xs font-medium text-foreground hover:bg-muted/60 transition-colors",
+                        "disabled:opacity-60 disabled:cursor-not-allowed",
+                      )}
+                      aria-label={`Resend invite to ${p.email}`}
+                    >
+                      <RotateCw
+                        className={cn("w-3.5 h-3.5", resending === p.id && "animate-spin")}
+                      />
+                      {resending === p.id ? "Sending…" : "Resend"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {toast && (
+              <p className="mt-3 text-xs text-muted-foreground" role="status">
+                {toast}
+              </p>
+            )}
           </div>
         )}
       </div>
