@@ -38,4 +38,28 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+// `withSentryConfig` is what actually injects `sentry.client.config.ts` into
+// the client bundle and wires source-map upload at build time. Without this
+// wrapper the client config file is dead code — browser uncaught errors
+// would never reach the tracker even with NEXT_PUBLIC_SENTRY_DSN set. We
+// import dynamically so the dev/CI path that hasn't installed @sentry/nextjs
+// (e.g. lint-only) still works; if the import fails we fall back to the
+// bare config.
+let exported = nextConfig;
+try {
+  const { withSentryConfig } = await import("@sentry/nextjs");
+  exported = withSentryConfig(nextConfig, {
+    // Build-time options. Keep silent unless explicitly enabled so CI logs
+    // stay clean when no DSN/auth-token is configured.
+    silent: !process.env.SENTRY_AUTH_TOKEN,
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    // Only upload source maps when explicitly opted in (auth token present).
+    sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  });
+} catch {
+  // @sentry/nextjs not available — observability disabled by env gate.
+}
+
+export default exported;
