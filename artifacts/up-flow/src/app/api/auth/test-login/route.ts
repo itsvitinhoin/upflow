@@ -4,6 +4,7 @@ import {
   isTestLoginEnabled,
   signTestAuthCookie,
 } from "@/lib/test-auth";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // Hide the route entirely in production builds — `isTestLoginEnabled()`
 // also rejects, but this avoids even compiling the handler when off.
@@ -15,7 +16,7 @@ export const dynamic = "force-dynamic";
  * success, sets a signed httpOnly cookie that `getAuthResult()` and the
  * middleware recognize. Used by the Playwright suite (see `tests/`).
  */
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   if (!isTestLoginEnabled()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -51,3 +52,5 @@ export async function POST(req: NextRequest) {
   });
   return res;
 }
+
+export const POST = withErrorReporting("api:auth/test-login:POST", postHandler);

@@ -4,10 +4,11 @@ import { validateEnv } from "@/lib/env";
 import { logError } from "@/lib/log-error";
 import { pingRateLimiter } from "@/lib/rate-limit";
 import { pingTracker } from "@/lib/error-tracker";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+async function getHandler() {
   const env = validateEnv();
   let db: "ok" | "error" = "ok";
   try {
@@ -61,3 +62,5 @@ export async function GET() {
     { status: ok ? 200 : 503 },
   );
 }
+
+export const GET = withErrorReporting("api:health:GET", getHandler);
