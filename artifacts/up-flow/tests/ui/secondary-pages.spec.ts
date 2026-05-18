@@ -50,6 +50,37 @@ test.describe("Calendar", () => {
 
     await ctx.close();
   });
+
+  test("clicking a task link in the calendar 'Due tasks' rail navigates to its project", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("CalProj"));
+    const title = uniq("Today-Task");
+    // Due today so the calendar surfaces it on the current day.
+    await createTaskViaApi(ctx, projectId, title, {
+      due_date: new Date().toISOString(),
+    });
+
+    const page = await ctx.newPage();
+    await page.goto("/calendar");
+    // Click today's cell (the highlighted "today" button has `aria-current`
+    // semantics via its style; targeting by today's day number is reliable
+    // when paired with the seeded task assertion below).
+    const todayNum = new Date().getDate().toString();
+    await page
+      .locator("button")
+      .filter({ has: page.locator("span", { hasText: new RegExp(`^${todayNum}$`) }) })
+      .first()
+      .click();
+    const link = page.getByRole("link", { name: new RegExp(title) }).first();
+    await expect(link).toBeVisible({ timeout: 10_000 });
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`/projects/${projectId}`));
+
+    await ctx.close();
+  });
 });
 
 test.describe("Time tracking", () => {
@@ -68,6 +99,8 @@ test.describe("Time tracking", () => {
     // 7 bars rendered.
     const bars = page.locator("div[title*=':']");
     expect(await bars.count()).toBeGreaterThanOrEqual(7);
+    // Per-project breakdown lists at least the seeded project name.
+    await expect(page.getByText(/Time-Proj/).first()).toBeVisible();
 
     await ctx.close();
   });
@@ -93,6 +126,53 @@ test.describe("Inbox", () => {
     } else {
       await expect(page.getByText(/No unread notifications|Nothing here yet/)).toBeVisible();
     }
+
+    await ctx.close();
+  });
+
+  test("per-row 'Mark read' button clears its unread indicator (with stubbed notifications)", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+
+    // Stub the notifications GET so we always have exactly one unread row to
+    // act on, and the per-row PATCH so the test is hermetic.
+    await page.route("**/api/notifications**", async (route, req) => {
+      const m = req.method();
+      if (m === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [
+              {
+                id: "n1",
+                kind: "task_assigned",
+                read: false,
+                created_at: new Date().toISOString(),
+                task: { id: "t1", title: "Review me", project: { id: "p1", name: "Demo" } },
+              },
+            ],
+          }),
+        });
+        return;
+      }
+      // PATCH /api/notifications/:id — mark read
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+
+    await page.goto("/inbox");
+    const markRead = page.getByRole("button", { name: /^Mark read$/ });
+    await expect(markRead).toBeVisible({ timeout: 10_000 });
+    const patch = page.waitForResponse(
+      (r) => r.url().includes("/api/notifications/") && r.request().method() === "PATCH",
+    );
+    await markRead.click();
+    await patch;
+    // Local state flips read=true → the per-row button is no longer rendered.
+    await expect(markRead).toHaveCount(0);
 
     await ctx.close();
   });
@@ -136,6 +216,10 @@ test.describe("Search", () => {
     await expect(page).toHaveURL(new RegExp(`/search\\?q=${encodeURIComponent(name)}`));
     await expect(page.getByRole("heading", { name: /Results for/i })).toBeVisible();
     await expect(page.getByText(name).first()).toBeVisible({ timeout: 10_000 });
+
+    // Clicking the project result navigates to its detail page.
+    await page.getByRole("link", { name: new RegExp(name) }).first().click();
+    await expect(page).toHaveURL(/\/projects\/[^/]+/);
 
     await ctx.close();
   });

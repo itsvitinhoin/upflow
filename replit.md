@@ -49,26 +49,38 @@ The login bypass is implemented in three places: `POST /api/auth/test-login` min
 interactive control on the dashboard, organised by area:
 
 - `tests/ui/global-chrome.spec.ts` — sidebar rail navigation (Dashboard /
-  Projects / Calendar / Inbox / Time / Team), workspace switcher dropdown
-  + "New workspace" prompt, header `<input type="search">` → `/search?q=…`,
-  ⌘K command palette open/filter/Enter-navigates, notification bell menu +
-  "Mark all read", header "+ New Project" dialog.
-- `tests/ui/dashboard.spec.ts` — all five quick-action buttons (Create
-  Project / Create Task / Invite to Team / Schedule Meeting / Create a
-  Company) open their dialogs, stat cards toggle `aria-pressed`, the
-  task-row "Actions for …" menu Mark-done and Delete (with `window.confirm`
-  accepted), progress widget "+ New Task" button, and a happy-path create
-  flow that ends with the project showing up on `/projects`.
-- `tests/ui/projects.spec.ts` — hover-revealed "Move" button on a project
-  card opens `MoveToSpaceDialog`; the project-detail `ProjectToolbar` list↔
-  board toggle, inline `Search tasks…` filter, Group / Sort / Filter
-  (priority + assignee) dropdowns, Columns toggle; kanban drag-and-drop
-  between columns using `@hello-pangea/dnd`'s built-in keyboard sensor
-  (Space → ArrowRight → Space); list-row click opens the task detail sheet.
+  Projects / Calendar / Inbox / Time / Team) + the "Toggle spaces" rail
+  button; workspace switcher: open the dropdown, click a second workspace
+  and assert `POST /api/workspaces/switch` fires (routes stubbed), then
+  reopen and exercise "New workspace"; header `<input type="search">` →
+  `/search?q=…`; ⌘K command palette open/filter/Enter-navigates;
+  notification bell menu + "Mark all read"; header "+ New Project" dialog.
+- `tests/ui/dashboard.spec.ts` — all five quick-action buttons open their
+  dialogs; each stat card (Upcoming / In progress / Completed) toggles
+  `aria-pressed` AND swaps the filtered-list heading; happy-path submission
+  for Invite to Team (emails filled, `POST /api/invites` stubbed),
+  Schedule Meeting (title + color tag), Create a Company (name + domain);
+  task-row "Actions for …" menu Mark-done, Edit / details (opens the
+  detail modal), and Delete (with `window.confirm` accepted); progress
+  widget "+ New Task"; happy-path create that ends with the project on
+  `/projects`.
+- `tests/ui/projects.spec.ts` — `/projects` header "+ New Project"; the
+  hover-revealed "Move" button opens `MoveToSpaceDialog`; project-detail
+  `ProjectToolbar` list↔board toggle, inline `Search tasks…` filter,
+  Group / Sort / Filter (priority + assignee) dropdowns, Columns toggle,
+  Show closed, sort-direction button; kanban drag-and-drop between columns
+  using `@hello-pangea/dnd`'s keyboard sensor (Space → ArrowRight → Space)
+  with `waitForResponse('/reorder-tasks')` before reload; task detail
+  sheet edits title + status select + priority select + due date and posts
+  a comment via `POST /api/comments`; list-view group chevron collapse and
+  the row completion checkbox (`title="Toggle complete"`) PATCH.
 - `tests/ui/secondary-pages.spec.ts` — Calendar Today / Previous / Next
-  navigation + day-cell selection; Time tracking summary cards + the 7
-  weekly bars; Inbox filter tabs + "Mark all read"; Team table; header
-  search → `/search?q=` end-to-end.
+  navigation + day-cell selection + a "Due tasks" link click that
+  navigates to `/projects/:id` (task seeded with `due_date: today`);
+  Time tracking summary cards + the 7 weekly bars + per-project
+  breakdown row; Inbox filter tabs + "Mark all read" + per-row
+  "Mark read" (notifications routes stubbed); Team table; header search →
+  `/search?q=` end-to-end + clicking the project result navigates.
 - `tests/ui/settings-import.spec.ts` — ClickUp import: connect → preview →
   start with `/api/clickup/*` stubbed via `page.route()` (no real ClickUp
   account needed), and a 4xx response surfaces a Sonner toast.

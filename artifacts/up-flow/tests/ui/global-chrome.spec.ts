@@ -49,25 +49,65 @@ test.describe("Global chrome", () => {
     await ctx.close();
   });
 
-  test("workspace switcher opens, shows current workspace, and exposes 'New workspace'", async ({
+  test("workspace switcher: open, switch to another workspace, then exercise 'New workspace'", async ({
     browser,
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
+
+    // Stub the workspace list/switch endpoints so the test is hermetic and
+    // doesn't depend on multi-workspace seed data. /switch returns ok; the
+    // component then calls window.location.reload() — we intercept that by
+    // observing the POST instead of the navigation.
+    await page.route("**/api/workspaces", async (route, req) => {
+      if (req.method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            workspaces: [
+              { id: "w1", name: "Primary", slug: "primary", role: "owner" },
+              { id: "w2", name: "Secondary", slug: "secondary", role: "admin" },
+            ],
+            current_workspace_id: "w1",
+            current_role: "owner",
+          }),
+        });
+        return;
+      }
+      // POST → create workspace
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ id: "w3" }),
+      });
+    });
+    await page.route("**/api/workspaces/switch", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+
     await page.goto("/");
-
-    // The trigger uses a "Workspace" eyebrow label + the current workspace name.
     const trigger = page.locator("button", { hasText: "Workspace" }).first();
+    // Wait for the stubbed list to load (current name "Primary" appears).
+    await expect(trigger).toContainText("Primary");
     await trigger.click();
-    // "New workspace" is the create entry inside the dropdown.
-    await expect(page.getByRole("button", { name: /New workspace/i })).toBeVisible();
 
-    // "New workspace" uses window.prompt — dismiss to confirm the flow wires up.
+    // Both workspaces are listed. Click "Secondary" and assert the switch
+    // POST fires — the component then reloads (which our stub still satisfies).
+    const switched = page.waitForResponse(
+      (r) => r.url().includes("/api/workspaces/switch") && r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: /^Secondary/ }).click();
+    await switched;
+
+    // Reopen and exercise the "New workspace" entry — uses window.prompt;
+    // dismiss to confirm the path is wired but doesn't proceed.
+    await page.goto("/");
+    await page.locator("button", { hasText: "Workspace" }).first().click();
     page.once("dialog", (d) => d.dismiss().catch(() => undefined));
     await page.getByRole("button", { name: /New workspace/i }).click();
-    // Nothing should explode; the trigger remains.
-    await expect(trigger).toBeVisible();
+    await expect(page.locator("button", { hasText: "Workspace" }).first()).toBeVisible();
 
     await ctx.close();
   });

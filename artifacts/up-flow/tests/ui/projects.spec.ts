@@ -19,6 +19,24 @@ import {
 test.describe("Projects index", () => {
   requireChromiumOrSkip();
 
+  test("header '+ New Project' button on /projects opens the New Project dialog", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.goto("/projects");
+    await page.getByRole("button", { name: /^New Project$/ }).first().click();
+    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
+    await page
+      .getByRole("dialog", { name: "New Project" })
+      .getByRole("button", { name: "Cancel" })
+      .click();
+    await expect(page.getByRole("dialog", { name: "New Project" })).toBeHidden();
+
+    await ctx.close();
+  });
+
   test("Move button on a project card opens the MoveToSpaceDialog", async ({
     browser,
     baseURL,
@@ -189,7 +207,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await ctx.close();
   });
 
-  test("clicking a task in list view opens the task detail sheet and saves edits", async ({
+  test("task detail sheet: edits title, status, priority, due date and posts a comment", async ({
     browser,
     baseURL,
   }) => {
@@ -202,25 +220,96 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await page.goto(`/projects/${projectId}`);
     await page.getByText(title).first().click();
 
-    // The sheet is an aside overlay containing an editable title input
-    // pre-populated with the task title. Find it by its current value, then
-    // edit it and verify the PATCH fires.
+    // Editable title input pre-populated with the task title.
     const titleInput = page.locator(`input[value="${title}"]`).first();
     await expect(titleInput).toBeVisible();
 
-    const newTitle = `${title}-EDITED`;
+    // Helper: PATCH /api/tasks/:id awaiter.
+    const awaitTaskPatch = () =>
+      page.waitForResponse(
+        (r) => /\/api\/tasks\/[^/]+$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
+      );
+
+    // 1) Title edit.
+    let p = awaitTaskPatch();
+    await titleInput.fill(`${title}-EDITED`);
+    await titleInput.blur();
+    await p;
+
+    // 2) Status select → "in_progress".
+    p = awaitTaskPatch();
+    await page
+      .locator("select")
+      .filter({ has: page.locator('option[value="todo"]') })
+      .first()
+      .selectOption("in_progress");
+    await p;
+
+    // 3) Priority select → "high".
+    p = awaitTaskPatch();
+    await page
+      .locator("select")
+      .filter({ has: page.locator('option[value="low"]') })
+      .first()
+      .selectOption("high");
+    await p;
+
+    // 4) Due date input (yyyy-mm-dd).
+    const due = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10);
+    p = awaitTaskPatch();
+    const dueInput = page.locator('input[type="date"]').first();
+    await dueInput.fill(due);
+    await dueInput.blur();
+    await p;
+
+    // 5) Comment post — type into the inline form and submit. /api/comments
+    // POSTs and the input clears.
+    const commentInput = page.getByPlaceholder("Add a comment...");
+    await expect(commentInput).toBeVisible();
+    const commentPost = page.waitForResponse(
+      (r) => r.url().includes("/api/comments") && r.request().method() === "POST",
+    );
+    await commentInput.fill("Looks good to me");
+    await commentInput.press("Enter");
+    await commentPost;
+    await expect(commentInput).toHaveValue("");
+
+    await ctx.close();
+  });
+
+  test("list-view group collapse hides its tasks and completion checkbox toggles status", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("ListGroupProj"));
+    const title = uniq("Group-Task");
+    await createTaskViaApi(ctx, projectId, title);
+
+    const page = await ctx.newPage();
+    await page.goto(`/projects/${projectId}`);
+    await expect(page.getByText(title)).toBeVisible();
+
+    // The list groups by status by default; "To Do" header row has a chevron
+    // toggle as its first button. Find the group row containing "To Do".
+    const groupRow = page
+      .locator("div")
+      .filter({ has: page.locator("span", { hasText: /^To Do$/ }) })
+      .filter({ has: page.locator("button").first() })
+      .first();
+    const chevron = groupRow.locator("button").first();
+    await chevron.click();
+    await expect(page.getByText(title)).toBeHidden();
+    await chevron.click();
+    await expect(page.getByText(title)).toBeVisible();
+
+    // Completion checkbox: each row has a circular toggle with title="Toggle complete".
+    // Clicking it PATCHes status → "done".
     const patch = page.waitForResponse(
       (r) => /\/api\/tasks\/[^/]+$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
     );
-    await titleInput.fill(newTitle);
-    await titleInput.blur();
+    await page.locator('button[title="Toggle complete"]').first().click();
     await patch;
-
-    // Close the sheet via its X button (the only header button without a
-    // text label is the close icon).
-    page.once("dialog", (d) => d.dismiss().catch(() => undefined));
-    // Sheet input is gone once closed — click outside / press Escape.
-    await page.keyboard.press("Escape").catch(() => undefined);
 
     await ctx.close();
   });

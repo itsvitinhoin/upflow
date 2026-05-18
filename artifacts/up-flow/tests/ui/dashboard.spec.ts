@@ -62,16 +62,125 @@ test.describe("Dashboard quick actions and task rows", () => {
     await ctx.close();
   });
 
-  test("stat cards toggle the status filter (aria-pressed)", async ({ browser, baseURL }) => {
+  test("each stat card filters the upcoming-tasks list and aria-pressed reflects state", async ({
+    browser,
+    baseURL,
+  }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/");
-    const card = page.getByRole("button", { name: /Upcoming Actions/i });
-    await expect(card).toHaveAttribute("aria-pressed", "false");
-    await card.click();
-    await expect(card).toHaveAttribute("aria-pressed", "true");
-    await card.click();
-    await expect(card).toHaveAttribute("aria-pressed", "false");
+
+    const list = page.locator("section", { has: page.getByText("Upcoming tasks") }).first();
+    await expect(list.getByRole("heading", { name: "Upcoming tasks" })).toBeVisible();
+
+    const cards: { name: RegExp; heading: string }[] = [
+      { name: /Upcoming Actions/i, heading: "Upcoming" },
+      { name: /In progress Actions/i, heading: "In progress" },
+      { name: /Completed Actions/i, heading: "Completed" },
+    ];
+    for (const { name, heading } of cards) {
+      const card = page.getByRole("button", { name });
+      await expect(card).toHaveAttribute("aria-pressed", "false");
+      await card.click();
+      await expect(card).toHaveAttribute("aria-pressed", "true");
+      // The filtered-list header text in the section above swaps.
+      await expect(
+        page.locator("section").filter({ has: page.getByRole("heading", { name: heading, exact: true }) }).first(),
+      ).toBeVisible();
+      // Click again to toggle off.
+      await card.click();
+      await expect(card).toHaveAttribute("aria-pressed", "false");
+    }
+    await expect(list.getByRole("heading", { name: "Upcoming tasks" })).toBeVisible();
+
+    await ctx.close();
+  });
+
+  test("Invite quick action submits emails and closes the form", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    // Stub the invites endpoint so the test doesn't depend on a real mail backend.
+    await page.route("**/api/invites", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ sent: 2 }),
+      });
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Invite to Team" }).click();
+    const heading = page.getByRole("heading", { name: "Invite to team", exact: true });
+    await expect(heading).toBeVisible();
+    await page.getByPlaceholder("alice@acme.com, bob@acme.com").fill("a@x.com, b@x.com");
+    const post = page.waitForResponse(
+      (r) => r.url().includes("/api/invites") && r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: /Send invites/ }).click();
+    await post;
+    await expect(heading).toBeHidden();
+
+    await ctx.close();
+  });
+
+  test("Schedule Meeting quick action submits and closes the form", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Schedule Meeting" }).click();
+    const heading = page.getByRole("heading", { name: "Schedule meeting", exact: true });
+    await expect(heading).toBeVisible();
+    await page.getByPlaceholder("e.g. Sprint review").fill(uniq("Sprint"));
+    // Pick the second color tag to exercise the color buttons.
+    await page.getByRole("button", { name: "Color 2" }).click();
+    await page.getByRole("button", { name: /^Schedule$/ }).click();
+    await expect(heading).toBeHidden();
+
+    await ctx.close();
+  });
+
+  test("Create a Company quick action submits and closes the form", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Create a Company" }).click();
+    const heading = page.getByRole("heading", { name: "Create company", exact: true });
+    await expect(heading).toBeVisible();
+    await page.getByPlaceholder("Acme Corp").fill(uniq("Acme"));
+    await page.getByPlaceholder("acme.com").fill("acme.test");
+    await page.getByRole("button", { name: /^Create$/ }).click();
+    await expect(heading).toBeHidden();
+
+    await ctx.close();
+  });
+
+  test("task row 'Edit / details' menu item opens the task detail modal", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("Dash"));
+    const title = uniq("Task-Edit");
+    await createTaskViaApi(ctx, projectId, title, {
+      due_date: new Date(Date.now() + 86400_000).toISOString(),
+    });
+
+    const page = await ctx.newPage();
+    await page.goto("/");
+    const section = page.locator("section", { has: page.getByText("Upcoming tasks") }).first();
+    await section.getByRole("button", { name: new RegExp(`Actions for ${title}`) }).click();
+    await page.getByRole("menuitem", { name: /Edit \/ details/i }).click();
+    // The detail modal renders a "Status" label + select with the task title.
+    await expect(page.getByText("Status", { exact: true })).toBeVisible();
+    await expect(page.getByText(title).first()).toBeVisible();
 
     await ctx.close();
   });
