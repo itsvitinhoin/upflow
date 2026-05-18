@@ -13,7 +13,10 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.clickup.com",
+  // Sentry ingest endpoints must be reachable from the browser so client-side
+  // uncaught errors actually arrive. Cover the regional ingest hostnames
+  // ({region}.ingest.sentry.io and the bare ingest.sentry.io).
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.clickup.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://ingest.sentry.io",
 ].join("; ");
 
 const securityHeaders = [

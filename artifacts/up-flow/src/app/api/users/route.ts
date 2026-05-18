@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // Returns every user who shares at least one workspace with the caller, so the
 // UI can populate assignee pickers, team views, etc. Super-admins see all
@@ -11,7 +12,7 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 //
 // Optional ?workspace_id= narrows the result to that workspace only (still
 // requires the caller to be a member of that workspace, except super-admin).
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -81,3 +82,4 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(buildPage(flattened, limit));
 }
+export const GET = withErrorReporting("api:users:GET", GET_handler);

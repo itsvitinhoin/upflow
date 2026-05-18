@@ -7,8 +7,9 @@ import {
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function GET(
+async function GET_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -48,7 +49,7 @@ export async function GET(
   return NextResponse.json(task);
 }
 
-export async function PATCH(
+async function PATCH_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -123,7 +124,7 @@ export async function PATCH(
   return NextResponse.json(task);
 }
 
-export async function DELETE(
+async function DELETE_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -154,3 +155,6 @@ export async function DELETE(
   await prisma.task.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
 }
+export const GET = withErrorReporting("api:tasks/id:GET", GET_handler);
+export const PATCH = withErrorReporting("api:tasks/id:PATCH", PATCH_handler);
+export const DELETE = withErrorReporting("api:tasks/id:DELETE", DELETE_handler);

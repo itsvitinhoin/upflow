@@ -7,6 +7,7 @@ import {
   type AuthUser,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 async function assertCanEdit(
   projectId: string,
@@ -34,7 +35,7 @@ async function assertCanEdit(
   return { ok: true };
 }
 
-export async function PATCH(
+async function PATCH_handler(
   req: NextRequest,
   { params }: { params: { id: string; fieldId: string } },
 ) {
@@ -69,7 +70,7 @@ export async function PATCH(
   return NextResponse.json(updated);
 }
 
-export async function DELETE(
+async function DELETE_handler(
   _req: NextRequest,
   { params }: { params: { id: string; fieldId: string } },
 ) {
@@ -86,3 +87,5 @@ export async function DELETE(
   await prisma.customFieldDefinition.delete({ where: { id: params.fieldId } });
   return NextResponse.json({ ok: true });
 }
+export const PATCH = withErrorReporting("api:projects/id/custom-fields/fieldId:PATCH", PATCH_handler);
+export const DELETE = withErrorReporting("api:projects/id/custom-fields/fieldId:DELETE", DELETE_handler);

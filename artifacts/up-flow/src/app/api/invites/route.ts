@@ -8,13 +8,14 @@ import { sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 function generateToken(): string {
   return randomBytes(24).toString("base64url");
 }
 
 // GET: list pending invites for the active workspace (admin only)
-export async function GET() {
+async function GET_handler() {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -37,7 +38,7 @@ export async function GET() {
 }
 
 // POST: create one invite per email and return tokens / accept links.
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 20, key: "invite" });
   if (!rl.ok) return rateLimitResponse(rl);
 
@@ -178,3 +179,5 @@ export async function POST(req: NextRequest) {
     { status: 201 },
   );
 }
+export const GET = withErrorReporting("api:invites:GET", GET_handler);
+export const POST = withErrorReporting("api:invites:POST", POST_handler);

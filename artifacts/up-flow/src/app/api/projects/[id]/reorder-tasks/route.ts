@@ -4,6 +4,7 @@ import {
   canAccessWorkspace,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type ColumnKey = "todo" | "in_progress" | "done";
 const VALID_COLUMNS: ColumnKey[] = ["todo", "in_progress", "done"];
@@ -12,7 +13,7 @@ function isColumn(value: unknown): value is ColumnKey {
   return typeof value === "string" && VALID_COLUMNS.includes(value as ColumnKey);
 }
 
-export async function POST(
+async function POST_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -115,3 +116,4 @@ export async function POST(
 
   return NextResponse.json({ success: true, count: updates.length });
 }
+export const POST = withErrorReporting("api:projects/id/reorder-tasks:POST", POST_handler);

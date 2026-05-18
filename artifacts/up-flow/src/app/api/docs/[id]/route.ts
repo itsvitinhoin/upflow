@@ -6,8 +6,9 @@ import {
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function GET(
+async function GET_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -31,7 +32,7 @@ export async function GET(
   return NextResponse.json(doc);
 }
 
-export async function PATCH(
+async function PATCH_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -71,7 +72,7 @@ export async function PATCH(
   return NextResponse.json(doc);
 }
 
-export async function DELETE(
+async function DELETE_handler(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -92,3 +93,6 @@ export async function DELETE(
   await prisma.doc.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
 }
+export const GET = withErrorReporting("api:docs/id:GET", GET_handler);
+export const PATCH = withErrorReporting("api:docs/id:PATCH", PATCH_handler);
+export const DELETE = withErrorReporting("api:docs/id:DELETE", DELETE_handler);

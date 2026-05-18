@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 10, key: "login" });
   if (!rl.ok) return rateLimitResponse(rl);
   try {
@@ -24,3 +25,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+export const POST = withErrorReporting("api:auth/login:POST", POST_handler);

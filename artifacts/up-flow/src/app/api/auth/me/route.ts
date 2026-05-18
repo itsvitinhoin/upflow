@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-response";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function GET() {
+async function GET_handler() {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -14,3 +15,4 @@ export async function GET() {
     image: u.avatar_url ?? null,
   });
 }
+export const GET = withErrorReporting("api:auth/me:GET", GET_handler);

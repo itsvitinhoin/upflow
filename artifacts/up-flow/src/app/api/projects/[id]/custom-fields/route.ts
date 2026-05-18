@@ -6,6 +6,7 @@ import {
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const VALID_TYPES: CustomFieldType[] = [
   "text",
@@ -16,7 +17,7 @@ const VALID_TYPES: CustomFieldType[] = [
   "people",
 ];
 
-export async function GET(
+async function GET_handler(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -40,7 +41,7 @@ export async function GET(
   return NextResponse.json(fields);
 }
 
-export async function POST(
+async function POST_handler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -92,3 +93,5 @@ export async function POST(
 
   return NextResponse.json(created, { status: 201 });
 }
+export const GET = withErrorReporting("api:projects/id/custom-fields:GET", GET_handler);
+export const POST = withErrorReporting("api:projects/id/custom-fields:POST", POST_handler);

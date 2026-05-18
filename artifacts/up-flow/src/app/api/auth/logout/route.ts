@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TEST_AUTH_COOKIE } from "@/lib/test-auth";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function POST() {
+async function POST_handler() {
   const supabase = createSupabaseServerClient();
   await supabase.auth.signOut();
   const res = NextResponse.json({ ok: true });
@@ -19,3 +20,4 @@ export async function POST() {
   });
   return res;
 }
+export const POST = withErrorReporting("api:auth/logout:POST", POST_handler);

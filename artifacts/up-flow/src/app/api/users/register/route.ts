@@ -5,10 +5,11 @@ import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // Workspace-admin-only direct provisioning. Creates the auth user in
 // Supabase and adds them as a member of the caller's active workspace.
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
   if (!rl.ok) return rateLimitResponse(rl);
 
@@ -114,3 +115,4 @@ export async function POST(req: NextRequest) {
 
   return NEUTRAL_RESPONSE;
 }
+export const POST = withErrorReporting("api:users/register:POST", POST_handler);

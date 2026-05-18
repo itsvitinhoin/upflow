@@ -2,11 +2,12 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth-response";
 import { runImport, type ImportProgress } from "@/lib/clickup-import";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -88,3 +89,4 @@ export async function POST(req: NextRequest) {
     },
   });
 }
+export const POST = withErrorReporting("api:clickup/import:POST", POST_handler);

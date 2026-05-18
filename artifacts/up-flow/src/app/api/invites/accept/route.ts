@@ -6,9 +6,10 @@ import { sendEmail } from "@/lib/email/send";
 import { inviteAcceptedEmail } from "@/lib/email/templates";
 import { getEmailOrigin } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // Look up an invite by token (used by the accept page to render workspace info).
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const token = searchParams.get("token");
   if (!token) return NextResponse.json({ error: "Token required" }, { status: 400 });
@@ -34,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 // Accept an invite. The caller must be authenticated; if their email matches
 // the invite, we attach them to the workspace and switch their active one.
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -185,3 +186,5 @@ export async function POST(req: NextRequest) {
   });
   return res;
 }
+export const GET = withErrorReporting("api:invites/accept:GET", GET_handler);
+export const POST = withErrorReporting("api:invites/accept:POST", POST_handler);

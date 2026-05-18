@@ -5,8 +5,9 @@ import { requireAuth } from "@/lib/auth-response";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(buildPage(rows, limit));
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -111,3 +112,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(comment, { status: 201 });
 }
+export const GET = withErrorReporting("api:comments:GET", GET_handler);
+export const POST = withErrorReporting("api:comments:POST", POST_handler);

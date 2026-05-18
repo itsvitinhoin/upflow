@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-response";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -25,3 +26,4 @@ export async function POST(req: NextRequest) {
   });
   return res;
 }
+export const POST = withErrorReporting("api:workspaces/switch:POST", POST_handler);

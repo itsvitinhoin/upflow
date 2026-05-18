@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 /**
  * Kick off a password reset.
@@ -14,7 +15,7 @@ import { logError } from "@/lib/log-error";
  * server-side via Resend; Supabase generates the action link with our
  * configured redirect.
  */
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 5, key: "forgot" });
   if (!rl.ok) return rateLimitResponse(rl);
 
@@ -80,3 +81,4 @@ export async function POST(req: NextRequest) {
   }
   return NEUTRAL;
 }
+export const POST = withErrorReporting("api:auth/forgot:POST", POST_handler);

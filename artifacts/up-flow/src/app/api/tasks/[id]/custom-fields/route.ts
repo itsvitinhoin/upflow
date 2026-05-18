@@ -5,8 +5,9 @@ import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { isEmptyValue, validateCustomFieldValue } from "@/lib/custom-field-validator";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function PUT(
+async function PUT_handler(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
@@ -111,3 +112,4 @@ export async function PUT(
 
   return NextResponse.json(upserted);
 }
+export const PUT = withErrorReporting("api:tasks/id/custom-fields:PUT", PUT_handler);

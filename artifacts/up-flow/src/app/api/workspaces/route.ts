@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // List the caller's workspaces + current active one.
-export async function GET() {
+async function GET_handler() {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -21,7 +22,7 @@ export async function GET() {
 }
 
 // Create a new workspace; caller becomes its owner.
-export async function POST(req: Request) {
+async function POST_handler(req: Request) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -58,3 +59,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json(workspace, { status: 201 });
 }
+export const GET = withErrorReporting("api:workspaces:GET", GET_handler);
+export const POST = withErrorReporting("api:workspaces:POST", POST_handler);

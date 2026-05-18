@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(buildPage(rows, limit));
 }
 
-export async function DELETE(req: NextRequest) {
+async function DELETE_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -47,3 +48,5 @@ export async function DELETE(req: NextRequest) {
   const result = await prisma.notification.deleteMany({ where });
   return NextResponse.json({ deleted: result.count });
 }
+export const GET = withErrorReporting("api:notifications:GET", GET_handler);
+export const DELETE = withErrorReporting("api:notifications:DELETE", DELETE_handler);

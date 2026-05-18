@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
 
 const MAX_PER_TYPE = 20;
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 60, key: "search" });
   if (!rl.ok) return rateLimitResponse(rl);
 
@@ -95,3 +96,4 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ q, tasks, projects, docs });
 }
+export const GET = withErrorReporting("api:search:GET", GET_handler);

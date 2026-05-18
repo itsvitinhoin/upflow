@@ -4,8 +4,9 @@ import { Prisma } from "@prisma/client";
 import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
-export async function GET(req: NextRequest) {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -47,7 +48,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(buildPage(rows, limit));
 }
 
-export async function POST(req: NextRequest) {
+async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -101,3 +102,5 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(doc, { status: 201 });
 }
+export const GET = withErrorReporting("api:docs:GET", GET_handler);
+export const POST = withErrorReporting("api:docs:POST", POST_handler);
