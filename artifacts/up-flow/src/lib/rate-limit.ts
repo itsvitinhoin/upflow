@@ -31,6 +31,12 @@ export interface RateLimitResult {
   retryAfter: number;
   /** Which backend served this call (for observability + tests). */
   backend: "redis" | "memory";
+  /**
+   * True when the shared store was configured but unreachable so this
+   * call was served fail-open without any enforcement. Distinguishes
+   * "happy memory path (store unconfigured)" from "outage pass-through".
+   */
+  degraded?: boolean;
 }
 
 function getClientIp(req: NextRequest): string {
@@ -108,7 +114,11 @@ async function upstashPipeline(
   }
 }
 
-function memoryCheck(bucketKey: string, opts: RateLimitOptions): RateLimitResult {
+function memoryCheck(
+  bucketKey: string,
+  opts: RateLimitOptions,
+  ctx: { bucket: string; ipHash: string },
+): RateLimitResult {
   const now = Date.now();
   const existing = localBuckets.get(bucketKey);
   if (!existing || existing.resetAt <= now) {
@@ -119,6 +129,13 @@ function memoryCheck(bucketKey: string, opts: RateLimitOptions): RateLimitResult
     return { ok: true, remaining: opts.max - 1, retryAfter: 0, backend: "memory" };
   }
   if (existing.tokens <= 0) {
+    // Mirror the redis-path observability so abuse is still visible when
+    // we're running on the in-memory backstop (store unconfigured).
+    logError(
+      "rate-limit:hit",
+      new Error(`limit exceeded for ${ctx.bucket}`),
+      { bucket: ctx.bucket, ipHash: ctx.ipHash, backend: "memory", max: opts.max },
+    );
     return {
       ok: false,
       remaining: 0,
@@ -139,8 +156,13 @@ function memoryCheck(bucketKey: string, opts: RateLimitOptions): RateLimitResult
  * Check the rate limit for the caller's IP + the given window. Async because
  * Redis is a network call; existing callers `await` the one-line result.
  *
- * Algorithm: fixed window counter keyed by `rl:{bucket}:{ipHash}:{windowStart}`.
+ * Algorithm: fixed-window counter keyed by `rl:{bucket}:{ipHash}:{windowStart}`.
  * Atomic INCR + EXPIRE-on-first-write keeps the counter and TTL in sync.
+ * We chose fixed-window over a token-bucket / sliding-window because the
+ * thresholds we enforce (5–60/min) are well above the burst variance that
+ * sliding would smooth out, and a single round-trip INCR is the cheapest
+ * thing Redis can do at p99. If we later need finer-grained smoothing we
+ * can swap to a Lua-script-backed sliding window without changing callers.
  */
 export async function checkRateLimit(
   req: NextRequest,
@@ -154,7 +176,7 @@ export async function checkRateLimit(
   const cfg = upstashConfig();
   if (!cfg) {
     warnOnce("UPSTASH_REDIS_REST_URL / TOKEN not configured");
-    return memoryCheck(bucketKey, opts);
+    return memoryCheck(bucketKey, opts, { bucket, ipHash });
   }
 
   const now = Date.now();
@@ -207,6 +229,7 @@ export async function checkRateLimit(
       remaining: opts.max,
       retryAfter: 0,
       backend: "memory",
+      degraded: true,
     };
   }
 }
