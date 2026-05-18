@@ -61,6 +61,20 @@ export function validateEnv(): { ok: boolean; missing: string[] } {
         `[env] missing required environment variables (dev only, not fatal): ${missing.join(", ")}`,
       );
     }
+    // Observability readiness gate (production only). We don't want a prod
+    // build to silently ship with no error tracking, but we also don't
+    // want to wedge deployments that intentionally opt out (e.g. internal
+    // staging mirror). Require either SENTRY_DSN to be set OR an explicit
+    // `OBSERVABILITY_DISABLED=1` ack.
+    if (
+      process.env.NODE_ENV === "production" &&
+      !process.env.SENTRY_DSN &&
+      process.env.OBSERVABILITY_DISABLED !== "1"
+    ) {
+      throw new MissingEnvError([
+        "SENTRY_DSN (or set OBSERVABILITY_DISABLED=1 to acknowledge)",
+      ]);
+    }
   }
   return { ok: missing.length === 0, missing };
 }

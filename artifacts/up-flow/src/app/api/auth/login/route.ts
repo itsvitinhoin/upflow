@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { logError } from "@/lib/log-error";
 
 async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 10, key: "login" });
@@ -21,6 +22,11 @@ async function POST_handler(req: NextRequest) {
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
+    // Forward the real exception (stack, cause) to the tracker BEFORE we
+    // serialize a generic 500 to the client. Without this, on-call would
+    // only see the wrapper's synthetic "responded 500" marker — useful for
+    // counting incidents, useless for root-cause.
+    logError("api:auth/login:POST", err);
     const message = err instanceof Error ? err.message : "Login failed";
     return NextResponse.json({ error: message }, { status: 500 });
   }
