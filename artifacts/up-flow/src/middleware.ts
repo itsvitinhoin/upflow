@@ -45,6 +45,14 @@ export async function middleware(req: NextRequest) {
 
   const { pathname } = req.nextUrl;
   const isLoginPage = pathname === "/login";
+  // Public, unauthenticated pages: login + the password-recovery flow +
+  // the invite landing page (lets a logged-out invitee click the email
+  // link and sign up before joining).
+  const isPublicAuthPage =
+    isLoginPage ||
+    pathname === "/forgot" ||
+    pathname === "/reset" ||
+    pathname.startsWith("/invite/");
   const isApiRoute = pathname.startsWith("/api/");
   const isStatic =
     pathname.startsWith("/_next/") ||
@@ -53,7 +61,7 @@ export async function middleware(req: NextRequest) {
 
   if (isStatic || isApiRoute) return response;
 
-  if (!user && !isLoginPage) {
+  if (!user && !isPublicAuthPage) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);

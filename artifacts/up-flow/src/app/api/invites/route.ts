@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { sendEmail } from "@/lib/email/send";
+import { inviteEmail } from "@/lib/email/templates";
+import { logError } from "@/lib/log-error";
 
 function generateToken(): string {
   return randomBytes(24).toString("base64url");
@@ -78,8 +81,17 @@ export async function POST(req: NextRequest) {
   const unique = Array.from(new Set(emails));
 
   const origin =
+    process.env.APP_URL?.replace(/\/$/, "") ||
     req.headers.get("origin") ||
     `https://${req.headers.get("host") ?? "localhost"}`;
+
+  // Pull workspace name once for the email body.
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: auth.currentWorkspaceId },
+    select: { name: true },
+  });
+  const inviterName = auth.prismaUser.name || auth.prismaUser.email;
+  const inviterEmail = auth.prismaUser.email;
 
   // Reuse an existing pending invite (workspace_id + email + role) so admins
   // calling this endpoint twice with the same address don't generate a pile
@@ -115,10 +127,33 @@ export async function POST(req: NextRequest) {
     }),
   );
 
-  // Email delivery is intentionally out-of-scope; this returns the accept
-  // links so admins can share them manually.
+  // Send the invite emails. Failures are logged but don't fail the request
+  // — admins can still copy the accept link from the response payload.
+  let mailed = 0;
+  await Promise.all(
+    created.map(async (invite) => {
+      const rendered = inviteEmail({
+        workspaceName: workspace?.name ?? "your team",
+        inviterName,
+        inviterEmail,
+        acceptUrl: invite.accept_url,
+        role: invite.role === "admin" ? "admin" : "member",
+      });
+      const result = await sendEmail({
+        to: invite.email,
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+        replyTo: inviterEmail,
+        scope: "invites:send",
+      });
+      if (result.ok) mailed += 1;
+      else logError("invites:send", new Error(result.error ?? "unknown"), { email: invite.email });
+    }),
+  );
+
   return NextResponse.json(
-    { success: true, sent: created.length, invites: created },
+    { success: true, sent: created.length, mailed, invites: created },
     { status: 201 },
   );
 }

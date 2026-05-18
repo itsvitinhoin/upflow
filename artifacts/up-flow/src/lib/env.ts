@@ -8,6 +8,14 @@ const OPTIONAL = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "CLICKUP_API_TOKEN",
   "ADMIN_EMAILS",
+  // Transactional email. When unset, sendEmail() logs to the server console
+  // instead of calling Resend so local dev keeps working without a key.
+  "RESEND_API_KEY",
+  "EMAIL_FROM",
+  // Public base URL used to build absolute links in outbound emails
+  // (invite accept URLs, password reset URLs). Falls back to the request
+  // origin when missing, which is fine in dev.
+  "APP_URL",
 ] as const;
 
 let validated = false;

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
+import { sendEmail } from "@/lib/email/send";
+import { inviteAcceptedEmail } from "@/lib/email/templates";
+import { logError } from "@/lib/log-error";
 
 // Look up an invite by token (used by the accept page to render workspace info).
 export async function GET(req: NextRequest) {
@@ -96,6 +99,59 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invite already used" }, { status: 410 });
     }
     throw e;
+  }
+
+  // Notify the workspace admins (email-only — the Notification model is
+  // currently task-scoped; an in-app notification row requires a schema
+  // change and is tracked as a follow-up).
+  try {
+    const workspaceId = invite!.workspace_id;
+    const [workspace, admins, acceptedInvite] = await Promise.all([
+      prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { name: true },
+      }),
+      prisma.workspaceMember.findMany({
+        where: { workspace_id: workspaceId, role: { in: ["owner", "admin"] } },
+        select: { user: { select: { email: true, id: true } } },
+      }),
+      prisma.workspaceInvite.findUnique({
+        where: { token },
+        select: { role: true },
+      }),
+    ]);
+    const origin =
+      process.env.APP_URL?.replace(/\/$/, "") ||
+      req.headers.get("origin") ||
+      `https://${req.headers.get("host") ?? "localhost"}`;
+    const role = (acceptedInvite?.role === "admin" ? "admin" : "member") as
+      | "admin"
+      | "member";
+    const recipients = admins
+      .map((m) => m.user.email)
+      .filter((e): e is string => Boolean(e) && e.toLowerCase() !== auth.prismaUser.email.toLowerCase());
+    if (recipients.length > 0) {
+      const rendered = inviteAcceptedEmail({
+        workspaceName: workspace?.name ?? "your team",
+        newMemberEmail: auth.prismaUser.email,
+        newMemberName: auth.prismaUser.name || auth.prismaUser.email,
+        role,
+        workspaceUrl: `${origin}/`,
+      });
+      await Promise.all(
+        recipients.map((to) =>
+          sendEmail({
+            to,
+            subject: rendered.subject,
+            html: rendered.html,
+            text: rendered.text,
+            scope: "invites:accepted",
+          }),
+        ),
+      );
+    }
+  } catch (err) {
+    logError("invites:accept:notify", err);
   }
 
   const res = NextResponse.json({
