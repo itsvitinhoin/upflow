@@ -29,10 +29,16 @@ export function withErrorReporting<
       // returned NextResponse.json({...}, {status: 503})). We still want
       // visibility into these.
       if (res && res.status >= 500) {
+        // The handler caught its own error and returned a 5xx without
+        // throwing. The *real* exception was already sent to the tracker
+        // by the inner `logError(...)` call (see lib/log-error.ts), so
+        // we only emit a low-severity marker here for incident counting.
+        // We tag it `synthetic` so on-call can filter it out and see the
+        // root-cause event instead.
         captureError(
           scope,
           new Error(`${scope} responded ${res.status}`),
-          { kind: "5xx-response", status: res.status },
+          { kind: "5xx-response-marker", status: res.status, synthetic: true },
         );
       }
       return res;

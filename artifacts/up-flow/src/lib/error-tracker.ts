@@ -1,5 +1,4 @@
 import * as Sentry from "@sentry/nextjs";
-import { logError } from "@/lib/log-error";
 
 /**
  * Thin wrapper over the error-tracking SDK so the rest of the app never
@@ -7,10 +6,14 @@ import { logError } from "@/lib/log-error";
  * `SENTRY_DSN` is not configured (dev/CI without a key) so local
  * development keeps working without any external service.
  *
- * Sentry's own `init` is invoked in two bootstrap files which Next.js
- * picks up automatically:
- *  - `instrumentation.ts`     -> server / edge
- *  - `sentry.client.config.ts` -> browser
+ * Init is performed in two bootstrap files Next.js picks up automatically:
+ *  - `src/instrumentation.ts`     -> server / edge
+ *  - `sentry.client.config.ts`    -> browser
+ *
+ * Error capture is funneled through `logError()` (see `log-error.ts`),
+ * which forwards here via `sendToTracker()` when initialized. That means
+ * every existing `logError(...)` call site automatically reaches Sentry
+ * with full stack + context — no per-call refactor required.
  */
 
 let initialized = false;
@@ -29,18 +32,14 @@ export function isTrackerInitialized(): boolean {
 }
 
 /**
- * Capture an exception with structured context. Falls back to the
- * existing `logError` line so we always have a server-side trail even
- * when Sentry is off. Returns the Sentry event id when sent, or `null`.
+ * Used by `logError()` to forward every server-side error to Sentry.
+ * Returns silently when the SDK isn't initialized.
  */
-export function captureError(
+export function sendToTracker(
   scope: string,
   error: unknown,
   context?: Record<string, unknown>,
 ): string | null {
-  // Always log locally first — this is our breadcrumb of last resort
-  // if the tracker swallows or drops the event.
-  logError(scope, error, context);
   if (!initialized) return null;
   try {
     const eventId = Sentry.captureException(error, {
@@ -48,9 +47,34 @@ export function captureError(
       extra: scrub(context),
     });
     return eventId ?? null;
-  } catch (err) {
-    // Never let an error-tracker bug take down a request.
-    logError("error-tracker:capture-failed", err, { originalScope: scope });
+  } catch {
+    // Never let an error-tracker bug take down a request or a log call.
+    return null;
+  }
+}
+
+/**
+ * Public capture API — used by `withErrorReporting` and any code path
+ * that wants to *force* an out-of-band tracker hit (e.g. the React
+ * error boundary on mount). For normal server catch blocks, just call
+ * `logError(...)` instead — it forwards here automatically.
+ */
+export function captureError(
+  scope: string,
+  error: unknown,
+  context?: Record<string, unknown>,
+): string | null {
+  // Delegate to `logError` so we get the local breadcrumb + tracker hit
+  // in a single call. `logError` lazy-requires `sendToTracker` which is
+  // safe (no recursion: `logError` does not call `captureError`).
+  const { logError }: typeof import("@/lib/log-error") = require("@/lib/log-error");
+  logError(scope, error, context);
+  // Return the event id from the most-recent send if available. Sentry's
+  // last-event id is the right one because logError just called sendToTracker.
+  if (!initialized) return null;
+  try {
+    return Sentry.lastEventId() ?? null;
+  } catch {
     return null;
   }
 }
