@@ -21,6 +21,10 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [fallbackLink, setFallbackLink] = useState<{
+    email: string;
+    url: string;
+  } | null>(null);
 
   const loadPending = useCallback(async () => {
     try {
@@ -47,6 +51,7 @@ export default function TeamPage() {
   async function resendInvite(invite: PendingInvite) {
     setResending(invite.id);
     setToast(null);
+    setFallbackLink(null);
     try {
       const r = await fetch("/api/invites", {
         method: "POST",
@@ -56,19 +61,34 @@ export default function TeamPage() {
       if (!r.ok) {
         setToast(`Couldn't resend to ${invite.email}`);
       } else {
-        const json = (await r.json()) as { mailed?: number };
-        setToast(
-          json.mailed && json.mailed > 0
-            ? `Invite re-sent to ${invite.email}`
-            : `Re-sent (email backend offline) — copy the link from the API response.`,
-        );
+        const json = (await r.json()) as {
+          mailed?: number;
+          invites?: { email: string; accept_url?: string }[];
+        };
+        if (json.mailed && json.mailed > 0) {
+          setToast(`Invite re-sent to ${invite.email}`);
+        } else {
+          const url = json.invites?.find((i) => i.email === invite.email)?.accept_url;
+          setToast(
+            `Email backend unavailable — share this link with ${invite.email} directly.`,
+          );
+          if (url) setFallbackLink({ email: invite.email, url });
+        }
         loadPending();
       }
     } catch {
       setToast(`Couldn't resend to ${invite.email}`);
     } finally {
       setResending(null);
-      setTimeout(() => setToast(null), 4000);
+    }
+  }
+
+  async function copyLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setToast("Link copied to clipboard");
+    } catch {
+      setToast("Couldn't copy — select and copy the link manually.");
     }
   }
 
@@ -207,6 +227,23 @@ export default function TeamPage() {
               <p className="mt-3 text-xs text-muted-foreground" role="status">
                 {toast}
               </p>
+            )}
+            {fallbackLink && (
+              <div
+                data-testid="invite-fallback-link"
+                className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2"
+              >
+                <code className="flex-1 truncate text-xs text-foreground">
+                  {fallbackLink.url}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => copyLink(fallbackLink.url)}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Copy link
+                </button>
+              </div>
             )}
           </div>
         )}
