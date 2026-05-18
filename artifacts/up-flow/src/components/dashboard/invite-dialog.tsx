@@ -34,9 +34,26 @@ export default function InviteDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ emails: list, role }),
       });
-      const data = (await res.json()) as { error?: string; sent?: number };
+      const data = (await res.json()) as {
+        error?: string;
+        sent?: number;
+        mailed?: number;
+      };
       if (!res.ok) throw new Error(data.error || "Failed");
-      toast.success(`Invited ${data.sent} teammate${data.sent === 1 ? "" : "s"}`);
+      const sent = data.sent ?? 0;
+      const mailed = data.mailed ?? sent;
+      const noun = `teammate${sent === 1 ? "" : "s"}`;
+      if (mailed === sent) {
+        toast.success(`Invited ${sent} ${noun}`);
+      } else if (mailed === 0) {
+        toast.warning(
+          `Invited ${sent} ${noun}, but no emails were sent. Copy the accept link from the team page.`,
+        );
+      } else {
+        toast.warning(
+          `Invited ${sent} ${noun}; only ${mailed} email${mailed === 1 ? "" : "s"} delivered. Check the team page to resend.`,
+        );
+      }
       setEmails("");
       onClose();
     } catch (err: unknown) {

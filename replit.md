@@ -175,6 +175,19 @@ This is intentional — Up Flow's day-1 model is a shared org, not per-user silo
 New users auto-join Acme on first login. Personal workspaces are only created
 when no Acme exists (e.g. after a fresh DB without seed).
 
+## Production email env
+
+Transactional email (invites + password reset) requires these secrets in
+production:
+- `RESEND_API_KEY` — Resend API key. Without it, `sendEmail` returns
+  `{ok:false}` and is logged but does not throw.
+- `APP_URL` — canonical origin (e.g. `https://up-flow.example.com`). Enforced
+  by `src/lib/email/origin.ts` so reset/invite links are never built from
+  the request `Host` header in production. If missing, `/api/invites` still
+  creates tokens but skips the email send (response `mailed:0`); the forgot
+  endpoint returns the normal neutral 202 and logs the misconfig.
+- `EMAIL_FROM` — optional; defaults to `Up Flow <noreply@upflow.app>`.
+
 ## User preferences
 
 (none recorded yet)
