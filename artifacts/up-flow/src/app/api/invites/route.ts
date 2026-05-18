@@ -38,7 +38,7 @@ export async function GET() {
 
 // POST: create one invite per email and return tokens / accept links.
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, { windowMs: 60_000, max: 20, key: "invite" });
+  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 20, key: "invite" });
   if (!rl.ok) return rateLimitResponse(rl);
 
   const _r = await requireAuth();

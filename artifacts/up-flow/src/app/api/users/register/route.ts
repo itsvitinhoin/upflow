@@ -9,7 +9,7 @@ import { logError } from "@/lib/log-error";
 // Workspace-admin-only direct provisioning. Creates the auth user in
 // Supabase and adds them as a member of the caller's active workspace.
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
+  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
   if (!rl.ok) return rateLimitResponse(rl);
 
   const _r = await requireAuth();

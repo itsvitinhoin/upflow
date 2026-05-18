@@ -23,7 +23,10 @@ export default function LoginPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (res.status === 429) {
-        toast.error("Too many login attempts. Please wait a minute and try again.");
+        const retryAfter = Number(res.headers.get("Retry-After")) || 60;
+        toast.error(
+          `Too many login attempts. Please try again in ${retryAfter} second${retryAfter === 1 ? "" : "s"}.`,
+        );
       } else if (!res.ok) {
         toast.error(body.error || "Login failed");
       } else {

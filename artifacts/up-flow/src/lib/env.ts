@@ -16,6 +16,10 @@ const OPTIONAL = [
   // (invite accept URLs, password reset URLs). Falls back to the request
   // origin when missing, which is fine in dev.
   "APP_URL",
+  // Shared rate-limit store. When unset, rate-limit.ts falls back to an
+  // in-process Map and logs a degraded-protection warning at startup.
+  "UPSTASH_REDIS_REST_URL",
+  "UPSTASH_REDIS_REST_TOKEN",
 ] as const;
 
 let validated = false;

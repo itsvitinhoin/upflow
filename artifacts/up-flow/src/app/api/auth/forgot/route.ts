@@ -15,7 +15,7 @@ import { logError } from "@/lib/log-error";
  * configured redirect.
  */
 export async function POST(req: NextRequest) {
-  const rl = checkRateLimit(req, { windowMs: 60_000, max: 5, key: "forgot" });
+  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 5, key: "forgot" });
   if (!rl.ok) return rateLimitResponse(rl);
 
   const body = (await req.json().catch(() => ({}))) as { email?: string };
