@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth-response";
 import { getTeams, ClickUpError } from "@/lib/clickup";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { logError } from "@/lib/log-error";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,10 @@ async function POST_handler(req: NextRequest) {
     });
   } catch (e) {
     const status = e instanceof ClickUpError ? e.status : 500;
+    // See api/clickup/preview for rationale: only forward true 5xx to the
+    // tracker so we capture root cause without doubling up on 4xx (bad
+    // token, etc.) that the user fixes themselves.
+    if (status >= 500) logError("api:clickup/teams:POST", e);
     return NextResponse.json({ error: (e as Error).message }, { status });
   }
 }

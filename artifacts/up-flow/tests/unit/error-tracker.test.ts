@@ -141,6 +141,53 @@ test("withErrorReporting reports 5xx responses but not 4xx or 2xx", async () => 
   }
 });
 
+test("handler that catches-and-returns-500 forwards original exception via logError", async () => {
+  // Regression test for the 5xx-fidelity contract: when a handler swallows
+  // an internal exception and returns NextResponse.json({...}, {status:500}),
+  // the original error (with its message/stack) must reach the tracker
+  // pipeline — not just the wrapper's synthetic "responded 500" marker.
+  delete process.env.SENTRY_DSN;
+  const errs: unknown[][] = [];
+  const origErr = console.error;
+  console.error = (...a: unknown[]) => errs.push(a);
+  try {
+    const { withErrorReporting } = await importFresh<
+      typeof import("../../src/lib/with-error-reporting")
+    >("../../src/lib/with-error-reporting");
+    const { logError } = await importFresh<
+      typeof import("../../src/lib/log-error")
+    >("../../src/lib/log-error");
+    const { NextResponse } = await import("next/server");
+
+    const ORIGINAL_MSG = "original-db-failure-xyz";
+    const handler = withErrorReporting("test:catch-and-500", async () => {
+      try {
+        throw new Error(ORIGINAL_MSG);
+      } catch (err) {
+        logError("test:catch-and-500", err, { detail: "db-write" });
+        return NextResponse.json({ error: "internal" }, { status: 500 });
+      }
+    });
+    const res = await handler();
+    assert.equal(res.status, 500);
+
+    // The original error message must show up in console.error output —
+    // proving logError received the real exception, which is what gets
+    // forwarded to Sentry's captureException in production.
+    const sawOriginal = errs.some((args) =>
+      args.some(
+        (a) => typeof a === "string" && a.includes(ORIGINAL_MSG),
+      ),
+    );
+    assert.ok(
+      sawOriginal,
+      "handler's caught exception must reach the tracker pipeline with its real message",
+    );
+  } finally {
+    console.error = origErr;
+  }
+});
+
 test("captureError redacts secret-shaped extras", async () => {
   delete process.env.SENTRY_DSN;
   const errs: unknown[][] = [];

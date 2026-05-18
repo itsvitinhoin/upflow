@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { previewImport } from "@/lib/clickup-import";
 import { ClickUpError } from "@/lib/clickup";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { logError } from "@/lib/log-error";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -29,6 +30,11 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json(counts);
   } catch (e) {
     const status = e instanceof ClickUpError ? e.status : 500;
+    // Forward the real exception to the tracker BEFORE responding so the
+    // on-call dashboard gets the original stack + cause — not just the
+    // wrapper's synthetic 5xx marker. ClickUpError mid-4xx surfaces (e.g.
+    // bad token) stay as non-5xx and are not duplicated as incidents.
+    if (status >= 500) logError("api:clickup/preview:POST", e, { team_id: teamId });
     return NextResponse.json({ error: (e as Error).message }, { status });
   }
 }
