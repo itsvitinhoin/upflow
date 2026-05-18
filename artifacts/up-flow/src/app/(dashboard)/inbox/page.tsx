@@ -10,21 +10,41 @@ import {
   MessageSquare,
   Clock,
   CheckCheck,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
 import { toast } from "sonner";
 
-type Filter = "all" | "unread" | "assigned" | "commented" | "due_soon";
+type Filter =
+  | "all"
+  | "unread"
+  | "assigned"
+  | "commented"
+  | "due_soon"
+  | "member_joined";
 
 function iconFor(type: string) {
   if (type === "assigned") return <UserCheck className="w-4 h-4 text-primary" />;
   if (type === "commented")
     return <MessageSquare className="w-4 h-4 text-upflow-success" />;
+  if (type === "member_joined")
+    return <UserPlus className="w-4 h-4 text-primary" />;
   return <Clock className="w-4 h-4 text-upflow-warning" />;
 }
 
 function labelFor(n: Notification) {
+  if (n.type === "member_joined") {
+    const data = (n.data ?? {}) as {
+      new_member_name?: string;
+      new_member_email?: string;
+    };
+    const who = data.new_member_name || data.new_member_email || "Someone";
+    const where = n.workspace?.name
+      ? ` joined ${n.workspace.name}`
+      : " joined the workspace";
+    return `${who}${where}`;
+  }
   const taskTitle = n.task?.title || "a task";
   if (n.type === "assigned") return `You were assigned to "${taskTitle}"`;
   if (n.type === "commented") return `New comment on "${taskTitle}"`;
@@ -76,6 +96,7 @@ export default function InboxPage() {
       assigned: notifications.filter((n) => n.type === "assigned").length,
       commented: notifications.filter((n) => n.type === "commented").length,
       due_soon: notifications.filter((n) => n.type === "due_soon").length,
+      member_joined: notifications.filter((n) => n.type === "member_joined").length,
     };
   }, [notifications]);
 
@@ -118,6 +139,7 @@ export default function InboxPage() {
     { key: "assigned", label: "Assigned" },
     { key: "commented", label: "Comments" },
     { key: "due_soon", label: "Due soon" },
+    { key: "member_joined", label: "Joined" },
   ];
 
   return (
@@ -186,7 +208,9 @@ export default function InboxPage() {
               {visible.map((n) => {
                 const taskHref = n.task?.project?.id
                   ? `/projects/${n.task.project.id}`
-                  : null;
+                  : n.type === "member_joined"
+                    ? "/team"
+                    : null;
                 const Row = (
                   <div
                     className={cn(
@@ -201,10 +225,17 @@ export default function InboxPage() {
                         {labelFor(n)}
                       </p>
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        {n.task?.project?.name && (
-                          <span className="truncate">{n.task.project.name}</span>
-                        )}
-                        {n.task?.project?.name && <span>·</span>}
+                        {n.task?.project?.name ? (
+                          <>
+                            <span className="truncate">{n.task.project.name}</span>
+                            <span>·</span>
+                          </>
+                        ) : n.type === "member_joined" && n.workspace?.name ? (
+                          <>
+                            <span className="truncate">{n.workspace.name}</span>
+                            <span>·</span>
+                          </>
+                        ) : null}
                         <span>{timeAgo(n.created_at)}</span>
                       </div>
                     </div>
