@@ -32,19 +32,28 @@ test.describe("Global chrome", () => {
     ];
 
     for (const { label, path } of sections) {
-      await page.getByRole("link", { name: label, exact: true }).first().click();
+      const link = page.getByRole("link", { name: label, exact: true }).first();
+      await link.click();
       await expect(page).toHaveURL(new RegExp(`${path}(\\?|$)`));
+      // Active-state indicator: rail.tsx renders a `<span>` dot inside the
+      // active link only — `link > span` count==1 confirms the active marker.
+      await expect(link.locator("span")).toHaveCount(1);
     }
 
-    // Back to Dashboard from any sub-route.
-    await page.getByRole("link", { name: "Dashboard", exact: true }).first().click();
+    // Back to Dashboard from any sub-route, and verify its active dot too.
+    const dash = page.getByRole("link", { name: "Dashboard", exact: true }).first();
+    await dash.click();
     await expect(page).toHaveURL(/\/$/);
+    await expect(dash.locator("span")).toHaveCount(1);
 
     // Sidebar spaces toggle (rail button collapses/expands the spaces panel).
+    // aria-pressed is bound to the panelOpen state, so it must flip on click.
     const railToggle = page.getByRole("button", { name: "Toggle spaces" });
+    const initialPressed = await railToggle.getAttribute("aria-pressed");
     await railToggle.click();
-    // Idempotent — just verify it stays clickable / wired.
+    await expect(railToggle).not.toHaveAttribute("aria-pressed", initialPressed ?? "");
     await railToggle.click();
+    await expect(railToggle).toHaveAttribute("aria-pressed", initialPressed ?? "");
 
     await ctx.close();
   });
@@ -147,18 +156,43 @@ test.describe("Global chrome", () => {
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
+
+    // Stub the notifications endpoint so we deterministically have unread
+    // items — the "Mark all read" button is only rendered when unreadCount>0.
+    // The header component fetches from `/api/notifications` and PATCHes
+    // per-item at `/api/notifications/:id`.
+    await page.route("**/api/notifications", async (route, req) => {
+      if (req.method() === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [
+              { id: "n1", title: "Hi", body: "Test", read: false, created_at: new Date().toISOString() },
+              { id: "n2", title: "Yo", body: "Test", read: false, created_at: new Date().toISOString() },
+            ],
+            nextCursor: null,
+          }),
+        });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+    await page.route("**/api/notifications/*", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    });
+
     await page.goto("/");
     await page.getByRole("button", { name: "Notifications" }).click();
-    // The menu has a header that contains "Notifications" — assert it's open.
     await expect(page.getByText("Notifications", { exact: true })).toBeVisible();
 
-    // If there's an unread badge / "Mark all read" button, exercise it.
+    // With the stub above we *must* see "Mark all read"; clicking it flips
+    // all to read and the button disappears.
     const markAll = page.getByRole("button", { name: "Mark all read" });
-    if (await markAll.count()) {
-      await markAll.first().click();
-      // After clicking, the button is no longer rendered (unreadCount === 0).
-      await expect(markAll).toHaveCount(0);
-    }
+    await expect(markAll).toBeVisible();
+    await markAll.click();
+    await expect(markAll).toHaveCount(0);
+
     await ctx.close();
   });
 

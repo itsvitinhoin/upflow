@@ -274,4 +274,35 @@ test.describe("Dashboard quick actions and task rows", () => {
 
     await ctx.close();
   });
+
+  test("Create Task quick action happy-path: pick project, set title, submit", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    // Seed a project so the New Task dialog has a selectable project.
+    const projectName = uniq("TaskHostProj");
+    await createProjectViaApi(ctx, projectName);
+
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await page.getByRole("button", { name: "Create Task" }).click();
+    const dlg = page.getByRole("dialog", { name: "New Task" });
+    await expect(dlg).toBeVisible();
+
+    const taskTitle = uniq("DashTask");
+    await dlg.getByPlaceholder("e.g. Design login screen").fill(taskTitle);
+    // The dialog has a "Project *" select — pick our seeded project.
+    await dlg.locator("select").first().selectOption({ label: projectName });
+
+    // Wait for the POST /api/tasks then for the dialog to dismiss.
+    const post = page.waitForResponse(
+      (r) => r.url().includes("/api/tasks") && r.request().method() === "POST" && r.ok(),
+    );
+    await dlg.getByRole("button", { name: /Create Task/i }).click();
+    await post;
+    await expect(dlg).toBeHidden({ timeout: 10_000 });
+
+    await ctx.close();
+  });
 });

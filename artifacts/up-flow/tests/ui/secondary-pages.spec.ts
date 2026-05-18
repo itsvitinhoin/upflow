@@ -96,9 +96,15 @@ test.describe("Time tracking", () => {
     await expect(page.getByText("This week")).toBeVisible();
     await expect(page.getByText("Daily average")).toBeVisible();
     await expect(page.getByText("Weekly hours")).toBeVisible();
-    // 7 bars rendered.
+    // 7 bars rendered, each with a native `title` tooltip like "Mon: 0h 30m".
     const bars = page.locator("div[title*=':']");
     expect(await bars.count()).toBeGreaterThanOrEqual(7);
+    // Hover a bar to exercise the hover state; assert the title attribute is
+    // populated (this is what browsers surface as the tooltip).
+    const firstBar = bars.first();
+    await firstBar.hover();
+    const tooltipTitle = await firstBar.getAttribute("title");
+    expect(tooltipTitle).toMatch(/^[A-Za-z]{3}: \d+h \d+m$/);
     // Per-project breakdown lists at least the seeded project name.
     await expect(page.getByText(/Time-Proj/).first()).toBeVisible();
 
@@ -187,7 +193,25 @@ test.describe("Team", () => {
     await page.goto("/team");
     await expect(page.getByRole("table")).toBeVisible();
     // The seeded admin email is admin@upflow.io — should appear in the table.
-    await expect(page.getByText("admin@upflow.io").first()).toBeVisible();
+    const adminRow = page.locator("tr", { hasText: "admin@upflow.io" }).first();
+    await expect(adminRow).toBeVisible();
+
+    // Exercise row hover — surfaces row-hover styles + any per-row actions
+    // (the table has no role-change <select> in the seed; if one is ever
+    // added, this hover ensures it's reachable). Assert the row stays mounted.
+    await adminRow.hover();
+    await expect(adminRow).toBeVisible();
+    // If a role <select> renders inline (conditional on the workspace's
+    // membership shape), exercise it — otherwise skip cleanly.
+    const roleSelect = adminRow.locator("select");
+    if (await roleSelect.count()) {
+      const initial = await roleSelect.first().inputValue();
+      const opts = await roleSelect.first().locator("option").allTextContents();
+      const other = opts.find((o) => o.toLowerCase() !== initial.toLowerCase());
+      if (other) {
+        await roleSelect.first().selectOption({ label: other });
+      }
+    }
 
     await ctx.close();
   });

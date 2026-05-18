@@ -262,6 +262,23 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await dueInput.blur();
     await p;
 
+    // 4b) Assignee select → first non-empty option. The task-detail-sheet
+    // assignee <select> is the one whose first option is the empty
+    // "Unassigned" string. We pick the SEEDED admin by value (user id).
+    const assigneeSelect = page
+      .locator("select")
+      .filter({ has: page.locator('option[value=""]') })
+      .first();
+    const firstUserValue = await assigneeSelect
+      .locator("option")
+      .nth(1)
+      .getAttribute("value");
+    if (firstUserValue) {
+      p = awaitTaskPatch();
+      await assigneeSelect.selectOption(firstUserValue);
+      await p;
+    }
+
     // 5) Comment post — type into the inline form and submit. /api/comments
     // POSTs and the input clears.
     const commentInput = page.getByPlaceholder("Add a comment...");
@@ -273,6 +290,49 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await commentInput.press("Enter");
     await commentPost;
     await expect(commentInput).toHaveValue("");
+
+    await ctx.close();
+  });
+
+  test("list-view inline custom-field editor PUTs the value to /api/tasks/:id/custom-fields", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("CFProj"));
+    const taskTitle = uniq("CF-Task");
+    await createTaskViaApi(ctx, projectId, taskTitle);
+
+    // Seed a text custom-field definition on this project (admin endpoint).
+    const fieldName = "Notes";
+    const defRes = await ctx.request.post(`/api/projects/${projectId}/custom-fields`, {
+      data: { name: fieldName, type: "text" },
+    });
+    expect(defRes.ok()).toBeTruthy();
+
+    const page = await ctx.newPage();
+    await page.goto(`/projects/${projectId}`);
+    await expect(page.getByText(taskTitle)).toBeVisible();
+
+    // Make the Notes column visible (Columns dropdown lists custom fields too).
+    await page.getByRole("button", { name: /^Columns$/ }).click();
+    const colToggle = page.getByRole("button", { name: fieldName });
+    if (await colToggle.count()) await colToggle.first().click();
+    await page.keyboard.press("Escape").catch(() => undefined);
+
+    // The text custom-field renders an <input>. Hover the row, fill, blur,
+    // and assert the PUT to /api/tasks/:id/custom-fields fires.
+    const taskRow = page.locator("div").filter({ hasText: taskTitle }).first();
+    await taskRow.hover();
+    const cfInput = taskRow.locator('input[type="text"]').first();
+    const put = page.waitForResponse(
+      (r) =>
+        /\/api\/tasks\/[^/]+\/custom-fields/.test(r.url()) &&
+        r.request().method() === "PUT",
+    );
+    await cfInput.fill("hello world");
+    await cfInput.blur();
+    await put;
 
     await ctx.close();
   });
