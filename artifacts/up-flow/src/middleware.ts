@@ -50,8 +50,8 @@ export async function middleware(req: NextRequest) {
   // link and sign up before joining).
   const isPublicAuthPage =
     isLoginPage ||
-    pathname === "/forgot" ||
-    pathname === "/reset" ||
+    pathname === "/auth/forgot" ||
+    pathname === "/auth/reset" ||
     pathname.startsWith("/invite/");
   const isApiRoute = pathname.startsWith("/api/");
   const isStatic =

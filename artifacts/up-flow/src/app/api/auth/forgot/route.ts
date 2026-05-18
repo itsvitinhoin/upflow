@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   let redirectTo: string;
   try {
-    redirectTo = `${getEmailOrigin(req)}/reset`;
+    redirectTo = `${getEmailOrigin(req)}/auth/reset`;
   } catch (err) {
     // In production with no APP_URL we refuse to build a recovery link
     // from request headers. Log and return the standard neutral 202 so

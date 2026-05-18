@@ -37,7 +37,7 @@ test.describe("Password recovery pages", () => {
   }) => {
     const ctx = await browser.newContext({ baseURL });
     const page = await ctx.newPage();
-    await page.goto("/forgot");
+    await page.goto("/auth/forgot");
 
     await page.getByPlaceholder("you@company.com").fill("nobody@example.com");
     await page.getByRole("button", { name: "Send reset link" }).click();
@@ -56,7 +56,7 @@ test.describe("Password recovery pages", () => {
   }) => {
     const ctx = await browser.newContext({ baseURL });
     const page = await ctx.newPage();
-    await page.goto("/reset");
+    await page.goto("/auth/reset");
 
     await expect(
       page.getByText(/reset link is invalid or has expired/i),

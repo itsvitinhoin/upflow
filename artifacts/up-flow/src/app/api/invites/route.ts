@@ -81,18 +81,19 @@ export async function POST(req: NextRequest) {
   // De-duplicate.
   const unique = Array.from(new Set(emails));
 
-  let origin: string;
+  // If APP_URL is missing in production we still create the invite
+  // tokens — admins can paste them once the config is fixed — but we
+  // skip the email send so we never build a recovery URL from a
+  // potentially-poisoned Host header.
+  let origin: string | null = null;
   try {
     origin = getEmailOrigin(req);
   } catch (err) {
     if (err instanceof EmailOriginError) {
       logError("invites:create:origin", err);
-      return NextResponse.json(
-        { error: "Server misconfigured: APP_URL is not set" },
-        { status: 500 },
-      );
+    } else {
+      throw err;
     }
-    throw err;
   }
 
   // Pull workspace name once for the email body.
@@ -131,7 +132,9 @@ export async function POST(req: NextRequest) {
         }));
       return {
         ...invite,
-        accept_url: `${origin}/invite/${invite.token}`,
+        // When origin is unavailable in production we fall back to a
+        // path-only accept URL; admins can prepend the canonical host.
+        accept_url: `${origin ?? ""}/invite/${invite.token}`,
         reused: existing !== null,
       };
     }),
@@ -139,7 +142,15 @@ export async function POST(req: NextRequest) {
 
   // Send the invite emails. Failures are logged but don't fail the request
   // — admins can still copy the accept link from the response payload.
+  // If origin is null (APP_URL missing in production) we skip the send
+  // entirely so we never email a fabricated URL.
   let mailed = 0;
+  if (origin === null) {
+    return NextResponse.json(
+      { success: true, sent: created.length, mailed: 0, invites: created },
+      { status: 201 },
+    );
+  }
   await Promise.all(
     created.map(async (invite) => {
       const rendered = inviteEmail({
