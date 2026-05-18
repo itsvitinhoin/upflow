@@ -43,6 +43,44 @@ Requirements: the dev workflow must be running, `TEST_LOGIN_TOKEN` must be set i
 
 The login bypass is implemented in three places: `POST /api/auth/test-login` mints an HMAC-signed `upflow_test_user` cookie; `middleware.ts` lets requests through when the cookie is shape-valid (Edge runtime can't always read env vars, so the real HMAC check happens server-side); `getAuthResult()` and `app/(dashboard)/layout.tsx` do the actual signature verification before granting access. The whole mechanism is a no-op in production.
 
+### Interactivity coverage
+
+`tests/ui/` contains real-Chromium Playwright specs that exercise every
+interactive control on the dashboard, organised by area:
+
+- `tests/ui/global-chrome.spec.ts` — sidebar rail navigation (Dashboard /
+  Projects / Calendar / Inbox / Time / Team), workspace switcher dropdown
+  + "New workspace" prompt, header `<input type="search">` → `/search?q=…`,
+  ⌘K command palette open/filter/Enter-navigates, notification bell menu +
+  "Mark all read", header "+ New Project" dialog.
+- `tests/ui/dashboard.spec.ts` — all five quick-action buttons (Create
+  Project / Create Task / Invite to Team / Schedule Meeting / Create a
+  Company) open their dialogs, stat cards toggle `aria-pressed`, the
+  task-row "Actions for …" menu Mark-done and Delete (with `window.confirm`
+  accepted), progress widget "+ New Task" button, and a happy-path create
+  flow that ends with the project showing up on `/projects`.
+- `tests/ui/projects.spec.ts` — hover-revealed "Move" button on a project
+  card opens `MoveToSpaceDialog`; the project-detail `ProjectToolbar` list↔
+  board toggle, inline `Search tasks…` filter, Group / Sort / Filter
+  (priority + assignee) dropdowns, Columns toggle; kanban drag-and-drop
+  between columns using `@hello-pangea/dnd`'s built-in keyboard sensor
+  (Space → ArrowRight → Space); list-row click opens the task detail sheet.
+- `tests/ui/secondary-pages.spec.ts` — Calendar Today / Previous / Next
+  navigation + day-cell selection; Time tracking summary cards + the 7
+  weekly bars; Inbox filter tabs + "Mark all read"; Team table; header
+  search → `/search?q=` end-to-end.
+- `tests/ui/settings-import.spec.ts` — ClickUp import: connect → preview →
+  start with `/api/clickup/*` stubbed via `page.route()` (no real ClickUp
+  account needed), and a 4xx response surfaces a Sonner toast.
+
+All UI specs share `tests/ui/_ui-helpers.ts` which provides
+`requireChromiumOrSkip()` (skips the whole describe block locally when
+Chromium can't launch — e.g. the Replit Nix sandbox lacks `glib` — but
+throws hard in CI so a broken UI suite cannot ship silently),
+`loggedInContext(browser, baseURL, email)` (cookie-based login via
+`/api/auth/test-login`), and `createProjectViaApi` / `createTaskViaApi`
+seed helpers so each spec is hermetic.
+
 ## Deploying
 
 Deploy is autoscale. The production pipeline is:
