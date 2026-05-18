@@ -6,7 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "prettier --check \"src/**/*.ts\""
+    "lint": "eslint . --ext .ts,.tsx,.js,.cjs --max-warnings=0 && prettier --check \"src/**/*.ts\""
   },
   "devDependencies": {
     "@types/node": "catalog:",

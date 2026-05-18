@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "codegen": "orval --config ./orval.config.ts && pnpm -w run typecheck:libs",
-    "lint": "prettier --check \"*.{ts,json,yaml,yml}\""
+    "lint": "eslint . --ext .ts,.tsx,.js,.cjs --max-warnings=0 && prettier --check \"*.{ts,json,yaml,yml}\""
   },
   "devDependencies": {
     "orval": "^8.5.2"

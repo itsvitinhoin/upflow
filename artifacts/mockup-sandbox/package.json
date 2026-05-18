@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "lint": "eslint . --ext .ts,.tsx,.js,.cjs --max-warnings=0 && prettier --check \"src/**/*.{ts,tsx,css}\""
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

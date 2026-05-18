@@ -10,7 +10,7 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
-    "lint": "prettier --check \"src/**/*.ts\""
+    "lint": "eslint . --ext .ts,.tsx,.js,.cjs --max-warnings=0 && prettier --check \"src/**/*.ts\""
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

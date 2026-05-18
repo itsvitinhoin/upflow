@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "prettier --check \"src/**/*.{ts,tsx}\" \"*.{js,mjs,json}\""
+    "lint": "eslint . --ext .ts,.tsx,.js,.mjs,.cjs --max-warnings=0 && prettier --check \"src/**/*.{ts,tsx}\" \"*.{js,mjs,json}\""
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
