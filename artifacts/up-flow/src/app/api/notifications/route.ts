@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
           project: { select: { id: true, name: true } },
         },
       },
+      workspace: {
+        select: { id: true, name: true, slug: true },
+      },
     },
   });
 

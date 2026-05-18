@@ -40,6 +40,7 @@ enum NotificationType {
   assigned
   commented
   due_soon
+  member_joined
 }
 
 enum CustomFieldType {
@@ -81,6 +82,7 @@ model Workspace {
   folders    Folder[]
   projects   Project[]
   docs       Doc[]
+  notifications Notification[]
 }
 
 model WorkspaceMember {
@@ -248,12 +250,21 @@ model Doc {
 }
 
 model Notification {
-  id         String           @id @default(uuid())
-  type       NotificationType
-  user_id    String
-  task_id    String
-  read       Boolean          @default(false)
-  created_at DateTime         @default(now())
-  user       User             @relation(fields: [user_id], references: [id])
-  task       Task             @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  id           String           @id @default(uuid())
+  type         NotificationType
+  user_id      String
+  // Either task_id or workspace_id is set, depending on `type`. Task-scoped
+  // events (assigned/commented/due_soon) populate task_id; workspace events
+  // like member_joined populate workspace_id and leave task_id null.
+  task_id      String?
+  workspace_id String?
+  // Free-form payload — e.g. the joining user's name/email for member_joined.
+  data         Json?
+  read         Boolean          @default(false)
+  created_at   DateTime         @default(now())
+  user         User             @relation(fields: [user_id], references: [id])
+  task         Task?            @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  workspace    Workspace?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
 }

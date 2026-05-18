@@ -52,7 +52,18 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   const to = Array.isArray(input.to) ? input.to : [input.to];
 
   if (!apiKey) {
-    // Dev fallback: write the email to the server log so we don't lose it.
+    if (process.env.NODE_ENV === "production") {
+      // In production, never log token-bearing email bodies. Just record
+      // that mail is misconfigured so operators can see it in logs.
+      logError(
+        `${scope}:send`,
+        new Error("RESEND_API_KEY not set in production; email not sent"),
+        { recipientCount: to.length },
+      );
+      return { ok: false, error: "Email backend not configured" };
+    }
+    // Dev fallback: write the email to the server log so contributors
+    // can grab the reset/invite link without configuring Resend.
     console.info(
       `[upflow] ${scope}:dev-mail  RESEND_API_KEY not set; not sending.\n` +
         `  to:      ${to.join(", ")}\n` +

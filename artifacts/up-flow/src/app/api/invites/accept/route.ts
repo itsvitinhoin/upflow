@@ -102,9 +102,7 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 
-  // Notify the workspace admins (email-only — the Notification model is
-  // currently task-scoped; an in-app notification row requires a schema
-  // change and is tracked as a follow-up).
+  // Notify the workspace admins via in-app notification + email.
   try {
     const workspaceId = invite!.workspace_id;
     const [workspace, admins, acceptedInvite] = await Promise.all([
@@ -121,6 +119,27 @@ export async function POST(req: NextRequest) {
         select: { role: true },
       }),
     ]);
+
+    // In-app notification rows for every admin (excluding the joining user
+    // themselves, in case they were already a member promoted via invite).
+    const adminUserIds = admins
+      .map((m) => m.user.id)
+      .filter((id) => id !== auth.prismaUser.id);
+    if (adminUserIds.length > 0) {
+      await prisma.notification.createMany({
+        data: adminUserIds.map((uid) => ({
+          type: "member_joined" as const,
+          user_id: uid,
+          workspace_id: workspaceId,
+          data: {
+            new_member_id: auth.prismaUser.id,
+            new_member_email: auth.prismaUser.email,
+            new_member_name: auth.prismaUser.name || auth.prismaUser.email,
+            role: acceptedInvite?.role ?? "member",
+          },
+        })),
+      });
+    }
     // Notification email is best-effort; if APP_URL is missing in prod the
     // outer catch will log this and the accept still succeeds.
     const origin = getEmailOrigin(req);
