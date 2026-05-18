@@ -186,7 +186,8 @@ production:
   the request `Host` header in production. If missing, `/api/invites` still
   creates tokens but skips the email send (response `mailed:0`); the forgot
   endpoint returns the normal neutral 202 and logs the misconfig.
-- `EMAIL_FROM` — optional; defaults to `Up Flow <noreply@upflow.app>`.
+- `EMAIL_FROM` — optional; defaults to `Up Flow <onboarding@resend.dev>` (the
+  Resend sandbox sender). Set this to a verified domain sender for production.
 
 ## User preferences
 
