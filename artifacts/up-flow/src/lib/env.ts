@@ -20,6 +20,15 @@ const OPTIONAL = [
   // in-process Map and logs a degraded-protection warning at startup.
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
+  // Error tracking. When unset, error-tracker.ts is a no-op so local dev
+  // works without an external service. NEXT_PUBLIC_SENTRY_DSN enables the
+  // browser SDK; SENTRY_DSN enables the server SDK.
+  "SENTRY_DSN",
+  "NEXT_PUBLIC_SENTRY_DSN",
+  "SENTRY_RELEASE",
+  "NEXT_PUBLIC_SENTRY_RELEASE",
+  "SENTRY_TRACES_SAMPLE_RATE",
+  "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE",
 ] as const;
 
 let validated = false;

@@ -7,6 +7,7 @@ import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { collectPeopleIds, validateCustomFieldBatch } from "@/lib/custom-field-validator";
 import { logError } from "@/lib/log-error";
+import { withErrorReporting } from "@/lib/with-error-reporting";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -15,7 +16,7 @@ function parseDueDate(input: unknown): Date | null | "invalid" {
   return isNaN(d.getTime()) ? "invalid" : d;
 }
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(buildPage(rows, limit));
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -249,3 +250,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json(task, { status: 201 });
 }
+
+export const GET = withErrorReporting("api:tasks:GET", getHandler);
+export const POST = withErrorReporting("api:tasks:POST", postHandler);
+
