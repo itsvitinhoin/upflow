@@ -194,11 +194,20 @@ export async function checkRateLimit(
       backend: "redis",
     };
   } catch (err) {
-    // Fail-open: serve the request but log loudly so we notice degraded
-    // protection. Use the in-process limiter as a best-effort backstop so a
-    // single instance still gets some protection.
+    // True fail-open: when the shared store is configured but unreachable
+    // we serve every request and alarm via logError. We deliberately do
+    // NOT fall back to per-instance memory counters here — those would
+    // still produce 429s during an outage and lock users out (especially
+    // users behind shared NAT), which is the failure mode this task
+    // explicitly forbids. Memory limits only apply when the store is
+    // *unconfigured* (see early-return above).
     logError("rate-limit:redis-unavailable", err, { bucket });
-    return memoryCheck(bucketKey, opts);
+    return {
+      ok: true,
+      remaining: opts.max,
+      retryAfter: 0,
+      backend: "memory",
+    };
   }
 }
 

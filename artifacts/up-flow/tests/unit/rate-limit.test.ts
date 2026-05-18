@@ -105,7 +105,7 @@ test("uses Upstash REST when configured and trips at the documented threshold", 
   }
 });
 
-test("fails OPEN when Upstash is configured but unreachable", async () => {
+test("fails OPEN when Upstash is configured but unreachable — never 429s", async () => {
   const originalUrl = process.env.UPSTASH_REDIS_REST_URL;
   const originalToken = process.env.UPSTASH_REDIS_REST_TOKEN;
   const originalFetch = globalThis.fetch;
@@ -124,11 +124,16 @@ test("fails OPEN when Upstash is configured but unreachable", async () => {
 
   try {
     const { checkRateLimit } = await importFresh();
-    const opts = { windowMs: 60_000, max: 5, key: "test-down" };
-    const a = await checkRateLimit(mockReq("7.7.7.7"), opts);
-    assert.equal(a.ok, true, "must fail-open, not fail-closed");
-    assert.equal(a.backend, "memory", "should backstop with in-process limiter");
-    assert.ok(fetchCalls > 0, "should have attempted Upstash");
+    // max:2 — without true fail-open behavior, a per-instance memory
+    // limiter would 429 on the 3rd call. We assert that 50 consecutive
+    // calls during the outage all succeed.
+    const opts = { windowMs: 60_000, max: 2, key: "test-down" };
+    for (let i = 0; i < 50; i++) {
+      const r = await checkRateLimit(mockReq("7.7.7.7"), opts);
+      assert.equal(r.ok, true, `call #${i} must fail-open (got 429)`);
+      assert.equal(r.retryAfter, 0);
+    }
+    assert.equal(fetchCalls, 50, "should attempt Upstash on every call");
     assert.ok(
       errs.some((args) =>
         args.some(
