@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
+import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 
 function generateToken(): string {
@@ -80,10 +81,19 @@ export async function POST(req: NextRequest) {
   // De-duplicate.
   const unique = Array.from(new Set(emails));
 
-  const origin =
-    process.env.APP_URL?.replace(/\/$/, "") ||
-    req.headers.get("origin") ||
-    `https://${req.headers.get("host") ?? "localhost"}`;
+  let origin: string;
+  try {
+    origin = getEmailOrigin(req);
+  } catch (err) {
+    if (err instanceof EmailOriginError) {
+      logError("invites:create:origin", err);
+      return NextResponse.json(
+        { error: "Server misconfigured: APP_URL is not set" },
+        { status: 500 },
+      );
+    }
+    throw err;
+  }
 
   // Pull workspace name once for the email body.
   const workspace = await prisma.workspace.findUnique({

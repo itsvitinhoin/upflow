@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
+import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 
 /**
@@ -35,11 +36,19 @@ export async function POST(req: NextRequest) {
     return NEUTRAL;
   }
 
-  const origin =
-    process.env.APP_URL?.replace(/\/$/, "") ||
-    req.headers.get("origin") ||
-    `https://${req.headers.get("host") ?? "localhost"}`;
-  const redirectTo = `${origin}/reset`;
+  let redirectTo: string;
+  try {
+    redirectTo = `${getEmailOrigin(req)}/reset`;
+  } catch (err) {
+    // In production with no APP_URL we refuse to build a recovery link
+    // from request headers. Log and return the standard neutral 202 so
+    // we never leak this misconfiguration to clients.
+    if (err instanceof EmailOriginError) {
+      logError("auth:forgot:origin", err);
+      return NEUTRAL;
+    }
+    throw err;
+  }
 
   try {
     const admin = createClient(supabaseUrl, serviceKey);

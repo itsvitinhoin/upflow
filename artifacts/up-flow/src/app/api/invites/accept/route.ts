@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
 import { sendEmail } from "@/lib/email/send";
 import { inviteAcceptedEmail } from "@/lib/email/templates";
+import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 
 // Look up an invite by token (used by the accept page to render workspace info).
@@ -120,10 +121,9 @@ export async function POST(req: NextRequest) {
         select: { role: true },
       }),
     ]);
-    const origin =
-      process.env.APP_URL?.replace(/\/$/, "") ||
-      req.headers.get("origin") ||
-      `https://${req.headers.get("host") ?? "localhost"}`;
+    // Notification email is best-effort; if APP_URL is missing in prod the
+    // outer catch will log this and the accept still succeeds.
+    const origin = getEmailOrigin(req);
     const role = (acceptedInvite?.role === "admin" ? "admin" : "member") as
       | "admin"
       | "member";
