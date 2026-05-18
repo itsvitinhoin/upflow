@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
 import { sendEmail } from "@/lib/email/send";
 import { inviteAcceptedEmail } from "@/lib/email/templates";
-import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
+import { getEmailOrigin } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 
 // Look up an invite by token (used by the accept page to render workspace info).

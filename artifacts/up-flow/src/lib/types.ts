@@ -145,12 +145,28 @@ export interface NotificationTask {
   project: { id: string; name: string } | null;
 }
 
+export interface NotificationWorkspace {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface MemberJoinedData {
+  new_member_id?: string;
+  new_member_email?: string;
+  new_member_name?: string;
+  role?: "admin" | "member";
+}
+
 export interface Notification {
   id: string;
-  type: "assigned" | "commented" | "due_soon";
+  type: "assigned" | "commented" | "due_soon" | "member_joined";
   read: boolean;
   created_at: string;
   task: NotificationTask | null;
+  workspace: NotificationWorkspace | null;
+  /** Type-specific payload. For `member_joined` it is `MemberJoinedData`. */
+  data: MemberJoinedData | Record<string, unknown> | null;
 }
 
 export interface TeamMember {

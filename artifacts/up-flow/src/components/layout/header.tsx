@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Bell, UserCheck, MessageSquare, Clock } from "lucide-react";
+import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
@@ -17,10 +17,17 @@ interface HeaderProps {
 function notificationIcon(type: string) {
   if (type === "assigned") return <UserCheck className="w-3.5 h-3.5 text-primary" />;
   if (type === "commented") return <MessageSquare className="w-3.5 h-3.5 text-upflow-success" />;
+  if (type === "member_joined") return <UserPlus className="w-3.5 h-3.5 text-primary" />;
   return <Clock className="w-3.5 h-3.5 text-upflow-warning" />;
 }
 
 function notificationLabel(n: Notification) {
+  if (n.type === "member_joined") {
+    const data = (n.data ?? {}) as { new_member_name?: string; new_member_email?: string };
+    const who = data.new_member_name || data.new_member_email || "Someone";
+    const where = n.workspace?.name ? ` joined ${n.workspace.name}` : " joined the workspace";
+    return `${who}${where}`;
+  }
   const taskTitle = n.task?.title || "a task";
   if (n.type === "assigned") return `Assigned to "${taskTitle}"`;
   if (n.type === "commented") return `New comment on "${taskTitle}"`;
