@@ -291,6 +291,11 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await commentPost;
     await expect(commentInput).toHaveValue("");
 
+    // 6) Close the sheet — press Escape and assert the sheet unmounts
+    // (the comment input is unique to the sheet, so its absence proves it).
+    await page.keyboard.press("Escape");
+    await expect(commentInput).toBeHidden();
+
     await ctx.close();
   });
 
