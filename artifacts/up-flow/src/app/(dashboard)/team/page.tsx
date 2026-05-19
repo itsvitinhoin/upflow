@@ -608,20 +608,37 @@ function ManageDepartmentsDialog({
 
   async function rename(dep: Department, name: string) {
     if (!name.trim() || name === dep.name) return;
-    await fetch(`/api/workspaces/${workspaceId}/departments/${dep.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim() }),
-    });
+    const r = await fetch(
+      `/api/workspaces/${workspaceId}/departments/${dep.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      },
+    );
+    if (!r.ok) {
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      setError(j.error ?? "Couldn't rename department");
+    } else {
+      setError(null);
+    }
     onChanged();
   }
 
   async function recolor(dep: Department, color: DepartmentColor) {
-    await fetch(`/api/workspaces/${workspaceId}/departments/${dep.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ color }),
-    });
+    const r = await fetch(
+      `/api/workspaces/${workspaceId}/departments/${dep.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ color }),
+      },
+    );
+    if (!r.ok) {
+      setError("Couldn't update department color");
+    } else {
+      setError(null);
+    }
     onChanged();
   }
 
@@ -632,9 +649,15 @@ function ManageDepartmentsDialog({
       )
     )
       return;
-    await fetch(`/api/workspaces/${workspaceId}/departments/${dep.id}`, {
-      method: "DELETE",
-    });
+    const r = await fetch(
+      `/api/workspaces/${workspaceId}/departments/${dep.id}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok) {
+      setError("Couldn't delete department");
+    } else {
+      setError(null);
+    }
     onChanged();
   }
 

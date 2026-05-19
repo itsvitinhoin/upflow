@@ -199,25 +199,15 @@ test.describe("Departments API", () => {
 test.describe("Departments UI", () => {
   requireChromiumOrSkip();
 
-  test("admin creates a department, assigns a member, and the member appears under it", async ({
+  test("admin creates a department via the dialog, assigns a member, and the member appears under it", async ({
     browser,
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
-    // Pre-create a department via API so the test isn't coupled to the
-    // exact Manage dialog DOM (which has many color buttons / inputs).
-    // The grouped-render assertion is what matters.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wsId = await getCurrentWorkspaceId({ request: ctx } as any);
-    const depName = uniq("Design");
-    const created = await ctx.request.post(
-      `/api/workspaces/${wsId}/departments`,
-      { data: { name: depName, color: "violet" } },
-    );
-    expect(created.status()).toBe(201);
-    const dep = (await created.json()) as { id: string };
 
-    // Find a member to assign.
+    // Find the seeded member we'll reassign.
     const usersRes = await ctx.request.get(
       `/api/users?workspace_id=${wsId}`,
     );
@@ -232,8 +222,17 @@ test.describe("Departments UI", () => {
     const page = await ctx.newPage();
     await page.goto("/team");
 
-    // The new department's group renders (it'll be empty until we assign).
-    // "Show empty groups" is needed for empty groups to be visible.
+    // Drive the Manage Departments dialog — this is the real admin path,
+    // not an API shortcut.
+    const depName = uniq("Design");
+    await page.getByRole("button", { name: "Manage departments" }).click();
+    const dialog = page.getByRole("dialog", { name: "Manage departments" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByPlaceholder("e.g. Engineering").fill(depName);
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+
+    // Close the dialog and reveal the new (empty) department on the page.
+    await dialog.getByRole("button", { name: "Close" }).click();
     await page.getByLabel("Show empty groups").check();
     const depGroup = page
       .getByTestId("department-group")
@@ -244,16 +243,25 @@ test.describe("Departments UI", () => {
     const select = page.getByLabel(`Department for ${targetMember!.name}`);
     await select.selectOption({ label: depName });
 
-    // After assignment the member row should now live inside the
-    // department's <section>. Wait for the API round-trip + re-render.
+    // After assignment the member row should live inside the department's
+    // <section>. Wait for the API round-trip + re-render.
     await expect(
       depGroup.getByText(targetMember!.email),
     ).toBeVisible({ timeout: 10_000 });
 
     // Cleanup — also exercises the SetNull onDelete path.
-    await ctx.request.delete(
-      `/api/workspaces/${wsId}/departments/${dep.id}`,
+    const list = await ctx.request.get(
+      `/api/workspaces/${wsId}/departments`,
     );
+    const listBody = (await list.json()) as {
+      items: { id: string; name: string }[];
+    };
+    const created = listBody.items.find((d) => d.name === depName);
+    if (created) {
+      await ctx.request.delete(
+        `/api/workspaces/${wsId}/departments/${created.id}`,
+      );
+    }
 
     await ctx.close();
   });
