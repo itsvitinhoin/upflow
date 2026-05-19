@@ -141,7 +141,6 @@ model Space {
   workspace_id String
   owner_id     String
   position     Int       @default(0)
-  clickup_id   String?   @unique
   created_at   DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   owner        User      @relation(fields: [owner_id], references: [id])
@@ -159,7 +158,6 @@ model Folder {
   workspace_id String
   owner_id     String
   position     Int       @default(0)
-  clickup_id   String?   @unique
   created_at   DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   space        Space     @relation(fields: [space_id], references: [id], onDelete: Cascade)
@@ -179,7 +177,6 @@ model Project {
   space_id      String?
   folder_id     String?
   due_date      DateTime?
-  clickup_id    String?                 @unique
   created_at    DateTime                @default(now())
   workspace     Workspace               @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   owner         User                    @relation(fields: [owner_id], references: [id])
@@ -203,7 +200,6 @@ model Task {
   parent_id           String?
   due_date            DateTime?
   position            Int                @default(0)
-  clickup_id          String?            @unique
   created_at          DateTime           @default(now())
   project             Project            @relation(fields: [project_id], references: [id], onDelete: Cascade)
   assignee            User?              @relation("AssignedTasks", fields: [assignee_id], references: [id])
