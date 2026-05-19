@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ChevronRight,
   ChevronDown,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import { ProjectRow } from "@/components/layout/sidebar/project-row";
+import { cn } from "@/lib/utils";
 
 export interface NodeHandlers {
   collapsed: Record<string, boolean>;
@@ -63,9 +65,15 @@ export function SpaceNode({
 }: SpaceNodeProps) {
   const isCollapsed = !!collapsed[sp.id];
   const menuOpen = menuOpenId === sp.id;
+  const isActive = pathname === `/spaces/${sp.id}`;
   return (
     <div className="rounded-lg">
-      <div className="group relative flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-white/5">
+      <div
+        className={cn(
+          "group relative flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-white/5",
+          isActive && "bg-primary/15",
+        )}
+      >
         <button
           onClick={() => toggleCollapse(sp.id)}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
@@ -78,12 +86,16 @@ export function SpaceNode({
           )}
         </button>
         <span className="text-base leading-none">{sp.icon || "🗂️"}</span>
-        <button
-          onClick={() => toggleCollapse(sp.id)}
-          className="flex-1 text-left text-xs font-semibold text-foreground truncate"
+        <Link
+          href={`/spaces/${sp.id}`}
+          onClick={onNavigate}
+          className={cn(
+            "flex-1 text-left text-xs font-semibold truncate",
+            isActive ? "text-foreground" : "text-foreground hover:text-foreground",
+          )}
         >
           {sp.name}
-        </button>
+        </Link>
         <span className="text-[10px] text-muted-foreground tabular-nums">
           {totalCount}
         </span>

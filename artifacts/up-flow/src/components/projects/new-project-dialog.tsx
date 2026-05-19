@@ -8,9 +8,11 @@ interface NewProjectDialogProps {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /** Pre-fill the Space the new project should belong to. */
+  defaultSpaceId?: string | null;
 }
 
-export default function NewProjectDialog({ open, onClose, onCreated }: NewProjectDialogProps) {
+export default function NewProjectDialog({ open, onClose, onCreated, defaultSpaceId }: NewProjectDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -26,7 +28,12 @@ export default function NewProjectDialog({ open, onClose, onCreated }: NewProjec
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, due_date: dueDate || null }),
+        body: JSON.stringify({
+          name,
+          description,
+          due_date: dueDate || null,
+          ...(defaultSpaceId ? { space_id: defaultSpaceId } : {}),
+        }),
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
