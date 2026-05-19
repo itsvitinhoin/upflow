@@ -83,19 +83,37 @@ model Workspace {
   projects   Project[]
   docs       Doc[]
   notifications Notification[]
+  departments Department[]
 }
 
 model WorkspaceMember {
-  id           String        @id @default(uuid())
-  workspace_id String
-  user_id      String
-  role         WorkspaceRole @default(member)
-  created_at   DateTime      @default(now())
-  workspace    Workspace     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id            String        @id @default(uuid())
+  workspace_id  String
+  user_id       String
+  role          WorkspaceRole @default(member)
+  department_id String?
+  created_at    DateTime      @default(now())
+  workspace     Workspace     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  department    Department?   @relation(fields: [department_id], references: [id], onDelete: SetNull)
 
   @@unique([workspace_id, user_id])
   @@index([user_id])
+  @@index([department_id])
+}
+
+model Department {
+  id           String            @id @default(uuid())
+  workspace_id String
+  name         String
+  color        String            @default("slate")
+  sort_order   Int               @default(0)
+  created_at   DateTime          @default(now())
+  workspace    Workspace         @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  members      WorkspaceMember[]
+
+  @@unique([workspace_id, name])
+  @@index([workspace_id])
 }
 
 model WorkspaceInvite {

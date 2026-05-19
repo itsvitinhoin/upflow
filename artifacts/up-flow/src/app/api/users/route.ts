@@ -58,24 +58,37 @@ async function GET_handler(req: NextRequest) {
           : superAdmin
             ? undefined
             : { workspace_id: { in: auth.memberships.map((m) => m.workspace_id) } },
-        select: { workspace_id: true, role: true },
+        select: {
+          workspace_id: true,
+          role: true,
+          department_id: true,
+        },
       },
     },
   });
 
   // Flatten memberships into `workspace_role` (active workspace) + `workspaces` list.
+  // `department_id` reflects the membership in the workspace the result is
+  // scoped to: the explicit `?workspace_id=` filter if given, otherwise the
+  // caller's active workspace.
+  const scopedWorkspaceId = workspaceFilter ?? auth.currentWorkspaceId;
   const flattened = rows.map((u) => {
     const activeMembership = u.memberships.find(
       (m) => m.workspace_id === auth.currentWorkspaceId,
+    );
+    const scopedMembership = u.memberships.find(
+      (m) => m.workspace_id === scopedWorkspaceId,
     );
     const { memberships: _mm, ...rest } = u;
     void _mm;
     return {
       ...rest,
       workspace_role: activeMembership?.role ?? null,
+      department_id: scopedMembership?.department_id ?? null,
       workspaces: u.memberships.map((m) => ({
         workspace_id: m.workspace_id,
         role: m.role,
+        department_id: m.department_id,
       })),
     };
   });

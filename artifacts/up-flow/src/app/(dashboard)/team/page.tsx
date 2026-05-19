@@ -1,10 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Users, Mail, RotateCw } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  Users,
+  Mail,
+  RotateCw,
+  ChevronDown,
+  ChevronRight,
+  Settings2,
+  Plus,
+  Trash2,
+  Search,
+} from "lucide-react";
 import Header from "@/components/layout/header";
 import { cn, getInitials } from "@/lib/utils";
-import type { TeamMember } from "@/lib/types";
+import type { Department, TeamMember } from "@/lib/types";
+import {
+  DEPARTMENT_COLORS,
+  colorDotClass,
+  type DepartmentColor,
+} from "@/lib/department-colors";
 
 interface PendingInvite {
   id: string;
@@ -15,8 +30,15 @@ interface PendingInvite {
   inviter: { id: string; name: string; email: string } | null;
 }
 
+const UNASSIGNED_KEY = "__unassigned__";
+const COLLAPSE_STORAGE_KEY = "upflow:team:collapsedDepartments";
+
 export default function TeamPage() {
   const [users, setUsers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [currentRole, setCurrentRole] =
+    useState<"owner" | "admin" | "member" | null>(null);
   const [pending, setPending] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
@@ -25,11 +47,17 @@ export default function TeamPage() {
     email: string;
     url: string;
   } | null>(null);
+  const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [showEmpty, setShowEmpty] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+
+  const isAdmin = currentRole === "owner" || currentRole === "admin";
 
   const loadPending = useCallback(async () => {
     try {
       const r = await fetch("/api/invites");
-      if (!r.ok) return; // non-admin or no workspace — silently hide section
+      if (!r.ok) return;
       const data = (await r.json()) as PendingInvite[];
       setPending(Array.isArray(data) ? data : []);
     } catch {
@@ -37,16 +65,144 @@ export default function TeamPage() {
     }
   }, []);
 
+  const loadDepartments = useCallback(async (wsId: string) => {
+    try {
+      const r = await fetch(`/api/workspaces/${wsId}/departments`);
+      if (!r.ok) return;
+      const data = (await r.json()) as { items: Department[] };
+      setDepartments(data.items ?? []);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  // Restore collapse state from localStorage on mount.
   useEffect(() => {
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data: { items: TeamMember[] }) => {
-        setUsers(data.items ?? []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const raw = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        if (Array.isArray(arr)) setCollapsed(new Set(arr));
+      }
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        COLLAPSE_STORAGE_KEY,
+        JSON.stringify(Array.from(collapsed)),
+      );
+    } catch {
+      /* noop */
+    }
+  }, [collapsed]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const ws = await fetch("/api/workspaces").then((r) =>
+          r.ok ? r.json() : null,
+        );
+        if (cancelled) return;
+        const wsId: string | null = ws?.current_workspace_id ?? null;
+        setWorkspaceId(wsId);
+        setCurrentRole(ws?.current_role ?? null);
+
+        const usersRes = await fetch("/api/users");
+        const usersData = (await usersRes.json()) as { items: TeamMember[] };
+        if (cancelled) return;
+        setUsers(usersData.items ?? []);
+
+        if (wsId) await loadDepartments(wsId);
+      } catch {
+        /* noop */
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     loadPending();
-  }, [loadPending]);
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPending, loadDepartments]);
+
+  function toggleCollapsed(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function setMemberDepartment(
+    userId: string,
+    departmentId: string | null,
+  ) {
+    if (!workspaceId) return;
+    // Remember the previous value so we can roll back on failure.
+    const previous =
+      users.find((u) => u.id === userId)?.department_id ?? null;
+    // Optimistic update.
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId ? { ...u, department_id: departmentId } : u,
+      ),
+    );
+    try {
+      const r = await fetch(
+        `/api/workspaces/${workspaceId}/members/${userId}/department`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ department_id: departmentId }),
+        },
+      );
+      if (!r.ok) {
+        // Roll back so the UI doesn't show an assignment the server rejected.
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === userId ? { ...u, department_id: previous } : u,
+          ),
+        );
+        setToast("Couldn't update department");
+      } else {
+        loadDepartments(workspaceId);
+      }
+    } catch {
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId ? { ...u, department_id: previous } : u,
+        ),
+      );
+      setToast("Couldn't update department");
+    }
+  }
+
+  // Group users by department.
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const byId = new Map<string, TeamMember[]>();
+    byId.set(UNASSIGNED_KEY, []);
+    departments.forEach((d) => byId.set(d.id, []));
+    for (const u of users) {
+      const matchesQuery =
+        !q ||
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q);
+      if (!matchesQuery) continue;
+      const key = u.department_id ?? UNASSIGNED_KEY;
+      if (!byId.has(key)) byId.set(key, []);
+      byId.get(key)!.push(u);
+    }
+    return byId;
+  }, [users, departments, query]);
+
+  const isSearching = query.trim().length > 0;
 
   async function resendInvite(invite: PendingInvite) {
     setResending(invite.id);
@@ -68,7 +224,8 @@ export default function TeamPage() {
         if (json.mailed && json.mailed > 0) {
           setToast(`Invite re-sent to ${invite.email}`);
         } else {
-          const url = json.invites?.find((i) => i.email === invite.email)?.accept_url;
+          const url = json.invites?.find((i) => i.email === invite.email)
+            ?.accept_url;
           setToast(
             `Email backend unavailable — share this link with ${invite.email} directly.`,
           );
@@ -92,15 +249,77 @@ export default function TeamPage() {
     }
   }
 
+  const orderedGroups: Array<{
+    key: string;
+    name: string;
+    color: string;
+    members: TeamMember[];
+  }> = [
+    ...departments.map((d) => ({
+      key: d.id,
+      name: d.name,
+      color: d.color,
+      members: groups.get(d.id) ?? [],
+    })),
+    {
+      key: UNASSIGNED_KEY,
+      name: "Unassigned",
+      color: "slate",
+      members: groups.get(UNASSIGNED_KEY) ?? [],
+    },
+  ];
+
   return (
     <>
       <Header title="Team" />
       <div className="p-6 max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-foreground">Team Members</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {users.length} member{users.length !== 1 ? "s" : ""}
-          </p>
+        <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Team Members</h2>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              {users.length} member{users.length !== 1 ? "s" : ""}
+              {departments.length > 0 && (
+                <>
+                  {" · "}
+                  {departments.length} department
+                  {departments.length !== 1 ? "s" : ""}
+                </>
+              )}
+            </p>
+          </div>
+          {isAdmin && workspaceId && (
+            <button
+              type="button"
+              onClick={() => setManageOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+              Manage departments
+            </button>
+          )}
+        </div>
+
+        <div className="mb-4 flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="search"
+              placeholder="Search members…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-md border border-border bg-card pl-9 pr-3 py-2 text-sm"
+              aria-label="Search members"
+            />
+          </div>
+          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground select-none">
+            <input
+              type="checkbox"
+              checked={showEmpty}
+              onChange={(e) => setShowEmpty(e.target.checked)}
+              className="rounded border-border"
+            />
+            Show empty groups
+          </label>
         </div>
 
         {loading ? (
@@ -124,54 +343,126 @@ export default function TeamPage() {
             <p className="font-medium">No team members yet</p>
           </div>
         ) : (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            <table className="w-full">
-              <thead className="border-b border-border">
-                <tr>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-6 py-3">
-                    Member
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-6 py-3 hidden sm:table-cell">
-                    Email
-                  </th>
-                  <th className="text-left text-xs font-medium text-muted-foreground px-6 py-3">
-                    Role
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">
-                          {getInitials(user.name)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{user.name}</p>
-                          <p className="text-xs text-muted-foreground sm:hidden">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 hidden sm:table-cell">
-                      <span className="text-sm text-muted-foreground">{user.email}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={cn(
-                          "text-xs px-2.5 py-1 rounded-full font-medium capitalize",
-                          user.role === "admin"
-                            ? "bg-primary/15 text-primary"
-                            : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        {user.role}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {orderedGroups.map((g) => {
+              const isUnassigned = g.key === UNASSIGNED_KEY;
+              const memberCount = g.members.length;
+              // When searching, auto-expand groups that have matches and
+              // hide groups with zero matches. Otherwise honor the
+              // user-stored collapse state and the "show empty" toggle.
+              if (isSearching && memberCount === 0) return null;
+              if (!isSearching && memberCount === 0 && !showEmpty && !isUnassigned)
+                return null;
+              if (
+                !isSearching &&
+                isUnassigned &&
+                memberCount === 0 &&
+                !showEmpty
+              )
+                return null;
+
+              const isCollapsed =
+                !isSearching && collapsed.has(g.key) && memberCount > 0;
+
+              return (
+                <section
+                  key={g.key}
+                  data-testid="department-group"
+                  data-department-key={g.key}
+                  className="bg-card border border-border rounded-xl overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapsed(g.key)}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                    aria-expanded={!isCollapsed}
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <span
+                      className={cn(
+                        "w-2.5 h-2.5 rounded-full flex-shrink-0",
+                        colorDotClass(g.color),
+                      )}
+                      aria-hidden="true"
+                    />
+                    <span className="font-medium text-sm text-foreground">
+                      {g.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {memberCount} member{memberCount !== 1 ? "s" : ""}
+                    </span>
+                  </button>
+
+                  {!isCollapsed && memberCount > 0 && (
+                    <ul className="divide-y divide-border border-t border-border">
+                      {g.members.map((user) => (
+                        <li
+                          key={user.id}
+                          className="flex items-center gap-3 px-6 py-3 hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">
+                            {getInitials(user.name)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              {user.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {user.email}
+                            </p>
+                          </div>
+                          <span
+                            className={cn(
+                              "text-xs px-2.5 py-1 rounded-full font-medium capitalize hidden sm:inline",
+                              user.role === "admin"
+                                ? "bg-primary/15 text-primary"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {user.role}
+                          </span>
+                          {isAdmin ? (
+                            <select
+                              aria-label={`Department for ${user.name}`}
+                              value={user.department_id ?? ""}
+                              onChange={(e) =>
+                                setMemberDepartment(
+                                  user.id,
+                                  e.target.value || null,
+                                )
+                              }
+                              className="text-xs rounded-md border border-border bg-card px-2 py-1"
+                            >
+                              <option value="">Unassigned</option>
+                              {departments.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span
+                                className={cn(
+                                  "w-2 h-2 rounded-full",
+                                  colorDotClass(g.color),
+                                )}
+                                aria-hidden="true"
+                              />
+                              {g.name}
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
           </div>
         )}
 
@@ -179,9 +470,12 @@ export default function TeamPage() {
           <div className="mt-8">
             <div className="mb-3 flex items-end justify-between">
               <div>
-                <h3 className="text-base font-semibold text-foreground">Pending invites</h3>
+                <h3 className="text-base font-semibold text-foreground">
+                  Pending invites
+                </h3>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  {pending.length} invite{pending.length !== 1 ? "s" : ""} awaiting acceptance
+                  {pending.length} invite{pending.length !== 1 ? "s" : ""}{" "}
+                  awaiting acceptance
                 </p>
               </div>
             </div>
@@ -196,10 +490,14 @@ export default function TeamPage() {
                     <div className="flex items-center gap-3 min-w-0">
                       <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{p.email}</p>
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {p.email}
+                        </p>
                         <p className="text-xs text-muted-foreground capitalize">
                           {p.role}
-                          {p.inviter ? ` · invited by ${p.inviter.name || p.inviter.email}` : ""}
+                          {p.inviter
+                            ? ` · invited by ${p.inviter.name || p.inviter.email}`
+                            : ""}
                         </p>
                       </div>
                     </div>
@@ -215,7 +513,10 @@ export default function TeamPage() {
                       aria-label={`Resend invite to ${p.email}`}
                     >
                       <RotateCw
-                        className={cn("w-3.5 h-3.5", resending === p.id && "animate-spin")}
+                        className={cn(
+                          "w-3.5 h-3.5",
+                          resending === p.id && "animate-spin",
+                        )}
                       />
                       {resending === p.id ? "Sending…" : "Resend"}
                     </button>
@@ -247,7 +548,229 @@ export default function TeamPage() {
             )}
           </div>
         )}
+
+        {manageOpen && workspaceId && (
+          <ManageDepartmentsDialog
+            workspaceId={workspaceId}
+            departments={departments}
+            onClose={() => setManageOpen(false)}
+            onChanged={() => loadDepartments(workspaceId)}
+          />
+        )}
       </div>
     </>
+  );
+}
+
+function ManageDepartmentsDialog({
+  workspaceId,
+  departments,
+  onClose,
+  onChanged,
+}: {
+  workspaceId: string;
+  departments: Department[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState<DepartmentColor>("blue");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function create() {
+    if (!newName.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch(`/api/workspaces/${workspaceId}/departments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim(), color: newColor }),
+      });
+      if (!r.ok) {
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        setError(j.error ?? "Couldn't create department");
+      } else {
+        setNewName("");
+        onChanged();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rename(dep: Department, name: string) {
+    if (!name.trim() || name === dep.name) return;
+    await fetch(`/api/workspaces/${workspaceId}/departments/${dep.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    onChanged();
+  }
+
+  async function recolor(dep: Department, color: DepartmentColor) {
+    await fetch(`/api/workspaces/${workspaceId}/departments/${dep.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ color }),
+    });
+    onChanged();
+  }
+
+  async function remove(dep: Department) {
+    if (
+      !window.confirm(
+        `Delete "${dep.name}"? Its members will become Unassigned.`,
+      )
+    )
+      return;
+    await fetch(`/api/workspaces/${workspaceId}/departments/${dep.id}`, {
+      method: "DELETE",
+    });
+    onChanged();
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Manage departments"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-card border border-border rounded-xl w-full max-w-lg p-6 shadow-lg"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-semibold text-foreground">
+            Manage departments
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+          {departments.length === 0 && (
+            <p className="text-xs text-muted-foreground py-2">
+              No departments yet. Create one below.
+            </p>
+          )}
+          {departments.map((d) => (
+            <DepartmentRow
+              key={d.id}
+              dep={d}
+              onRename={(name) => rename(d, name)}
+              onRecolor={(c) => recolor(d, c)}
+              onDelete={() => remove(d)}
+            />
+          ))}
+        </div>
+
+        <div className="border-t border-border pt-4 space-y-2">
+          <p className="text-xs font-medium text-foreground">Add department</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              type="text"
+              placeholder="e.g. Engineering"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="flex-1 min-w-[160px] rounded-md border border-border bg-card px-2 py-1.5 text-sm"
+            />
+            <ColorPicker value={newColor} onChange={setNewColor} />
+            <button
+              type="button"
+              onClick={create}
+              disabled={busy || !newName.trim()}
+              className="inline-flex items-center gap-1 rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium disabled:opacity-60"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add
+            </button>
+          </div>
+          {error && <p className="text-xs text-destructive">{error}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DepartmentRow({
+  dep,
+  onRename,
+  onRecolor,
+  onDelete,
+}: {
+  dep: Department;
+  onRename: (name: string) => void;
+  onRecolor: (color: DepartmentColor) => void;
+  onDelete: () => void;
+}) {
+  const [name, setName] = useState(dep.name);
+  useEffect(() => setName(dep.name), [dep.name]);
+
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+      <ColorPicker
+        value={dep.color as DepartmentColor}
+        onChange={(c) => onRecolor(c)}
+      />
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onBlur={() => onRename(name)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+        className="flex-1 min-w-0 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm hover:border-border focus:border-border outline-none"
+        aria-label={`Department name (${dep.name})`}
+      />
+      <span className="text-xs text-muted-foreground">
+        {dep._count.members}
+      </span>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Delete ${dep.name}`}
+        className="text-muted-foreground hover:text-destructive p-1"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function ColorPicker({
+  value,
+  onChange,
+}: {
+  value: DepartmentColor;
+  onChange: (c: DepartmentColor) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {DEPARTMENT_COLORS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          aria-label={`Color ${c}`}
+          aria-pressed={value === c}
+          onClick={() => onChange(c)}
+          className={cn(
+            "w-4 h-4 rounded-full transition-transform",
+            colorDotClass(c),
+            value === c && "ring-2 ring-offset-1 ring-foreground scale-110",
+          )}
+        />
+      ))}
+    </div>
   );
 }

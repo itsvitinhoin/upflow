@@ -176,5 +176,16 @@ export interface TeamMember {
   role: "admin" | "member";
   avatar_url: string | null;
   created_at: string;
+  workspace_role?: "owner" | "admin" | "member" | null;
+  department_id?: string | null;
   _count: { tasks: number; projects: number };
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  color: string;
+  sort_order: number;
+  created_at: string;
+  _count: { members: number };
 }
