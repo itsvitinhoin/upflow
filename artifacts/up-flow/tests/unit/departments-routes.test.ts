@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// Source-level conformance tests for the new department endpoints.
-// Verifies the auth / role / workspace-scope wiring is in place without
-// having to spin up Prisma + Supabase in a unit test. The runtime
-// behavior of `requireAuth`, `isWorkspaceAdminFor`, and
-// `canAccessWorkspace` is already covered by the auth-helpers code path.
+// Source-level guardrail tests for the new department endpoints —
+// catches regressions where someone refactors the routes and accidentally
+// drops an auth or workspace-scope check. Behavioral coverage (real
+// status codes, real Prisma, real auth) lives in
+// `tests/ui/departments.spec.ts` which hits the running dev server.
 
 const ROOT = join(__dirname, "..", "..", "src", "app", "api");
 

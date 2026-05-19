@@ -187,31 +187,18 @@ test.describe("Inbox", () => {
 test.describe("Team", () => {
   requireChromiumOrSkip();
 
-  test("table renders with seeded admin row", async ({ browser, baseURL }) => {
+  test("renders the seeded admin under a department group", async ({
+    browser,
+    baseURL,
+  }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/team");
-    await expect(page.getByRole("table")).toBeVisible();
-    // The seeded admin email is admin@upflow.io — should appear in the table.
-    const adminRow = page.locator("tr", { hasText: "admin@upflow.io" }).first();
-    await expect(adminRow).toBeVisible();
-
-    // Exercise row hover — surfaces row-hover styles + any per-row actions
-    // (the table has no role-change <select> in the seed; if one is ever
-    // added, this hover ensures it's reachable). Assert the row stays mounted.
-    await adminRow.hover();
-    await expect(adminRow).toBeVisible();
-    // If a role <select> renders inline (conditional on the workspace's
-    // membership shape), exercise it — otherwise skip cleanly.
-    const roleSelect = adminRow.locator("select");
-    if (await roleSelect.count()) {
-      const initial = await roleSelect.first().inputValue();
-      const opts = await roleSelect.first().locator("option").allTextContents();
-      const other = opts.find((o) => o.toLowerCase() !== initial.toLowerCase());
-      if (other) {
-        await roleSelect.first().selectOption({ label: other });
-      }
-    }
+    // The Team page now groups members into department <section>s.
+    const groups = page.getByTestId("department-group");
+    await expect(groups.first()).toBeVisible();
+    // The seeded admin should appear somewhere in the grouped list.
+    await expect(page.getByText("admin@upflow.io").first()).toBeVisible();
 
     await ctx.close();
   });

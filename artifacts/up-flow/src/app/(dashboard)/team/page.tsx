@@ -112,7 +112,13 @@ export default function TeamPage() {
         setWorkspaceId(wsId);
         setCurrentRole(ws?.current_role ?? null);
 
-        const usersRes = await fetch("/api/users");
+        // Scope users to the current workspace so department grouping +
+        // assignment never accidentally show or target members from a
+        // different workspace the caller also belongs to.
+        const usersUrl = wsId
+          ? `/api/users?workspace_id=${encodeURIComponent(wsId)}`
+          : "/api/users";
+        const usersRes = await fetch(usersUrl);
         const usersData = (await usersRes.json()) as { items: TeamMember[] };
         if (cancelled) return;
         setUsers(usersData.items ?? []);
