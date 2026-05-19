@@ -11,6 +11,8 @@ import {
   Clock,
   CheckCheck,
   UserPlus,
+  ArrowRightCircle,
+  AtSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
@@ -22,7 +24,15 @@ type Filter =
   | "assigned"
   | "commented"
   | "due_soon"
-  | "member_joined";
+  | "member_joined"
+  | "status_changed"
+  | "mentioned";
+
+const STATUS_LABEL: Record<string, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
+};
 
 function iconFor(type: string) {
   if (type === "assigned") return <UserCheck className="w-4 h-4 text-primary" />;
@@ -30,6 +40,9 @@ function iconFor(type: string) {
     return <MessageSquare className="w-4 h-4 text-upflow-success" />;
   if (type === "member_joined")
     return <UserPlus className="w-4 h-4 text-primary" />;
+  if (type === "status_changed")
+    return <ArrowRightCircle className="w-4 h-4 text-primary" />;
+  if (type === "mentioned") return <AtSign className="w-4 h-4 text-upflow-success" />;
   return <Clock className="w-4 h-4 text-upflow-warning" />;
 }
 
@@ -49,6 +62,21 @@ function labelFor(n: Notification) {
   if (n.type === "assigned") return `You were assigned to "${taskTitle}"`;
   if (n.type === "commented") return `New comment on "${taskTitle}"`;
   if (n.type === "due_soon") return `"${taskTitle}" is due soon`;
+  if (n.type === "status_changed") {
+    const data = (n.data ?? {}) as {
+      old_status?: string;
+      new_status?: string;
+      actor_name?: string;
+    };
+    const actor = data.actor_name || "Someone";
+    const newLabel = data.new_status ? STATUS_LABEL[data.new_status] ?? data.new_status : "a new status";
+    return `${actor} moved "${taskTitle}" to ${newLabel}`;
+  }
+  if (n.type === "mentioned") {
+    const data = (n.data ?? {}) as { actor_name?: string };
+    const actor = data.actor_name || "Someone";
+    return `${actor} mentioned you on "${taskTitle}"`;
+  }
   return taskTitle;
 }
 
@@ -97,6 +125,8 @@ export default function InboxPage() {
       commented: notifications.filter((n) => n.type === "commented").length,
       due_soon: notifications.filter((n) => n.type === "due_soon").length,
       member_joined: notifications.filter((n) => n.type === "member_joined").length,
+      status_changed: notifications.filter((n) => n.type === "status_changed").length,
+      mentioned: notifications.filter((n) => n.type === "mentioned").length,
     };
   }, [notifications]);
 
@@ -137,7 +167,9 @@ export default function InboxPage() {
     { key: "all", label: "All" },
     { key: "unread", label: "Unread" },
     { key: "assigned", label: "Assigned" },
+    { key: "mentioned", label: "Mentions" },
     { key: "commented", label: "Comments" },
+    { key: "status_changed", label: "Status" },
     { key: "due_soon", label: "Due soon" },
     { key: "member_joined", label: "Joined" },
   ];

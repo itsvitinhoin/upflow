@@ -158,15 +158,50 @@ export interface MemberJoinedData {
   role?: "admin" | "member";
 }
 
+export interface StatusChangedData {
+  old_status?: "todo" | "in_progress" | "done";
+  new_status?: "todo" | "in_progress" | "done";
+  task_title?: string;
+  actor_id?: string;
+  actor_name?: string;
+}
+
+export interface MentionedData {
+  comment_id?: string;
+  comment_excerpt?: string;
+  actor_id?: string;
+  actor_name?: string;
+  task_title?: string;
+}
+
+export interface DueSoonData {
+  due_date?: string;
+  task_title?: string;
+}
+
+export type NotificationKind =
+  | "assigned"
+  | "commented"
+  | "due_soon"
+  | "member_joined"
+  | "status_changed"
+  | "mentioned";
+
 export interface Notification {
   id: string;
-  type: "assigned" | "commented" | "due_soon" | "member_joined";
+  type: NotificationKind;
   read: boolean;
   created_at: string;
   task: NotificationTask | null;
   workspace: NotificationWorkspace | null;
-  /** Type-specific payload. For `member_joined` it is `MemberJoinedData`. */
-  data: MemberJoinedData | Record<string, unknown> | null;
+  /** Type-specific payload. */
+  data:
+    | MemberJoinedData
+    | StatusChangedData
+    | MentionedData
+    | DueSoonData
+    | Record<string, unknown>
+    | null;
 }
 
 export interface TeamMember {

@@ -41,6 +41,8 @@ enum NotificationType {
   commented
   due_soon
   member_joined
+  status_changed
+  mentioned
 }
 
 enum CustomFieldType {

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus } from "lucide-react";
+import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
@@ -14,10 +14,18 @@ interface HeaderProps {
   title: string;
 }
 
+const STATUS_LABEL: Record<string, string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
+};
+
 function notificationIcon(type: string) {
   if (type === "assigned") return <UserCheck className="w-3.5 h-3.5 text-primary" />;
   if (type === "commented") return <MessageSquare className="w-3.5 h-3.5 text-upflow-success" />;
   if (type === "member_joined") return <UserPlus className="w-3.5 h-3.5 text-primary" />;
+  if (type === "status_changed") return <ArrowRightCircle className="w-3.5 h-3.5 text-primary" />;
+  if (type === "mentioned") return <AtSign className="w-3.5 h-3.5 text-upflow-success" />;
   return <Clock className="w-3.5 h-3.5 text-upflow-warning" />;
 }
 
@@ -32,6 +40,17 @@ function notificationLabel(n: Notification) {
   if (n.type === "assigned") return `Assigned to "${taskTitle}"`;
   if (n.type === "commented") return `New comment on "${taskTitle}"`;
   if (n.type === "due_soon") return `"${taskTitle}" is due soon`;
+  if (n.type === "status_changed") {
+    const data = (n.data ?? {}) as { new_status?: string; actor_name?: string };
+    const actor = data.actor_name || "Someone";
+    const newLabel = data.new_status ? STATUS_LABEL[data.new_status] ?? data.new_status : "a new status";
+    return `${actor} moved "${taskTitle}" to ${newLabel}`;
+  }
+  if (n.type === "mentioned") {
+    const data = (n.data ?? {}) as { actor_name?: string };
+    const actor = data.actor_name || "Someone";
+    return `${actor} mentioned you on "${taskTitle}"`;
+  }
   return taskTitle;
 }
 

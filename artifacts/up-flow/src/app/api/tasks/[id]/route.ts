@@ -8,6 +8,7 @@ import {
 import { requireAuth } from "@/lib/auth-response";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { broadcastNotification } from "@/lib/supabase-server";
 
 async function GET_handler(
   req: NextRequest,
@@ -119,6 +120,47 @@ async function PATCH_handler(
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
       .catch((err) => logError("api:tasks:PATCH:notify", err, { task_id: task.id }));
+    await broadcastNotification(assignee_id);
+  }
+
+  // Status-change notifications. Notify the project owner (creator) and the
+  // task's assignee — excluding whoever made the change, and skipping
+  // duplicates when those are the same person.
+  if (status !== undefined && status !== oldTask.status) {
+    const recipients = new Set<string>();
+    if (oldTask.project.owner_id && oldTask.project.owner_id !== prismaUser.id) {
+      recipients.add(oldTask.project.owner_id);
+    }
+    // Use the post-update assignee so a status change combined with a
+    // re-assignment still notifies the new assignee about the new status.
+    const currentAssignee = task.assignee_id;
+    if (currentAssignee && currentAssignee !== prismaUser.id) {
+      recipients.add(currentAssignee);
+    }
+
+    const payload = {
+      old_status: oldTask.status,
+      new_status: status,
+      task_title: task.title,
+      actor_id: prismaUser.id,
+      actor_name: prismaUser.name,
+    };
+
+    for (const userId of recipients) {
+      await prisma.notification
+        .create({
+          data: {
+            type: "status_changed",
+            user_id: userId,
+            task_id: task.id,
+            data: payload,
+          },
+        })
+        .catch((err) =>
+          logError("api:tasks:PATCH:status-notify", err, { task_id: task.id, user_id: userId }),
+        );
+      await broadcastNotification(userId);
+    }
   }
 
   return NextResponse.json(task);
