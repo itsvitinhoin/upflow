@@ -1,4 +1,9 @@
-import { test, expect, request as playwrightRequest } from "@playwright/test";
+import {
+  test,
+  expect,
+  request as playwrightRequest,
+  type APIRequestContext,
+} from "@playwright/test";
 import { SEEDED, uniq, loginAs } from "../helpers";
 import { loggedInContext, requireChromiumOrSkip } from "./_ui-helpers";
 
@@ -16,11 +21,10 @@ import { loggedInContext, requireChromiumOrSkip } from "./_ui-helpers";
  *      the new group's section in the rendered DOM.
  */
 
-async function getCurrentWorkspaceId(ctx: {
-  request: { get: (url: string) => Promise<unknown> };
-}): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const res = await (ctx.request as any).get("/api/workspaces");
+async function getCurrentWorkspaceId(
+  request: APIRequestContext,
+): Promise<string> {
+  const res = await request.get("/api/workspaces");
   expect(res.ok()).toBeTruthy();
   const body = (await res.json()) as { current_workspace_id: string };
   expect(body.current_workspace_id).toBeTruthy();
@@ -34,8 +38,7 @@ test.describe("Departments API", () => {
     // Admin context.
     const adminCtx = await playwrightRequest.newContext({ baseURL });
     await loginAs(adminCtx, SEEDED.admin.email);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const wsId = await getCurrentWorkspaceId({ request: adminCtx } as any);
+    const wsId = await getCurrentWorkspaceId(adminCtx);
 
     // CREATE — admin
     const name = uniq("Dept");
@@ -138,8 +141,7 @@ test.describe("Departments API", () => {
   }) => {
     const adminCtx = await playwrightRequest.newContext({ baseURL });
     await loginAs(adminCtx, SEEDED.admin.email);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const wsId = await getCurrentWorkspaceId({ request: adminCtx } as any);
+    const wsId = await getCurrentWorkspaceId(adminCtx);
 
     // Need a department + a member user id.
     const dep = await adminCtx
@@ -204,8 +206,7 @@ test.describe("Departments UI", () => {
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const wsId = await getCurrentWorkspaceId({ request: ctx } as any);
+    const wsId = await getCurrentWorkspaceId(ctx.request);
 
     // Find the seeded member we'll reassign.
     const usersRes = await ctx.request.get(
