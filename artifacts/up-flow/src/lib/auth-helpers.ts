@@ -128,12 +128,14 @@ export async function getAuthResult(): Promise<AuthResult> {
       });
     }
 
-    // First login: auto-join the default workspace (or create a personal one
-    // if no default exists). This is cheap when memberships already exist —
-    // it's a single indexed read of WorkspaceMember.
-    await ensureDefaultWorkspace(prismaUser.id, prismaUser.name);
-
-    const memberships = await loadMemberships(prismaUser.id);
+    // Load memberships once for the common path. Only run provisioning when
+    // the user has none, which avoids one extra workspaceMember read on every
+    // authenticated API request.
+    let memberships = await loadMemberships(prismaUser.id);
+    if (memberships.length === 0) {
+      await ensureDefaultWorkspace(prismaUser.id, prismaUser.name);
+      memberships = await loadMemberships(prismaUser.id);
+    }
     const currentWorkspaceId = resolveCurrentWorkspaceId(
       memberships,
       readWorkspaceCookie(),

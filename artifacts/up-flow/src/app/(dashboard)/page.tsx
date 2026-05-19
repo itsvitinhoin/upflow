@@ -71,15 +71,19 @@ export default function DashboardPage() {
   }, []);
 
   const loadData = () => {
-    Promise.all([
-      fetch("/api/tasks?mine=true").then((r) => r.json() as Promise<{ items: Task[] }>),
-      fetch("/api/projects").then((r) => r.json() as Promise<{ items: Project[] }>),
-      fetch("/api/users").then((r) => r.json() as Promise<{ items: TeamMember[] }>),
-    ])
-      .then(([t, p, u]) => {
-        setTasks(t.items ?? []);
-        setProjects(p.items ?? []);
-        setUsers(u.items ?? []);
+    fetch("/api/dashboard")
+      .then(
+        (r) =>
+          r.json() as Promise<{
+            tasks: { items: Task[] };
+            projects: { items: Project[] };
+            users: { items: TeamMember[] };
+          }>,
+      )
+      .then((data) => {
+        setTasks(data.tasks.items ?? []);
+        setProjects(data.projects.items ?? []);
+        setUsers(data.users.items ?? []);
         setLoading(false);
       })
       .catch(() => setLoading(false));

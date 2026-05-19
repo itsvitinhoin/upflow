@@ -37,15 +37,19 @@ export function usePanelData(pathname: string) {
 
   const loadPanel = useCallback(() => {
     setLoadingPanel(true);
-    Promise.all([
-      fetch("/api/spaces").then((r) => r.json() as Promise<{ items: Space[] }>),
-      fetch("/api/projects").then((r) => r.json() as Promise<{ items: Project[] }>),
-      fetch("/api/folders").then((r) => r.json() as Promise<{ items: FolderT[] }>),
-    ])
-      .then(([s, p, f]) => {
-        setSpaces(s.items ?? []);
-        setProjects(p.items ?? []);
-        setFolders(f.items ?? []);
+    fetch("/api/sidebar")
+      .then(
+        (r) =>
+          r.json() as Promise<{
+            spaces: { items: Space[] };
+            projects: { items: Project[] };
+            folders: { items: FolderT[] };
+          }>,
+      )
+      .then((data) => {
+        setSpaces(data.spaces.items ?? []);
+        setProjects(data.projects.items ?? []);
+        setFolders(data.folders.items ?? []);
       })
       .catch((err) => logError("sidebar:loadPanel", err))
       .finally(() => setLoadingPanel(false));

@@ -3,6 +3,17 @@ import { type NextRequest, NextResponse } from "next/server";
 import { TEST_AUTH_COOKIE } from "@/lib/test-auth";
 
 export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const isApiRoute = pathname.startsWith("/api/");
+  const isStatic =
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/favicon") ||
+    pathname.includes(".");
+
+  if (isStatic || isApiRoute) {
+    return NextResponse.next({ request: { headers: req.headers } });
+  }
+
   let response = NextResponse.next({ request: { headers: req.headers } });
   const cookieMutations: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
@@ -43,7 +54,6 @@ export async function middleware(req: NextRequest) {
     user = got.data.user;
   }
 
-  const { pathname } = req.nextUrl;
   const isLoginPage = pathname === "/login";
   // Public, unauthenticated pages: login + the password-recovery flow +
   // the invite landing page (lets a logged-out invitee click the email
@@ -53,14 +63,6 @@ export async function middleware(req: NextRequest) {
     pathname === "/auth/forgot" ||
     pathname === "/auth/reset" ||
     pathname.startsWith("/invite/");
-  const isApiRoute = pathname.startsWith("/api/");
-  const isStatic =
-    pathname.startsWith("/_next/") ||
-    pathname.startsWith("/favicon") ||
-    pathname.includes(".");
-
-  if (isStatic || isApiRoute) return response;
-
   if (!user && !isPublicAuthPage) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
@@ -86,5 +88,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico).*)"],
 };
