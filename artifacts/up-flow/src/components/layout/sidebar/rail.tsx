@@ -9,7 +9,6 @@ import {
   Inbox,
   Calendar,
   Kanban,
-  Settings,
   HelpCircle,
   Layers,
   type LucideIcon,
@@ -114,19 +113,6 @@ export function Rail({
       </nav>
 
       <div className="flex flex-col items-center gap-2 w-full px-1 pb-1">
-        <Link
-          href="/settings/import"
-          aria-label="Settings"
-          title="Settings · ClickUp import"
-          className={cn(
-            "flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
-            pathname?.startsWith("/settings")
-              ? "text-foreground bg-white/10"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <Settings className="w-[18px] h-[18px]" />
-        </Link>
         <button
           aria-label="Help"
           title="Help"

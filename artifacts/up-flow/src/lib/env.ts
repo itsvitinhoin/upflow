@@ -6,7 +6,6 @@ const REQUIRED = [
 
 const OPTIONAL = [
   "SUPABASE_SERVICE_ROLE_KEY",
-  "CLICKUP_API_TOKEN",
   "ADMIN_EMAILS",
   // Transactional email. When unset, sendEmail() logs to the server console
   // instead of calling Resend so local dev keeps working without a key.

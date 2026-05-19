@@ -20,7 +20,6 @@ import {
   Users,
   Clock,
   Plus,
-  Download,
   Hash,
   CheckSquare,
 } from "lucide-react";
@@ -111,10 +110,6 @@ export default function CommandPalette() {
             >
               <Plus className="mr-2 h-4 w-4" />
               <span>New Project</span>
-            </CommandItem>
-            <CommandItem onSelect={() => go("/settings/import")}>
-              <Download className="mr-2 h-4 w-4" />
-              <span>Import from ClickUp</span>
             </CommandItem>
           </CommandGroup>
 

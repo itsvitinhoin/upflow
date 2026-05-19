@@ -30,7 +30,7 @@ export const POST = withErrorReporting("api:<bucket>:POST", postHandler);
 ```
 
 Pick `<bucket>` to match the folder path so on-call can grep Sentry by route
-(e.g. `api:tasks:POST`, `api:projects/id:DELETE`, `api:clickup/import:POST`).
+(e.g. `api:tasks:POST`, `api:projects/id:DELETE`).
 
 ## Guardrail
 
