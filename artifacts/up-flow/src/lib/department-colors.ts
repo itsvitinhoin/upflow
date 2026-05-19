@@ -16,6 +16,16 @@ export const DEPARTMENT_COLORS = [
 
 export type DepartmentColor = (typeof DEPARTMENT_COLORS)[number];
 
+// Server-side validation also imports this — keep the palette as a single
+// source of truth so the client picker and the API stay in sync.
+export const DEPARTMENT_COLOR_SET: ReadonlySet<string> = new Set(
+  DEPARTMENT_COLORS,
+);
+
+export function isValidDepartmentColor(c: unknown): c is DepartmentColor {
+  return typeof c === "string" && DEPARTMENT_COLOR_SET.has(c);
+}
+
 // Tailwind classes for the small color dot rendered next to each group
 // header. Mapped explicitly so Tailwind's JIT picks them up at build time.
 const DOT_CLASS: Record<string, string> = {

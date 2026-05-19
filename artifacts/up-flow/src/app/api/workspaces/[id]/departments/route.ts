@@ -7,24 +7,7 @@ import {
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
-
-const VALID_COLORS = new Set([
-  "slate",
-  "red",
-  "orange",
-  "amber",
-  "green",
-  "teal",
-  "blue",
-  "indigo",
-  "violet",
-  "pink",
-]);
-
-function normalizeColor(c: unknown): string {
-  if (typeof c === "string" && VALID_COLORS.has(c)) return c;
-  return "slate";
-}
+import { isValidDepartmentColor } from "@/lib/department-colors";
 
 // GET /api/workspaces/[id]/departments — list departments in the workspace.
 // Any member of the workspace can read.
@@ -82,6 +65,13 @@ async function POST_handler(
   if (name.length > 60) {
     return NextResponse.json({ error: "Name is too long" }, { status: 400 });
   }
+  // Color is optional on create; default to "slate" if omitted, but reject
+  // unknown values outright (matches PATCH semantics so clients see one
+  // consistent contract).
+  const color = body.color === undefined ? "slate" : body.color;
+  if (!isValidDepartmentColor(color)) {
+    return NextResponse.json({ error: "Invalid color" }, { status: 400 });
+  }
 
   // Place new department at the end of the existing order.
   const last = await prisma.department.findFirst({
@@ -96,7 +86,7 @@ async function POST_handler(
       data: {
         workspace_id: workspaceId,
         name,
-        color: normalizeColor(body.color),
+        color,
         sort_order: nextOrder,
       },
       select: {

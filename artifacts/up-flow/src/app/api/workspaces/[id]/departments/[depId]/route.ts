@@ -4,19 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
-
-const VALID_COLORS = new Set([
-  "slate",
-  "red",
-  "orange",
-  "amber",
-  "green",
-  "teal",
-  "blue",
-  "indigo",
-  "violet",
-  "pink",
-]);
+import { isValidDepartmentColor } from "@/lib/department-colors";
 
 // PATCH /api/workspaces/[id]/departments/[depId] — rename / recolor.
 async function PATCH_handler(
@@ -55,7 +43,7 @@ async function PATCH_handler(
     data.name = trimmed;
   }
   if (typeof body.color === "string") {
-    if (!VALID_COLORS.has(body.color)) {
+    if (!isValidDepartmentColor(body.color)) {
       return NextResponse.json({ error: "Invalid color" }, { status: 400 });
     }
     data.color = body.color;
