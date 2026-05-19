@@ -265,4 +265,20 @@ test.describe("Departments UI", () => {
 
     await ctx.close();
   });
+
+  test("searching for a non-existent name shows an explicit empty state", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.goto("/team");
+    await page
+      .getByLabel("Search members")
+      .fill("zzz-no-such-member-zzz");
+    await expect(page.getByTestId("team-search-empty")).toBeVisible();
+    // None of the department <section>s should be rendered.
+    await expect(page.getByTestId("department-group")).toHaveCount(0);
+    await ctx.close();
+  });
 });

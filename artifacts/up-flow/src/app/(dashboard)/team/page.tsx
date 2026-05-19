@@ -348,6 +348,16 @@ export default function TeamPage() {
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
             <p className="font-medium">No team members yet</p>
           </div>
+        ) : isSearching &&
+          orderedGroups.every((g) => g.members.length === 0) ? (
+          <div
+            data-testid="team-search-empty"
+            className="text-center py-16 text-muted-foreground"
+          >
+            <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No members match &ldquo;{query}&rdquo;</p>
+            <p className="text-xs mt-1">Try a different name or email.</p>
+          </div>
         ) : (
           <div className="space-y-4">
             {orderedGroups.map((g) => {
