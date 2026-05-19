@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
+import { isSuperAdmin } from "@/lib/auth-helpers";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // List the caller's workspaces + current active one.
@@ -18,6 +19,7 @@ async function GET_handler() {
     })),
     current_workspace_id: auth.currentWorkspaceId,
     current_role: auth.currentRole,
+    is_super_admin: isSuperAdmin(auth),
   });
 }
 

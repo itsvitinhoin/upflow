@@ -39,6 +39,7 @@ export default function TeamPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] =
     useState<"owner" | "admin" | "member" | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [pending, setPending] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
@@ -52,7 +53,10 @@ export default function TeamPage() {
   const [showEmpty, setShowEmpty] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
 
-  const isAdmin = currentRole === "owner" || currentRole === "admin";
+  // Mirrors the server's `isWorkspaceAdmin` semantics: workspace owner/admin
+  // OR cross-workspace super-admin can manage departments + assignments.
+  const isAdmin =
+    isSuperAdmin || currentRole === "owner" || currentRole === "admin";
 
   const loadPending = useCallback(async () => {
     try {
@@ -111,6 +115,7 @@ export default function TeamPage() {
         const wsId: string | null = ws?.current_workspace_id ?? null;
         setWorkspaceId(wsId);
         setCurrentRole(ws?.current_role ?? null);
+        setIsSuperAdmin(ws?.is_super_admin === true);
 
         // Scope users to the current workspace so department grouping +
         // assignment never accidentally show or target members from a
