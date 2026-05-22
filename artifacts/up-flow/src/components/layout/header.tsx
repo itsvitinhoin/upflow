@@ -7,11 +7,52 @@ import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getCachedJson } from "@/lib/client-cache";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
 
 interface HeaderProps {
   title: string;
+}
+
+const NOTIFICATION_CACHE_TTL_MS = 30_000;
+let notificationCache: { items: Notification[]; loadedAt: number } | null = null;
+let notificationRequest: Promise<Notification[]> | null = null;
+
+function fetchUnreadCount(force = false): Promise<number> {
+  return getCachedJson<{ unread: number }>(
+    "notifications:unread-count",
+    "/api/notifications/unread-count",
+    { ttlMs: 30_000, force },
+  )
+    .then((data) => data.unread ?? 0)
+    .catch(() => 0);
+}
+
+function fetchNotificationItems(force = false): Promise<Notification[]> {
+  if (
+    !force &&
+    notificationCache &&
+    Date.now() - notificationCache.loadedAt < NOTIFICATION_CACHE_TTL_MS
+  ) {
+    return Promise.resolve(notificationCache.items);
+  }
+  if (!force && notificationRequest) return notificationRequest;
+
+  notificationRequest = fetch("/api/notifications")
+    .then(async (res) => {
+      if (!res.ok) return [];
+      const data = (await res.json()) as { items: Notification[] };
+      const items = data.items ?? [];
+      notificationCache = { items, loadedAt: Date.now() };
+      return items;
+    })
+    .catch(() => [])
+    .finally(() => {
+      notificationRequest = null;
+    });
+
+  return notificationRequest;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -65,23 +106,20 @@ export default function Header({ title }: HeaderProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await fetch("/api/notifications");
-      if (res.ok) {
-        const data = (await res.json()) as { items: Notification[] };
-        const items = data.items ?? [];
-        setNotifications(items);
-        setUnreadCount(items.filter((n) => !n.read).length);
-      }
-    } catch {
-      /* ignore */
-    }
+  const fetchNotifications = useCallback(async (force = false) => {
+    const items = await fetchNotificationItems(force);
+    setNotifications(items);
+    setUnreadCount(items.filter((n) => !n.read).length);
+  }, []);
+
+  const refreshUnreadCount = useCallback(async (force = false) => {
+    const count = await fetchUnreadCount(force);
+    setUnreadCount(count);
   }, []);
 
   useEffect(() => {
     if (!user?.id) return;
-    fetchNotifications();
+    refreshUnreadCount();
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
       .channel(`db-notifications:${user.id}`)
@@ -93,13 +131,20 @@ export default function Header({ title }: HeaderProps) {
           table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
-        () => fetchNotifications()
+        () => {
+          refreshUnreadCount(true);
+          if (panelOpen) fetchNotifications(true);
+        }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, fetchNotifications]);
+  }, [user?.id, fetchNotifications, panelOpen, refreshUnreadCount]);
+
+  useEffect(() => {
+    if (panelOpen) fetchNotifications();
+  }, [panelOpen, fetchNotifications]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -133,7 +178,11 @@ export default function Header({ title }: HeaderProps) {
       )
     );
     setUnreadCount(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => {
+      const next = prev.map((n) => ({ ...n, read: true }));
+      notificationCache = { items: next, loadedAt: Date.now() };
+      return next;
+    });
   };
 
   const handleSearch = useCallback(

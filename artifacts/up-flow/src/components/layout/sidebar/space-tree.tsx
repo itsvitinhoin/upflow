@@ -14,6 +14,8 @@ import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import { ProjectRow } from "@/components/layout/sidebar/project-row";
 import { cn } from "@/lib/utils";
 
+const MAX_VISIBLE_CHILDREN = 8;
+
 export interface NodeHandlers {
   collapsed: Record<string, boolean>;
   toggleCollapse: (id: string) => void;
@@ -24,7 +26,9 @@ export interface NodeHandlers {
   loadPanel: () => void;
   setMoveTarget: (p: Project) => void;
   setRenameTarget: (s: Space) => void;
-  setCreateFolderForSpace: (s: Space) => void;
+  setCreateFolderTarget: (
+    v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
+  ) => void;
   setRenameFolderTarget: (f: FolderT) => void;
   setCreateListFor: (
     v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
@@ -35,19 +39,20 @@ export interface NodeHandlers {
 
 interface SpaceNodeProps extends NodeHandlers {
   space: Space;
-  folders: FolderT[];
   looseLists: Project[];
   foldersBySpace: FolderT[];
-  totalCount: number;
+  childFoldersByParent: (id: string) => FolderT[];
   projectsByFolder: (id: string) => Project[];
+  isSearching: boolean;
 }
 
 export function SpaceNode({
   space: sp,
   looseLists,
   foldersBySpace: spaceFolders,
-  totalCount,
+  childFoldersByParent,
   projectsByFolder,
+  isSearching,
   collapsed,
   toggleCollapse,
   menuOpenId,
@@ -57,7 +62,7 @@ export function SpaceNode({
   loadPanel,
   setMoveTarget,
   setRenameTarget,
-  setCreateFolderForSpace,
+  setCreateFolderTarget,
   setRenameFolderTarget,
   setCreateListFor,
   handleDeleteSpace,
@@ -66,18 +71,25 @@ export function SpaceNode({
   const isCollapsed = !!collapsed[sp.id];
   const menuOpen = menuOpenId === sp.id;
   const isActive = pathname === `/spaces/${sp.id}`;
+  const directChildCount = spaceFolders.length + looseLists.length;
+  const visibleFolders = isSearching ? spaceFolders : spaceFolders.slice(0, MAX_VISIBLE_CHILDREN);
+  const remainingListSlots = isSearching ? looseLists.length : Math.max(0, MAX_VISIBLE_CHILDREN - visibleFolders.length);
+  const visibleLooseLists = isSearching ? looseLists : looseLists.slice(0, remainingListSlots);
+  const hiddenChildCount = directChildCount - visibleFolders.length - visibleLooseLists.length;
   return (
     <div className="rounded-lg">
       <div
         className={cn(
-          "group relative flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-white/5",
+          "group relative flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5",
           isActive && "bg-primary/15",
         )}
       >
         <button
           onClick={() => toggleCollapse(sp.id)}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
-          className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          aria-expanded={!isCollapsed}
+          title={isCollapsed ? "Expand space" : "Collapse space"}
+          className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           {isCollapsed ? (
             <ChevronRight className="w-3.5 h-3.5" />
@@ -90,23 +102,23 @@ export function SpaceNode({
           href={`/spaces/${sp.id}`}
           onClick={onNavigate}
           className={cn(
-            "flex-1 text-left text-xs font-semibold truncate",
-            isActive ? "text-foreground" : "text-foreground hover:text-foreground",
+            "flex-1 rounded-md px-1.5 py-1.5 text-left text-xs font-semibold truncate outline-none transition-colors",
+            isActive
+              ? "text-foreground"
+              : "text-foreground/90 hover:text-foreground focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60",
           )}
         >
           {sp.name}
         </Link>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {totalCount}
-        </span>
         <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
           <button
             onClick={() =>
               setMenuOpenId((id) => (id === sp.id ? null : sp.id))
             }
             aria-label={`Actions for ${sp.name}`}
+            aria-expanded={menuOpen}
             data-menu-trigger
-            className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
@@ -129,7 +141,7 @@ export function SpaceNode({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpenId(() => null);
-                  setCreateFolderForSpace(sp);
+                  setCreateFolderTarget({ kind: "space", space: sp });
                 }}
                 className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
               >
@@ -158,16 +170,24 @@ export function SpaceNode({
             </div>
           )}
         </div>
+        {isCollapsed && directChildCount > 0 && (
+          <span className="ml-1 whitespace-nowrap text-[10px] text-muted-foreground">
+            {spaceFolders.length} folders · {looseLists.length} lists
+          </span>
+        )}
       </div>
 
       {!isCollapsed && (
         <div className="ml-5 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
           {spaceFolders.length === 0 && looseLists.length === 0 && (
-            <p className="px-2 py-1.5 text-[11px] text-muted-foreground/70 italic">
+            <p className={cn(
+              "px-2 py-1.5 text-[11px] text-muted-foreground/70 italic",
+              !isActive && !isSearching && "hidden",
+            )}>
               No folders or lists yet
             </p>
           )}
-          {spaceFolders.map((f) => (
+          {visibleFolders.map((f) => (
             <FolderNode
               key={f.id}
               folder={f}
@@ -180,12 +200,16 @@ export function SpaceNode({
               onNavigate={onNavigate}
               loadPanel={loadPanel}
               setMoveTarget={setMoveTarget}
+              childFoldersByParent={childFoldersByParent}
+              projectsByFolder={projectsByFolder}
+              isSearching={isSearching}
+              setCreateFolderTarget={setCreateFolderTarget}
               setRenameFolderTarget={setRenameFolderTarget}
               setCreateListFor={setCreateListFor}
               handleDeleteFolder={handleDeleteFolder}
             />
           ))}
-          {looseLists.map((p) => (
+          {visibleLooseLists.map((p) => (
             <ProjectRow
               key={p.id}
               project={p}
@@ -195,6 +219,15 @@ export function SpaceNode({
               isActive={pathname === `/projects/${p.id}`}
             />
           ))}
+          {hiddenChildCount > 0 && (
+            <Link
+              href={`/spaces/${sp.id}?tab=browse`}
+              onClick={onNavigate}
+              className="block rounded-md px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+            >
+              View all in space ({hiddenChildCount} more)
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -204,6 +237,8 @@ export function SpaceNode({
 interface FolderNodeProps {
   folder: FolderT;
   items: Project[];
+  childFoldersByParent: (id: string) => FolderT[];
+  projectsByFolder: (id: string) => Project[];
   collapsed: Record<string, boolean>;
   toggleCollapse: (id: string) => void;
   menuOpenId: string | null;
@@ -212,6 +247,10 @@ interface FolderNodeProps {
   onNavigate?: () => void;
   loadPanel: () => void;
   setMoveTarget: (p: Project) => void;
+  isSearching: boolean;
+  setCreateFolderTarget: (
+    v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
+  ) => void;
   setRenameFolderTarget: (f: FolderT) => void;
   setCreateListFor: (
     v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
@@ -230,19 +269,37 @@ export function FolderNode({
   onNavigate,
   loadPanel,
   setMoveTarget,
+  childFoldersByParent,
+  projectsByFolder,
+  isSearching,
+  setCreateFolderTarget,
   setRenameFolderTarget,
   setCreateListFor,
   handleDeleteFolder,
 }: FolderNodeProps) {
   const fCollapsed = !!collapsed[f.id];
   const fMenuOpen = menuOpenId === f.id;
+  const isActive = pathname === `/folders/${f.id}`;
+  const childFolders = childFoldersByParent(f.id);
+  const directChildCount = childFolders.length + items.length;
+  const visibleChildFolders = isSearching ? childFolders : childFolders.slice(0, MAX_VISIBLE_CHILDREN);
+  const remainingItemSlots = isSearching ? items.length : Math.max(0, MAX_VISIBLE_CHILDREN - visibleChildFolders.length);
+  const visibleItems = isSearching ? items : items.slice(0, remainingItemSlots);
+  const hiddenChildCount = directChildCount - visibleChildFolders.length - visibleItems.length;
   return (
     <div className="rounded-md">
-      <div className="group relative flex items-center gap-1 px-1 py-0.5 rounded-md hover:bg-white/5">
+      <div
+        className={cn(
+          "group relative flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5",
+          isActive && "bg-primary/15",
+        )}
+      >
         <button
           onClick={() => toggleCollapse(f.id)}
           aria-label={fCollapsed ? "Expand" : "Collapse"}
-          className="w-4 h-4 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          aria-expanded={!fCollapsed}
+          title={fCollapsed ? "Expand folder" : "Collapse folder"}
+          className="flex h-6 w-5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           {fCollapsed ? (
             <ChevronRight className="w-3 h-3" />
@@ -250,22 +307,26 @@ export function FolderNode({
             <ChevronDown className="w-3 h-3" />
           )}
         </button>
-        <Folder className="w-3.5 h-3.5 text-muted-foreground" />
-        <button
-          onClick={() => toggleCollapse(f.id)}
-          className="flex-1 text-left text-xs font-medium text-foreground/90 truncate"
+        <Link
+          href={`/folders/${f.id}`}
+          onClick={onNavigate}
+          className={cn(
+            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs font-medium outline-none transition-colors",
+            isActive
+              ? "text-foreground"
+              : "text-foreground/85 hover:text-foreground focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60",
+          )}
         >
-          {f.name}
-        </button>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {items.length}
-        </span>
+          <Folder className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+          <span className="truncate">{f.name}</span>
+        </Link>
         <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
           <button
             onClick={() => setMenuOpenId((id) => (id === f.id ? null : f.id))}
             aria-label={`Actions for ${f.name}`}
+            aria-expanded={fMenuOpen}
             data-menu-trigger
-            className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <MoreHorizontal className="w-3 h-3" />
           </button>
@@ -283,6 +344,16 @@ export function FolderNode({
                 className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
               >
                 <Plus className="w-3 h-3" /> New list
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpenId(() => null);
+                  setCreateFolderTarget({ kind: "folder", folder: f });
+                }}
+                className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5 border-t border-white/5"
+              >
+                <Folder className="w-3 h-3" /> New folder
               </button>
               <button
                 role="menuitem"
@@ -307,15 +378,48 @@ export function FolderNode({
             </div>
           )}
         </div>
+        {fCollapsed && directChildCount > 0 && (
+          <span className="ml-1 whitespace-nowrap text-[10px] text-muted-foreground">
+            {childFolders.length} folders · {items.length} lists
+          </span>
+        )}
       </div>
       {!fCollapsed && (
         <div className="ml-4 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
-          {items.length === 0 ? (
-            <p className="px-2 py-1 text-[11px] text-muted-foreground/70 italic">
-              No lists yet
+          {childFolders.length === 0 && items.length === 0 ? (
+            <p
+              className={cn(
+                "px-2 py-1 text-[11px] text-muted-foreground/70 italic",
+                !isActive && !isSearching && "hidden",
+              )}
+            >
+              No folders or lists yet
             </p>
           ) : (
-            items.map((p) => (
+            <>
+              {visibleChildFolders.map((child) => (
+                <FolderNode
+                  key={child.id}
+                  folder={child}
+                  items={projectsByFolder(child.id)}
+                  childFoldersByParent={childFoldersByParent}
+                  projectsByFolder={projectsByFolder}
+                  isSearching={isSearching}
+                  collapsed={collapsed}
+                  toggleCollapse={toggleCollapse}
+                  menuOpenId={menuOpenId}
+                  setMenuOpenId={setMenuOpenId}
+                  pathname={pathname}
+                  onNavigate={onNavigate}
+                  loadPanel={loadPanel}
+                  setMoveTarget={setMoveTarget}
+                  setCreateFolderTarget={setCreateFolderTarget}
+                  setRenameFolderTarget={setRenameFolderTarget}
+                  setCreateListFor={setCreateListFor}
+                  handleDeleteFolder={handleDeleteFolder}
+                />
+              ))}
+              {visibleItems.map((p) => (
               <ProjectRow
                 key={p.id}
                 project={p}
@@ -324,7 +428,17 @@ export function FolderNode({
                 onDeleted={loadPanel}
                 isActive={pathname === `/projects/${p.id}`}
               />
-            ))
+              ))}
+              {hiddenChildCount > 0 && (
+                <Link
+                  href={`/folders/${f.id}`}
+                  onClick={onNavigate}
+                  className="block rounded-md px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+                >
+                  View all in folder ({hiddenChildCount} more)
+                </Link>
+              )}
+            </>
           )}
         </div>
       )}
@@ -340,6 +454,7 @@ interface UnassignedNodeProps {
   onNavigate?: () => void;
   loadPanel: () => void;
   setMoveTarget: (p: Project) => void;
+  isSearching: boolean;
 }
 
 export function UnassignedNode({
@@ -350,16 +465,21 @@ export function UnassignedNode({
   onNavigate,
   loadPanel,
   setMoveTarget,
+  isSearching,
 }: UnassignedNodeProps) {
   const id = "__unassigned__";
   const isCollapsed = !!collapsed[id];
+  const visibleItems = isSearching ? items : items.slice(0, MAX_VISIBLE_CHILDREN);
+  const hiddenCount = items.length - visibleItems.length;
   return (
     <div className="rounded-lg pt-2 mt-2 border-t border-white/5">
-      <div className="flex items-center gap-1 px-1.5 py-1 rounded-md hover:bg-white/5">
+      <div className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5">
         <button
           onClick={() => toggleCollapse(id)}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
-          className="w-5 h-5 flex items-center justify-center text-muted-foreground hover:text-foreground"
+          aria-expanded={!isCollapsed}
+          title={isCollapsed ? "Expand unassigned lists" : "Collapse unassigned lists"}
+          className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           {isCollapsed ? (
             <ChevronRight className="w-3.5 h-3.5" />
@@ -370,7 +490,7 @@ export function UnassignedNode({
         <Folder className="w-3.5 h-3.5 text-muted-foreground" />
         <button
           onClick={() => toggleCollapse(id)}
-          className="flex-1 text-left text-xs font-semibold text-muted-foreground truncate"
+          className="min-w-0 flex-1 rounded-md px-1.5 py-1.5 text-left text-xs font-semibold text-muted-foreground truncate transition-colors hover:text-foreground focus:outline-none focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           Unassigned
         </button>
@@ -385,7 +505,7 @@ export function UnassignedNode({
               Nothing here
             </p>
           ) : (
-            items.map((p) => (
+            visibleItems.map((p) => (
               <ProjectRow
                 key={p.id}
                 project={p}
@@ -395,6 +515,15 @@ export function UnassignedNode({
                 isActive={pathname === `/projects/${p.id}`}
               />
             ))
+          )}
+          {hiddenCount > 0 && (
+            <Link
+              href="/projects"
+              onClick={onNavigate}
+              className="block rounded-md px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+            >
+              View all lists ({hiddenCount} more)
+            </Link>
           )}
         </div>
       )}

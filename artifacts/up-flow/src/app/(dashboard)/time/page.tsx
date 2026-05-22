@@ -4,11 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/header";
 import { Clock, TrendingUp, Calendar as CalendarIcon, FolderKanban } from "lucide-react";
 import { logError } from "@/lib/log-error";
-import { weekActivity } from "@/lib/dashboard-mocks";
-import type { Project } from "@/lib/types";
+import type { TimeEntry } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-type Split = { project: string; minutes: number; day: number };
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -20,110 +17,136 @@ function fmtHM(minutes: number) {
   return `${h}h ${m}m`;
 }
 
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function startOfWeekMonday() {
+  const d = startOfToday();
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function dayIndex(value: string) {
+  const d = new Date(value).getDay();
+  return d === 0 ? 6 : d - 1;
+}
+
+function entrySeconds(entry: TimeEntry, now: Date) {
+  if (entry.status === "running" && !entry.stopped_at) {
+    return Math.max(0, Math.round((now.getTime() - new Date(entry.started_at).getTime()) / 1000));
+  }
+  return entry.duration_seconds;
+}
+
 export default function TimePage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const weekStart = startOfWeekMonday();
+    const nextWeek = new Date(weekStart);
+    nextWeek.setDate(weekStart.getDate() + 7);
     let alive = true;
-    fetch("/api/projects")
+    fetch(`/api/time/entries?from=${weekStart.toISOString()}&to=${nextWeek.toISOString()}`)
       .then((r) => r.json())
-      .then((d) => {
+      .then((data) => {
         if (!alive) return;
-        setProjects(Array.isArray(d) ? d : d.items ?? d.projects ?? []);
+        setEntries((data.items ?? []) as TimeEntry[]);
       })
-      .catch((err) => logError("time:load-projects", err))
+      .catch((err) => logError("time:load-entries", err))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
   }, []);
 
-  // Synthesize per-project splits from week activity + projects so the page
-  // shows meaningful, consistent data without a backend time-log table.
-  const splits = useMemo<Split[]>(() => {
-    if (projects.length === 0) return [];
-    const out: Split[] = [];
-    weekActivity.forEach((d, di) => {
-      d.dots.forEach((size, i) => {
-        const proj = projects[(di + i) % projects.length];
-        out.push({
-          project: proj.name,
-          minutes: Math.round(size * 6), // dot size → minutes
-          day: di,
-        });
-      });
+  const todayIdx = dayIndex(startOfToday().toISOString());
+
+  const totals = useMemo(() => {
+    const perDay = Array.from({ length: 7 }, () => 0);
+    const perProject = new Map<string, number>();
+    const todayStart = startOfToday();
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(todayStart.getDate() + 1);
+
+    entries.forEach((entry) => {
+      const seconds = entrySeconds(entry, now);
+      const idx = dayIndex(entry.started_at);
+      perDay[idx] += seconds;
+      const project = entry.project?.name ?? "No project";
+      perProject.set(project, (perProject.get(project) ?? 0) + seconds);
     });
-    return out;
-  }, [projects]);
 
-  const todayIdx = (() => {
-    const d = new Date().getDay();
-    return d === 0 ? 6 : d - 1;
-  })();
+    const weekSeconds = perDay.reduce((sum, seconds) => sum + seconds, 0);
+    const todaySeconds = entries
+      .filter((entry) => {
+        const started = new Date(entry.started_at);
+        return started >= todayStart && started < tomorrowStart;
+      })
+      .reduce((sum, entry) => sum + entrySeconds(entry, now), 0);
+    const activeDays = perDay.filter((seconds) => seconds > 0).length;
 
-  const totalWeekMinutes = splits.reduce((s, x) => s + x.minutes, 0);
-  const todayMinutes = splits
-    .filter((s) => s.day === todayIdx)
-    .reduce((s, x) => s + x.minutes, 0);
-  const avgDaily = totalWeekMinutes / 7;
+    return {
+      perDay,
+      weekMinutes: Math.round(weekSeconds / 60),
+      todayMinutes: Math.round(todaySeconds / 60),
+      averageMinutes: activeDays > 0 ? Math.round(weekSeconds / 60 / activeDays) : 0,
+      perProject: Array.from(perProject, ([project, seconds]) => ({
+        project,
+        minutes: Math.round(seconds / 60),
+      })).sort((a, b) => b.minutes - a.minutes),
+    };
+  }, [entries, now]);
 
-  const perProject = useMemo(() => {
-    const map = new Map<string, number>();
-    splits.forEach((s) => map.set(s.project, (map.get(s.project) ?? 0) + s.minutes));
-    return Array.from(map, ([project, minutes]) => ({ project, minutes })).sort(
-      (a, b) => b.minutes - a.minutes
-    );
-  }, [splits]);
-
-  const maxDayMinutes = Math.max(
-    1,
-    ...DAY_LABELS.map(
-      (_, di) =>
-        splits.filter((s) => s.day === di).reduce((s, x) => s + x.minutes, 0)
-    )
-  );
+  const maxDayMinutes = Math.max(1, ...totals.perDay.map((seconds) => Math.round(seconds / 60)));
 
   return (
     <>
       <Header title="Time tracking" />
       <div className="p-6 space-y-6">
-        {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SummaryCard
             label="This week"
-            value={fmtHM(totalWeekMinutes)}
+            value={fmtHM(totals.weekMinutes)}
             icon={<Clock className="w-4 h-4" />}
           />
           <SummaryCard
             label="Today"
-            value={fmtHM(todayMinutes)}
+            value={fmtHM(totals.todayMinutes)}
             icon={<CalendarIcon className="w-4 h-4" />}
           />
           <SummaryCard
             label="Daily average"
-            value={fmtHM(Math.round(avgDaily))}
+            value={fmtHM(totals.averageMinutes)}
             icon={<TrendingUp className="w-4 h-4" />}
           />
         </div>
 
-        {/* Weekly chart */}
         <section className="glass rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Weekly hours</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Hours tracked across the past week
+                Time tracked from saved entries
               </p>
             </div>
           </div>
           <div className="flex items-end gap-3 h-40 pl-2">
-            {DAY_LABELS.map((label, di) => {
-              const mins = splits
-                .filter((s) => s.day === di)
-                .reduce((s, x) => s + x.minutes, 0);
+            {DAY_LABELS.map((label, idx) => {
+              const mins = Math.round(totals.perDay[idx] / 60);
               const heightPct = (mins / maxDayMinutes) * 100;
-              const isToday = di === todayIdx;
+              const isToday = idx === todayIdx;
               return (
                 <div key={label} className="flex-1 flex flex-col items-center gap-2">
                   <div className="flex-1 w-full flex items-end">
@@ -131,15 +154,15 @@ export default function TimePage() {
                       title={`${label}: ${fmtHM(mins)}`}
                       className={cn(
                         "w-full rounded-t-md transition-all",
-                        isToday ? "bg-primary" : "bg-primary/30 hover:bg-primary/50"
+                        isToday ? "bg-primary" : "bg-primary/30 hover:bg-primary/50",
                       )}
-                      style={{ height: `${Math.max(heightPct, 4)}%` }}
+                      style={{ height: `${mins === 0 ? 4 : Math.max(heightPct, 4)}%` }}
                     />
                   </div>
                   <span
                     className={cn(
                       "text-[10px]",
-                      isToday ? "text-primary font-semibold" : "text-muted-foreground"
+                      isToday ? "text-primary font-semibold" : "text-muted-foreground",
                     )}
                   >
                     {label}
@@ -150,7 +173,6 @@ export default function TimePage() {
           </div>
         </section>
 
-        {/* Per-project breakdown */}
         <section className="glass rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -162,15 +184,15 @@ export default function TimePage() {
             <FolderKanban className="w-4 h-4 text-muted-foreground" />
           </div>
           {loading ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">Loading…</p>
-          ) : perProject.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-6 text-center">Loading...</p>
+          ) : totals.perProject.length === 0 ? (
             <p className="text-xs text-muted-foreground py-6 text-center">
-              No projects yet. Create one to start logging time.
+              No tracked time this week.
             </p>
           ) : (
             <ul className="space-y-3">
-              {perProject.map(({ project, minutes }) => {
-                const pct = (minutes / totalWeekMinutes) * 100;
+              {totals.perProject.map(({ project, minutes }) => {
+                const pct = totals.weekMinutes > 0 ? (minutes / totals.weekMinutes) * 100 : 0;
                 return (
                   <li key={project} className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs">

@@ -4,25 +4,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { X, Building2 } from "lucide-react";
 
-export const COMPANIES_KEY = "upflow.companies";
-
 export type Company = {
   id: string;
   name: string;
-  domain?: string;
-  industry?: string;
-  notes?: string;
+  website?: string | null;
+  description?: string | null;
+  status?: string;
   created_at: string;
 };
-
-export function loadCompanies(): Company[] {
-  try {
-    const raw = localStorage.getItem(COMPANIES_KEY);
-    return raw ? (JSON.parse(raw) as Company[]) : [];
-  } catch {
-    return [];
-  }
-}
 
 export default function CreateCompanyDialog({
   open,
@@ -37,39 +26,47 @@ export default function CreateCompanyDialog({
   const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState("");
   const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error("Company name is required");
       return;
     }
-    const company: Company = {
-      id: `c_${Date.now()}`,
-      name: name.trim(),
-      domain: domain.trim() || undefined,
-      industry: industry.trim() || undefined,
-      notes: notes.trim() || undefined,
-      created_at: new Date().toISOString(),
-    };
+    setSubmitting(true);
     try {
-      const existing = loadCompanies();
-      localStorage.setItem(COMPANIES_KEY, JSON.stringify([company, ...existing]));
-    } catch (err) {
-      // localStorage can throw on quota-exceeded or in privacy modes; the
-      // company is still surfaced via the toast + onCreated callback so the
-      // user can see it for the rest of the session.
-      console.warn("[upflow] create-company-dialog: localStorage write failed", err);
+      const res = await fetch("/api/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          website: domain.trim()
+            ? /^https?:\/\//i.test(domain.trim())
+              ? domain.trim()
+              : `https://${domain.trim()}`
+            : null,
+          industry: industry.trim() || null,
+          notes: notes.trim() || null,
+          description: notes.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to create company");
+      const company = (await res.json()) as Company;
+      toast.success(`Created ${company.name}`);
+      onCreated?.(company);
+      setName("");
+      setDomain("");
+      setIndustry("");
+      setNotes("");
+      onClose();
+    } catch {
+      toast.error("Could not create company");
+    } finally {
+      setSubmitting(false);
     }
-    toast.success(`Created ${company.name}`);
-    onCreated?.(company);
-    setName("");
-    setDomain("");
-    setIndustry("");
-    setNotes("");
-    onClose();
   };
 
   return (
@@ -135,15 +132,17 @@ export default function CreateCompanyDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            disabled={submitting}
+            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10 disabled:opacity-40"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg"
+            disabled={submitting}
+            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg disabled:opacity-50"
           >
-            Create
+            {submitting ? "Creating..." : "Create"}
           </button>
         </div>
       </form>

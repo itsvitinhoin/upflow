@@ -7,6 +7,21 @@ import { cn } from "@/lib/utils";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 
+type FolderTarget =
+  | { kind: "space"; space: Space }
+  | { kind: "folder"; folder: FolderT };
+
+function folderPath(folder: FolderT, folders: FolderT[]) {
+  const byId = new Map(folders.map((item) => [item.id, item]));
+  const names = [folder.name];
+  let cursor = folder.parent_id ? byId.get(folder.parent_id) : null;
+  while (cursor) {
+    names.unshift(cursor.name);
+    cursor = cursor.parent_id ? byId.get(cursor.parent_id) : null;
+  }
+  return names.join(" / ");
+}
+
 const ICONS = ["📦", "🚀", "🎨", "💼", "🛠️", "🌱", "🔬", "📈", "💡", "🗂️"];
 
 export function SpaceDialog({
@@ -192,7 +207,7 @@ export function MoveProjectDialog({
                 <option value={`space:${sp.id}`}>↳ (directly in space)</option>
                 {fs.map((f) => (
                   <option key={f.id} value={`folder:${f.id}`}>
-                    📁 {f.name}
+                    📁 {folderPath(f, folders)}
                   </option>
                 ))}
               </optgroup>
@@ -221,19 +236,25 @@ export function MoveProjectDialog({
 
 export function FolderDialog({
   mode,
-  space,
+  target,
   folder,
   onClose,
   onSaved,
 }: {
   mode: "create" | "rename";
-  space?: Space;
+  target?: FolderTarget;
   folder?: FolderT;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(folder?.name ?? "");
   const [loading, setLoading] = useState(false);
+  const space =
+    target?.kind === "space"
+      ? target.space
+      : target?.kind === "folder"
+        ? { id: target.folder.space_id, name: target.folder.name, icon: null }
+        : undefined;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,7 +265,11 @@ export function FolderDialog({
       const method = mode === "create" ? "POST" : "PATCH";
       const body =
         mode === "create"
-          ? { name: name.trim(), space_id: space!.id }
+          ? {
+              name: name.trim(),
+              space_id: target!.kind === "space" ? target!.space.id : target!.folder.space_id,
+              parent_id: target!.kind === "folder" ? target!.folder.id : null,
+            }
           : { name: name.trim() };
       const res = await fetch(url, {
         method,
@@ -277,7 +302,7 @@ export function FolderDialog({
             <h3 className="text-base font-semibold text-foreground">
               {mode === "create" ? "New folder" : "Rename folder"}
             </h3>
-            {mode === "create" && space && (
+            {mode === "create" && target && space && (
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
                 in {space.icon || "🗂️"} {space.name}
               </p>

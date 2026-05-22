@@ -1,5 +1,5 @@
 import { test, expect, request } from "@playwright/test";
-import { SEEDED, loginAs, uniq } from "./helpers";
+import { SEEDED, apiAs, loginAs, uniq } from "./helpers";
 
 /**
  * Full happy-path smoke against the JSON API the UI consumes. We use the
@@ -41,6 +41,16 @@ test.describe("Up Flow smoke (API)", () => {
       })
     ).json();
     expect(project.id, "project created").toBeTruthy();
+
+    const folderViewRes = await api.get(`/api/folders/${folder.id}`);
+    expect(folderViewRes.ok(), `folder container fetch: ${folderViewRes.status()}`).toBeTruthy();
+    const folderView = await folderViewRes.json();
+    expect(folderView.folder.id).toBe(folder.id);
+    expect(folderView.space.id).toBe(space.id);
+    expect(
+      folderView.projects.some((p: { id: string }) => p.id === project.id),
+      "folder container includes its lists",
+    ).toBeTruthy();
 
     // 2. Find Sarah (seeded member) so we can assign her.
     const usersResp = await (await api.get("/api/users")).json();
@@ -87,6 +97,52 @@ test.describe("Up Flow smoke (API)", () => {
     const patched = await patchRes.json();
     expect(patched.priority).toBe("medium");
     expect(patched.status).toBe("in_progress");
+
+    const invalidPatch = await api.patch(`/api/tasks/${task.id}`, {
+      data: { due_date: "not-a-date" },
+    });
+    expect(invalidPatch.status(), "invalid task dates are rejected").toBe(400);
+
+    const memberApi = await apiAs(baseURL!, SEEDED.member.email);
+    const deniedDelete = await memberApi.delete(`/api/tasks/${task.id}`);
+    expect(deniedDelete.status(), "assignees cannot delete tasks").toBe(403);
+    await memberApi.dispose();
+
+    const startsAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const endsAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+    const eventRes = await api.post("/api/calendar/events", {
+      data: {
+        title: uniq("Meeting"),
+        type: "meeting",
+        starts_at: startsAt,
+        ends_at: endsAt,
+        timezone: "America/Sao_Paulo",
+        project_id: project.id,
+      },
+    });
+    expect(eventRes.status(), `create calendar event: ${eventRes.status()}`).toBe(201);
+    const event = await eventRes.json();
+    const events = await (await api.get("/api/calendar/events")).json();
+    expect(events.items.some((e: { id: string }) => e.id === event.id)).toBeTruthy();
+    const updateEvent = await api.patch(`/api/calendar/events/${event.id}`, {
+      data: { title: `${event.title} updated` },
+    });
+    expect(updateEvent.ok(), `update calendar event: ${updateEvent.status()}`).toBeTruthy();
+    const deleteEvent = await api.delete(`/api/calendar/events/${event.id}`);
+    expect(deleteEvent.ok(), `delete calendar event: ${deleteEvent.status()}`).toBeTruthy();
+
+    const existingRunning = await (await api.get("/api/time/running")).json();
+    if (existingRunning?.id) {
+      await api.post("/api/time/stop", { data: { id: existingRunning.id } });
+    }
+    const startTimer = await api.post("/api/time/start", {
+      data: { project_id: project.id },
+    });
+    expect(startTimer.status(), `start timer: ${startTimer.status()}`).toBe(201);
+    const running = await (await api.get("/api/time/running")).json();
+    expect(running.id, "running timer is recoverable").toBeTruthy();
+    const stopTimer = await api.post("/api/time/stop", { data: { id: running.id } });
+    expect(stopTimer.ok(), `stop timer: ${stopTimer.status()}`).toBeTruthy();
 
     // 6. Search returns the task. Poll briefly for eventual consistency.
     let found = false;

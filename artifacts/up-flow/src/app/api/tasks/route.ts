@@ -102,7 +102,7 @@ async function postHandler(req: NextRequest) {
 
   const project = await prisma.project.findUnique({
     where: { id: project_id },
-    select: { id: true, workspace_id: true },
+    select: { id: true, workspace_id: true, company_id: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, project.workspace_id)) {
@@ -212,6 +212,7 @@ async function postHandler(req: NextRequest) {
         status: status ?? "todo",
         priority: priority ?? "medium",
         project_id,
+        company_id: project.company_id,
         assignee_id: assignee_id || null,
         due_date: dueDate,
         parent_id: parent_id || null,

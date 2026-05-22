@@ -19,6 +19,11 @@ enum WorkspaceRole {
   member
 }
 
+enum WorkspaceMemberStatus {
+  active
+  inactive
+}
+
 enum ProjectStatus {
   active
   archived
@@ -54,6 +59,18 @@ enum CustomFieldType {
   people
 }
 
+enum CalendarEventType {
+  meeting
+  task
+  reminder
+  deadline
+}
+
+enum TimeEntryStatus {
+  running
+  stopped
+}
+
 model User {
   id            String            @id @default(uuid())
   email         String            @unique
@@ -71,6 +88,18 @@ model User {
   folders       Folder[]
   memberships   WorkspaceMember[]
   invites_sent  WorkspaceInvite[] @relation("Inviter")
+  calendar_events_created CalendarEvent[] @relation("CalendarEventsCreated")
+  calendar_event_attendees CalendarEventAttendee[] @relation("CalendarEventAttendees")
+  time_entries TimeEntry[]
+  activity_events ActivityEvent[] @relation("ActivityActor")
+  companies_owned Company[] @relation("CompanyOwner")
+  project_memberships ProjectMember[]
+  recurring_task_rules RecurringTaskRule[] @relation("RecurringTaskRuleCreator")
+  saved_views SavedView[]
+  automation_rules AutomationRule[] @relation("AutomationRuleCreator")
+  goals_owned Goal[] @relation("GoalOwner")
+  company_notes CompanyNote[] @relation("CompanyNoteAuthor")
+  templates_created Template[] @relation("TemplateCreator")
 }
 
 model Workspace {
@@ -86,6 +115,17 @@ model Workspace {
   docs       Doc[]
   notifications Notification[]
   departments Department[]
+  calendar_events CalendarEvent[]
+  time_entries TimeEntry[]
+  activity_events ActivityEvent[]
+  companies Company[]
+  company_contacts CompanyContact[]
+  company_notes CompanyNote[]
+  templates Template[]
+  recurring_task_rules RecurringTaskRule[]
+  saved_views SavedView[]
+  automation_rules AutomationRule[]
+  goals Goal[]
 }
 
 model WorkspaceMember {
@@ -93,6 +133,7 @@ model WorkspaceMember {
   workspace_id  String
   user_id       String
   role          WorkspaceRole @default(member)
+  status        WorkspaceMemberStatus @default(active)
   department_id String?
   created_at    DateTime      @default(now())
   workspace     Workspace     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
@@ -102,6 +143,7 @@ model WorkspaceMember {
   @@unique([workspace_id, user_id])
   @@index([user_id])
   @@index([department_id])
+  @@index([status])
 }
 
 model Department {
@@ -157,14 +199,19 @@ model Folder {
   space_id     String
   workspace_id String
   owner_id     String
+  parent_id    String?
   position     Int       @default(0)
   created_at   DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   space        Space     @relation(fields: [space_id], references: [id], onDelete: Cascade)
   owner        User      @relation(fields: [owner_id], references: [id])
+  parent       Folder?   @relation("FolderChildren", fields: [parent_id], references: [id], onDelete: SetNull)
+  children     Folder[]  @relation("FolderChildren")
   projects     Project[]
 
   @@index([workspace_id])
+  @@index([parent_id])
+  @@index([space_id, parent_id])
 }
 
 model Project {
@@ -176,17 +223,24 @@ model Project {
   owner_id      String
   space_id      String?
   folder_id     String?
+  company_id    String?
   due_date      DateTime?
   created_at    DateTime                @default(now())
   workspace     Workspace               @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   owner         User                    @relation(fields: [owner_id], references: [id])
   space         Space?                  @relation(fields: [space_id], references: [id], onDelete: SetNull)
   folder        Folder?                 @relation(fields: [folder_id], references: [id], onDelete: SetNull)
+  company       Company?                @relation(fields: [company_id], references: [id], onDelete: SetNull)
   tasks         Task[]
   docs          Doc[]
   custom_fields CustomFieldDefinition[]
+  calendar_events CalendarEvent[]
+  time_entries TimeEntry[]
+  project_members ProjectMember[]
+  recurring_task_rules RecurringTaskRule[]
 
   @@index([workspace_id])
+  @@index([company_id])
 }
 
 model Task {
@@ -198,6 +252,7 @@ model Task {
   project_id          String
   assignee_id         String?
   parent_id           String?
+  company_id          String?
   due_date            DateTime?
   position            Int                @default(0)
   created_at          DateTime           @default(now())
@@ -205,9 +260,17 @@ model Task {
   assignee            User?              @relation("AssignedTasks", fields: [assignee_id], references: [id])
   parent              Task?              @relation("Subtasks", fields: [parent_id], references: [id])
   subtasks            Task[]             @relation("Subtasks")
+  company             Company?           @relation(fields: [company_id], references: [id], onDelete: SetNull)
   comments            Comment[]
   notifications       Notification[]
   custom_field_values CustomFieldValue[]
+  calendar_events     CalendarEvent[]
+  time_entries        TimeEntry[]
+  dependencies        TaskDependency[] @relation("TaskDependencies")
+  dependents          TaskDependency[] @relation("TaskDependents")
+  recurring_rules     RecurringTaskRule[]
+
+  @@index([company_id])
 }
 
 model CustomFieldDefinition {
@@ -235,6 +298,272 @@ model CustomFieldValue {
 
   @@unique([task_id, definition_id])
   @@index([definition_id])
+}
+
+model CalendarEvent {
+  id           String            @id @default(uuid())
+  workspace_id String
+  title        String
+  description  String?
+  type         CalendarEventType @default(meeting)
+  starts_at    DateTime
+  ends_at      DateTime?
+  timezone     String?
+  created_by   String
+  project_id   String?
+  task_id      String?
+  company_id   String?
+  location     String?
+  meeting_url  String?
+  color        String?
+  created_at   DateTime          @default(now())
+  updated_at   DateTime          @updatedAt
+  workspace    Workspace         @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  creator      User              @relation("CalendarEventsCreated", fields: [created_by], references: [id], onDelete: Cascade)
+  project      Project?          @relation(fields: [project_id], references: [id], onDelete: SetNull)
+  task         Task?             @relation(fields: [task_id], references: [id], onDelete: SetNull)
+  company      Company?          @relation(fields: [company_id], references: [id], onDelete: SetNull)
+  attendees    CalendarEventAttendee[]
+
+  @@index([workspace_id, starts_at])
+  @@index([created_by])
+  @@index([project_id])
+  @@index([task_id])
+  @@index([company_id])
+}
+
+model CalendarEventAttendee {
+  id         String        @id @default(uuid())
+  event_id   String
+  user_id    String
+  created_at DateTime      @default(now())
+  event      CalendarEvent @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  user       User          @relation("CalendarEventAttendees", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, user_id])
+  @@index([user_id])
+}
+
+model TimeEntry {
+  id               String          @id @default(uuid())
+  workspace_id     String
+  user_id          String
+  project_id       String?
+  task_id          String?
+  description      String?
+  started_at       DateTime
+  stopped_at       DateTime?
+  duration_seconds Int             @default(0)
+  status           TimeEntryStatus @default(running)
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  workspace        Workspace       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user             User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  project          Project?        @relation(fields: [project_id], references: [id], onDelete: SetNull)
+  task             Task?           @relation(fields: [task_id], references: [id], onDelete: SetNull)
+
+  @@index([workspace_id, started_at])
+  @@index([user_id, status])
+  @@index([project_id])
+  @@index([task_id])
+}
+
+model ActivityEvent {
+  id           String    @id @default(uuid())
+  workspace_id String
+  actor_id     String?
+  type         String
+  entity_type  String
+  entity_id    String?
+  project_id   String?
+  task_id      String?
+  company_id   String?
+  metadata     Json?
+  created_at   DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  actor        User?     @relation("ActivityActor", fields: [actor_id], references: [id], onDelete: SetNull)
+  company      Company?  @relation(fields: [company_id], references: [id], onDelete: SetNull)
+
+  @@index([workspace_id, created_at])
+  @@index([actor_id])
+  @@index([project_id])
+  @@index([task_id])
+  @@index([company_id])
+}
+
+model Company {
+  id           String    @id @default(uuid())
+  workspace_id String
+  name         String
+  description  String?
+  website      String?
+  status       String    @default("active")
+  commercial_status String?
+  contract_value Float?
+  commission   Float?
+  industry     String?
+  notes        String?
+  owner_id     String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  owner        User      @relation("CompanyOwner", fields: [owner_id], references: [id], onDelete: Cascade)
+  projects     Project[]
+  tasks        Task[]
+  calendar_events CalendarEvent[]
+  activity_events ActivityEvent[]
+  contacts     CompanyContact[]
+  notes_log    CompanyNote[]
+
+  @@index([workspace_id])
+  @@index([owner_id])
+}
+
+model CompanyContact {
+  id           String    @id @default(uuid())
+  workspace_id String
+  company_id   String
+  name         String
+  email        String?
+  phone        String?
+  role         String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  company      Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([company_id])
+}
+
+model CompanyNote {
+  id           String    @id @default(uuid())
+  workspace_id String
+  company_id   String
+  author_id    String
+  body         String
+  created_at   DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  company      Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  author       User      @relation("CompanyNoteAuthor", fields: [author_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([company_id])
+  @@index([author_id])
+}
+
+model ProjectMember {
+  id         String        @id @default(uuid())
+  project_id String
+  user_id    String
+  role       WorkspaceRole @default(member)
+  created_at DateTime      @default(now())
+  project    Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, user_id])
+  @@index([user_id])
+}
+
+model TaskDependency {
+  id            String   @id @default(uuid())
+  task_id       String
+  depends_on_id String
+  created_at    DateTime @default(now())
+  task          Task     @relation("TaskDependencies", fields: [task_id], references: [id], onDelete: Cascade)
+  depends_on    Task     @relation("TaskDependents", fields: [depends_on_id], references: [id], onDelete: Cascade)
+
+  @@unique([task_id, depends_on_id])
+  @@index([depends_on_id])
+}
+
+model RecurringTaskRule {
+  id           String    @id @default(uuid())
+  workspace_id String
+  project_id   String?
+  task_id      String?
+  name         String
+  rrule        String
+  active       Boolean   @default(true)
+  created_by   String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  project      Project?  @relation(fields: [project_id], references: [id], onDelete: SetNull)
+  task         Task?     @relation(fields: [task_id], references: [id], onDelete: SetNull)
+  creator      User      @relation("RecurringTaskRuleCreator", fields: [created_by], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([project_id])
+  @@index([task_id])
+}
+
+model SavedView {
+  id           String    @id @default(uuid())
+  workspace_id String
+  user_id      String
+  name         String
+  scope        String
+  config       Json
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id, user_id])
+}
+
+model AutomationRule {
+  id           String    @id @default(uuid())
+  workspace_id String
+  name         String
+  trigger      String
+  action       Json
+  active       Boolean   @default(true)
+  created_by   String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  creator      User      @relation("AutomationRuleCreator", fields: [created_by], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+}
+
+model Goal {
+  id            String    @id @default(uuid())
+  workspace_id  String
+  name          String
+  description   String?
+  status        String    @default("active")
+  target_value  Float?
+  current_value Float     @default(0)
+  due_date      DateTime?
+  owner_id      String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  workspace     Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  owner         User?     @relation("GoalOwner", fields: [owner_id], references: [id], onDelete: SetNull)
+
+  @@index([workspace_id])
+  @@index([owner_id])
+}
+
+model Template {
+  id           String    @id @default(uuid())
+  workspace_id String
+  name         String
+  type         String
+  description  String?
+  config       Json
+  active       Boolean   @default(true)
+  created_by   String
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  creator      User      @relation("TemplateCreator", fields: [created_by], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([type])
 }
 
 model Comment {

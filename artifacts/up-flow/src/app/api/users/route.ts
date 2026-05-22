@@ -61,6 +61,7 @@ async function GET_handler(req: NextRequest) {
         select: {
           workspace_id: true,
           role: true,
+          status: true,
           department_id: true,
         },
       },
@@ -84,10 +85,12 @@ async function GET_handler(req: NextRequest) {
     return {
       ...rest,
       workspace_role: activeMembership?.role ?? null,
+      workspace_status: scopedMembership?.status ?? null,
       department_id: scopedMembership?.department_id ?? null,
       workspaces: u.memberships.map((m) => ({
         workspace_id: m.workspace_id,
         role: m.role,
+        status: m.status,
         department_id: m.department_id,
       })),
     };

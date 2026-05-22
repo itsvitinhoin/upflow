@@ -35,9 +35,14 @@ export function ProjectRow({
     const t = window.setTimeout(() => {
       document.addEventListener("mousedown", h);
     }, 0);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
     return () => {
       window.clearTimeout(t);
       document.removeEventListener("mousedown", h);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
@@ -61,7 +66,7 @@ export function ProjectRow({
   return (
     <div
       className={cn(
-        "group flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-white/5 transition-colors",
+        "group flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5",
         isActive && "bg-primary/15"
       )}
     >
@@ -69,8 +74,10 @@ export function ProjectRow({
         href={`/projects/${project.id}`}
         onClick={onNavigate}
         className={cn(
-          "flex-1 min-w-0 text-xs truncate",
-          isActive ? "text-foreground font-medium" : "text-foreground/85 hover:text-foreground"
+          "flex min-w-0 flex-1 items-center rounded-md px-2 py-1.5 text-xs truncate outline-none transition-colors",
+          isActive
+            ? "text-foreground font-medium"
+            : "text-foreground/85 hover:text-foreground focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60"
         )}
       >
         {project.name}
@@ -79,8 +86,9 @@ export function ProjectRow({
         <button
           onClick={() => setOpen((v) => !v)}
           aria-label={`Actions for ${project.name}`}
+          aria-expanded={open}
           data-menu-trigger
-          className="w-5 h-5 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+          className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           <MoreHorizontal className="w-3 h-3" />
         </button>

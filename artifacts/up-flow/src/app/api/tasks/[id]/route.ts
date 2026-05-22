@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { TaskPriority, TaskStatus } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
   canAccessWorkspace,
@@ -9,6 +10,24 @@ import { requireAuth } from "@/lib/auth-response";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { broadcastNotification } from "@/lib/supabase-server";
+import { recordActivity } from "@/lib/activity";
+
+const UpdateTaskSchema = z.object({
+  title: z.string().trim().min(1).optional(),
+  description: z.string().nullable().optional(),
+  status: z.enum(["todo", "in_progress", "done"]).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+  assignee_id: z.string().uuid().nullable().optional(),
+  due_date: z.string().nullable().optional(),
+  position: z.number().int().optional(),
+});
+
+function parsePatchDate(value: string | null | undefined) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "invalid" : date;
+}
 
 async function GET_handler(
   req: NextRequest,
@@ -75,9 +94,13 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await req.json() as {
+  const parsed = UpdateTaskSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid task", issues: parsed.error.flatten() }, { status: 400 });
+  }
+  const body = parsed.data as {
     title?: string;
-    description?: string;
+    description?: string | null;
     status?: TaskStatus;
     priority?: TaskPriority;
     assignee_id?: string | null;
@@ -85,6 +108,14 @@ async function PATCH_handler(
     position?: number;
   };
   const { title, description, status, priority, assignee_id, due_date, position } = body;
+  const parsedDueDate = parsePatchDate(due_date);
+  if (parsedDueDate === "invalid") {
+    return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
+  }
+
+  if (assignee_id !== undefined && !isProjectOwner && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
+    return NextResponse.json({ error: "Only project owners or workspace admins can reassign tasks" }, { status: 403 });
+  }
 
   if (assignee_id) {
     const ok = await prisma.workspaceMember.findFirst({
@@ -107,7 +138,7 @@ async function PATCH_handler(
       ...(status !== undefined && { status }),
       ...(priority !== undefined && { priority }),
       ...(assignee_id !== undefined && { assignee_id: assignee_id || null }),
-      ...(due_date !== undefined && { due_date: due_date ? new Date(due_date) : null }),
+      ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
       ...(position !== undefined && { position }),
     },
     include: {
@@ -163,6 +194,21 @@ async function PATCH_handler(
     }
   }
 
+  await recordActivity({
+    workspace_id: oldTask.project.workspace_id,
+    actor_id: prismaUser.id,
+    type: status !== undefined && status !== oldTask.status ? "task_status_changed" : "task_updated",
+    entity_type: "task",
+    entity_id: task.id,
+    project_id: task.project_id,
+    task_id: task.id,
+    metadata: {
+      title: task.title,
+      old_status: oldTask.status,
+      new_status: task.status,
+    },
+  });
+
   return NextResponse.json(task);
 }
 
@@ -188,13 +234,22 @@ async function DELETE_handler(
 
   if (
     task.project.owner_id !== prismaUser.id &&
-    task.assignee_id !== prismaUser.id &&
     !isWorkspaceAdminFor(auth, task.project.workspace_id)
   ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await prisma.task.delete({ where: { id: params.id } });
+  await recordActivity({
+    workspace_id: task.project.workspace_id,
+    actor_id: prismaUser.id,
+    type: "task_deleted",
+    entity_type: "task",
+    entity_id: task.id,
+    project_id: task.project_id,
+    task_id: task.id,
+    metadata: { title: task.title },
+  });
   return NextResponse.json({ success: true });
 }
 export const GET = withErrorReporting("api:tasks/id:GET", GET_handler);

@@ -5,7 +5,77 @@ import {
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { recordActivity } from "@/lib/activity";
+import { buildFolderTree, wouldCreateFolderCycle } from "@/lib/folder-tree";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+
+type FolderTreeNode = ReturnType<typeof buildFolderTree>[number];
+
+function findFolderNode(nodes: FolderTreeNode[], id: string): FolderTreeNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const child = findFolderNode(node.children, id);
+    if (child) return child;
+  }
+  return null;
+}
+
+async function GET_handler(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
+  void req;
+
+  if (!auth.currentWorkspaceId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const folder = await prisma.folder.findFirst({
+    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    include: { space: true, parent: true },
+  });
+  if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canAccessWorkspace(auth, folder.workspace_id)) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const [projects, allFolders] = await Promise.all([
+    prisma.project.findMany({
+      where: { folder_id: folder.id, workspace_id: folder.workspace_id },
+      orderBy: [{ created_at: "desc" }, { id: "asc" }],
+      select: {
+        id: true,
+        name: true,
+      },
+    }),
+    prisma.folder.findMany({
+      where: { workspace_id: folder.workspace_id, space_id: folder.space_id },
+      orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
+      include: { _count: { select: { projects: true } } },
+    }),
+  ]);
+
+  const breadcrumbs: { id: string; name: string; icon: string | null }[] = [];
+  const foldersById = new Map(allFolders.map((f) => [f.id, f]));
+  let cursor = folder.parent_id ? foldersById.get(folder.parent_id) : null;
+  while (cursor) {
+    breadcrumbs.unshift({ id: cursor.id, name: cursor.name, icon: cursor.icon });
+    cursor = cursor.parent_id ? foldersById.get(cursor.parent_id) : null;
+  }
+
+  const { space, parent: _parent, ...folderData } = folder;
+  void _parent;
+  return NextResponse.json({
+    folder: folderData,
+    space,
+    breadcrumbs,
+    children: findFolderNode(buildFolderTree(allFolders as never), folder.id)?.children ?? [],
+    projects,
+  });
+}
 
 async function PATCH_handler(
   req: NextRequest,
@@ -29,6 +99,7 @@ async function PATCH_handler(
     icon?: string | null;
     position?: number;
     space_id?: string;
+    parent_id?: string | null;
   };
   let trimmedName: string | undefined;
   if (body.name !== undefined) {
@@ -37,7 +108,8 @@ async function PATCH_handler(
       return NextResponse.json({ error: "Name cannot be empty" }, { status: 400 });
     }
   }
-  if (body.space_id) {
+  const nextSpaceId = body.space_id ?? folder.space_id;
+  if (body.space_id && body.space_id !== folder.space_id) {
     const space = await prisma.space.findUnique({ where: { id: body.space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
     if (space.workspace_id !== folder.workspace_id) {
@@ -46,7 +118,38 @@ async function PATCH_handler(
         { status: 400 },
       );
     }
+    return NextResponse.json(
+      { error: "Move the folder within the current space or create an explicit cross-space move flow" },
+      { status: 400 },
+    );
   }
+
+  let nextParentId: string | null | undefined = undefined;
+  if (body.parent_id !== undefined) {
+    nextParentId = body.parent_id;
+    if (nextParentId) {
+      const parent = await prisma.folder.findUnique({
+        where: { id: nextParentId },
+        select: { id: true, workspace_id: true, space_id: true },
+      });
+      if (!parent) return NextResponse.json({ error: "Parent folder not found" }, { status: 400 });
+      if (parent.workspace_id !== folder.workspace_id || parent.space_id !== nextSpaceId) {
+        return NextResponse.json(
+          { error: "Parent folder must stay in the same workspace and space" },
+          { status: 400 },
+        );
+      }
+    }
+
+    const allFolders = await prisma.folder.findMany({
+      where: { workspace_id: folder.workspace_id, space_id: folder.space_id },
+      select: { id: true, parent_id: true },
+    });
+    if (wouldCreateFolderCycle(allFolders, folder.id, nextParentId)) {
+      return NextResponse.json({ error: "Folder move would create a cycle" }, { status: 400 });
+    }
+  }
+
   const updated = await prisma.folder.update({
     where: { id: params.id },
     data: {
@@ -54,8 +157,21 @@ async function PATCH_handler(
       ...(body.icon !== undefined && { icon: body.icon }),
       ...(body.position !== undefined && { position: body.position }),
       ...(body.space_id !== undefined && { space_id: body.space_id }),
+      ...(nextParentId !== undefined && { parent_id: nextParentId }),
     },
     include: { _count: { select: { projects: true } } },
+  });
+  await recordActivity({
+    workspace_id: folder.workspace_id,
+    actor_id: auth.prismaUser.id,
+    type: "folder_updated",
+    entity_type: "folder",
+    entity_id: folder.id,
+    metadata: {
+      name: updated.name,
+      parent_id: updated.parent_id,
+      previous_parent_id: folder.parent_id,
+    },
   });
   return NextResponse.json(updated);
 }
@@ -78,8 +194,31 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.folder.delete({ where: { id: params.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.folder.updateMany({
+      where: { parent_id: folder.id, workspace_id: folder.workspace_id },
+      data: { parent_id: folder.parent_id },
+    });
+    await tx.project.updateMany({
+      where: { folder_id: folder.id, workspace_id: folder.workspace_id },
+      data: { folder_id: folder.parent_id },
+    });
+    await tx.folder.delete({ where: { id: params.id } });
+  });
+  await recordActivity({
+    workspace_id: folder.workspace_id,
+    actor_id: auth.prismaUser.id,
+    type: "folder_deleted",
+    entity_type: "folder",
+    entity_id: folder.id,
+    metadata: {
+      name: folder.name,
+      parent_id: folder.parent_id,
+      promoted_children: true,
+    },
+  });
   return NextResponse.json({ success: true });
 }
+export const GET = withErrorReporting("api:folders/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:folders/id:PATCH", PATCH_handler);
 export const DELETE = withErrorReporting("api:folders/id:DELETE", DELETE_handler);

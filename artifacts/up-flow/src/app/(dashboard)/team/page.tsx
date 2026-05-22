@@ -11,8 +11,12 @@ import {
   Plus,
   Trash2,
   Search,
+  UserPlus,
+  AlertTriangle,
 } from "lucide-react";
 import Header from "@/components/layout/header";
+import InviteDialog from "@/components/dashboard/invite-dialog";
+import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
 import { cn, getInitials } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
 import {
@@ -30,6 +34,22 @@ interface PendingInvite {
   inviter: { id: string; name: string; email: string } | null;
 }
 
+interface EmailStatus {
+  app_url_configured: boolean;
+  resend_api_key_configured: boolean;
+  email_from_configured: boolean;
+  using_development_sender: boolean;
+  ready: boolean;
+}
+
+interface TeamOverview {
+  workspace: { id: string; name: string; slug: string } | null;
+  current_role: "owner" | "admin" | "member" | null;
+  is_super_admin: boolean;
+  members: TeamMember[];
+  departments: Department[];
+}
+
 const UNASSIGNED_KEY = "__unassigned__";
 const COLLAPSE_STORAGE_KEY = "upflow:team:collapsedDepartments";
 
@@ -41,17 +61,16 @@ export default function TeamPage() {
     useState<"owner" | "admin" | "member" | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [pending, setPending] = useState<PendingInvite[]>([]);
+  const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [fallbackLink, setFallbackLink] = useState<{
-    email: string;
-    url: string;
-  } | null>(null);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showEmpty, setShowEmpty] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteDiagnosticsLoaded, setInviteDiagnosticsLoaded] = useState(false);
 
   // Mirrors the server's `isWorkspaceAdmin` semantics: workspace owner/admin
   // OR cross-workspace super-admin can manage departments + assignments.
@@ -68,6 +87,25 @@ export default function TeamPage() {
       /* noop */
     }
   }, []);
+
+  const loadEmailStatus = useCallback(async () => {
+    try {
+      const r = await fetch("/api/email/status");
+      if (!r.ok) {
+        setEmailStatus(null);
+        return;
+      }
+      setEmailStatus((await r.json()) as EmailStatus);
+    } catch {
+      setEmailStatus(null);
+    }
+  }, []);
+
+  const loadInviteDiagnostics = useCallback(async () => {
+    if (inviteDiagnosticsLoaded) return;
+    setInviteDiagnosticsLoaded(true);
+    await Promise.all([loadPending(), loadEmailStatus()]);
+  }, [inviteDiagnosticsLoaded, loadEmailStatus, loadPending]);
 
   const loadDepartments = useCallback(async (wsId: string) => {
     try {
@@ -108,38 +146,36 @@ export default function TeamPage() {
     let cancelled = false;
     (async () => {
       try {
-        const ws = await fetch("/api/workspaces").then((r) =>
-          r.ok ? r.json() : null,
+        const overview = await getCachedJson<TeamOverview>(
+          "team:overview",
+          "/api/team/overview",
+          { ttlMs: 30_000 },
         );
         if (cancelled) return;
-        const wsId: string | null = ws?.current_workspace_id ?? null;
+        const wsId: string | null = overview.workspace?.id ?? null;
         setWorkspaceId(wsId);
-        setCurrentRole(ws?.current_role ?? null);
-        setIsSuperAdmin(ws?.is_super_admin === true);
-
-        // Scope users to the current workspace so department grouping +
-        // assignment never accidentally show or target members from a
-        // different workspace the caller also belongs to.
-        const usersUrl = wsId
-          ? `/api/users?workspace_id=${encodeURIComponent(wsId)}`
-          : "/api/users";
-        const usersRes = await fetch(usersUrl);
-        const usersData = (await usersRes.json()) as { items: TeamMember[] };
-        if (cancelled) return;
-        setUsers(usersData.items ?? []);
-
-        if (wsId) await loadDepartments(wsId);
+        setCurrentRole(overview.current_role ?? null);
+        setIsSuperAdmin(overview.is_super_admin === true);
+        setUsers(overview.members ?? []);
+        setDepartments(overview.departments ?? []);
       } catch {
         /* noop */
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    loadPending();
     return () => {
       cancelled = true;
     };
-  }, [loadPending, loadDepartments]);
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin || !workspaceId || !inviteDiagnosticsLoaded) {
+      setEmailStatus(null);
+      return;
+    }
+    loadEmailStatus();
+  }, [inviteDiagnosticsLoaded, isAdmin, workspaceId, loadEmailStatus]);
 
   function toggleCollapsed(key: string) {
     setCollapsed((prev) => {
@@ -182,6 +218,7 @@ export default function TeamPage() {
         );
         setToast("Couldn't update department");
       } else {
+        clearCachedJson("team:overview");
         loadDepartments(workspaceId);
       }
     } catch {
@@ -191,6 +228,64 @@ export default function TeamPage() {
         ),
       );
       setToast("Couldn't update department");
+    }
+  }
+
+  async function updateMember(
+    userId: string,
+    patch: {
+      role?: "owner" | "admin" | "member";
+      status?: "active" | "inactive";
+      department_id?: string | null;
+    },
+  ) {
+    if (!workspaceId) return;
+    const previous = users.find((u) => u.id === userId);
+    if (!previous) return;
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? {
+              ...u,
+              ...(patch.role && { workspace_role: patch.role }),
+              ...(patch.status && { workspace_status: patch.status }),
+              ...(patch.department_id !== undefined && { department_id: patch.department_id }),
+            }
+          : u,
+      ),
+    );
+    try {
+      const r = await fetch(`/api/workspaces/${workspaceId}/members/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) throw new Error("Failed to update member");
+      clearCachedJson("team:overview");
+      setToast("Member updated");
+      if (patch.department_id !== undefined) loadDepartments(workspaceId);
+    } catch {
+      setUsers((prev) => prev.map((u) => (u.id === userId ? previous : u)));
+      setToast("Couldn't update member");
+    }
+  }
+
+  async function removeMember(user: TeamMember) {
+    if (!workspaceId) return;
+    if (!window.confirm(`Remove ${user.name} from this workspace?`)) return;
+    const previous = users;
+    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    try {
+      const r = await fetch(`/api/workspaces/${workspaceId}/members/${user.id}`, {
+        method: "DELETE",
+      });
+      if (!r.ok) throw new Error("Failed to remove member");
+      clearCachedJson("team:overview");
+      setToast("Member removed");
+      loadDepartments(workspaceId);
+    } catch {
+      setUsers(previous);
+      setToast("Couldn't remove member");
     }
   }
 
@@ -218,7 +313,6 @@ export default function TeamPage() {
   async function resendInvite(invite: PendingInvite) {
     setResending(invite.id);
     setToast(null);
-    setFallbackLink(null);
     try {
       const r = await fetch("/api/invites", {
         method: "POST",
@@ -226,21 +320,16 @@ export default function TeamPage() {
         body: JSON.stringify({ emails: [invite.email], role: invite.role }),
       });
       if (!r.ok) {
-        setToast(`Couldn't resend to ${invite.email}`);
+        const json = (await r.json().catch(() => ({}))) as { error?: string };
+        setToast(json.error || `Couldn't resend to ${invite.email}`);
       } else {
         const json = (await r.json()) as {
           mailed?: number;
-          invites?: { email: string; accept_url?: string }[];
         };
         if (json.mailed && json.mailed > 0) {
           setToast(`Invite re-sent to ${invite.email}`);
         } else {
-          const url = json.invites?.find((i) => i.email === invite.email)
-            ?.accept_url;
-          setToast(
-            `Email backend unavailable — share this link with ${invite.email} directly.`,
-          );
-          if (url) setFallbackLink({ email: invite.email, url });
+          setToast("Invite email delivery was not confirmed");
         }
         loadPending();
       }
@@ -248,15 +337,6 @@ export default function TeamPage() {
       setToast(`Couldn't resend to ${invite.email}`);
     } finally {
       setResending(null);
-    }
-  }
-
-  async function copyLink(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setToast("Link copied to clipboard");
-    } catch {
-      setToast("Couldn't copy — select and copy the link manually.");
     }
   }
 
@@ -299,16 +379,33 @@ export default function TeamPage() {
             </p>
           </div>
           {isAdmin && workspaceId && (
-            <button
-              type="button"
-              onClick={() => setManageOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
-            >
-              <Settings2 className="w-3.5 h-3.5" />
-              Manage departments
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setInviteOpen(true);
+                  loadInviteDiagnostics();
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Invite member
+              </button>
+              <button
+                type="button"
+                onClick={() => setManageOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
+              >
+                <Settings2 className="w-3.5 h-3.5" />
+                Manage departments
+              </button>
+            </div>
           )}
         </div>
+
+        {isAdmin && emailStatus && !emailStatus.ready && (
+          <EmailSetupWarning status={emailStatus} />
+        )}
 
         <div className="mb-4 flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
@@ -436,35 +533,79 @@ export default function TeamPage() {
                               {user.email}
                             </p>
                           </div>
-                          <span
-                            className={cn(
-                              "text-xs px-2.5 py-1 rounded-full font-medium capitalize hidden sm:inline",
-                              user.role === "admin"
-                                ? "bg-primary/15 text-primary"
-                                : "bg-muted text-muted-foreground",
-                            )}
-                          >
-                            {user.role}
-                          </span>
-                          {isAdmin ? (
-                            <select
-                              aria-label={`Department for ${user.name}`}
-                              value={user.department_id ?? ""}
-                              onChange={(e) =>
-                                setMemberDepartment(
-                                  user.id,
-                                  e.target.value || null,
-                                )
-                              }
-                              className="text-xs rounded-md border border-border bg-card px-2 py-1"
+                          <div className="hidden sm:flex flex-col items-end gap-1">
+                            <span
+                              className={cn(
+                                "text-xs px-2.5 py-1 rounded-full font-medium capitalize",
+                                (user.workspace_role ?? user.role) === "admin" ||
+                                  user.workspace_role === "owner"
+                                  ? "bg-primary/15 text-primary"
+                                  : "bg-muted text-muted-foreground",
+                              )}
                             >
-                              <option value="">Unassigned</option>
-                              {departments.map((d) => (
-                                <option key={d.id} value={d.id}>
-                                  {d.name}
-                                </option>
-                              ))}
-                            </select>
+                              {user.workspace_role ?? user.role}
+                            </span>
+                            {user.workspace_status === "inactive" && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-upflow-danger/15 text-upflow-danger">
+                                inactive
+                              </span>
+                            )}
+                          </div>
+                          {isAdmin ? (
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                              <select
+                                aria-label={`Role for ${user.name}`}
+                                value={user.workspace_role ?? user.role}
+                                onChange={(e) =>
+                                  updateMember(user.id, {
+                                    role: e.target.value as "owner" | "admin" | "member",
+                                  })
+                                }
+                                className="text-xs rounded-md border border-border bg-card px-2 py-1"
+                              >
+                                <option value="member">Member</option>
+                                <option value="admin">Admin</option>
+                                <option value="owner">Owner</option>
+                              </select>
+                              <select
+                                aria-label={`Status for ${user.name}`}
+                                value={user.workspace_status ?? "active"}
+                                onChange={(e) =>
+                                  updateMember(user.id, {
+                                    status: e.target.value as "active" | "inactive",
+                                  })
+                                }
+                                className="text-xs rounded-md border border-border bg-card px-2 py-1"
+                              >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                              </select>
+                              <select
+                                aria-label={`Department for ${user.name}`}
+                                value={user.department_id ?? ""}
+                                onChange={(e) =>
+                                  updateMember(user.id, {
+                                    department_id: e.target.value || null,
+                                  })
+                                }
+                                className="text-xs rounded-md border border-border bg-card px-2 py-1"
+                              >
+                                <option value="">Unassigned</option>
+                                {departments.map((d) => (
+                                  <option key={d.id} value={d.id}>
+                                    {d.name}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => removeMember(user)}
+                                aria-label={`Remove ${user.name}`}
+                                className="p-1.5 text-muted-foreground hover:text-upflow-danger rounded-md hover:bg-upflow-danger/10"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                               <span
@@ -550,23 +691,6 @@ export default function TeamPage() {
                 {toast}
               </p>
             )}
-            {fallbackLink && (
-              <div
-                data-testid="invite-fallback-link"
-                className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2"
-              >
-                <code className="flex-1 truncate text-xs text-foreground">
-                  {fallbackLink.url}
-                </code>
-                <button
-                  type="button"
-                  onClick={() => copyLink(fallbackLink.url)}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  Copy link
-                </button>
-              </div>
-            )}
           </div>
         )}
 
@@ -575,11 +699,52 @@ export default function TeamPage() {
             workspaceId={workspaceId}
             departments={departments}
             onClose={() => setManageOpen(false)}
-            onChanged={() => loadDepartments(workspaceId)}
+            onChanged={() => {
+              clearCachedJson("team:overview");
+              loadDepartments(workspaceId);
+            }}
           />
         )}
+        <InviteDialog
+          open={inviteOpen}
+          onClose={() => {
+            setInviteOpen(false);
+            if (inviteDiagnosticsLoaded) {
+              loadPending();
+              loadEmailStatus();
+            }
+          }}
+        />
       </div>
     </>
+  );
+}
+
+function EmailSetupWarning({ status }: { status: EmailStatus }) {
+  const missing = [
+    !status.app_url_configured && "APP_URL",
+    !status.resend_api_key_configured && "RESEND_API_KEY",
+    !status.email_from_configured && "EMAIL_FROM",
+  ].filter(Boolean);
+
+  return (
+    <div className="mb-4 rounded-xl border border-upflow-warning/30 bg-upflow-warning/10 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">
+            Invite email setup needs attention
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {missing.length > 0 ? `Missing: ${missing.join(", ")}. ` : ""}
+            {status.using_development_sender
+              ? "Set EMAIL_FROM to a verified Resend sender. "
+              : ""}
+            Invites are blocked until Resend delivery is configured and accepted.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 

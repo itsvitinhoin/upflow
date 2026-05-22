@@ -87,7 +87,7 @@ export default function ProjectPage() {
 
   const canManageFields = useMemo(() => {
     if (!me) return false;
-    return me.role === "admin";
+    return Boolean(me.isSuperAdmin || me.currentRole === "owner" || me.currentRole === "admin");
   }, [me]);
 
   if (loading) {

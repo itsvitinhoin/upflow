@@ -1,11 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Video } from "lucide-react";
-import type { Meeting } from "@/lib/dashboard-mocks";
-
-export const MEETINGS_KEY = "upflow.meetings.today";
+import type { CalendarEvent } from "@/lib/types";
 
 const COLORS = [
   "bg-primary/20 text-primary",
@@ -14,59 +12,80 @@ const COLORS = [
   "bg-upflow-danger/20 text-upflow-danger",
 ];
 
-export function loadStoredMeetings(): Meeting[] {
-  try {
-    const raw = localStorage.getItem(MEETINGS_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Meeting[];
-  } catch {
-    return [];
-  }
+function buildStartsAt(time: string, date?: Date) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const startsAt = date ? new Date(date) : new Date();
+  startsAt.setHours(hours || 0, minutes || 0, 0, 0);
+  return startsAt;
 }
 
 export default function ScheduleMeetingDialog({
   open,
   onClose,
   onScheduled,
+  initialDate,
+  initialTime = "09:00",
+  title: dialogTitle = "Schedule meeting",
+  defaultProjectId,
 }: {
   open: boolean;
   onClose: () => void;
-  onScheduled: (meeting: Meeting) => void;
+  onScheduled?: (meeting: CalendarEvent) => void;
+  initialDate?: Date;
+  initialTime?: string;
+  title?: string;
+  defaultProjectId?: string | null;
 }) {
   const [title, setTitle] = useState("");
-  const [time, setTime] = useState("09:00");
+  const [time, setTime] = useState(initialTime);
   const [withWho, setWithWho] = useState("");
   const [colorIdx, setColorIdx] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setTime(initialTime);
+  }, [initialTime, open]);
 
   if (!open) return null;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !time) {
       toast.error("Title and time are required");
       return;
     }
-    const meeting: Meeting = {
-      time,
-      title: title.trim(),
-      with: withWho.trim() || "Team",
-      color: COLORS[colorIdx],
-    };
+
+    const startsAt = buildStartsAt(time, initialDate);
+    const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
+    setSubmitting(true);
     try {
-      const existing = loadStoredMeetings();
-      const next = [...existing, meeting].sort((a, b) => a.time.localeCompare(b.time));
-      localStorage.setItem(MEETINGS_KEY, JSON.stringify(next));
-    } catch (err) {
-      // localStorage can throw on quota-exceeded or in privacy modes; the
-      // meeting is still surfaced via the toast + onScheduled callback for
-      // the current session.
-      console.warn("[upflow] schedule-meeting-dialog: localStorage write failed", err);
+      const res = await fetch("/api/calendar/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: withWho.trim() ? `With ${withWho.trim()}` : null,
+          type: "meeting",
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
+          color: COLORS[colorIdx],
+          ...(defaultProjectId ? { project_id: defaultProjectId } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to schedule meeting");
+      const meeting = (await res.json()) as CalendarEvent;
+      toast.success("Meeting scheduled");
+      onScheduled?.(meeting);
+      setTitle("");
+      setWithWho("");
+      onClose();
+    } catch {
+      toast.error("Could not schedule meeting");
+    } finally {
+      setSubmitting(false);
     }
-    toast.success("Meeting scheduled");
-    onScheduled(meeting);
-    setTitle("");
-    setWithWho("");
-    onClose();
   };
 
   return (
@@ -84,7 +103,7 @@ export default function ScheduleMeetingDialog({
             <div className="w-8 h-8 rounded-lg bg-upflow-success/20 text-upflow-success flex items-center justify-center">
               <Video className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">Schedule meeting</h2>
+            <h2 className="text-base font-semibold text-foreground">{dialogTitle}</h2>
           </div>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
@@ -98,6 +117,15 @@ export default function ScheduleMeetingDialog({
           placeholder="e.g. Sprint review"
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
+        {initialDate && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            {initialDate.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3 mt-4">
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">Time</label>
@@ -136,15 +164,17 @@ export default function ScheduleMeetingDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            disabled={submitting}
+            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10 disabled:opacity-40"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg"
+            disabled={submitting}
+            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg disabled:opacity-50"
           >
-            Schedule
+            {submitting ? "Scheduling..." : "Schedule"}
           </button>
         </div>
       </form>

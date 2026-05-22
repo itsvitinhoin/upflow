@@ -12,33 +12,51 @@ import Panel from "@/components/layout/sidebar/panel";
 
 interface SidebarProps {
   user: AppUser;
+  workspaces: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    role: "owner" | "admin" | "member";
+  }>;
 }
 
 const PANEL_KEY = "upflow.sidebar.spacesOpen";
 
-export default function Sidebar({ user }: SidebarProps) {
+export default function Sidebar({ user, workspaces }: SidebarProps) {
   const pathname = usePathname() ?? "";
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
 
   useEffect(() => {
-    try {
-      const v = localStorage.getItem(PANEL_KEY);
-      if (v !== null) setPanelOpen(v === "1");
-    } catch {
-      // localStorage unavailable (SSR, privacy modes) — use defaults.
-    }
+    setMounted(true);
   }, []);
 
   useEffect(() => {
+    if (!mounted) return;
+    try {
+      const v = localStorage.getItem(PANEL_KEY);
+      if (v === "1" || v === "0") {
+        setPanelOpen(v === "1");
+      } else if (v !== null) {
+        localStorage.removeItem(PANEL_KEY);
+        setPanelOpen(true);
+      }
+    } catch {
+      // localStorage unavailable (SSR, privacy modes) — use defaults.
+    }
+  }, [mounted]);
+
+  useEffect(() => {
+    if (!mounted) return;
     try {
       localStorage.setItem(PANEL_KEY, panelOpen ? "1" : "0");
     } catch {
       // localStorage unavailable — panel state simply won't persist.
     }
-  }, [panelOpen]);
+  }, [mounted, panelOpen]);
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -67,13 +85,27 @@ export default function Sidebar({ user }: SidebarProps) {
     />
   );
 
+  if (!mounted) {
+    return (
+      <aside className="hidden md:flex flex-shrink-0" aria-hidden="true">
+        <div className="w-[48px] flex glass-rail" />
+        <div className="w-[240px] flex glass-rail" />
+      </aside>
+    );
+  }
+
   return (
     <>
       <aside className="hidden md:flex flex-shrink-0">
         <div className="w-[48px] flex">{renderRail()}</div>
         {panelOpen && (
           <div className="w-[240px] flex">
-            <Panel pathname={pathname} />
+            <Panel
+              pathname={pathname}
+              workspaces={workspaces}
+              currentWorkspaceId={user.currentWorkspaceId ?? ""}
+              currentRole={user.currentRole ?? null}
+            />
           </div>
         )}
       </aside>
@@ -99,6 +131,9 @@ export default function Sidebar({ user }: SidebarProps) {
             <div className="w-[240px] flex">
               <Panel
                 pathname={pathname}
+                workspaces={workspaces}
+                currentWorkspaceId={user.currentWorkspaceId ?? ""}
+                currentRole={user.currentRole ?? null}
                 onNavigate={() => setMobileOpen(false)}
               />
             </div>

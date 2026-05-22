@@ -7,6 +7,15 @@ import { SEEDED, apiAs, uniq } from "./helpers";
  * regressed.
  */
 test.describe("Up Flow authorization (API)", () => {
+  test("auth me returns active workspace role fields", async ({ baseURL }) => {
+    const admin = await apiAs(baseURL!, SEEDED.admin.email);
+    const me = await (await admin.get("/api/auth/me")).json();
+    expect(me.currentWorkspaceId).toBeTruthy();
+    expect(["owner", "admin", "member"]).toContain(me.currentRole);
+    expect(typeof me.isSuperAdmin).toBe("boolean");
+    await admin.dispose();
+  });
+
   test("non-admin members cannot manage custom fields", async ({ baseURL }) => {
     const admin = await apiAs(baseURL!, SEEDED.admin.email);
     const space = await (
@@ -74,6 +83,74 @@ test.describe("Up Flow authorization (API)", () => {
       [403, 404].includes(direct.status()),
       `direct GET must be 403/404, got ${direct.status()}`,
     ).toBeTruthy();
+
+    await admin.dispose();
+    await member.dispose();
+  });
+
+  test("non-member cannot see another workspace's folder container", async ({
+    baseURL,
+  }) => {
+    const admin = await apiAs(baseURL!, SEEDED.admin.email);
+
+    const isolated = await (
+      await admin.post("/api/workspaces", { data: { name: uniq("FolderWS") } })
+    ).json();
+    expect(isolated.id).toBeTruthy();
+
+    const switchRes = await admin.post("/api/workspaces/switch", {
+      data: { workspace_id: isolated.id },
+    });
+    expect(switchRes.ok(), `switch to isolated: ${switchRes.status()}`).toBeTruthy();
+
+    const space = await (
+      await admin.post("/api/spaces", { data: { name: uniq("PrivateSpace") } })
+    ).json();
+    const folder = await (
+      await admin.post("/api/folders", {
+        data: { name: uniq("PrivateFolder"), space_id: space.id },
+      })
+    ).json();
+    expect(folder.id).toBeTruthy();
+
+    const member = await apiAs(baseURL!, SEEDED.member.email);
+    const direct = await member.get(`/api/folders/${folder.id}`);
+    expect(direct.status(), `folder GET must be hidden, got ${direct.status()}`).toBe(404);
+
+    await admin.dispose();
+    await member.dispose();
+  });
+
+  test("non-member cannot access another workspace's calendar event", async ({
+    baseURL,
+  }) => {
+    const admin = await apiAs(baseURL!, SEEDED.admin.email);
+
+    const isolated = await (
+      await admin.post("/api/workspaces", { data: { name: uniq("CalendarWS") } })
+    ).json();
+    expect(isolated.id).toBeTruthy();
+
+    const switchRes = await admin.post("/api/workspaces/switch", {
+      data: { workspace_id: isolated.id },
+    });
+    expect(switchRes.ok(), `switch to isolated: ${switchRes.status()}`).toBeTruthy();
+
+    const startsAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const event = await (
+      await admin.post("/api/calendar/events", {
+        data: {
+          title: uniq("PrivateEvent"),
+          starts_at: startsAt,
+          timezone: "America/Sao_Paulo",
+        },
+      })
+    ).json();
+    expect(event.id).toBeTruthy();
+
+    const member = await apiAs(baseURL!, SEEDED.member.email);
+    const direct = await member.get(`/api/calendar/events/${event.id}`);
+    expect(direct.status(), `event GET must be hidden, got ${direct.status()}`).toBe(404);
 
     await admin.dispose();
     await member.dispose();

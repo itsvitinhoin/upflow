@@ -10,9 +10,17 @@ interface NewProjectDialogProps {
   onCreated: () => void;
   /** Pre-fill the Space the new project should belong to. */
   defaultSpaceId?: string | null;
+  /** Link the new project to a client/company. */
+  defaultCompanyId?: string | null;
 }
 
-export default function NewProjectDialog({ open, onClose, onCreated, defaultSpaceId }: NewProjectDialogProps) {
+export default function NewProjectDialog({
+  open,
+  onClose,
+  onCreated,
+  defaultSpaceId,
+  defaultCompanyId,
+}: NewProjectDialogProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -33,6 +41,7 @@ export default function NewProjectDialog({ open, onClose, onCreated, defaultSpac
           description,
           due_date: dueDate || null,
           ...(defaultSpaceId ? { space_id: defaultSpaceId } : {}),
+          ...(defaultCompanyId ? { company_id: defaultCompanyId } : {}),
         }),
       });
       if (!res.ok) {

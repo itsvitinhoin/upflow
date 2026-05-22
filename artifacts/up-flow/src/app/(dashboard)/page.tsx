@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAppUser } from "@/components/user-provider";
 import {
   AlertCircle,
@@ -22,6 +23,14 @@ import {
   UserPlus,
   Building2,
   ArrowRight,
+  Users2,
+  Timer,
+  Activity,
+  TrendingDown,
+  Command,
+  Pencil,
+  Trash2,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
@@ -29,24 +38,84 @@ import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/uti
 import NewTaskDialog from "@/components/projects/new-task-dialog";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import InviteDialog from "@/components/dashboard/invite-dialog";
-import ScheduleMeetingDialog, {
-  loadStoredMeetings,
-} from "@/components/dashboard/schedule-meeting-dialog";
+import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
-import type { Task, Project, TeamMember } from "@/lib/types";
-import {
-  todayMeetings,
-  weekActivity,
-  recentActions,
-  buildTimelineRows,
-  type Meeting,
-} from "@/lib/dashboard-mocks";
+import type { ActivityEvent, CalendarEvent, Company, Project, Task, TeamMember, TimeEntry } from "@/lib/types";
 
 type StatusFilter = "all" | "todo" | "in_progress" | "done";
 type ActionFilter = "all" | "completed" | "in_progress";
+type TaskDrawerStatus = Exclude<StatusFilter, "all">;
+type CommandDrawer =
+  | "urgent_actions"
+  | "team_workload"
+  | "time_today"
+  | "meetings_today"
+  | "recent_activity"
+  | "projects_at_risk"
+  | "client_risk"
+  | "revenue_snapshot"
+  | "quick_create";
+
+interface CommandCenterPayload {
+  urgent_actions: { items: Task[]; count: number };
+  team_workload: {
+    items: Array<{
+      user: TeamMember;
+      open_tasks: number;
+      overdue_tasks: number;
+      due_today_tasks: number;
+      tracked_seconds_today: number;
+      state: "late" | "overloaded" | "idle" | "active";
+    }>;
+    count: number;
+  };
+  time_today: {
+    total_seconds: number;
+    running: TimeEntry | null;
+    entries: TimeEntry[];
+  };
+  meetings_today: { items: CalendarEvent[]; count: number };
+  recent_activity: { items: ActivityEvent[]; count: number };
+  projects_at_risk: {
+    items: Array<{ project: Project; reasons: string[] }>;
+    count: number;
+    rules: string[];
+  };
+  client_risk: {
+    items: Array<{
+      company: Pick<Company, "id" | "name" | "commercial_status" | "status" | "contract_value" | "commission">;
+      reasons: string[];
+      open_tasks: number;
+      overdue_tasks: number;
+    }>;
+    count: number;
+  };
+  revenue_snapshot: {
+    active_clients: number;
+    total_contract_value: number;
+    total_commission: number;
+    clients_without_contract_value: number;
+    top_clients: Array<Pick<Company, "id" | "name" | "contract_value" | "commission">>;
+  };
+  quick_create: { items: string[] };
+}
+
+interface DashboardResponse {
+  tasks: { items: Task[] };
+  projects: { items: Project[] };
+  users: { items: TeamMember[] };
+  calendar_events?: { items: CalendarEvent[] };
+  activity?: { items: ActivityEvent[] };
+  time?: {
+    running: TimeEntry | null;
+    week_entries: TimeEntry[];
+  };
+  command_center?: CommandCenterPayload;
+}
 
 export default function DashboardPage() {
   const user = useAppUser();
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<TeamMember[]>([]);
@@ -56,8 +125,14 @@ export default function DashboardPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showCompany, setShowCompany] = useState(false);
-  const [extraMeetings, setExtraMeetings] = useState<Meeting[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
+  const [runningEntry, setRunningEntry] = useState<TimeEntry | null>(null);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [commandCenter, setCommandCenter] = useState<CommandCenterPayload | null>(null);
+  const [commandDrawer, setCommandDrawer] = useState<CommandDrawer | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [drawerStatus, setDrawerStatus] = useState<TaskDrawerStatus | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [updating, setUpdating] = useState(false);
   const [greeting, setGreeting] = useState<string | null>(null);
@@ -66,24 +141,21 @@ export default function DashboardPage() {
     setGreeting(greetingTime());
   }, []);
 
-  useEffect(() => {
-    setExtraMeetings(loadStoredMeetings());
-  }, []);
-
   const loadData = () => {
-    fetch("/api/dashboard")
+    fetch("/api/dashboard/summary")
       .then(
         (r) =>
-          r.json() as Promise<{
-            tasks: { items: Task[] };
-            projects: { items: Project[] };
-            users: { items: TeamMember[] };
-          }>,
+          r.json() as Promise<DashboardResponse>,
       )
       .then((data) => {
         setTasks(data.tasks.items ?? []);
         setProjects(data.projects.items ?? []);
         setUsers(data.users.items ?? []);
+        setCalendarEvents(data.calendar_events?.items ?? []);
+        setActivity(data.activity?.items ?? []);
+        setRunningEntry(data.time?.running ?? null);
+        setTimeEntries(data.time?.week_entries ?? []);
+        setCommandCenter(data.command_center ?? null);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -111,7 +183,60 @@ export default function DashboardPage() {
     [tasks, statusFilter]
   );
 
+  const drawerTasks = useMemo(
+    () =>
+      drawerStatus
+        ? tasks
+            .filter((task) => task.status === drawerStatus)
+            .sort((a, b) => {
+              if (!a.due_date) return 1;
+              if (!b.due_date) return -1;
+              return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+            })
+        : [],
+    [drawerStatus, tasks],
+  );
+
   const firstName = user?.name?.split(" ")[0] || "there";
+  const commandCenterData = useMemo<CommandCenterPayload>(() => {
+    if (commandCenter) return commandCenter;
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const urgent = tasks.filter((task) => {
+      const due = task.due_date ? new Date(task.due_date) : null;
+      return task.status !== "done" && (task.priority === "high" || (due !== null && due < tomorrow));
+    });
+    const todayEntries = timeEntries.filter((entry) => sameLocalDate(new Date(entry.started_at), today));
+    const totalSeconds = todayEntries.reduce((sum, entry) => sum + entrySeconds(entry), 0);
+    return {
+      urgent_actions: { items: urgent, count: urgent.length },
+      team_workload: {
+        items: users.map((member) => ({
+          user: member,
+          open_tasks: member._count.tasks,
+          overdue_tasks: 0,
+          due_today_tasks: 0,
+          tracked_seconds_today: 0,
+          state: member._count.tasks >= 8 ? "overloaded" : member._count.tasks === 0 ? "idle" : "active",
+        })),
+        count: users.length,
+      },
+      time_today: { total_seconds: totalSeconds, running: runningEntry, entries: todayEntries },
+      meetings_today: { items: calendarEvents, count: calendarEvents.length },
+      recent_activity: { items: activity, count: activity.length },
+      projects_at_risk: { items: [], count: 0, rules: [] },
+      client_risk: { items: [], count: 0 },
+      revenue_snapshot: {
+        active_clients: 0,
+        total_contract_value: 0,
+        total_commission: 0,
+        clients_without_contract_value: 0,
+        top_clients: [],
+      },
+      quick_create: { items: ["task", "meeting", "company", "project", "note"] },
+    };
+  }, [activity, calendarEvents, commandCenter, runningEntry, tasks, timeEntries, users]);
 
   const handleStatusChange = async (task: Task, status: Task["status"]) => {
     setUpdating(true);
@@ -159,9 +284,84 @@ export default function DashboardPage() {
               {greeting ? `Good ${greeting}, ${firstName} 👋` : `Hi ${firstName} 👋`}
             </h2>
             <p className="text-muted-foreground text-sm mt-1">
-              Here&apos;s what&apos;s happening across your workspace today.
+              Command Center is backed by live workspace records only.
             </p>
           </div>
+
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <CommandTile
+              title="My urgent actions"
+              value={commandCenterData.urgent_actions.count}
+              hint="Due today, overdue, or high priority"
+              icon={<AlertCircle className="w-4 h-4" />}
+              active={commandDrawer === "urgent_actions"}
+              onClick={() => setCommandDrawer("urgent_actions")}
+            />
+            <CommandTile
+              title="Team workload"
+              value={commandCenterData.team_workload.count}
+              hint="Overloaded, idle, late, or active"
+              icon={<Users2 className="w-4 h-4" />}
+              active={commandDrawer === "team_workload"}
+              onClick={() => setCommandDrawer("team_workload")}
+            />
+            <CommandTile
+              title="Time today"
+              value={formatSecondsShort(commandCenterData.time_today.total_seconds)}
+              hint={commandCenterData.time_today.running ? "Timer is running" : "Tracked entries today"}
+              icon={<Timer className="w-4 h-4" />}
+              active={commandDrawer === "time_today"}
+              onClick={() => setCommandDrawer("time_today")}
+            />
+            <CommandTile
+              title="Meetings today"
+              value={commandCenterData.meetings_today.count}
+              hint="Calendar events scheduled today"
+              icon={<CalendarIcon className="w-4 h-4" />}
+              active={commandDrawer === "meetings_today"}
+              onClick={() => setCommandDrawer("meetings_today")}
+            />
+            <CommandTile
+              title="Recent activity"
+              value={commandCenterData.recent_activity.count}
+              hint="Workspace audit trail"
+              icon={<Activity className="w-4 h-4" />}
+              active={commandDrawer === "recent_activity"}
+              onClick={() => setCommandDrawer("recent_activity")}
+            />
+            <CommandTile
+              title="Projects at risk"
+              value={commandCenterData.projects_at_risk.count}
+              hint="Overdue or stale projects"
+              icon={<TrendingDown className="w-4 h-4" />}
+              active={commandDrawer === "projects_at_risk"}
+              onClick={() => setCommandDrawer("projects_at_risk")}
+            />
+            <CommandTile
+              title="Client risk"
+              value={commandCenterData.client_risk.count}
+              hint="Clients missing movement, contacts, or values"
+              icon={<Building2 className="w-4 h-4" />}
+              active={commandDrawer === "client_risk"}
+              onClick={() => setCommandDrawer("client_risk")}
+            />
+            <CommandTile
+              title="Revenue snapshot"
+              value={moneyCompact(commandCenterData.revenue_snapshot.total_contract_value)}
+              hint={`${commandCenterData.revenue_snapshot.active_clients} active clients`}
+              icon={<DollarSign className="w-4 h-4" />}
+              active={commandDrawer === "revenue_snapshot"}
+              onClick={() => setCommandDrawer("revenue_snapshot")}
+            />
+            <CommandTile
+              title="Quick create"
+              value={commandCenterData.quick_create.items.length}
+              hint="Task, meeting, client, project, note"
+              icon={<Command className="w-4 h-4" />}
+              active={commandDrawer === "quick_create"}
+              onClick={() => setCommandDrawer("quick_create")}
+            />
+          </section>
 
           {/* Quick actions */}
           <section className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
@@ -212,9 +412,10 @@ export default function DashboardPage() {
               icon={<FolderKanban className="w-5 h-5" />}
               hint="Tasks waiting to start"
               active={statusFilter === "todo"}
-              onClick={() =>
-                setStatusFilter((s) => (s === "todo" ? "all" : "todo"))
-              }
+              onClick={() => {
+                setStatusFilter("todo");
+                setDrawerStatus("todo");
+              }}
             />
             <StatCard
               tone="stat-2"
@@ -224,9 +425,10 @@ export default function DashboardPage() {
               icon={<AlertCircle className="w-5 h-5" />}
               hint="Currently being worked on"
               active={statusFilter === "in_progress"}
-              onClick={() =>
-                setStatusFilter((s) => (s === "in_progress" ? "all" : "in_progress"))
-              }
+              onClick={() => {
+                setStatusFilter("in_progress");
+                setDrawerStatus("in_progress");
+              }}
             />
             <StatCard
               tone="stat-3"
@@ -236,9 +438,10 @@ export default function DashboardPage() {
               icon={<CheckCircle2 className="w-5 h-5" />}
               hint={`${progress}% of total`}
               active={statusFilter === "done"}
-              onClick={() =>
-                setStatusFilter((s) => (s === "done" ? "all" : "done"))
-              }
+              onClick={() => {
+                setStatusFilter("done");
+                setDrawerStatus("done");
+              }}
             />
           </section>
 
@@ -277,7 +480,12 @@ export default function DashboardPage() {
           </section>
 
           {/* Team timeline */}
-          <TeamTimeline users={users} loading={loading} statusFilter={statusFilter} />
+          <TeamTimeline
+            users={users}
+            loading={loading}
+            timeEntries={timeEntries}
+            events={calendarEvents}
+          />
 
           {/* Filtered tasks list */}
           <section className="glass rounded-2xl overflow-hidden">
@@ -350,8 +558,12 @@ export default function DashboardPage() {
         {/* Right panel */}
         <RightPanel
           projects={projects}
-          userName={user?.name || "there"}
-          extraMeetings={extraMeetings}
+          meetings={calendarEvents}
+          activity={activity}
+          runningEntry={runningEntry}
+          timeEntries={timeEntries}
+          onTimerChanged={loadData}
+          onCreateMeeting={() => setShowSchedule(true)}
         />
       </div>
 
@@ -384,16 +596,24 @@ export default function DashboardPage() {
       <ScheduleMeetingDialog
         open={showSchedule}
         onClose={() => setShowSchedule(false)}
-        onScheduled={(m) =>
-          setExtraMeetings((prev) =>
-            [...prev, m].sort((a, b) => a.time.localeCompare(b.time))
-          )
-        }
+        onScheduled={(meeting) => {
+          setCalendarEvents((prev) =>
+            [...prev, meeting].sort(
+              (a, b) =>
+                new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+            ),
+          );
+          loadData();
+        }}
       />
 
       <CreateCompanyDialog
         open={showCompany}
         onClose={() => setShowCompany(false)}
+        onCreated={(company) => {
+          setShowCompany(false);
+          router.push(`/clients/${company.id}`);
+        }}
       />
 
       {activeTask && (
@@ -403,6 +623,35 @@ export default function DashboardPage() {
           onClose={() => setActiveTask(null)}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteTask}
+        />
+      )}
+
+      {drawerStatus && (
+        <TaskStatusDrawer
+          status={drawerStatus}
+          tasks={drawerTasks}
+          updating={updating}
+          onClose={() => {
+            setDrawerStatus(null);
+            setStatusFilter("all");
+          }}
+          onOpenTask={setActiveTask}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDeleteTask}
+        />
+      )}
+
+      {commandDrawer && (
+        <CommandCenterDrawer
+          kind={commandDrawer}
+          data={commandCenterData}
+          onClose={() => setCommandDrawer(null)}
+          onOpenTask={setActiveTask}
+          onCreateTask={() => setShowNewTask(true)}
+          onCreateMeeting={() => setShowSchedule(true)}
+          onCreateCompany={() => setShowCompany(true)}
+          onCreateProject={() => setShowNewProject(true)}
+          onCalendarChanged={loadData}
         />
       )}
     </>
@@ -538,11 +787,656 @@ function TaskRow({
   );
 }
 
+function TaskStatusDrawer({
+  status,
+  tasks,
+  updating,
+  onClose,
+  onOpenTask,
+  onStatusChange,
+  onDelete,
+}: {
+  status: TaskDrawerStatus;
+  tasks: Task[];
+  updating: boolean;
+  onClose: () => void;
+  onOpenTask: (task: Task) => void;
+  onStatusChange: (task: Task, status: Task["status"]) => void;
+  onDelete: (task: Task) => void;
+}) {
+  const label =
+    status === "todo" ? "Upcoming actions" : status === "in_progress" ? "In progress actions" : "Completed actions";
+
+  return (
+    <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <aside
+        className="absolute right-0 top-0 h-full w-full max-w-md glass-strong border-l border-white/10 p-5 overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Filtered tasks
+            </p>
+            <h2 className="text-lg font-semibold text-foreground mt-1">{label}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10"
+            aria-label="Close task drawer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 divide-y divide-white/5 rounded-xl overflow-hidden border border-white/5">
+          {tasks.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <p className="text-sm font-medium text-foreground">No tasks in this status</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Tasks will appear here when they match this status.
+              </p>
+            </div>
+          ) : (
+            tasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onOpen={() => onOpenTask(task)}
+                onMarkDone={() => onStatusChange(task, "done")}
+                onDelete={() => {
+                  if (confirm(`Delete "${task.title}"?`)) onDelete(task);
+                }}
+                disabled={updating}
+              />
+            ))
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 function greetingTime() {
   const h = new Date().getHours();
   if (h < 12) return "morning";
   if (h < 18) return "afternoon";
   return "evening";
+}
+
+function formatSecondsShort(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function moneyCompact(value: number | null | undefined) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value ?? 0);
+}
+
+function entrySeconds(entry: TimeEntry) {
+  if (entry.status === "running") {
+    return Math.max(0, Math.floor((Date.now() - new Date(entry.started_at).getTime()) / 1000));
+  }
+  return entry.duration_seconds;
+}
+
+function CommandTile({
+  title,
+  value,
+  hint,
+  icon,
+  active,
+  onClick,
+}: {
+  title: string;
+  value: number | string;
+  hint: string;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-xl border border-white/5 bg-white/[0.03] p-4 text-left transition-colors hover:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/60",
+        active && "border-primary/60 bg-primary/10",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-semibold uppercase text-muted-foreground">
+          {title}
+        </span>
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-primary">
+          {icon}
+        </span>
+      </div>
+      <div className="mt-3 text-2xl font-bold text-foreground">{value}</div>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    </button>
+  );
+}
+
+function CommandCenterDrawer({
+  kind,
+  data,
+  onClose,
+  onOpenTask,
+  onCreateTask,
+  onCreateMeeting,
+  onCreateCompany,
+  onCreateProject,
+  onCalendarChanged,
+}: {
+  kind: CommandDrawer;
+  data: CommandCenterPayload;
+  onClose: () => void;
+  onOpenTask: (task: Task) => void;
+  onCreateTask: () => void;
+  onCreateMeeting: () => void;
+  onCreateCompany: () => void;
+  onCreateProject: () => void;
+  onCalendarChanged: () => void;
+}) {
+  const [manageMeetings, setManageMeetings] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<CalendarEvent | null>(null);
+  const titleMap: Record<CommandDrawer, string> = {
+    urgent_actions: "My urgent actions",
+    team_workload: "Team workload",
+    time_today: "Time today",
+    meetings_today: "Meetings today",
+    recent_activity: "Recent activity",
+    projects_at_risk: "Projects at risk",
+    client_risk: "Client risk",
+    revenue_snapshot: "Revenue snapshot",
+    quick_create: "Quick create",
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <aside
+        className="absolute right-0 top-0 h-full w-full max-w-lg glass-strong border-l border-white/10 p-5 overflow-y-auto"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Command Center
+            </p>
+            <h2 className="text-lg font-semibold text-foreground mt-1">{titleMap[kind]}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10"
+            aria-label="Close command drawer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-3">
+          {kind === "urgent_actions" &&
+            (data.urgent_actions.items.length === 0 ? (
+              <DrawerEmpty title="No urgent actions" text="Due, overdue, and high-priority assigned tasks appear here." />
+            ) : (
+              data.urgent_actions.items.map((task) => (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => onOpenTask(task)}
+                  className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left hover:bg-white/[0.06]"
+                >
+                  <p className="text-sm font-medium text-foreground">{task.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {task.project?.name ?? "No project"} {task.due_date ? `Â· ${formatDate(task.due_date)}` : ""}
+                  </p>
+                </button>
+              ))
+            ))}
+
+          {kind === "team_workload" &&
+            data.team_workload.items.map((item) => (
+              <div key={item.user.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{item.user.name}</p>
+                    <p className="text-xs text-muted-foreground">{item.user.email}</p>
+                  </div>
+                  <span className="rounded-full bg-white/5 px-2 py-1 text-xs capitalize text-foreground">
+                    {item.state}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {item.open_tasks} open Â· {item.overdue_tasks} overdue Â· {formatSecondsShort(item.tracked_seconds_today)} today
+                </p>
+              </div>
+            ))}
+
+          {kind === "time_today" &&
+            (data.time_today.entries.length === 0 && !data.time_today.running ? (
+              <DrawerEmpty title="No tracked time today" text="Start a timer to create the first real time entry." />
+            ) : (
+              <>
+                <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Total today</p>
+                  <p className="mt-1 text-2xl font-bold text-foreground">
+                    {formatSecondsShort(data.time_today.total_seconds)}
+                  </p>
+                </div>
+                {data.time_today.entries.map((entry) => (
+                  <div key={entry.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {entry.task?.title ?? entry.project?.name ?? entry.description ?? "Tracked time"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {formatSecondsShort(entrySeconds(entry))} {entry.status === "running" ? "running" : "logged"}
+                    </p>
+                  </div>
+                ))}
+              </>
+            ))}
+
+          {kind === "meetings_today" &&
+            (data.meetings_today.items.length === 0 ? (
+              <div className="space-y-3">
+                <MeetingsManageHeader
+                  manage={manageMeetings}
+                  onManageChange={setManageMeetings}
+                  onAdd={onCreateMeeting}
+                />
+                <DrawerEmpty title="No meetings today" text="Calendar events created in this workspace appear here." />
+                {manageMeetings && (
+                  <button
+                    type="button"
+                    onClick={onCreateMeeting}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add meeting
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <MeetingsManageHeader
+                  manage={manageMeetings}
+                  onManageChange={setManageMeetings}
+                  onAdd={onCreateMeeting}
+                />
+                {data.meetings_today.items.map((event) => (
+                  <div
+                    key={event.id}
+                    className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
+                  >
+                    <Link href="/calendar" className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatDate(event.starts_at)}</p>
+                    </Link>
+                    {manageMeetings && (
+                      <div className="flex flex-shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingMeeting(event)}
+                          aria-label={`Edit ${event.title}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteDashboardMeeting(event, onCalendarChanged)}
+                          aria-label={`Delete ${event.title}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+
+          {kind === "recent_activity" &&
+            (data.recent_activity.items.length === 0 ? (
+              <DrawerEmpty title="No recent activity" text="Meaningful workspace operations will be listed here." />
+            ) : (
+              data.recent_activity.items.map((event) => (
+                <div key={event.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <p className="text-sm font-medium text-foreground">
+                    {dashboardActivityText(event).what} {dashboardActivityText(event).target}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDate(event.created_at)}</p>
+                </div>
+              ))
+            ))}
+
+          {kind === "projects_at_risk" &&
+            (data.projects_at_risk.items.length === 0 ? (
+              <DrawerEmpty title="No projects at risk" text="Risk rules currently check overdue tasks and lack of recent activity." />
+            ) : (
+              data.projects_at_risk.items.map(({ project, reasons }) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
+                >
+                  <p className="text-sm font-medium text-foreground">{project.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" Â· ")}</p>
+                </Link>
+              ))
+            ))}
+
+          {kind === "client_risk" &&
+            (data.client_risk.items.length === 0 ? (
+              <DrawerEmpty title="No clients at risk" text="Client risk checks linked projects, contacts, overdue work, contract value, and recent activity." />
+            ) : (
+              data.client_risk.items.map(({ company, reasons, open_tasks, overdue_tasks }) => (
+                <Link
+                  key={company.id}
+                  href={`/clients/${company.id}`}
+                  className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{company.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" · ")}</p>
+                    </div>
+                    <span className="rounded-full bg-upflow-danger/15 px-2 py-1 text-xs text-upflow-danger">
+                      {overdue_tasks} overdue
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {open_tasks} open tasks · {moneyCompact(company.contract_value)}
+                  </p>
+                </Link>
+              ))
+            ))}
+
+          {kind === "revenue_snapshot" && (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Contract value</p>
+                  <p className="mt-1 text-xl font-bold text-foreground">
+                    {moneyCompact(data.revenue_snapshot.total_contract_value)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Commission</p>
+                  <p className="mt-1 text-xl font-bold text-foreground">
+                    {moneyCompact(data.revenue_snapshot.total_commission)}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                <p className="text-sm font-medium text-foreground">
+                  {data.revenue_snapshot.active_clients} active clients
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {data.revenue_snapshot.clients_without_contract_value} missing contract value
+                </p>
+              </div>
+              {data.revenue_snapshot.top_clients.length === 0 ? (
+                <DrawerEmpty title="No contract values yet" text="Add contract values to client records to make this operational." />
+              ) : (
+                data.revenue_snapshot.top_clients.map((company) => (
+                  <Link
+                    key={company.id}
+                    href={`/clients/${company.id}`}
+                    className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
+                  >
+                    <p className="text-sm font-medium text-foreground">{company.name}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Contract {moneyCompact(company.contract_value)} · Commission {moneyCompact(company.commission)}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          )}
+
+          {kind === "quick_create" && (
+            <div className="grid gap-2">
+              <button type="button" onClick={onCreateTask} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Create task</button>
+              <button type="button" onClick={onCreateMeeting} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Schedule meeting</button>
+              <button type="button" onClick={onCreateCompany} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Create company</button>
+              <button type="button" onClick={onCreateProject} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Create project</button>
+              <Link href="/docs" className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-foreground hover:bg-white/[0.06]">Create note</Link>
+            </div>
+          )}
+        </div>
+        {editingMeeting && (
+          <DashboardMeetingEditor
+            event={editingMeeting}
+            onClose={() => setEditingMeeting(null)}
+            onSaved={() => {
+              setEditingMeeting(null);
+              onCalendarChanged();
+            }}
+          />
+        )}
+      </aside>
+    </div>
+  );
+}
+
+function MeetingsManageHeader({
+  manage,
+  onManageChange,
+  onAdd,
+}: {
+  manage: boolean;
+  onManageChange: (next: boolean) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+        <button
+          type="button"
+          onClick={() => onManageChange(false)}
+          className={cn(
+            "rounded-md px-3 py-1 text-xs transition-colors",
+            !manage ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          View
+        </button>
+        <button
+          type="button"
+          onClick={() => onManageChange(true)}
+          className={cn(
+            "rounded-md px-3 py-1 text-xs transition-colors",
+            manage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Manage
+        </button>
+      </div>
+      {manage && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add meeting
+        </button>
+      )}
+    </div>
+  );
+}
+
+async function deleteDashboardMeeting(event: CalendarEvent, onDeleted: () => void) {
+  if (!confirm(`Delete "${event.title}"?`)) return;
+  try {
+    const res = await fetch(`/api/calendar/events/${event.id}`, { method: "DELETE" });
+    if (res.status === 403) {
+      toast.error("You do not have permission to manage this event");
+      return;
+    }
+    if (!res.ok) throw new Error("Failed to delete meeting");
+    toast.success("Meeting deleted");
+    onDeleted();
+  } catch {
+    toast.error("Could not delete meeting");
+  }
+}
+
+function dashboardTimeInput(value: string) {
+  const date = new Date(value);
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function mergeDashboardEventDate(event: CalendarEvent, time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const next = new Date(event.starts_at);
+  next.setHours(hours || 0, minutes || 0, 0, 0);
+  return next;
+}
+
+function DashboardMeetingEditor({
+  event,
+  onClose,
+  onSaved,
+}: {
+  event: CalendarEvent;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(event.title);
+  const [time, setTime] = useState(dashboardTimeInput(event.starts_at));
+  const [location, setLocation] = useState(event.location ?? "");
+  const [submitting, setSubmitting] = useState(false);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      toast.error("Title is required");
+      return;
+    }
+    const startsAt = mergeDashboardEventDate(event, time);
+    const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/calendar/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          location: location.trim() || null,
+        }),
+      });
+      if (res.status === 403) {
+        toast.error("You do not have permission to manage this event");
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to update meeting");
+      toast.success("Meeting updated");
+      onSaved();
+    } catch {
+      toast.error("Could not update meeting");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <form
+        onSubmit={save}
+        className="glass-strong w-full max-w-md rounded-2xl p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-foreground">
+            Manage {event.type === "meeting" ? "meeting" : "event"}
+          </h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <label className="mb-1.5 block text-xs font-medium text-foreground">Title</label>
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">Time</label>
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">Location</label>
+            <input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+        <div className="mt-6 flex gap-2">
+          <button
+            type="button"
+            onClick={() => void deleteDashboardMeeting(event, onSaved)}
+            disabled={submitting}
+            className="flex w-10 items-center justify-center rounded-lg border border-upflow-danger/30 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40"
+            aria-label="Delete meeting"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={submitting}
+            className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-foreground hover:bg-white/10 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function DrawerEmpty({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-5 py-10 text-center">
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{text}</p>
+    </div>
+  );
 }
 
 function StatCard({
@@ -606,24 +1500,90 @@ function StatCard({
   );
 }
 
+type TimelineBlock = {
+  start: number;
+  end: number;
+  label: string;
+};
+
+function decimalHour(value: string) {
+  const date = new Date(value);
+  return date.getHours() + date.getMinutes() / 60;
+}
+
+function sameLocalDate(a: Date, b: Date) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function clampTimelineBlock(start: number, end: number): TimelineBlock | null {
+  const clampedStart = Math.max(8, Math.min(19, start));
+  const clampedEnd = Math.max(clampedStart + 0.25, Math.min(19, end));
+  if (clampedEnd <= 8 || clampedStart >= 19) return null;
+  return { start: clampedStart, end: clampedEnd, label: "" };
+}
+
+function buildTimelineRowsFromData(
+  users: TeamMember[],
+  timeEntries: TimeEntry[],
+  events: CalendarEvent[],
+) {
+  const today = new Date();
+  const colors = [
+    "bg-primary/40 border-l-primary",
+    "bg-upflow-success/30 border-l-upflow-success",
+    "bg-upflow-warning/30 border-l-upflow-warning",
+    "bg-upflow-danger/30 border-l-upflow-danger",
+  ];
+
+  return users.slice(0, 5).map((user, index) => {
+    const blocks: TimelineBlock[] = [];
+
+    timeEntries
+      .filter((entry) => entry.user_id === user.id && sameLocalDate(new Date(entry.started_at), today))
+      .forEach((entry) => {
+        const start = decimalHour(entry.started_at);
+        const end = entry.stopped_at ? decimalHour(entry.stopped_at) : decimalHour(new Date().toISOString());
+        const block = clampTimelineBlock(start, end);
+        if (block) blocks.push({ ...block, label: entry.project?.name ?? "Tracked time" });
+      });
+
+    events
+      .filter((event) => {
+        if (!sameLocalDate(new Date(event.starts_at), today)) return false;
+        if (event.created_by === user.id) return true;
+        return event.attendees?.some((attendee) => attendee.user_id === user.id);
+      })
+      .forEach((event) => {
+        const start = decimalHour(event.starts_at);
+        const end = event.ends_at ? decimalHour(event.ends_at) : start + 0.5;
+        const block = clampTimelineBlock(start, end);
+        if (block) blocks.push({ ...block, label: event.title });
+      });
+
+    return {
+      user,
+      blocks: blocks.sort((a, b) => a.start - b.start),
+      color: colors[index % colors.length],
+    };
+  });
+}
+
 function TeamTimeline({
   users,
   loading,
-  statusFilter,
+  timeEntries,
+  events,
 }: {
   users: TeamMember[];
   loading: boolean;
-  statusFilter: StatusFilter;
+  timeEntries: TimeEntry[];
+  events: CalendarEvent[];
 }) {
-  // Map dashboard status filter onto mock block labels so the stat-card
-  // selection visibly narrows the timeline as well.
-  const statusToLabel: Record<Exclude<StatusFilter, "all">, string> = {
-    todo: "Standup",
-    in_progress: "Focus block",
-    done: "Review",
-  };
-  const focusedLabel =
-    statusFilter === "all" ? null : statusToLabel[statusFilter];
+  const focusedLabel = null as string | null;
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
   const totalHours = 11;
   const [currentHour, setCurrentHour] = useState<number | null>(null);
@@ -655,7 +1615,10 @@ function TeamTimeline({
     return () => document.removeEventListener("mousedown", handle);
   }, [optionsOpen]);
 
-  const rows = useMemo(() => buildTimelineRows(users), [users]);
+  const rows = useMemo(
+    () => buildTimelineRowsFromData(users, timeEntries, events),
+    [users, timeEntries, events],
+  );
 
   const inFocusWindow = (h: number) =>
     focusHour !== null && Math.abs(h - focusHour) <= 2;
@@ -847,22 +1810,118 @@ function TeamTimeline({
   );
 }
 
+type DashboardRecent = {
+  who: string;
+  what: string;
+  target: string;
+  when: string;
+  status: "completed" | "in_progress";
+  dayIndex: number;
+};
+
+function dashboardDayIndex(value: string | Date) {
+  const day = (typeof value === "string" ? new Date(value) : value).getDay();
+  return day === 0 ? 6 : day - 1;
+}
+
+function dashboardDurationSeconds(entry: TimeEntry) {
+  if (entry.status === "running" && !entry.stopped_at) {
+    return Math.max(0, Math.round((Date.now() - new Date(entry.started_at).getTime()) / 1000));
+  }
+  return entry.duration_seconds;
+}
+
+function dashboardWhen(value: string) {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function dashboardActivityText(event: ActivityEvent) {
+  const rawName = event.metadata?.title ?? event.metadata?.name ?? event.entity_type;
+  const target = typeof rawName === "string" ? rawName : event.entity_type;
+  const what = event.type
+    .replace(/_/g, " ")
+    .replace("task status changed", "changed")
+    .replace("calendar event", "event")
+    .replace("time entry", "timer");
+  return { what, target };
+}
+
+function dashboardActivityStatus(event: ActivityEvent): "completed" | "in_progress" {
+  return event.type.includes("deleted") || event.type.includes("stopped") || event.type.includes("done")
+    ? "completed"
+    : "in_progress";
+}
+
+function buildDashboardWeekActivity(activity: ActivityEvent[], timeEntries: TimeEntry[]) {
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return labels.map((day, index) => {
+    const actions = activity.filter((event) => dashboardDayIndex(event.created_at) === index).length;
+    const seconds = timeEntries
+      .filter((entry) => dashboardDayIndex(entry.started_at) === index)
+      .reduce((sum, entry) => sum + dashboardDurationSeconds(entry), 0);
+    const dots = Math.min(5, Math.max(actions, seconds > 0 ? 1 : 0));
+    return {
+      day,
+      hours: Math.round((seconds / 3600) * 10) / 10,
+      tasks: actions,
+      items: Array.from({ length: dots }, (_, dotIndex) => ({
+        size: Math.min(18, 8 + dotIndex * 2 + actions),
+        color:
+          dotIndex % 3 === 0
+            ? "bg-primary"
+            : dotIndex % 3 === 1
+            ? "bg-upflow-success"
+            : "bg-upflow-warning",
+      })),
+    };
+  });
+}
+
+function buildDashboardRecent(activity: ActivityEvent[]): DashboardRecent[] {
+  return activity.map((event) => {
+    const label = dashboardActivityText(event);
+    return {
+      who: event.actor?.name ?? "Someone",
+      what: label.what,
+      target: label.target,
+      when: dashboardWhen(event.created_at),
+      status: dashboardActivityStatus(event),
+      dayIndex: dashboardDayIndex(event.created_at),
+    };
+  });
+}
+
 type TimerState = "stopped" | "running" | "paused";
 
 function RightPanel({
   projects,
-  userName,
-  extraMeetings,
+  meetings,
+  activity,
+  runningEntry,
+  timeEntries,
+  onTimerChanged,
+  onCreateMeeting,
 }: {
   projects: Project[];
-  userName: string;
-  extraMeetings: Meeting[];
+  meetings: CalendarEvent[];
+  activity: ActivityEvent[];
+  runningEntry: TimeEntry | null;
+  timeEntries: TimeEntry[];
+  onTimerChanged: () => void;
+  onCreateMeeting: () => void;
 }) {
   const [timerState, setTimerState] = useState<TimerState>("stopped");
   const [seconds, setSeconds] = useState(0);
   const [activeProjectIdx, setActiveProjectIdx] = useState(0);
   const [splits, setSplits] = useState<{ project: string; duration: string }[]>([]);
   const [timerMenuOpen, setTimerMenuOpen] = useState(false);
+  const [manageMeetings, setManageMeetings] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<CalendarEvent | null>(null);
   const timerMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -881,34 +1940,61 @@ function RightPanel({
     return () => clearInterval(t);
   }, [timerState]);
 
+  useEffect(() => {
+    if (!runningEntry) {
+      setTimerState("stopped");
+      setSeconds(0);
+      return;
+    }
+    setTimerState("running");
+    setSeconds(Math.max(0, Math.round((Date.now() - new Date(runningEntry.started_at).getTime()) / 1000)));
+  }, [runningEntry]);
+
   const fmt = (n: number) => String(n).padStart(2, "0");
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
+  const todayMeetings = useMemo(
+    () =>
+      meetings
+        .filter((meeting) => sameLocalDate(new Date(meeting.starts_at), new Date()))
+        .map((meeting) => ({
+          id: meeting.id,
+          time: new Date(meeting.starts_at).toLocaleTimeString(undefined, {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          title: meeting.title,
+          event: meeting,
+        }))
+        .sort((a, b) => a.time.localeCompare(b.time)),
+    [meetings],
+  );
+  const extraMeetings = useMemo<typeof todayMeetings>(() => [], []);
 
   const allMeetings = useMemo(
     () =>
       [...todayMeetings, ...extraMeetings].sort((a, b) =>
         a.time.localeCompare(b.time)
       ),
-    [extraMeetings]
+    [todayMeetings, extraMeetings]
   );
   const am = allMeetings.filter((m) => parseInt(m.time) < 12);
   const pm = allMeetings.filter((m) => parseInt(m.time) >= 12);
 
   const [meetingsOpen, setMeetingsOpen] = useState<Record<string, boolean>>(
-    Object.fromEntries(todayMeetings.map((m) => [m.title, true]))
+    Object.fromEntries(todayMeetings.map((m) => [m.id, true]))
   );
 
   useEffect(() => {
     setMeetingsOpen((prev) => {
       const next = { ...prev };
-      for (const m of extraMeetings) {
-        if (!(m.title in next)) next[m.title] = true;
+      for (const m of allMeetings) {
+        if (!(m.id in next)) next[m.id] = true;
       }
       return next;
     });
-  }, [extraMeetings]);
+  }, [allMeetings]);
 
   const todayIdx = (() => {
     const d = new Date().getDay();
@@ -916,7 +2002,11 @@ function RightPanel({
   })();
   const [activeDay, setActiveDay] = useState<number | null>(null);
   const [actionFilter, setActionFilter] = useState<ActionFilter>("all");
-  const recent = recentActions(userName);
+  const weekActivity = useMemo(
+    () => buildDashboardWeekActivity(activity, timeEntries),
+    [activity, timeEntries],
+  );
+  const recent = useMemo(() => buildDashboardRecent(activity), [activity]);
 
   const filteredRecent = useMemo(() => {
     let list = recent;
@@ -929,26 +2019,55 @@ function RightPanel({
     return list;
   }, [recent, actionFilter, activeDay]);
 
-  const activeProject = projects[activeProjectIdx]?.name || "No active project";
+  const activeProject = runningEntry?.project?.name || projects[activeProjectIdx]?.name || "No active project";
+  const activeProjectId = projects[activeProjectIdx]?.id;
 
-  const handleStart = () => setTimerState("running");
-  const handlePause = () => setTimerState("paused");
-  const handleStop = () => {
-    if (seconds > 0) {
+  const handleStart = async () => {
+    try {
+      const res = await fetch("/api/time/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(activeProjectId ? { project_id: activeProjectId } : {}),
+      });
+      if (!res.ok) throw new Error("Failed to start timer");
+      setTimerState("running");
+      toast.success("Timer started");
+      onTimerChanged();
+    } catch {
+      toast.error("Could not start timer");
+    }
+  };
+  const handlePause = () => toast("Pause is not available for persisted timers yet");
+  const handleStop = async () => {
+    if (!runningEntry) return;
+    try {
+      const res = await fetch("/api/time/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: runningEntry.id }),
+      });
+      if (!res.ok) throw new Error("Failed to stop timer");
       setSplits((prev) => [
         { project: activeProject, duration: `${h}h ${m}m` },
         ...prev,
       ].slice(0, 4));
+      setTimerState("stopped");
+      setSeconds(0);
+      toast.success("Timer stopped");
+      onTimerChanged();
+    } catch {
+      toast.error("Could not stop timer");
     }
-    setTimerState("stopped");
-    setSeconds(0);
   };
 
   const handleReset = () => {
-    setTimerState("stopped");
-    setSeconds(0);
+    if (runningEntry) {
+      void handleStop();
+    } else {
+      setTimerState("stopped");
+      setSeconds(0);
+    }
     setTimerMenuOpen(false);
-    toast.success("Timer reset");
   };
 
   const handleSwitchProject = () => {
@@ -1055,8 +2174,42 @@ function RightPanel({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Today meetings
           </p>
-          <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+              <button
+                type="button"
+                onClick={() => setManageMeetings(false)}
+                className={cn(
+                  "rounded-md px-2 py-1 text-[10px] transition-colors",
+                  !manageMeetings ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                View
+              </button>
+              <button
+                type="button"
+                onClick={() => setManageMeetings(true)}
+                className={cn(
+                  "rounded-md px-2 py-1 text-[10px] transition-colors",
+                  manageMeetings ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                Manage
+              </button>
+            </div>
+            <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+          </div>
         </div>
+        {manageMeetings && (
+          <button
+            type="button"
+            onClick={onCreateMeeting}
+            className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add meeting
+          </button>
+        )}
 
         {[
           { label: "AM", items: am },
@@ -1070,10 +2223,10 @@ function RightPanel({
                 </p>
                 <div className="space-y-1">
                   {group.items.map((mt) => {
-                    const open = meetingsOpen[mt.title];
+                    const open = meetingsOpen[mt.id];
                     return (
                       <div
-                        key={mt.title}
+                        key={mt.id}
                         className="flex items-center gap-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors -mx-2 px-2"
                       >
                         <button
@@ -1094,7 +2247,7 @@ function RightPanel({
                           onClick={() =>
                             setMeetingsOpen((s) => ({
                               ...s,
-                              [mt.title]: !s[mt.title],
+                              [mt.id]: !s[mt.id],
                             }))
                           }
                           aria-pressed={open}
@@ -1111,6 +2264,26 @@ function RightPanel({
                             )}
                           />
                         </button>
+                        {manageMeetings && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditingMeeting(mt.event)}
+                              aria-label={`Edit ${mt.title}`}
+                              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteDashboardMeeting(mt.event, onTimerChanged)}
+                              aria-label={`Delete ${mt.title}`}
+                              className="flex h-6 w-6 items-center justify-center rounded text-upflow-danger hover:bg-upflow-danger/10"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1124,6 +2297,16 @@ function RightPanel({
         >
           View all →
         </Link>
+        {editingMeeting && (
+          <DashboardMeetingEditor
+            event={editingMeeting}
+            onClose={() => setEditingMeeting(null)}
+            onSaved={() => {
+              setEditingMeeting(null);
+              onTimerChanged();
+            }}
+          />
+        )}
       </div>
 
       {/* Activity */}

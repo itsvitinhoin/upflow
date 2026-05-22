@@ -6,6 +6,25 @@ import {
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { recordActivity } from "@/lib/activity";
+import { z } from "zod";
+
+const UpdateProjectSchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  description: z.string().nullable().optional(),
+  status: z.enum(["active", "archived"]).optional(),
+  due_date: z.string().nullable().optional(),
+  space_id: z.string().uuid().nullable().optional(),
+  folder_id: z.string().uuid().nullable().optional(),
+  company_id: z.string().uuid().nullable().optional(),
+});
+
+function parsePatchDate(value: string | null | undefined) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "invalid" : date;
+}
 
 async function GET_handler(
   req: NextRequest,
@@ -48,15 +67,19 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await req.json() as {
-    name?: string;
-    description?: string;
-    status?: string;
-    due_date?: string | null;
-    space_id?: string | null;
-    folder_id?: string | null;
-  };
-  const { name, description, status, due_date, space_id, folder_id } = body;
+  const parsed = UpdateProjectSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid project", issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const body = parsed.data;
+  const { name, description, status, due_date, space_id, folder_id, company_id } = body;
+  const parsedDueDate = parsePatchDate(due_date);
+  if (parsedDueDate === "invalid") {
+    return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
+  }
 
   if (space_id) {
     const space = await prisma.space.findUnique({ where: { id: space_id } });
@@ -71,6 +94,17 @@ async function PATCH_handler(
     if (folder.workspace_id !== project.workspace_id) {
       return NextResponse.json({ error: "Cannot move across workspaces" }, { status: 400 });
     }
+    const targetSpaceId = space_id ?? project.space_id;
+    if (targetSpaceId && folder.space_id !== targetSpaceId) {
+      return NextResponse.json({ error: "Folder does not belong to selected space" }, { status: 400 });
+    }
+  }
+  if (company_id) {
+    const company = await prisma.company.findFirst({
+      where: { id: company_id, workspace_id: project.workspace_id },
+      select: { id: true },
+    });
+    if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 });
   }
 
   const updated = await prisma.project.update({
@@ -78,16 +112,30 @@ async function PATCH_handler(
     data: {
       ...(name !== undefined && { name }),
       ...(description !== undefined && { description }),
-      ...(status !== undefined && { status: status as "active" | "archived" }),
-      ...(due_date !== undefined && { due_date: due_date ? new Date(due_date) : null }),
+      ...(status !== undefined && { status }),
+      ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
       ...(space_id !== undefined && { space_id: space_id || null }),
       ...(folder_id !== undefined && { folder_id: folder_id || null }),
+      ...(company_id !== undefined && { company_id: company_id || null }),
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },
       space: { select: { id: true, name: true, icon: true } },
       folder: { select: { id: true, name: true, icon: true } },
       _count: { select: { tasks: true } },
+    },
+  });
+
+  await recordActivity({
+    workspace_id: project.workspace_id,
+    actor_id: auth.prismaUser.id,
+    type: "project_updated",
+    entity_type: "project",
+    entity_id: updated.id,
+    project_id: updated.id,
+    metadata: {
+      name: updated.name,
+      status: updated.status,
     },
   });
 
@@ -113,6 +161,15 @@ async function DELETE_handler(
   }
 
   await prisma.project.delete({ where: { id: params.id } });
+  await recordActivity({
+    workspace_id: project.workspace_id,
+    actor_id: auth.prismaUser.id,
+    type: "project_deleted",
+    entity_type: "project",
+    entity_id: project.id,
+    project_id: project.id,
+    metadata: { name: project.name },
+  });
   return NextResponse.json({ success: true });
 }
 export const GET = withErrorReporting("api:projects/id:GET", GET_handler);

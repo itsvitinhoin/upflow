@@ -1,0 +1,285 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { notFound, useParams } from "next/navigation";
+import Link from "next/link";
+import { ArrowRight, Folder, FolderPlus, List, ListPlus, RefreshCcw } from "lucide-react";
+import Header from "@/components/layout/header";
+import { FolderDialog, NewListDialog } from "@/components/layout/sidebar/dialogs";
+import type { Folder as FolderT, Project, Space } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+type ContainerList = Pick<Project, "id" | "name">;
+
+interface FolderContainerData {
+  folder: FolderT;
+  space: Space;
+  breadcrumbs: { id: string; name: string; icon: string | null }[];
+  children: FolderT[];
+  projects: ContainerList[];
+}
+
+export default function FolderContainerPage() {
+  const params = useParams();
+  const id = (params?.id ?? "") as string;
+  const [data, setData] = useState<FolderContainerData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [notFoundState, setNotFoundState] = useState(false);
+  const [showNewList, setShowNewList] = useState(false);
+  const [showNewFolder, setShowNewFolder] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/folders/${id}`);
+      if (res.status === 404) {
+        setNotFoundState(true);
+        return;
+      }
+      if (!res.ok) {
+        throw new Error("Failed to load");
+      }
+      setData((await res.json()) as FolderContainerData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshAfterCreate = () => {
+    window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+    loadData();
+  };
+
+  useEffect(() => {
+    if (!id) return;
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  if (notFoundState) {
+    notFound();
+  }
+
+  if (loading) {
+    return <FolderSkeleton />;
+  }
+
+  if (error || !data) {
+    return (
+      <>
+        <Header title="Folder" />
+        <div className="p-6">
+          <div className="glass rounded-xl p-6 max-w-lg">
+            <h2 className="text-lg font-semibold text-foreground">
+              Couldn&apos;t load this Folder
+            </h2>
+            <p className="text-sm text-muted-foreground mt-2">
+              Something went wrong while fetching the Folder. Try again in a
+              moment.
+            </p>
+            <button
+              onClick={loadData}
+              className="mt-4 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  const { folder, space, breadcrumbs, children, projects } = data;
+  const isEmpty = children.length === 0 && projects.length === 0;
+
+  return (
+    <>
+      <Header title={folder.name} />
+      <div className="p-6 space-y-6">
+        <section className="glass rounded-xl p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-start gap-4 min-w-0">
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/15 text-primary flex-shrink-0">
+                <Folder className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-1">
+                  <Link href={`/spaces/${space.id}`} className="hover:text-foreground">
+                    {space.name}
+                  </Link>
+                  {breadcrumbs.map((crumb) => (
+                    <span key={crumb.id} className="inline-flex items-center gap-2">
+                      <span>/</span>
+                      <Link href={`/folders/${crumb.id}`} className="hover:text-foreground">
+                        {crumb.name}
+                      </Link>
+                    </span>
+                  ))}
+                  <span>{folder.name}</span>
+                </div>
+                <h2 className="text-2xl font-bold text-foreground truncate">
+                  {folder.name}
+                </h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowNewFolder(true)}
+                className="inline-flex items-center gap-2 border border-white/10 hover:bg-white/10 text-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                <FolderPlus className="w-4 h-4" />
+                New folder
+              </button>
+              <button
+                onClick={() => setShowNewList(true)}
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              >
+                <ListPlus className="w-4 h-4" />
+                New list
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {isEmpty ? (
+          <section className="glass rounded-xl p-10 text-center">
+            <List className="w-10 h-10 mx-auto text-muted-foreground" />
+            <h3 className="mt-4 text-base font-semibold text-foreground">
+              This Folder is empty
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Create a list to start organizing work here.
+            </p>
+            <div className="mt-5 flex justify-center gap-2">
+              <button
+                onClick={() => setShowNewFolder(true)}
+                className="inline-flex items-center gap-2 border border-white/10 hover:bg-white/10 text-foreground text-sm font-medium px-4 py-2 rounded-lg"
+              >
+                <FolderPlus className="w-4 h-4" />
+                New folder
+              </button>
+              <button
+                onClick={() => setShowNewList(true)}
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
+              >
+                <ListPlus className="w-4 h-4" />
+                New list
+              </button>
+            </div>
+          </section>
+        ) : (
+          <div className="space-y-6">
+            {children.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase">
+                  Folders
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {children.map((child) => (
+                    <Link
+                      key={child.id}
+                      href={`/folders/${child.id}`}
+                      className={cn(
+                        "group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3",
+                        "hover:bg-white/5 hover:border-white/10 transition-colors",
+                      )}
+                    >
+                      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10 text-primary">
+                        <Folder className="w-5 h-5" />
+                      </span>
+                      <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
+                        {child.name}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {projects.length > 0 && (
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase">
+                  Lists
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {projects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3",
+                    "hover:bg-white/5 hover:border-white/10 transition-colors",
+                  )}
+                >
+                  <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 text-muted-foreground group-hover:text-foreground">
+                    <List className="w-5 h-5" />
+                  </span>
+                  <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
+                    {project.name}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+
+      {showNewFolder && (
+        <FolderDialog
+          mode="create"
+          target={{ kind: "folder", folder }}
+          onClose={() => setShowNewFolder(false)}
+          onSaved={() => {
+            setShowNewFolder(false);
+            refreshAfterCreate();
+          }}
+        />
+      )}
+
+      {showNewList && (
+        <NewListDialog
+          target={{ kind: "folder", folder }}
+          onClose={() => setShowNewList(false)}
+          onSaved={() => {
+            setShowNewList(false);
+            refreshAfterCreate();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function FolderSkeleton() {
+  return (
+    <>
+      <Header title="Folder" />
+      <div className="p-6 space-y-6" role="status" aria-busy="true">
+        <span className="sr-only">Loading...</span>
+        <div className="glass rounded-xl p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-white/5 animate-pulse" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-40 bg-white/5 rounded animate-pulse" />
+              <div className="h-6 w-48 bg-white/5 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 glass rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -13,6 +14,9 @@ async function GET_handler() {
     email: u.email,
     role: u.role,
     image: u.avatar_url ?? null,
+    currentWorkspaceId: auth.currentWorkspaceId,
+    currentRole: auth.currentRole,
+    isSuperAdmin: isSuperAdmin(auth),
   });
 }
 export const GET = withErrorReporting("api:auth/me:GET", GET_handler);

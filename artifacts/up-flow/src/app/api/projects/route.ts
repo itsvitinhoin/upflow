@@ -45,8 +45,9 @@ async function postHandler(req: NextRequest) {
     due_date?: string;
     space_id?: string | null;
     folder_id?: string | null;
+    company_id?: string | null;
   };
-  const { name, description, due_date, space_id, folder_id } = body;
+  const { name, description, due_date, space_id, folder_id, company_id } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -75,6 +76,13 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
+  if (company_id) {
+    const company = await prisma.company.findFirst({
+      where: { id: company_id, workspace_id: auth.currentWorkspaceId },
+      select: { id: true },
+    });
+    if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 });
+  }
 
   const project = await prisma.project.create({
     data: {
@@ -85,6 +93,7 @@ async function postHandler(req: NextRequest) {
       owner_id: auth.prismaUser.id,
       space_id: space_id || null,
       folder_id: folder_id || null,
+      company_id: company_id || null,
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },

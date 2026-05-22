@@ -1,11 +1,13 @@
+import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
+import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
 
-async function GET_handler() {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -18,10 +20,21 @@ async function GET_handler() {
     });
   }
 
+  const { searchParams } = new URL(req.url);
+  const { limit } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
+  const q = searchParams.get("q")?.trim();
+  const spacesCursor = searchParams.get("spaces_cursor");
+  const projectsCursor = searchParams.get("projects_cursor");
+  const foldersCursor = searchParams.get("folders_cursor");
+
   const [spaces, projects, folders] = await Promise.all([
     prisma.space.findMany({
-      where: { workspace_id: auth.currentWorkspaceId },
-      take: 200,
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        ...(q && { name: { contains: q, mode: "insensitive" as const } }),
+      },
+      take: limit + 1,
+      ...(spacesCursor ? { skip: 1, cursor: { id: spacesCursor } } : {}),
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
       include: {
         owner: { select: { id: true, name: true, email: true } },
@@ -29,8 +42,12 @@ async function GET_handler() {
       },
     }),
     prisma.project.findMany({
-      where: { workspace_id: auth.currentWorkspaceId },
-      take: 200,
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        ...(q && { name: { contains: q, mode: "insensitive" as const } }),
+      },
+      take: limit + 1,
+      ...(projectsCursor ? { skip: 1, cursor: { id: projectsCursor } } : {}),
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       include: {
         owner: { select: { id: true, name: true, email: true } },
@@ -40,8 +57,12 @@ async function GET_handler() {
       },
     }),
     prisma.folder.findMany({
-      where: { workspace_id: auth.currentWorkspaceId },
-      take: 200,
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        ...(q && { name: { contains: q, mode: "insensitive" as const } }),
+      },
+      take: limit + 1,
+      ...(foldersCursor ? { skip: 1, cursor: { id: foldersCursor } } : {}),
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
       include: {
         _count: { select: { projects: true } },
@@ -50,9 +71,9 @@ async function GET_handler() {
   ]);
 
   return NextResponse.json({
-    spaces: { items: spaces, nextCursor: null },
-    projects: { items: projects, nextCursor: null },
-    folders: { items: folders, nextCursor: null },
+    spaces: buildPage(spaces, limit),
+    projects: buildPage(projects, limit),
+    folders: buildPage(folders, limit),
   });
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Search, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
@@ -20,10 +21,28 @@ import { usePanelData } from "@/components/layout/sidebar/use-panel-data";
 
 interface PanelProps {
   pathname: string;
+  workspaces: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    role: "owner" | "admin" | "member";
+  }>;
+  currentWorkspaceId: string;
+  currentRole: "owner" | "admin" | "member" | null;
   onNavigate?: () => void;
 }
 
-export default function Panel({ pathname, onNavigate }: PanelProps) {
+type CreateFolderTarget =
+  | { kind: "space"; space: Space }
+  | { kind: "folder"; folder: FolderT };
+
+export default function Panel({
+  pathname,
+  workspaces,
+  currentWorkspaceId,
+  currentRole,
+  onNavigate,
+}: PanelProps) {
   const {
     spaces,
     folders,
@@ -34,28 +53,104 @@ export default function Panel({ pathname, onNavigate }: PanelProps) {
     menuOpenId,
     setMenuOpenId,
     loadPanel,
+    collapseAll,
   } = usePanelData(pathname);
 
   const [showCreate, setShowCreate] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Space | null>(null);
   const [moveTarget, setMoveTarget] = useState<Project | null>(null);
-  const [createFolderForSpace, setCreateFolderForSpace] =
-    useState<Space | null>(null);
+  const [createFolderTarget, setCreateFolderTarget] =
+    useState<CreateFolderTarget | null>(null);
   const [renameFolderTarget, setRenameFolderTarget] = useState<FolderT | null>(null);
   const [createListFor, setCreateListFor] = useState<
     | { kind: "space"; space: Space }
     | { kind: "folder"; folder: FolderT }
     | null
   >(null);
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const normalizedQuery = sidebarQuery.trim().toLowerCase();
+  const isSearching = normalizedQuery.length > 0;
+
+  const visibleTree = useMemo(() => {
+    if (!isSearching) {
+      return {
+        spaces,
+        folderIds: new Set(folders.map((folder) => folder.id)),
+        projectIds: new Set(projects.map((project) => project.id)),
+      };
+    }
+
+    const folderById = new Map(folders.map((folder) => [folder.id, folder]));
+    const spaceIds = new Set<string>();
+    const folderIds = new Set<string>();
+    const projectIds = new Set<string>();
+
+    const includeFolderAncestors = (folderId: string | null | undefined) => {
+      let folder = folderId ? folderById.get(folderId) : null;
+      while (folder) {
+        folderIds.add(folder.id);
+        spaceIds.add(folder.space_id);
+        folder = folder.parent_id ? folderById.get(folder.parent_id) : null;
+      }
+    };
+
+    for (const space of spaces) {
+      if (space.name.toLowerCase().includes(normalizedQuery)) {
+        spaceIds.add(space.id);
+        for (const folder of folders) {
+          if (folder.space_id === space.id && !folder.parent_id) folderIds.add(folder.id);
+        }
+        for (const project of projects) {
+          if ((project.space_id ?? null) === space.id && !project.folder_id) projectIds.add(project.id);
+        }
+      }
+    }
+
+    for (const folder of folders) {
+      if (folder.name.toLowerCase().includes(normalizedQuery)) {
+        folderIds.add(folder.id);
+        spaceIds.add(folder.space_id);
+        includeFolderAncestors(folder.parent_id);
+        for (const child of folders) {
+          if (child.parent_id === folder.id) folderIds.add(child.id);
+        }
+        for (const project of projects) {
+          if ((project.folder_id ?? null) === folder.id) projectIds.add(project.id);
+        }
+      }
+    }
+
+    for (const project of projects) {
+      if (project.name.toLowerCase().includes(normalizedQuery)) {
+        projectIds.add(project.id);
+        if (project.space_id) spaceIds.add(project.space_id);
+        includeFolderAncestors(project.folder_id);
+      }
+    }
+
+    return {
+      spaces: spaces.filter((space) => spaceIds.has(space.id)),
+      folderIds,
+      projectIds,
+    };
+  }, [folders, isSearching, normalizedQuery, projects, spaces]);
 
   const projectsBySpace = (spaceId: string | null) =>
-    projects.filter((p) => (p.space_id ?? null) === spaceId);
+    projects.filter(
+      (p) => (p.space_id ?? null) === spaceId && (!isSearching || visibleTree.projectIds.has(p.id)),
+    );
   const foldersBySpace = (spaceId: string) =>
-    folders.filter((f) => f.space_id === spaceId);
+    folders.filter(
+      (f) => f.space_id === spaceId && !f.parent_id && (!isSearching || visibleTree.folderIds.has(f.id)),
+    );
+  const childFoldersByParent = (parentId: string) =>
+    folders.filter((f) => f.parent_id === parentId && (!isSearching || visibleTree.folderIds.has(f.id)));
   const projectsByFolder = (folderId: string) =>
-    projects.filter((p) => (p.folder_id ?? null) === folderId);
+    projects.filter((p) => (p.folder_id ?? null) === folderId && (!isSearching || visibleTree.projectIds.has(p.id)));
   const projectsInSpaceLoose = (spaceId: string) =>
-    projects.filter((p) => (p.space_id ?? null) === spaceId && !p.folder_id);
+    projects.filter(
+      (p) => (p.space_id ?? null) === spaceId && !p.folder_id && (!isSearching || visibleTree.projectIds.has(p.id)),
+    );
 
   const handleDeleteSpace = async (sp: Space) => {
     if (!confirm(`Delete space "${sp.name}"? Folders inside will be deleted; lists will become unfiled.`)) return;
@@ -74,7 +169,7 @@ export default function Panel({ pathname, onNavigate }: PanelProps) {
   };
 
   const handleDeleteFolder = async (f: FolderT) => {
-    if (!confirm(`Delete folder "${f.name}"? Lists inside will move directly under the space.`)) return;
+    if (!confirm(`Delete folder "${f.name}"? Child folders and lists will move up one level.`)) return;
     try {
       const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
       if (res.ok) {
@@ -99,7 +194,7 @@ export default function Panel({ pathname, onNavigate }: PanelProps) {
     loadPanel,
     setMoveTarget,
     setRenameTarget,
-    setCreateFolderForSpace,
+    setCreateFolderTarget,
     setRenameFolderTarget,
     setCreateListFor,
     handleDeleteSpace,
@@ -111,32 +206,74 @@ export default function Panel({ pathname, onNavigate }: PanelProps) {
   return (
     <>
       <div className="flex flex-col h-full w-full glass-rail border-l border-white/5">
-        <WorkspaceSwitcher />
+        <WorkspaceSwitcher
+          initialData={{
+            workspaces,
+            current_workspace_id: currentWorkspaceId,
+            current_role: currentRole,
+          }}
+        />
         <PanelNav
           pathname={pathname}
           onNavigate={onNavigate}
           onCreateSpace={() => setShowCreate(true)}
+          onCollapseAll={() =>
+            collapseAll([
+              ...spaces.map((space) => space.id),
+              ...folders.map((folder) => folder.id),
+              "__unassigned__",
+            ])
+          }
         />
 
         <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1">
+          <div className="sticky top-0 z-10 bg-background/80 pb-2 pt-1 backdrop-blur">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={sidebarQuery}
+                onChange={(event) => setSidebarQuery(event.target.value)}
+                placeholder="Search spaces..."
+                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-8 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              />
+              {sidebarQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSidebarQuery("")}
+                  aria-label="Clear sidebar search"
+                  className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </label>
+          </div>
           {loadingPanel ? (
             <div className="px-2 py-4 text-xs text-muted-foreground">Loading…</div>
           ) : (
             <>
-              {spaces.map((sp) => (
+              {visibleTree.spaces.map((sp) => (
                 <SpaceNode
                   key={sp.id}
                   space={sp}
-                  folders={folders}
                   looseLists={projectsInSpaceLoose(sp.id)}
                   foldersBySpace={foldersBySpace(sp.id)}
-                  totalCount={projectsBySpace(sp.id).length}
+                  childFoldersByParent={childFoldersByParent}
                   projectsByFolder={projectsByFolder}
+                  isSearching={isSearching}
                   {...treeHandlers}
                 />
               ))}
 
-              {!(unassignedItems.length === 0 && spaces.length > 0) && (
+              {isSearching && visibleTree.spaces.length === 0 && unassignedItems.length === 0 && (
+                <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                  No spaces, folders, or lists match <span className="text-foreground">{sidebarQuery.trim()}</span>.
+                </div>
+              )}
+
+              {((isSearching && unassignedItems.length > 0) ||
+                (!isSearching && !(unassignedItems.length === 0 && spaces.length > 0))) && (
                 <UnassignedNode
                   items={unassignedItems}
                   collapsed={collapsed}
@@ -145,10 +282,11 @@ export default function Panel({ pathname, onNavigate }: PanelProps) {
                   onNavigate={onNavigate}
                   loadPanel={loadPanel}
                   setMoveTarget={setMoveTarget}
+                  isSearching={isSearching}
                 />
               )}
 
-              {spaces.length === 0 && unassignedItems.length === 0 && (
+              {!isSearching && spaces.length === 0 && unassignedItems.length === 0 && (
                 <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                   <p>No spaces yet.</p>
                   <button
@@ -200,13 +338,13 @@ export default function Panel({ pathname, onNavigate }: PanelProps) {
         />
       )}
 
-      {createFolderForSpace && (
+      {createFolderTarget && (
         <FolderDialog
           mode="create"
-          space={createFolderForSpace}
-          onClose={() => setCreateFolderForSpace(null)}
+          target={createFolderTarget}
+          onClose={() => setCreateFolderTarget(null)}
           onSaved={() => {
-            setCreateFolderForSpace(null);
+            setCreateFolderTarget(null);
             loadPanel();
           }}
         />

@@ -62,7 +62,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     await ctx.close();
   });
 
-  test("each stat card filters the upcoming-tasks list and aria-pressed reflects state", async ({
+  test("each stat card opens an explicit filtered task drawer", async ({
     browser,
     baseURL,
   }) => {
@@ -83,12 +83,8 @@ test.describe("Dashboard quick actions and task rows", () => {
       await expect(card).toHaveAttribute("aria-pressed", "false");
       await card.click();
       await expect(card).toHaveAttribute("aria-pressed", "true");
-      // The filtered-list header text in the section above swaps.
-      await expect(
-        page.locator("section").filter({ has: page.getByRole("heading", { name: heading, exact: true }) }).first(),
-      ).toBeVisible();
-      // Click again to toggle off.
-      await card.click();
+      await expect(page.getByRole("heading", { name: `${heading} actions`, exact: false })).toBeVisible();
+      await page.getByRole("button", { name: "Close task drawer" }).click();
       await expect(card).toHaveAttribute("aria-pressed", "false");
     }
     await expect(list.getByRole("heading", { name: "Upcoming tasks" })).toBeVisible();

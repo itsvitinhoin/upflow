@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { logError } from "@/lib/log-error";
+import { getCachedJson, primeCachedJson } from "@/lib/client-cache";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceLite {
@@ -17,20 +18,30 @@ interface ListResponse {
   workspaces: WorkspaceLite[];
   current_workspace_id: string;
   current_role: WorkspaceLite["role"] | null;
+  is_super_admin?: boolean;
 }
 
-export default function WorkspaceSwitcher() {
+export default function WorkspaceSwitcher({
+  initialData,
+}: {
+  initialData?: ListResponse;
+}) {
   const [open, setOpen] = useState(false);
-  const [data, setData] = useState<ListResponse | null>(null);
+  const [data, setData] = useState<ListResponse | null>(initialData ?? null);
   const [busy, setBusy] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    fetch("/api/workspaces")
-      .then((r) => (r.ok ? r.json() : null))
+    if (initialData) {
+      primeCachedJson("workspaces", initialData);
+      return;
+    }
+    getCachedJson<ListResponse>("workspaces", "/api/workspaces", {
+      ttlMs: 60_000,
+    })
       .then((d) => setData(d))
       .catch((err) => logError("workspace-switcher:load", err));
-  }, []);
+  }, [initialData]);
 
   useEffect(() => {
     if (!open) return;

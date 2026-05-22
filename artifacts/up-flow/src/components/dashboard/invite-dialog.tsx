@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Loader2, Mail } from "lucide-react";
+
+type InviteErrorCode =
+  | "APP_URL_MISSING"
+  | "EMAIL_NOT_CONFIGURED"
+  | "EMAIL_SEND_FAILED";
 
 export default function InviteDialog({
   open,
@@ -14,6 +19,15 @@ export default function InviteDialog({
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState("member");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<{
+    message: string;
+    code?: InviteErrorCode;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+  }, [open]);
 
   if (!open) return null;
 
@@ -28,6 +42,7 @@ export default function InviteDialog({
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/invites", {
         method: "POST",
@@ -36,24 +51,25 @@ export default function InviteDialog({
       });
       const data = (await res.json()) as {
         error?: string;
+        code?: InviteErrorCode;
         sent?: number;
         mailed?: number;
       };
-      if (!res.ok) throw new Error(data.error || "Failed");
+      if (!res.ok) {
+        setError({
+          message: data.error || "Could not send invites",
+          code: data.code,
+        });
+        throw new Error(data.error || "Failed");
+      }
       const sent = data.sent ?? 0;
       const mailed = data.mailed ?? sent;
       const noun = `teammate${sent === 1 ? "" : "s"}`;
-      if (mailed === sent) {
-        toast.success(`Invited ${sent} ${noun}`);
-      } else if (mailed === 0) {
-        toast.warning(
-          `Invited ${sent} ${noun}, but no emails were sent. Copy the accept link from the team page.`,
-        );
-      } else {
-        toast.warning(
-          `Invited ${sent} ${noun}; only ${mailed} email${mailed === 1 ? "" : "s"} delivered. Check the team page to resend.`,
-        );
+      if (mailed !== sent) {
+        setError({ message: "Invite email delivery was not confirmed" });
+        throw new Error("Invite email delivery was not confirmed");
       }
+      toast.success(`Invited ${sent} ${noun}`);
       setEmails("");
       onClose();
     } catch (err: unknown) {
@@ -107,6 +123,17 @@ export default function InviteDialog({
         <p className="text-[11px] text-muted-foreground mt-2">
           We&apos;ll email each address an invitation link.
         </p>
+        {error && (
+          <div className="mt-4 rounded-lg border border-upflow-danger/30 bg-upflow-danger/10 px-3 py-2">
+            <p className="text-xs font-medium text-upflow-danger">
+              {error.code ? `${error.code}: ` : ""}
+              {error.message}
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {inviteErrorHint(error.code)}
+            </p>
+          </div>
+        )}
         <div className="flex gap-2 mt-6">
           <button
             type="button"
@@ -127,4 +154,17 @@ export default function InviteDialog({
       </form>
     </div>
   );
+}
+
+function inviteErrorHint(code?: InviteErrorCode) {
+  if (code === "APP_URL_MISSING") {
+    return "Set APP_URL to the canonical public app URL and restart the app.";
+  }
+  if (code === "EMAIL_NOT_CONFIGURED") {
+    return "Set RESEND_API_KEY and EMAIL_FROM with a verified Resend sender, then restart the app.";
+  }
+  if (code === "EMAIL_SEND_FAILED") {
+    return "Check the Resend dashboard, API key, sender verification, recipient restrictions, and provider message.";
+  }
+  return "Check invite email setup and try again.";
 }

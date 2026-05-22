@@ -9,6 +9,7 @@ import {
   Inbox,
   Calendar,
   Kanban,
+  Building2,
   HelpCircle,
   Layers,
   type LucideIcon,
@@ -29,6 +30,7 @@ export const primaryNav: NavItem[] = [
   { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/projects", label: "Projects", icon: Kanban },
+  { href: "/clients", label: "Clients", icon: Building2 },
 ];
 
 interface RailProps {
@@ -99,16 +101,19 @@ export function Rail({
         <button
           onClick={onTogglePanel}
           title={panelOpen ? "Hide spaces" : "Show spaces"}
-          aria-label="Toggle spaces"
+          aria-label={panelOpen ? "Hide folders" : "Show folders"}
           aria-pressed={panelOpen}
           className={cn(
-            "mt-1 flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
+            "group relative mt-1 flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
             panelOpen
               ? "text-primary bg-primary/15"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
           <Layers className="w-[18px] h-[18px]" />
+          <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            {panelOpen ? "Hide folders" : "Show folders"}
+          </span>
         </button>
       </nav>
 

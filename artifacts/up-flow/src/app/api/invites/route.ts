@@ -1,17 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { sendEmail } from "@/lib/email/send";
+import { emailIsConfigured, sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
+type InviteFailureCode =
+  | "APP_URL_MISSING"
+  | "EMAIL_NOT_CONFIGURED"
+  | "EMAIL_SEND_FAILED";
+
 function generateToken(): string {
   return randomBytes(24).toString("base64url");
+}
+
+function inviteFailure(
+  code: InviteFailureCode,
+  error: string,
+  status = 503,
+) {
+  return NextResponse.json({ error, code }, { status });
+}
+
+function emailFingerprint(email: string): string {
+  return createHash("sha256").update(email).digest("hex").slice(0, 12);
 }
 
 // GET: list pending invites for the active workspace (admin only)
@@ -82,19 +99,35 @@ async function POST_handler(req: NextRequest) {
   // De-duplicate.
   const unique = Array.from(new Set(emails));
 
-  // If APP_URL is missing in production we still create the invite
-  // tokens — admins can paste them once the config is fixed — but we
-  // skip the email send so we never build a recovery URL from a
-  // potentially-poisoned Host header.
-  let origin: string | null = null;
+  // Invite links are only useful when they can be emailed. In production,
+  // fail before creating tokens if the canonical app URL or provider config
+  // is missing so admins never see a misleading "invited" success.
+  let origin: string;
   try {
     origin = getEmailOrigin(req);
   } catch (err) {
     if (err instanceof EmailOriginError) {
-      logError("invites:create:origin", err);
-    } else {
-      throw err;
+      logError("invites:send", err, {
+        code: "APP_URL_MISSING",
+        recipientCount: unique.length,
+      });
+      return inviteFailure(
+        "APP_URL_MISSING",
+        "Email invite links require APP_URL to be configured.",
+      );
     }
+    throw err;
+  }
+
+  if (!emailIsConfigured()) {
+    logError("invites:send", new Error("RESEND_API_KEY not set"), {
+      code: "EMAIL_NOT_CONFIGURED",
+      recipientCount: unique.length,
+    });
+    return inviteFailure(
+      "EMAIL_NOT_CONFIGURED",
+      "Email backend not configured. Set RESEND_API_KEY before sending invites.",
+    );
   }
 
   // Pull workspace name once for the email body.
@@ -133,46 +166,59 @@ async function POST_handler(req: NextRequest) {
         }));
       return {
         ...invite,
-        // When origin is unavailable in production we fall back to a
-        // path-only accept URL; admins can prepend the canonical host.
-        accept_url: `${origin ?? ""}/invite/${invite.token}`,
+        accept_url: `${origin}/invite/${invite.token}`,
         reused: existing !== null,
       };
     }),
   );
 
-  // Send the invite emails. Failures are logged but don't fail the request
-  // — admins can still copy the accept link from the response payload.
-  // If origin is null (APP_URL missing in production) we skip the send
-  // entirely so we never email a fabricated URL.
+  // Send the invite emails. Production success means every provider call was
+  // accepted; new records whose send fails are removed so pending invites do
+  // not imply that an email actually went out.
   let mailed = 0;
-  if (origin === null) {
-    return NextResponse.json(
-      { success: true, sent: created.length, mailed: 0, invites: created },
-      { status: 201 },
+  for (const invite of created) {
+    const rendered = inviteEmail({
+      workspaceName: workspace?.name ?? "your team",
+      inviterName,
+      inviterEmail,
+      acceptUrl: invite.accept_url,
+      role: invite.role === "admin" ? "admin" : "member",
+    });
+    const result = await sendEmail({
+      to: invite.email,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+      replyTo: inviterEmail,
+      scope: "invites:send",
+    });
+    if (result.ok) {
+      mailed += 1;
+      continue;
+    }
+
+    if (!invite.reused) {
+      await prisma.workspaceInvite
+        .delete({ where: { id: invite.id } })
+        .catch((err) => {
+          logError("invites:send:rollback", err, {
+            invite_id: invite.id,
+            recipientHash: emailFingerprint(invite.email),
+          });
+        });
+    }
+    logError("invites:send", new Error(result.error ?? "unknown"), {
+      code: "EMAIL_SEND_FAILED",
+      invite_id: invite.id,
+      recipientHash: emailFingerprint(invite.email),
+      reused: invite.reused,
+    });
+    return inviteFailure(
+      "EMAIL_SEND_FAILED",
+      result.error || "Email provider rejected the invite.",
+      502,
     );
   }
-  await Promise.all(
-    created.map(async (invite) => {
-      const rendered = inviteEmail({
-        workspaceName: workspace?.name ?? "your team",
-        inviterName,
-        inviterEmail,
-        acceptUrl: invite.accept_url,
-        role: invite.role === "admin" ? "admin" : "member",
-      });
-      const result = await sendEmail({
-        to: invite.email,
-        subject: rendered.subject,
-        html: rendered.html,
-        text: rendered.text,
-        replyTo: inviterEmail,
-        scope: "invites:send",
-      });
-      if (result.ok) mailed += 1;
-      else logError("invites:send", new Error(result.error ?? "unknown"), { email: invite.email });
-    }),
-  );
 
   return NextResponse.json(
     { success: true, sent: created.length, mailed, invites: created },
