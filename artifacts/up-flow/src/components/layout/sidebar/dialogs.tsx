@@ -33,7 +33,7 @@ export function SpaceDialog({
   mode: "create" | "rename";
   space?: Space;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (space: Space) => void;
 }) {
   const [name, setName] = useState(space?.name ?? "");
   const [icon, setIcon] = useState(space?.icon ?? ICONS[0]);
@@ -52,8 +52,9 @@ export function SpaceDialog({
         body: JSON.stringify({ name: name.trim(), icon }),
       });
       if (!res.ok) throw new Error(`Space ${mode} → ${res.status}`);
+      const saved = (await res.json()) as Space;
       toast.success(mode === "create" ? "Space created" : "Space renamed");
-      onSaved();
+      onSaved(saved);
     } catch (err) {
       logError("sidebar:space-dialog", err, { mode });
       toast.error("Could not save space");

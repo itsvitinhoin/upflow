@@ -54,6 +54,7 @@ export default function Panel({
     setMenuOpenId,
     loadPanel,
     collapseAll,
+    upsertSpace,
   } = usePanelData(pathname);
 
   const [showCreate, setShowCreate] = useState(false);
@@ -306,8 +307,10 @@ export default function Panel({
         <SpaceDialog
           mode="create"
           onClose={() => setShowCreate(false)}
-          onSaved={() => {
+          onSaved={(space) => {
             setShowCreate(false);
+            setSidebarQuery("");
+            upsertSpace(space);
             loadPanel({ force: true });
           }}
         />
@@ -318,8 +321,9 @@ export default function Panel({
           mode="rename"
           space={renameTarget}
           onClose={() => setRenameTarget(null)}
-          onSaved={() => {
+          onSaved={(space) => {
             setRenameTarget(null);
+            upsertSpace(space);
             loadPanel({ force: true });
           }}
         />

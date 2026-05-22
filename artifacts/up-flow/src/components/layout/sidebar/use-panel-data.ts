@@ -212,6 +212,29 @@ export function usePanelData(pathname: string) {
     });
   }, []);
 
+  const upsertSpace = useCallback((space: Space) => {
+    setSpaces((current) => {
+      const exists = current.some((item) => item.id === space.id);
+      const next = exists
+        ? current.map((item) => (item.id === space.id ? space : item))
+        : [...current, space].sort((a, b) => {
+            const positionDelta = (a.position ?? 0) - (b.position ?? 0);
+            if (positionDelta !== 0) return positionDelta;
+            return a.name.localeCompare(b.name);
+          });
+      if (panelCache) {
+        panelCache = {
+          ...panelCache,
+          data: {
+            ...panelCache.data,
+            spaces: { ...panelCache.data.spaces, items: next },
+          },
+        };
+      }
+      return next;
+    });
+  }, []);
+
   return {
     spaces,
     folders,
@@ -223,5 +246,6 @@ export function usePanelData(pathname: string) {
     setMenuOpenId,
     loadPanel,
     collapseAll,
+    upsertSpace,
   };
 }
