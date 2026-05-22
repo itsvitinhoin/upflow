@@ -158,7 +158,7 @@ export default function Panel({
       const res = await fetch(`/api/spaces/${sp.id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Space deleted");
-        loadPanel();
+        loadPanel({ force: true });
       } else {
         toast.error("Could not delete space");
       }
@@ -174,7 +174,7 @@ export default function Panel({
       const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Folder deleted");
-        loadPanel();
+        loadPanel({ force: true });
       } else {
         toast.error("Could not delete folder");
       }
@@ -308,7 +308,7 @@ export default function Panel({
           onClose={() => setShowCreate(false)}
           onSaved={() => {
             setShowCreate(false);
-            loadPanel();
+            loadPanel({ force: true });
           }}
         />
       )}
@@ -320,7 +320,7 @@ export default function Panel({
           onClose={() => setRenameTarget(null)}
           onSaved={() => {
             setRenameTarget(null);
-            loadPanel();
+            loadPanel({ force: true });
           }}
         />
       )}
@@ -333,7 +333,7 @@ export default function Panel({
           onClose={() => setMoveTarget(null)}
           onSaved={() => {
             setMoveTarget(null);
-            loadPanel();
+            loadPanel({ force: true });
           }}
         />
       )}
@@ -345,7 +345,7 @@ export default function Panel({
           onClose={() => setCreateFolderTarget(null)}
           onSaved={() => {
             setCreateFolderTarget(null);
-            loadPanel();
+            loadPanel({ force: true });
           }}
         />
       )}
@@ -357,7 +357,7 @@ export default function Panel({
           onClose={() => setRenameFolderTarget(null)}
           onSaved={() => {
             setRenameFolderTarget(null);
-            loadPanel();
+            loadPanel({ force: true });
           }}
         />
       )}
@@ -368,7 +368,7 @@ export default function Panel({
           onClose={() => setCreateListFor(null)}
           onSaved={() => {
             setCreateListFor(null);
-            loadPanel();
+            loadPanel({ force: true });
           }}
         />
       )}
