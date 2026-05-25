@@ -81,6 +81,7 @@ model User {
   id                       String                  @id @default(uuid())
   email                    String                  @unique
   name                     String
+  phone                    String?
   avatar_url               String?
   role                     Role                    @default(member)
   password_hash            String?

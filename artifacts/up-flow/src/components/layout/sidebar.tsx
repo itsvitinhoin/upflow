@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -24,7 +24,6 @@ const PANEL_KEY = "upflow.sidebar.spacesOpen";
 
 export default function Sidebar({ user, workspaces }: SidebarProps) {
   const pathname = usePathname() ?? "";
-  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -63,10 +62,10 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
     setSigningOut(true);
     try {
       const supabase = createSupabaseBrowserClient();
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
       await supabase.auth.signOut();
       toast.success("Signed out");
-      router.push("/login");
-      router.refresh();
+      window.location.assign("/login");
     } catch (err) {
       logError("sidebar:sign-out", err);
       toast.error("Sign-out failed; please try again");

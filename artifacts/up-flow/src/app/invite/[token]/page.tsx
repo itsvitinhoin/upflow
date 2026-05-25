@@ -23,7 +23,9 @@ export default function AcceptInvitePage({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<"create" | "signin">("create");
-  const [name, setName] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function AcceptInvitePage({
         }
         const data = (await r.json()) as InviteInfo;
         setInfo(data);
-        setName(data.email.split("@")[0]);
+        setAccountEmail(data.email);
       })
       .catch(() => setError("Failed to load invite"));
   }, [params.token]);
@@ -71,7 +73,13 @@ export default function AcceptInvitePage({
     const r = await fetch("/api/invites/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: params.token, name, password }),
+      body: JSON.stringify({
+        token: params.token,
+        email: accountEmail,
+        full_name: fullName,
+        phone,
+        password,
+      }),
     });
     const data = await r.json().catch(() => ({}));
     if (r.status === 202 && data.code === "SIGN_IN_REQUIRED") {
@@ -159,12 +167,39 @@ export default function AcceptInvitePage({
               <form onSubmit={createAccount} className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Name
+                    Email
                   </label>
                   <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your name"
+                    type="email"
+                    value={accountEmail}
+                    onChange={(e) => setAccountEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Full name
+                  </label>
+                  <input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your full name"
+                    required
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Cellphone number
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+55 11 99999-9999"
+                    required
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
                   />
                 </div>

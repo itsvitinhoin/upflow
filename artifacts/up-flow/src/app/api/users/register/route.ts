@@ -25,6 +25,7 @@ async function POST_handler(req: NextRequest) {
     email?: string;
     password?: string;
     name?: string;
+    phone?: string;
     workspace_id?: string;
     role?: "admin" | "member";
     tester_account?: boolean;
@@ -32,6 +33,7 @@ async function POST_handler(req: NextRequest) {
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const name = body.name?.trim() || (email ? email.split("@")[0] : undefined);
+  const phone = body.phone?.trim() || null;
   const role = body.role === "admin" && !body.tester_account ? "admin" : "member";
 
   if (!email) {
@@ -117,15 +119,15 @@ async function POST_handler(req: NextRequest) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { name },
+    user_metadata: { name, full_name: name, phone },
   });
   if (supabaseErr) {
     const msg = supabaseErr.message.toLowerCase();
     if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
       const user = await prisma.user.upsert({
         where: { email },
-        create: { email, name: name ?? email.split("@")[0], role: "member" },
-        update: { name: name ?? email.split("@")[0] },
+        create: { email, name: name ?? email.split("@")[0], phone, role: "member" },
+        update: { name: name ?? email.split("@")[0], phone },
         select: { id: true },
       });
       await prisma.workspaceMember.upsert({
@@ -144,7 +146,7 @@ async function POST_handler(req: NextRequest) {
   }
 
   const created = await prisma.user.create({
-    data: { email, name: name ?? email.split("@")[0], role: "member" },
+    data: { email, name: name ?? email.split("@")[0], phone, role: "member" },
     select: { id: true },
   });
 

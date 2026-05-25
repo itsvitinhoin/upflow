@@ -16,13 +16,27 @@ async function POST_handler(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as {
     token?: string;
-    name?: string;
+    email?: string;
+    full_name?: string;
     password?: string;
+    phone?: string;
   };
   const token = body.token?.trim();
+  const submittedEmail = body.email?.trim().toLowerCase();
+  const fullName = body.full_name?.trim();
+  const phone = body.phone?.trim();
   const password = body.password ?? "";
 
   if (!token) return NextResponse.json({ error: "Token required" }, { status: 400 });
+  if (!submittedEmail) {
+    return NextResponse.json({ error: "Email is required" }, { status: 400 });
+  }
+  if (!fullName) {
+    return NextResponse.json({ error: "Full name is required" }, { status: 400 });
+  }
+  if (!phone) {
+    return NextResponse.json({ error: "Cellphone number is required" }, { status: 400 });
+  }
   if (password.length < 8) {
     return NextResponse.json(
       { error: "Password must be at least 8 characters" },
@@ -47,7 +61,12 @@ async function POST_handler(req: NextRequest) {
   }
 
   const email = invite.email.toLowerCase();
-  const name = body.name?.trim() || email.split("@")[0];
+  if (submittedEmail !== email) {
+    return NextResponse.json(
+      { error: `This invite is for ${invite.email}. Use that email to create the account.` },
+      { status: 403 },
+    );
+  }
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -78,7 +97,7 @@ async function POST_handler(req: NextRequest) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { name },
+    user_metadata: { name: fullName, full_name: fullName, phone },
   });
 
   if (createError) {
@@ -102,7 +121,7 @@ async function POST_handler(req: NextRequest) {
 
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
-      data: { email, name, role: "member" },
+      data: { email, name: fullName, phone, role: "member" },
       select: { id: true },
     });
 
