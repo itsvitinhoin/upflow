@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
@@ -175,9 +176,17 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid company", issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  const updateData = { ...parsed.data } as Record<string, unknown>;
+  if ("included_services" in parsed.data) {
+    updateData.included_services =
+      parsed.data.included_services === null
+        ? Prisma.JsonNull
+        : parsed.data.included_services;
+  }
+
   const updated = await prisma.company.update({
     where: { id: company.id },
-    data: parsed.data,
+    data: updateData as unknown as Prisma.CompanyUncheckedUpdateInput,
   });
 
   await recordActivity({
