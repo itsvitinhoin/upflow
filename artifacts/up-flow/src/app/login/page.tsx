@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,6 +11,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [nextPath, setNextPath] = useState("/");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    const inviteEmail = params.get("email");
+    if (next?.startsWith("/")) setNextPath(next);
+    if (inviteEmail) setEmail(inviteEmail);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +39,7 @@ export default function LoginPage() {
       } else if (!res.ok) {
         toast.error(body.error || "Login failed");
       } else {
-        router.push("/");
+        router.push(nextPath);
         router.refresh();
       }
     } catch {

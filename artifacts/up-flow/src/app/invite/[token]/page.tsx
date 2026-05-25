@@ -22,6 +22,9 @@ export default function AcceptInvitePage({
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"create" | "signin">("create");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     fetch(`/api/invites/accept?token=${encodeURIComponent(params.token)}`)
@@ -33,6 +36,7 @@ export default function AcceptInvitePage({
         }
         const data = (await r.json()) as InviteInfo;
         setInfo(data);
+        setName(data.email.split("@")[0]);
       })
       .catch(() => setError("Failed to load invite"));
   }, [params.token]);
@@ -58,6 +62,37 @@ export default function AcceptInvitePage({
       return;
     }
     router.push("/");
+  }
+
+  async function createAccount(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const r = await fetch("/api/invites/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: params.token, name, password }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (r.status === 202 && data.code === "SIGN_IN_REQUIRED") {
+      router.push(
+        `/login?next=${encodeURIComponent(`/invite/${params.token}`)}&email=${encodeURIComponent(info?.email ?? "")}`,
+      );
+      return;
+    }
+    if (r.status === 409 && data.code === "ACCOUNT_EXISTS") {
+      setMode("signin");
+      setError(data.error || "Account already exists. Sign in to accept.");
+      setBusy(false);
+      return;
+    }
+    if (!r.ok) {
+      setError(data.error || "Could not create account");
+      setBusy(false);
+      return;
+    }
+    router.push("/");
+    router.refresh();
   }
 
   return (
@@ -95,22 +130,86 @@ export default function AcceptInvitePage({
                 access to real client workspaces.
               </p>
             )}
-            <button
-              onClick={accept}
-              disabled={busy}
-              className="w-full rounded-lg bg-foreground text-background py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {busy ? "Accepting..." : "Accept invite"}
-            </button>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              Not signed in with {info.email}?{" "}
-              <Link
-                href={`/login?next=${encodeURIComponent(`/invite/${params.token}`)}`}
-                className="underline"
+            <div className="mb-4 grid grid-cols-2 rounded-lg border border-white/10 bg-white/5 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setMode("create")}
+                className={`rounded-md px-3 py-2 font-medium transition ${
+                  mode === "create"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                Sign in or ask your admin for access
-              </Link>
-            </p>
+                Create account
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className={`rounded-md px-3 py-2 font-medium transition ${
+                  mode === "signin"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Sign in
+              </button>
+            </div>
+
+            {mode === "create" ? (
+              <form onSubmit={createAccount} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Name
+                  </label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    minLength={8}
+                    required
+                    placeholder="Minimum 8 characters"
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                >
+                  {busy ? "Creating..." : "Create account and join"}
+                </button>
+              </form>
+            ) : (
+              <>
+                <button
+                  onClick={accept}
+                  disabled={busy}
+                  className="w-full rounded-lg bg-foreground py-2 text-sm font-medium text-background disabled:opacity-50"
+                >
+                  {busy ? "Accepting..." : "Accept invite"}
+                </button>
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  You must be signed in as {info.email}.{" "}
+                  <Link
+                    href={`/login?next=${encodeURIComponent(`/invite/${params.token}`)}&email=${encodeURIComponent(info.email)}`}
+                    className="underline"
+                  >
+                    Sign in here
+                  </Link>
+                </p>
+              </>
+            )}
           </>
         )}
       </div>
