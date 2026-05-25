@@ -13,6 +13,12 @@ import {
   Search,
   UserPlus,
   AlertTriangle,
+  ShieldCheck,
+  MailCheck,
+  XCircle,
+  CheckCircle2,
+  KeyRound,
+  Copy,
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import InviteDialog from "@/components/dashboard/invite-dialog";
@@ -30,7 +36,14 @@ interface PendingInvite {
   email: string;
   role: "admin" | "member";
   token: string;
+  tester_invite?: boolean;
+  send_status?: "pending" | "sent" | "failed";
+  send_error?: string | null;
+  last_sent_at?: string | null;
+  accepted_by?: string | null;
+  accepted_at?: string | null;
   created_at: string;
+  workspace?: { id: string; name: string; slug: string };
   inviter: { id: string; name: string; email: string } | null;
 }
 
@@ -50,6 +63,12 @@ interface TeamOverview {
   departments: Department[];
 }
 
+interface TesterWorkspace {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 const UNASSIGNED_KEY = "__unassigned__";
 const COLLAPSE_STORAGE_KEY = "upflow:team:collapsedDepartments";
 
@@ -64,13 +83,25 @@ export default function TeamPage() {
   const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
+  const [cancelingInvite, setCancelingInvite] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showEmpty, setShowEmpty] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [testerInviteOpen, setTesterInviteOpen] = useState(false);
+  const [testerAccountOpen, setTesterAccountOpen] = useState(false);
   const [inviteDiagnosticsLoaded, setInviteDiagnosticsLoaded] = useState(false);
+  const [testerWorkspace, setTesterWorkspace] = useState<TesterWorkspace | null>(null);
+  const [testerInvites, setTesterInvites] = useState<PendingInvite[]>([]);
+  const [settingUpTesterWorkspace, setSettingUpTesterWorkspace] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [emailTestStatus, setEmailTestStatus] = useState<{
+    ok: boolean;
+    message: string;
+    checkedAt: string;
+  } | null>(null);
 
   // Mirrors the server's `isWorkspaceAdmin` semantics: workspace owner/admin
   // OR cross-workspace super-admin can manage departments + assignments.
@@ -100,6 +131,52 @@ export default function TeamPage() {
       setEmailStatus(null);
     }
   }, []);
+
+  const loadTesterInvites = useCallback(async (targetWorkspaceId: string) => {
+    try {
+      const qs = new URLSearchParams({
+        scope: "testers",
+        include: "all",
+        workspace_id: targetWorkspaceId,
+      });
+      const r = await fetch(`/api/invites?${qs.toString()}`);
+      if (!r.ok) return;
+      const data = (await r.json()) as PendingInvite[];
+      setTesterInvites(Array.isArray(data) ? data : []);
+    } catch {
+      /* noop */
+    }
+  }, []);
+
+  const ensureTesterWorkspace = useCallback(
+    async (options?: { openDialog?: boolean }) => {
+      setSettingUpTesterWorkspace(true);
+      setToast(null);
+      try {
+        const r = await fetch("/api/testers/workspace", { method: "POST" });
+        const data = (await r.json().catch(() => ({}))) as {
+          workspace?: TesterWorkspace;
+          error?: string;
+        };
+        if (!r.ok || !data.workspace) {
+          setToast(data.error || "Couldn't prepare the tester workspace");
+          return null;
+        }
+        setTesterWorkspace(data.workspace);
+        await loadTesterInvites(data.workspace.id);
+        if (options?.openDialog) {
+          setTesterInviteOpen(true);
+        }
+        return data.workspace;
+      } catch {
+        setToast("Couldn't prepare the tester workspace");
+        return null;
+      } finally {
+        setSettingUpTesterWorkspace(false);
+      }
+    },
+    [loadTesterInvites],
+  );
 
   const loadInviteDiagnostics = useCallback(async () => {
     if (inviteDiagnosticsLoaded) return;
@@ -149,7 +226,7 @@ export default function TeamPage() {
         const overview = await getCachedJson<TeamOverview>(
           "team:overview",
           "/api/team/overview",
-          { ttlMs: 30_000 },
+          { ttlMs: 0, force: true },
         );
         if (cancelled) return;
         const wsId: string | null = overview.workspace?.id ?? null;
@@ -317,7 +394,12 @@ export default function TeamPage() {
       const r = await fetch("/api/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails: [invite.email], role: invite.role }),
+        body: JSON.stringify({
+          emails: [invite.email],
+          role: invite.role,
+          ...(invite.workspace?.id ? { workspace_id: invite.workspace.id } : {}),
+          ...(invite.tester_invite ? { tester_invite: true } : {}),
+        }),
       });
       if (!r.ok) {
         const json = (await r.json().catch(() => ({}))) as { error?: string };
@@ -331,12 +413,78 @@ export default function TeamPage() {
         } else {
           setToast("Invite email delivery was not confirmed");
         }
-        loadPending();
+        if (invite.tester_invite && invite.workspace?.id) {
+          loadTesterInvites(invite.workspace.id);
+        } else {
+          loadPending();
+        }
       }
     } catch {
       setToast(`Couldn't resend to ${invite.email}`);
     } finally {
       setResending(null);
+    }
+  }
+
+  async function cancelInvite(invite: PendingInvite) {
+    if (!window.confirm(`Cancel invite for ${invite.email}?`)) return;
+    setCancelingInvite(invite.id);
+    setToast(null);
+    try {
+      const r = await fetch("/api/invites", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: invite.id }),
+      });
+      const json = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) {
+        setToast(json.error || `Couldn't cancel invite for ${invite.email}`);
+        return;
+      }
+      setToast(`Invite canceled for ${invite.email}`);
+      if (invite.tester_invite && invite.workspace?.id) {
+        loadTesterInvites(invite.workspace.id);
+      } else {
+        loadPending();
+      }
+    } catch {
+      setToast(`Couldn't cancel invite for ${invite.email}`);
+    } finally {
+      setCancelingInvite(null);
+    }
+  }
+
+  async function sendEmailTest() {
+    setTestingEmail(true);
+    setEmailTestStatus(null);
+    try {
+      const r = await fetch("/api/email/test", { method: "POST" });
+      const json = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        recipient?: string;
+      };
+      if (!r.ok) {
+        setEmailTestStatus({
+          ok: false,
+          message: json.error || "Email provider rejected the test message.",
+          checkedAt: new Date().toLocaleTimeString(),
+        });
+        return;
+      }
+      setEmailTestStatus({
+        ok: true,
+        message: `Test email accepted for ${json.recipient || "your admin email"}.`,
+        checkedAt: new Date().toLocaleTimeString(),
+      });
+    } catch {
+      setEmailTestStatus({
+        ok: false,
+        message: "Could not send the test email.",
+        checkedAt: new Date().toLocaleTimeString(),
+      });
+    } finally {
+      setTestingEmail(false);
+      loadEmailStatus();
     }
   }
 
@@ -393,6 +541,19 @@ export default function TeamPage() {
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  ensureTesterWorkspace().then((workspace) => {
+                    if (workspace) setTesterAccountOpen(true);
+                  });
+                }}
+                disabled={settingUpTesterWorkspace}
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 disabled:opacity-60 transition-colors"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                {settingUpTesterWorkspace ? "Preparing..." : "Create tester"}
+              </button>
+              <button
+                type="button"
                 onClick={() => setManageOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
               >
@@ -403,8 +564,35 @@ export default function TeamPage() {
           )}
         </div>
 
-        {isAdmin && emailStatus && !emailStatus.ready && (
-          <EmailSetupWarning status={emailStatus} />
+        {isAdmin && emailStatus && (
+          <EmailSetupWarning
+            status={emailStatus}
+            emailTestStatus={emailTestStatus}
+            testingEmail={testingEmail}
+            onSendTest={sendEmailTest}
+          />
+        )}
+
+        {isAdmin && (
+          <TesterInvitePanel
+            workspace={testerWorkspace}
+            invites={testerInvites}
+            settingUp={settingUpTesterWorkspace}
+            resending={resending}
+            canceling={cancelingInvite}
+            onPrepare={() => ensureTesterWorkspace()}
+            onInvite={() => {
+              loadInviteDiagnostics();
+              ensureTesterWorkspace({ openDialog: true });
+            }}
+            onCreateAccount={() => {
+              ensureTesterWorkspace().then((workspace) => {
+                if (workspace) setTesterAccountOpen(true);
+              });
+            }}
+            onResend={resendInvite}
+            onCancel={cancelInvite}
+          />
         )}
 
         <div className="mb-4 flex items-center gap-3 flex-wrap">
@@ -663,6 +851,7 @@ export default function TeamPage() {
                         </p>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => resendInvite(p)}
@@ -680,8 +869,19 @@ export default function TeamPage() {
                           resending === p.id && "animate-spin",
                         )}
                       />
-                      {resending === p.id ? "Sending…" : "Resend"}
+                      {resending === p.id ? "Sending..." : "Resend"}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => cancelInvite(p)}
+                      disabled={cancelingInvite === p.id}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-upflow-danger/10 hover:text-upflow-danger disabled:opacity-60"
+                      aria-label={`Cancel invite to ${p.email}`}
+                    >
+                      <XCircle className="h-3.5 w-3.5" />
+                      Cancel
+                    </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -715,36 +915,544 @@ export default function TeamPage() {
             }
           }}
         />
+        <InviteDialog
+          open={testerInviteOpen}
+          title="Invite testers"
+          description={
+            testerWorkspace
+              ? `Tester invites join ${testerWorkspace.name} as members so real workspace data stays isolated.`
+              : "Tester invites join the isolated test workspace as members."
+          }
+          submitLabel="Send tester invites"
+          successLabel="Invited"
+          defaultRole="member"
+          lockRole
+          testerMode
+          workspaceId={testerWorkspace?.id}
+          onSuccess={() => {
+            if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
+          }}
+          onClose={() => {
+            setTesterInviteOpen(false);
+            if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
+            if (inviteDiagnosticsLoaded) loadEmailStatus();
+          }}
+        />
+        <CreateTesterAccountDialog
+          open={testerAccountOpen}
+          workspace={testerWorkspace}
+          onClose={() => setTesterAccountOpen(false)}
+          onCreated={() => {
+            clearCachedJson("team:overview");
+            if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
+          }}
+        />
       </div>
     </>
   );
 }
 
-function EmailSetupWarning({ status }: { status: EmailStatus }) {
+function EmailSetupWarning({
+  status,
+  emailTestStatus,
+  testingEmail,
+  onSendTest,
+}: {
+  status: EmailStatus;
+  emailTestStatus: { ok: boolean; message: string; checkedAt: string } | null;
+  testingEmail: boolean;
+  onSendTest: () => void;
+}) {
   const missing = [
     !status.app_url_configured && "APP_URL",
     !status.resend_api_key_configured && "RESEND_API_KEY",
     !status.email_from_configured && "EMAIL_FROM",
   ].filter(Boolean);
+  const ready = status.ready;
 
   return (
-    <div className="mb-4 rounded-xl border border-upflow-warning/30 bg-upflow-warning/10 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
+    <div
+      className={cn(
+        "mb-4 rounded-xl border px-4 py-3",
+        ready
+          ? "border-upflow-success/30 bg-upflow-success/10"
+          : "border-upflow-warning/30 bg-upflow-warning/10",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+        {ready ? (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-success" />
+        ) : (
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
+        )}
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">
-            Invite email setup needs attention
+            {ready ? "Invite email setup is ready" : "Invite email setup needs attention"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {missing.length > 0 ? `Missing: ${missing.join(", ")}. ` : ""}
-            {status.using_development_sender
-              ? "Set EMAIL_FROM to a verified Resend sender. "
-              : ""}
-            Invites are blocked until Resend delivery is configured and accepted.
+            {ready
+              ? "APP_URL, RESEND_API_KEY, and EMAIL_FROM are configured with a non-development sender."
+              : `${
+                  missing.length > 0 ? `Missing: ${missing.join(", ")}. ` : ""
+                }${
+                  status.using_development_sender
+                    ? "Set EMAIL_FROM to a verified Resend sender. "
+                    : ""
+                }Invites are blocked until Resend delivery is configured and accepted.`}
           </p>
+          {emailTestStatus && (
+            <p
+              className={cn(
+                "mt-2 text-[11px]",
+                emailTestStatus.ok ? "text-upflow-success" : "text-upflow-danger",
+              )}
+            >
+              Last test {emailTestStatus.checkedAt}: {emailTestStatus.message}
+            </p>
+          )}
         </div>
+        </div>
+        <button
+          type="button"
+          onClick={onSendTest}
+          disabled={testingEmail}
+          className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-upflow-warning/30 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-upflow-warning/10 disabled:opacity-60"
+        >
+          <MailCheck className={cn("h-3.5 w-3.5", testingEmail && "animate-pulse")} />
+          {testingEmail ? "Testing..." : "Send test"}
+        </button>
       </div>
     </div>
+  );
+}
+
+function TesterInvitePanel({
+  workspace,
+  invites,
+  settingUp,
+  resending,
+  canceling,
+  onPrepare,
+  onInvite,
+  onCreateAccount,
+  onResend,
+  onCancel,
+}: {
+  workspace: TesterWorkspace | null;
+  invites: PendingInvite[];
+  settingUp: boolean;
+  resending: string | null;
+  canceling: string | null;
+  onPrepare: () => void;
+  onInvite: () => void;
+  onCreateAccount: () => void;
+  onResend: (invite: PendingInvite) => void;
+  onCancel: (invite: PendingInvite) => void;
+}) {
+  const pending = invites.filter((invite) => !invite.accepted_at);
+  const accepted = invites.filter((invite) => invite.accepted_at);
+  const failed = pending.filter((invite) => invite.send_status === "failed");
+
+  return (
+    <section className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">
+              Tester invite workspace
+            </h3>
+          </div>
+          <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+            Invite outside testers into an isolated workspace with demo clients,
+            tasks, meetings, docs, and activity. They will not see real Admin
+            workspace data unless you invite them separately.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {!workspace && (
+            <button
+              type="button"
+              onClick={onPrepare}
+              disabled={settingUp}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-60"
+            >
+              {settingUp ? "Preparing..." : "Prepare workspace"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCreateAccount}
+            disabled={settingUp}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
+            <KeyRound className="h-3.5 w-3.5" />
+            Create tester account
+          </button>
+          <button
+            type="button"
+            onClick={onInvite}
+            disabled={settingUp}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-60"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Email invite
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-4">
+        <TesterStat label="Workspace" value={workspace?.name ?? "Not prepared"} />
+        <TesterStat label="Pending" value={String(pending.length)} />
+        <TesterStat label="Accepted" value={String(accepted.length)} />
+        <TesterStat label="Needs resend" value={String(failed.length)} />
+      </div>
+
+      {workspace && invites.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
+          <ul className="divide-y divide-border">
+            {invites.map((invite) => {
+              const accepted = Boolean(invite.accepted_at);
+              const failed = invite.send_status === "failed";
+              return (
+                <li
+                  key={invite.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {invite.email}
+                    </p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span className="capitalize">{invite.role}</span>
+                      <InviteStatusBadge invite={invite} />
+                      {invite.last_sent_at && (
+                        <span>sent {new Date(invite.last_sent_at).toLocaleString()}</span>
+                      )}
+                    </p>
+                    {failed && invite.send_error && (
+                      <p className="mt-1 text-xs text-upflow-danger">
+                        {invite.send_error}
+                      </p>
+                    )}
+                  </div>
+                  {!accepted && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onResend(invite)}
+                        disabled={resending === invite.id}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-60"
+                      >
+                        <RotateCw
+                          className={cn(
+                            "h-3.5 w-3.5",
+                            resending === invite.id && "animate-spin",
+                          )}
+                        />
+                        {resending === invite.id ? "Sending..." : "Resend"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onCancel(invite)}
+                        disabled={canceling === invite.id}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-upflow-danger/10 hover:text-upflow-danger disabled:opacity-60"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function CreateTesterAccountDialog({
+  open,
+  workspace,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  workspace: TesterWorkspace | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState(() => generateTesterPassword());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{
+    email: string;
+    password: string;
+    workspaceName: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    setCreated(null);
+    setPassword(generateTesterPassword());
+  }, [open]);
+
+  if (!open) return null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/users/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          name: name.trim() || undefined,
+          password,
+          tester_account: true,
+          role: "member",
+        }),
+      });
+      const json = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        workspace?: { name: string };
+      };
+      if (!r.ok) {
+        setError(json.error || "Could not create tester account");
+        return;
+      }
+      setCreated({
+        email: email.trim(),
+        password,
+        workspaceName: json.workspace?.name || workspace?.name || "UP Flow Test Workspace",
+      });
+      setEmail("");
+      setName("");
+      onCreated();
+    } catch {
+      setError("Could not create tester account");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const credentialText = created
+    ? `UP Flow test access\nURL: ${window.location.origin}/login\nWorkspace: ${created.workspaceName}\nEmail: ${created.email}\nPassword: ${created.password}`
+    : "";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create tester account"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="glass-strong w-full max-w-md rounded-2xl p-6"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
+              <KeyRound className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                Create tester account
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Adds access to {workspace?.name || "the isolated test workspace"}.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+
+        {created ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-upflow-success/30 bg-upflow-success/10 px-3 py-2">
+              <p className="text-sm font-medium text-foreground">
+                Tester account created
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Send these credentials manually through WhatsApp, Gmail, or Slack.
+              </p>
+            </div>
+            <textarea
+              readOnly
+              value={credentialText}
+              rows={5}
+              className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => navigator.clipboard?.writeText(credentialText)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Copy className="h-4 w-4" />
+                Copy credentials
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-foreground hover:bg-white/10"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">
+              Tester email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tester@example.com"
+              autoFocus
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+
+            <label className="mb-1.5 mt-4 block text-xs font-medium text-foreground">
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Tester name"
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+
+            <label className="mb-1.5 mt-4 block text-xs font-medium text-foreground">
+              Temporary password
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={() => setPassword(generateTesterPassword())}
+                className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-foreground hover:bg-white/10"
+              >
+                Generate
+              </button>
+            </div>
+
+            {error && (
+              <div className="mt-4 rounded-lg border border-upflow-danger/30 bg-upflow-danger/10 px-3 py-2">
+                <p className="text-xs font-medium text-upflow-danger">{error}</p>
+                {error.includes("SUPABASE_SERVICE_ROLE_KEY") && (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Add SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy before
+                    using manual account creation.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-foreground hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                {loading ? "Creating..." : "Create account"}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function generateTesterPassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let value = "UpFlow-";
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const bytes = new Uint8Array(10);
+    crypto.getRandomValues(bytes);
+    for (const byte of bytes) value += alphabet[byte % alphabet.length];
+    return value;
+  }
+  for (let i = 0; i < 10; i++) {
+    value += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return value;
+}
+
+function TesterStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function InviteStatusBadge({ invite }: { invite: PendingInvite }) {
+  if (invite.accepted_at) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-upflow-success/15 px-2 py-0.5 text-[11px] font-medium text-upflow-success">
+        <CheckCircle2 className="h-3 w-3" />
+        accepted
+      </span>
+    );
+  }
+  if (invite.send_status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-upflow-danger/15 px-2 py-0.5 text-[11px] font-medium text-upflow-danger">
+        <XCircle className="h-3 w-3" />
+        failed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
+      <MailCheck className="h-3 w-3" />
+      sent
+    </span>
   );
 }
 

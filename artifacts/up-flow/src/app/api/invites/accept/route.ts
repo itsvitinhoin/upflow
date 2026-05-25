@@ -20,7 +20,9 @@ async function GET_handler(req: NextRequest) {
       id: true,
       email: true,
       role: true,
+      tester_invite: true,
       accepted_at: true,
+      last_sent_at: true,
       workspace: { select: { id: true, name: true, slug: true } },
       inviter: { select: { name: true, email: true } },
     },
@@ -88,7 +90,7 @@ async function POST_handler(req: NextRequest) {
       });
       await tx.workspaceInvite.update({
         where: { id: fresh.id },
-        data: { accepted_at: new Date() },
+        data: { accepted_at: new Date(), accepted_by: auth.prismaUser.id },
       });
       return { workspace_id: fresh.workspace_id };
     });

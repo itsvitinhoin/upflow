@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
-import { isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { isWorkspaceAdmin, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { ensureTesterWorkspace } from "@/lib/tester-workspace";
 
 // Workspace-admin-only direct provisioning. Creates the auth user in
 // Supabase and adds them as a member of the caller's active workspace.
@@ -24,10 +25,14 @@ async function POST_handler(req: NextRequest) {
     email?: string;
     password?: string;
     name?: string;
+    workspace_id?: string;
+    role?: "admin" | "member";
+    tester_account?: boolean;
   };
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const name = body.name?.trim() || (email ? email.split("@")[0] : undefined);
+  const role = body.role === "admin" && !body.tester_account ? "admin" : "member";
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -48,10 +53,36 @@ async function POST_handler(req: NextRequest) {
     );
   }
 
-  const NEUTRAL_RESPONSE = NextResponse.json(
-    { status: "accepted" },
-    { status: 202 },
-  );
+  let targetWorkspaceId = auth.currentWorkspaceId;
+  let targetWorkspace: { id: string; name: string; slug: string } | null = null;
+  if (body.tester_account) {
+    targetWorkspace = await ensureTesterWorkspace(auth.prismaUser.id);
+    targetWorkspaceId = targetWorkspace.id;
+  } else if (body.workspace_id?.trim()) {
+    targetWorkspaceId = body.workspace_id.trim();
+  }
+
+  if (!isWorkspaceAdminFor(auth, targetWorkspaceId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (!targetWorkspace) {
+    targetWorkspace = await prisma.workspace.findUnique({
+      where: { id: targetWorkspaceId },
+      select: { id: true, name: true, slug: true },
+    });
+  }
+
+  const acceptedResponse = (status = 202, existing = false) =>
+    NextResponse.json(
+      {
+        status: "accepted",
+        existing,
+        workspace: targetWorkspace,
+        user: { email, name, role },
+      },
+      { status },
+    );
 
   const existing = await prisma.user.findUnique({
     where: { email },
@@ -64,21 +95,21 @@ async function POST_handler(req: NextRequest) {
       .upsert({
         where: {
           workspace_id_user_id: {
-            workspace_id: auth.currentWorkspaceId,
+            workspace_id: targetWorkspaceId,
             user_id: existing.id,
           },
         },
         create: {
-          workspace_id: auth.currentWorkspaceId,
+          workspace_id: targetWorkspaceId,
           user_id: existing.id,
-          role: "member",
+          role,
         },
-        update: {},
+        update: { role, status: "active" },
       })
       .catch((err) => {
         logError("users:register:wsm-upsert", err, { user_id: existing.id });
       });
-    return NEUTRAL_RESPONSE;
+    return acceptedResponse(202, true);
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
@@ -91,7 +122,23 @@ async function POST_handler(req: NextRequest) {
   if (supabaseErr) {
     const msg = supabaseErr.message.toLowerCase();
     if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
-      return NEUTRAL_RESPONSE;
+      const user = await prisma.user.upsert({
+        where: { email },
+        create: { email, name: name ?? email.split("@")[0], role: "member" },
+        update: { name: name ?? email.split("@")[0] },
+        select: { id: true },
+      });
+      await prisma.workspaceMember.upsert({
+        where: {
+          workspace_id_user_id: {
+            workspace_id: targetWorkspaceId,
+            user_id: user.id,
+          },
+        },
+        create: { workspace_id: targetWorkspaceId, user_id: user.id, role },
+        update: { role, status: "active" },
+      });
+      return acceptedResponse(202, true);
     }
     return NextResponse.json({ error: supabaseErr.message }, { status: 400 });
   }
@@ -104,15 +151,15 @@ async function POST_handler(req: NextRequest) {
   await prisma.workspaceMember
     .create({
       data: {
-        workspace_id: auth.currentWorkspaceId,
+        workspace_id: targetWorkspaceId,
         user_id: created.id,
-        role: "member",
+        role,
       },
     })
     .catch((err) => {
       logError("users:register:wsm-create", err, { user_id: created.id });
     });
 
-  return NEUTRAL_RESPONSE;
+  return acceptedResponse(201, false);
 }
 export const POST = withErrorReporting("api:users/register:POST", POST_handler);

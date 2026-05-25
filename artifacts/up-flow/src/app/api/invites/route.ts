@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { isWorkspaceAdmin, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { emailIsConfigured, sendEmail } from "@/lib/email/send";
@@ -32,22 +32,44 @@ function emailFingerprint(email: string): string {
 }
 
 // GET: list pending invites for the active workspace (admin only)
-async function GET_handler() {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
-  if (!isWorkspaceAdmin(auth) || !auth.currentWorkspaceId) {
+  const { searchParams } = new URL(req.url);
+  const targetWorkspaceId =
+    searchParams.get("workspace_id")?.trim() || auth.currentWorkspaceId;
+  const include = searchParams.get("include");
+  const testerOnly = searchParams.get("scope") === "testers";
+
+  if (!targetWorkspaceId || !isWorkspaceAdminFor(auth, targetWorkspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
   const invites = await prisma.workspaceInvite.findMany({
-    where: { workspace_id: auth.currentWorkspaceId, accepted_at: null },
-    orderBy: { created_at: "desc" },
+    where: {
+      workspace_id: targetWorkspaceId,
+      ...(include === "all" ? {} : { accepted_at: null }),
+      ...(testerOnly ? { tester_invite: true } : {}),
+    },
+    orderBy: [
+      { accepted_at: "desc" },
+      { last_sent_at: "desc" },
+      { created_at: "desc" },
+    ],
     select: {
       id: true,
       email: true,
       role: true,
       token: true,
+      tester_invite: true,
+      send_status: true,
+      send_error: true,
+      last_sent_at: true,
+      accepted_by: true,
+      accepted_at: true,
       created_at: true,
+      workspace: { select: { id: true, name: true, slug: true } },
       inviter: { select: { id: true, name: true, email: true } },
     },
   });
@@ -69,6 +91,8 @@ async function POST_handler(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as {
     emails?: string[];
     role?: "admin" | "member";
+    workspace_id?: string;
+    tester_invite?: boolean;
   };
   const emails = (body.emails || [])
     .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
@@ -95,6 +119,12 @@ async function POST_handler(req: NextRequest) {
     );
   }
   const role: "admin" | "member" = body.role === "admin" ? "admin" : "member";
+  const targetWorkspaceId = body.workspace_id?.trim() || auth.currentWorkspaceId;
+  const testerInvite = body.tester_invite === true;
+
+  if (!targetWorkspaceId || !isWorkspaceAdminFor(auth, targetWorkspaceId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   // De-duplicate.
   const unique = Array.from(new Set(emails));
@@ -132,7 +162,7 @@ async function POST_handler(req: NextRequest) {
 
   // Pull workspace name once for the email body.
   const workspace = await prisma.workspace.findUnique({
-    where: { id: auth.currentWorkspaceId },
+    where: { id: targetWorkspaceId },
     select: { name: true },
   });
   const inviterName = auth.prismaUser.name || auth.prismaUser.email;
@@ -145,24 +175,53 @@ async function POST_handler(req: NextRequest) {
     unique.map(async (email) => {
       const existing = await prisma.workspaceInvite.findFirst({
         where: {
-          workspace_id: auth.currentWorkspaceId!,
+          workspace_id: targetWorkspaceId,
           email,
           role,
           accepted_at: null,
         },
-        select: { id: true, email: true, role: true, token: true, created_at: true },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          token: true,
+          tester_invite: true,
+          send_status: true,
+          send_error: true,
+          last_sent_at: true,
+          accepted_at: true,
+          created_at: true,
+        },
       });
+      if (existing && testerInvite && !existing.tester_invite) {
+        await prisma.workspaceInvite.update({
+          where: { id: existing.id },
+          data: { tester_invite: true },
+        });
+      }
       const invite =
         existing ??
         (await prisma.workspaceInvite.create({
           data: {
-            workspace_id: auth.currentWorkspaceId!,
+            workspace_id: targetWorkspaceId,
             email,
             role,
             token: generateToken(),
             invited_by: auth.prismaUser.id,
+            tester_invite: testerInvite,
           },
-          select: { id: true, email: true, role: true, token: true, created_at: true },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            token: true,
+            tester_invite: true,
+            send_status: true,
+            send_error: true,
+            last_sent_at: true,
+            accepted_at: true,
+            created_at: true,
+          },
         }));
       return {
         ...invite,
@@ -194,6 +253,15 @@ async function POST_handler(req: NextRequest) {
     });
     if (result.ok) {
       mailed += 1;
+      await prisma.workspaceInvite.update({
+        where: { id: invite.id },
+        data: {
+          send_status: "sent",
+          send_error: null,
+          last_sent_at: new Date(),
+          ...(testerInvite ? { tester_invite: true } : {}),
+        },
+      });
       continue;
     }
 
@@ -206,6 +274,16 @@ async function POST_handler(req: NextRequest) {
             recipientHash: emailFingerprint(invite.email),
           });
         });
+    }
+    if (invite.reused) {
+      await prisma.workspaceInvite.update({
+        where: { id: invite.id },
+        data: {
+          send_status: "failed",
+          send_error: result.error || "Email provider rejected the invite.",
+          ...(testerInvite ? { tester_invite: true } : {}),
+        },
+      });
     }
     logError("invites:send", new Error(result.error ?? "unknown"), {
       code: "EMAIL_SEND_FAILED",
@@ -225,5 +303,36 @@ async function POST_handler(req: NextRequest) {
     { status: 201 },
   );
 }
+
+async function DELETE_handler(req: NextRequest) {
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
+
+  const { searchParams } = new URL(req.url);
+  const body = (await req.json().catch(() => ({}))) as { id?: string };
+  const id = body.id?.trim() || searchParams.get("id")?.trim();
+  if (!id) return NextResponse.json({ error: "Invite id required" }, { status: 400 });
+
+  const invite = await prisma.workspaceInvite.findUnique({
+    where: { id },
+    select: { id: true, workspace_id: true, accepted_at: true },
+  });
+  if (!invite) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
+  if (!isWorkspaceAdminFor(auth, invite.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (invite.accepted_at) {
+    return NextResponse.json(
+      { error: "Accepted invites cannot be canceled" },
+      { status: 409 },
+    );
+  }
+
+  await prisma.workspaceInvite.delete({ where: { id: invite.id } });
+
+  return NextResponse.json({ success: true });
+}
 export const GET = withErrorReporting("api:invites:GET", GET_handler);
 export const POST = withErrorReporting("api:invites:POST", POST_handler);
+export const DELETE = withErrorReporting("api:invites:DELETE", DELETE_handler);

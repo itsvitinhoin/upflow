@@ -12,12 +12,30 @@ type InviteErrorCode =
 export default function InviteDialog({
   open,
   onClose,
+  title = "Invite to team",
+  description = "We'll email each address an invitation link.",
+  submitLabel = "Send invites",
+  successLabel = "Invited",
+  defaultRole = "member",
+  lockRole = false,
+  workspaceId,
+  testerMode = false,
+  onSuccess,
 }: {
   open: boolean;
   onClose: () => void;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
+  successLabel?: string;
+  defaultRole?: "admin" | "member";
+  lockRole?: boolean;
+  workspaceId?: string;
+  testerMode?: boolean;
+  onSuccess?: () => void;
 }) {
   const [emails, setEmails] = useState("");
-  const [role, setRole] = useState("member");
+  const [role, setRole] = useState<"admin" | "member">(defaultRole);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{
     message: string;
@@ -27,7 +45,8 @@ export default function InviteDialog({
   useEffect(() => {
     if (!open) return;
     setError(null);
-  }, [open]);
+    setRole(defaultRole);
+  }, [defaultRole, open]);
 
   if (!open) return null;
 
@@ -47,7 +66,12 @@ export default function InviteDialog({
       const res = await fetch("/api/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails: list, role }),
+        body: JSON.stringify({
+          emails: list,
+          role,
+          ...(workspaceId ? { workspace_id: workspaceId } : {}),
+          ...(testerMode ? { tester_invite: true } : {}),
+        }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -69,8 +93,9 @@ export default function InviteDialog({
         setError({ message: "Invite email delivery was not confirmed" });
         throw new Error("Invite email delivery was not confirmed");
       }
-      toast.success(`Invited ${sent} ${noun}`);
+      toast.success(`${successLabel} ${sent} ${noun}`);
       setEmails("");
+      onSuccess?.();
       onClose();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Could not send invites");
@@ -94,7 +119,7 @@ export default function InviteDialog({
             <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
               <Mail className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">Invite to team</h2>
+            <h2 className="text-base font-semibold text-foreground">{title}</h2>
           </div>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
@@ -114,14 +139,15 @@ export default function InviteDialog({
         <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Role</label>
         <select
           value={role}
-          onChange={(e) => setRole(e.target.value)}
+          onChange={(e) => setRole(e.target.value as "admin" | "member")}
+          disabled={lockRole}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="member">Member</option>
           <option value="admin">Admin</option>
         </select>
         <p className="text-[11px] text-muted-foreground mt-2">
-          We&apos;ll email each address an invitation link.
+          {description}
         </p>
         {error && (
           <div className="mt-4 rounded-lg border border-upflow-danger/30 bg-upflow-danger/10 px-3 py-2">
@@ -148,7 +174,7 @@ export default function InviteDialog({
             className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Send invites
+            {submitLabel}
           </button>
         </div>
       </form>

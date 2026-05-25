@@ -79,12 +79,11 @@ export async function getAuthResult(): Promise<AuthResult> {
         (user.user_metadata?.name as string | undefined) ||
         (user.user_metadata?.full_name as string | undefined);
     } catch (err) {
-      // Supabase upstream blip / network error while validating the session
+      // Supabase could not validate the browser session; log it and let the
       // — the user MAY be logged in, we just can't tell right now. Surface
-      // this as an outage so callers can return 503 instead of falsely
-      // bouncing the user to /login.
+      // normal anonymous flow send the user back to login.
       logError("auth:supabase-getUser", err);
-      return { kind: "error", error: err as Error };
+      return { kind: "anonymous" };
     }
   }
 

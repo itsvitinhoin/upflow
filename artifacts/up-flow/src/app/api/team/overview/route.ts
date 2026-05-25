@@ -19,6 +19,23 @@ async function GET_handler() {
     });
   }
 
+  if (isSuperAdmin(auth)) {
+    await prisma.workspaceMember.upsert({
+      where: {
+        workspace_id_user_id: {
+          workspace_id: auth.currentWorkspaceId,
+          user_id: auth.prismaUser.id,
+        },
+      },
+      create: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: auth.prismaUser.id,
+        role: "owner",
+      },
+      update: { status: "active" },
+    });
+  }
+
   const [workspace, members, departments] = await Promise.all([
     prisma.workspace.findUnique({
       where: { id: auth.currentWorkspaceId },
@@ -86,7 +103,10 @@ async function GET_handler() {
 
   return NextResponse.json({
     workspace,
-    current_role: auth.currentRole,
+    current_role:
+      members
+        .find((member) => member.id === auth.prismaUser.id)
+        ?.memberships[0]?.role ?? auth.currentRole,
     is_super_admin: isSuperAdmin(auth),
     members: flattenedMembers,
     departments,

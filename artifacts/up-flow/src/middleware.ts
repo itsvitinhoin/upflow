@@ -50,8 +50,12 @@ export async function middleware(req: NextRequest) {
       }
     );
 
-    const got = await supabase.auth.getUser();
-    user = got.data.user;
+    try {
+      const got = await supabase.auth.getUser();
+      user = got.data.user;
+    } catch {
+      user = null;
+    }
   }
 
   const isLoginPage = pathname === "/login";

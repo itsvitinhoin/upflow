@@ -7,6 +7,8 @@ import Link from "next/link";
 interface InviteInfo {
   email: string;
   role: "owner" | "admin" | "member";
+  tester_invite?: boolean;
+  last_sent_at?: string | null;
   workspace: { id: string; name: string };
   inviter: { name: string; email: string } | null;
 }
@@ -64,14 +66,17 @@ export default function AcceptInvitePage({
         <h1 className="text-xl font-semibold text-foreground mb-2">
           You&apos;ve been invited
         </h1>
-        {error && (
-          <p className="text-sm text-red-400 mb-4">{error}</p>
-        )}
+        {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
         {!error && !info && (
-          <p className="text-sm text-muted-foreground">Loading invite…</p>
+          <p className="text-sm text-muted-foreground">Loading invite...</p>
         )}
         {info && (
           <>
+            {info.tester_invite && (
+              <p className="mb-3 inline-flex rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                Tester workspace
+              </p>
+            )}
             <p className="text-sm text-muted-foreground mb-1">
               {info.inviter?.name || "Someone"} invited you to join
             </p>
@@ -80,23 +85,30 @@ export default function AcceptInvitePage({
             </p>
             <p className="text-xs text-muted-foreground mb-6">
               Invite for <span className="text-foreground">{info.email}</span>
-              {" · "}
+              {" - "}
               role <span className="text-foreground">{info.role}</span>
             </p>
+            {info.tester_invite && (
+              <p className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-muted-foreground">
+                This invite opens an isolated UP Flow test workspace with demo
+                projects, clients, meetings, docs, and tasks. It does not grant
+                access to real client workspaces.
+              </p>
+            )}
             <button
               onClick={accept}
               disabled={busy}
               className="w-full rounded-lg bg-foreground text-background py-2 text-sm font-medium disabled:opacity-50"
             >
-              {busy ? "Accepting…" : "Accept invite"}
+              {busy ? "Accepting..." : "Accept invite"}
             </button>
             <p className="mt-3 text-center text-xs text-muted-foreground">
-              Not signed in?{" "}
+              Not signed in with {info.email}?{" "}
               <Link
                 href={`/login?next=${encodeURIComponent(`/invite/${params.token}`)}`}
                 className="underline"
               >
-                Sign in first
+                Sign in or ask your admin for access
               </Link>
             </p>
           </>

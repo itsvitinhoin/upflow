@@ -22,6 +22,22 @@ const emailStatusRoute = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "email", "status", "route.ts"),
   "utf8",
 );
+const testerWorkspaceRoute = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "api", "testers", "workspace", "route.ts"),
+  "utf8",
+);
+const acceptPage = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "invite", "[token]", "page.tsx"),
+  "utf8",
+);
+const registerRoute = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "api", "users", "register", "route.ts"),
+  "utf8",
+);
+const schema = readFileSync(
+  join(__dirname, "..", "..", "prisma", "schema.prisma"),
+  "utf8",
+);
 
 test("invite route blocks missing email configuration before creating invites", () => {
   assert.match(route, /EmailOriginError/);
@@ -65,4 +81,33 @@ test("admin email status exposes diagnostics without secrets", () => {
   assert.doesNotMatch(emailStatusRoute, /RESEND_API_KEY:\s*process\.env/);
   assert.match(teamPage, /EmailSetupWarning/);
   assert.match(teamPage, /\/api\/email\/status/);
+});
+
+test("tester invites target an isolated workspace and stay member-only in the UI", () => {
+  assert.match(schema, /tester_invite\s+Boolean\s+@default\(false\)/);
+  assert.match(schema, /send_status\s+InviteSendStatus\s+@default\(pending\)/);
+  assert.match(route, /workspace_id/);
+  assert.match(route, /tester_invite/);
+  assert.match(testerWorkspaceRoute, /ensureTesterWorkspace/);
+  assert.match(teamPage, /Invite testers/);
+  assert.match(teamPage, /lockRole/);
+  assert.match(teamPage, /testerMode/);
+  assert.match(teamPage, /\/api\/testers\/workspace/);
+});
+
+test("tester invite acceptance explains the isolated workspace", () => {
+  assert.match(acceptPage, /Tester workspace/);
+  assert.match(acceptPage, /isolated UP Flow test workspace/);
+  assert.match(acceptPage, /does not grant\s+access to real client workspaces/);
+  assert.match(acceptPage, /login\?next=/);
+});
+
+test("manual tester accounts use Supabase auth and the isolated test workspace", () => {
+  assert.match(registerRoute, /tester_account/);
+  assert.match(registerRoute, /ensureTesterWorkspace/);
+  assert.match(registerRoute, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(registerRoute, /auth\.admin\.createUser/);
+  assert.match(teamPage, /Create tester account/);
+  assert.match(teamPage, /Copy credentials/);
+  assert.match(teamPage, /\/api\/users\/register/);
 });
