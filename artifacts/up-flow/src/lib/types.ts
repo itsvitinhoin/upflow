@@ -330,6 +330,11 @@ export interface Company {
   contract_value: number | null;
   commission: number | null;
   industry: string | null;
+  service_type: string | null;
+  plan_name: string | null;
+  billing_cycle: string | null;
+  included_services: string[] | null;
+  plan_notes: string | null;
   notes: string | null;
   owner_id: string;
   created_at: string;

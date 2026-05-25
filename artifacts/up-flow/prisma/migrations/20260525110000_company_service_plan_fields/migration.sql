@@ -1,0 +1,5 @@
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "service_type" TEXT;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "plan_name" TEXT;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "billing_cycle" TEXT;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "included_services" JSONB;
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "plan_notes" TEXT;

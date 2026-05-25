@@ -15,6 +15,11 @@ const UpdateCompanySchema = z.object({
   contract_value: z.number().nullable().optional(),
   commission: z.number().nullable().optional(),
   industry: z.string().trim().nullable().optional(),
+  service_type: z.string().trim().nullable().optional(),
+  plan_name: z.string().trim().nullable().optional(),
+  billing_cycle: z.string().trim().nullable().optional(),
+  included_services: z.array(z.string().trim().min(1)).max(50).nullable().optional(),
+  plan_notes: z.string().trim().nullable().optional(),
   notes: z.string().trim().nullable().optional(),
 });
 

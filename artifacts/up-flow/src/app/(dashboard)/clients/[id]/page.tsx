@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, Plus, RefreshCcw, Timer, Users } from "lucide-react";
+import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, Users, X } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import type { Company, CompanyContact, CompanyNote, TimeEntry } from "@/lib/types";
@@ -21,6 +21,16 @@ export default function ClientDetailPage() {
   const [contactEmail, setContactEmail] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [showProjectDialog, setShowProjectDialog] = useState(false);
+  const [editingPlan, setEditingPlan] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [planForm, setPlanForm] = useState({
+    service_type: "",
+    plan_name: "",
+    billing_cycle: "",
+    included_services: "",
+    plan_notes: "",
+  });
 
   const loadCompany = async () => {
     setLoading(true);
@@ -29,7 +39,9 @@ export default function ClientDetailPage() {
       setNotFoundState(true);
       return;
     }
-    setCompany((await res.json()) as ClientPayload);
+    const payload = (await res.json()) as ClientPayload;
+    setCompany(payload);
+    setPlanForm(toPlanForm(payload));
     setLoading(false);
   };
 
@@ -68,6 +80,40 @@ export default function ClientDetailPage() {
       setNoteBody("");
       loadCompany();
     }
+  };
+
+  const savePlan = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSavingPlan(true);
+    setPlanError(null);
+    const includedServices = planForm.included_services
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const res = await fetch(`/api/companies/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_type: cleanNullable(planForm.service_type),
+        plan_name: cleanNullable(planForm.plan_name),
+        billing_cycle: cleanNullable(planForm.billing_cycle),
+        included_services: includedServices.length ? includedServices : null,
+        plan_notes: cleanNullable(planForm.plan_notes),
+      }),
+    });
+
+    if (!res.ok) {
+      setSavingPlan(false);
+      setPlanError("Could not save service plan. Try again.");
+      return;
+    }
+
+    const updated = (await res.json()) as Company;
+    setCompany((current) => current ? { ...current, ...updated } : current);
+    setPlanForm(toPlanForm(updated));
+    setEditingPlan(false);
+    setSavingPlan(false);
   };
 
   if (notFoundState) notFound();
@@ -172,6 +218,129 @@ export default function ClientDetailPage() {
             </div>
           </section>
         ) : null}
+
+        <section className="glass rounded-xl p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <PackageCheck className="h-4 w-4" />
+                Services and plan
+              </h3>
+            </div>
+            {editingPlan ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPlanForm(toPlanForm(company));
+                    setPlanError(null);
+                    setEditingPlan(false);
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5"
+                >
+                  <X className="h-4 w-4" />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  form="client-plan-form"
+                  disabled={savingPlan}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {savingPlan ? "Saving..." : "Save plan"}
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditingPlan(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-foreground hover:bg-white/5"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit plan
+              </button>
+            )}
+          </div>
+
+          {editingPlan ? (
+            <form id="client-plan-form" onSubmit={savePlan} className="mt-5 grid gap-4 lg:grid-cols-3">
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
+                Service type
+                <input
+                  value={planForm.service_type}
+                  onChange={(e) => setPlanForm((form) => ({ ...form, service_type: e.target.value }))}
+                  placeholder="Paid media, SEO, content..."
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
+                />
+              </label>
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
+                Plan
+                <input
+                  value={planForm.plan_name}
+                  onChange={(e) => setPlanForm((form) => ({ ...form, plan_name: e.target.value }))}
+                  placeholder="Starter, Growth, Premium..."
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
+                />
+              </label>
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
+                Billing cycle
+                <select
+                  value={planForm.billing_cycle}
+                  onChange={(e) => setPlanForm((form) => ({ ...form, billing_cycle: e.target.value }))}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
+                >
+                  <option value="">Not set</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="annual">Annual</option>
+                  <option value="project">Per project</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground lg:col-span-2">
+                Included services
+                <textarea
+                  value={planForm.included_services}
+                  onChange={(e) => setPlanForm((form) => ({ ...form, included_services: e.target.value }))}
+                  rows={4}
+                  placeholder={"Meta Ads management\nCreative approvals\nMonthly performance report"}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
+                />
+              </label>
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
+                Plan notes
+                <textarea
+                  value={planForm.plan_notes}
+                  onChange={(e) => setPlanForm((form) => ({ ...form, plan_notes: e.target.value }))}
+                  rows={4}
+                  placeholder="Limits, add-ons, renewal terms..."
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
+                />
+              </label>
+              {planError ? <p className="text-sm text-upflow-danger lg:col-span-3">{planError}</p> : null}
+            </form>
+          ) : (
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_2fr]">
+              <PlanFact label="Service type" value={company.service_type || "Not set"} />
+              <PlanFact label="Plan" value={company.plan_name || "Not set"} hint={formatBillingCycle(company.billing_cycle)} />
+              <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Included services</p>
+                {company.included_services?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {company.included_services.map((service) => (
+                      <span key={service} className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
+                        {service}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">No services listed yet</p>
+                )}
+                {company.plan_notes ? <p className="mt-4 text-sm text-muted-foreground">{company.plan_notes}</p> : null}
+              </div>
+            </div>
+          )}
+        </section>
 
         <div className="grid gap-4 xl:grid-cols-3">
           <Panel title="Contacts" icon={<Users className="h-4 w-4" />}>
@@ -292,6 +461,16 @@ function Panel({ title, icon, children }: { title: string; icon: React.ReactNode
   );
 }
 
+function PlanFact({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-3 text-lg font-semibold text-foreground">{value}</p>
+      {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
+}
+
 function List<T extends { id?: string }>({ items, empty, render }: { items: T[]; empty: string; render: (item: T) => React.ReactNode }) {
   if (items.length === 0) {
     return <p className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-4 text-center text-xs text-muted-foreground">{empty}</p>;
@@ -305,6 +484,26 @@ function List<T extends { id?: string }>({ items, empty, render }: { items: T[];
       ))}
     </div>
   );
+}
+
+function toPlanForm(company: Pick<Company, "service_type" | "plan_name" | "billing_cycle" | "included_services" | "plan_notes">) {
+  return {
+    service_type: company.service_type ?? "",
+    plan_name: company.plan_name ?? "",
+    billing_cycle: company.billing_cycle ?? "",
+    included_services: Array.isArray(company.included_services) ? company.included_services.join("\n") : "",
+    plan_notes: company.plan_notes ?? "",
+  };
+}
+
+function cleanNullable(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
+}
+
+function formatBillingCycle(value: string | null) {
+  if (!value) return "Billing cycle not set";
+  return value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
 function money(value: number | null) {
