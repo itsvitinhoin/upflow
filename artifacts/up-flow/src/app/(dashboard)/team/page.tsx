@@ -84,6 +84,7 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
   const [cancelingInvite, setCancelingInvite] = useState<string | null>(null);
+  const [resettingTester, setResettingTester] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -454,6 +455,57 @@ export default function TeamPage() {
     }
   }
 
+  async function resetTesterAccount(defaultEmail?: string) {
+    const email = window
+      .prompt(
+        "Reset which tester email? This removes their app account, auth account, memberships, and invite history so they can sign up again.",
+        defaultEmail || "victorcheunin@gmail.com",
+      )
+      ?.trim()
+      .toLowerCase();
+    if (!email) return;
+    if (
+      !window.confirm(
+        `Reset ${email}? This is destructive and cannot be undone. Send a fresh invite after reset.`,
+      )
+    ) {
+      return;
+    }
+
+    setResettingTester(true);
+    setToast(null);
+    try {
+      const r = await fetch("/api/testers/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        app_user_deleted?: boolean;
+        invites_deleted?: number;
+        supabase_auth_deleted?: number;
+        supabase_auth_error?: string | null;
+      };
+      if (!r.ok) {
+        setToast(json.error || `Couldn't reset ${email}`);
+        return;
+      }
+      setToast(
+        `Reset ${email}. App user: ${json.app_user_deleted ? "deleted" : "not found"}, auth users deleted: ${json.supabase_auth_deleted ?? 0}, invites deleted: ${json.invites_deleted ?? 0}.`,
+      );
+      if (json.supabase_auth_error) {
+        setToast(`Reset app data for ${email}, but Supabase auth reported: ${json.supabase_auth_error}`);
+      }
+      loadPending();
+      if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
+    } catch {
+      setToast(`Couldn't reset ${email}`);
+    } finally {
+      setResettingTester(false);
+    }
+  }
+
   async function sendEmailTest() {
     setTestingEmail(true);
     setEmailTestStatus(null);
@@ -592,6 +644,8 @@ export default function TeamPage() {
             }}
             onResend={resendInvite}
             onCancel={cancelInvite}
+            onReset={resetTesterAccount}
+            resetting={resettingTester}
           />
         )}
 
@@ -1038,17 +1092,21 @@ function TesterInvitePanel({
   onCreateAccount,
   onResend,
   onCancel,
+  onReset,
+  resetting,
 }: {
   workspace: TesterWorkspace | null;
   invites: PendingInvite[];
   settingUp: boolean;
   resending: string | null;
   canceling: string | null;
+  resetting: boolean;
   onPrepare: () => void;
   onInvite: () => void;
   onCreateAccount: () => void;
   onResend: (invite: PendingInvite) => void;
   onCancel: (invite: PendingInvite) => void;
+  onReset: (email?: string) => void;
 }) {
   const pending = invites.filter((invite) => !invite.accepted_at);
   const accepted = invites.filter((invite) => invite.accepted_at);
@@ -1089,6 +1147,15 @@ function TesterInvitePanel({
           >
             <KeyRound className="h-3.5 w-3.5" />
             Create tester account
+          </button>
+          <button
+            type="button"
+            onClick={() => onReset("victorcheunin@gmail.com")}
+            disabled={resetting}
+            className="inline-flex items-center gap-1.5 rounded-md border border-upflow-danger/40 px-3 py-1.5 text-xs font-medium text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            {resetting ? "Resetting..." : "Reset tester"}
           </button>
           <button
             type="button"
@@ -1163,6 +1230,17 @@ function TesterInvitePanel({
                         Cancel
                       </button>
                     </div>
+                  )}
+                  {accepted && (
+                    <button
+                      type="button"
+                      onClick={() => onReset(invite.email)}
+                      disabled={resetting}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-upflow-danger/40 px-2.5 py-1.5 text-xs font-medium text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Reset
+                    </button>
                   )}
                 </li>
               );
