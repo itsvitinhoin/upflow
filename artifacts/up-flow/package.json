@@ -11,7 +11,7 @@
     "lint": "next lint --max-warnings=0",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:deploy": "node scripts/deploy-migrations.cjs",
     "db:seed": "tsx scripts/seed.ts",
     "test:unit": "tsx --test tests/unit/*.test.ts",
     "test:e2e": "playwright test",
