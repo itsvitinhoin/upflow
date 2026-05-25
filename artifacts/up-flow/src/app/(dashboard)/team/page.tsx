@@ -974,13 +974,12 @@ export default function TeamPage() {
           title="Invite testers"
           description={
             testerWorkspace
-              ? `Tester invites join ${testerWorkspace.name} as members so real workspace data stays isolated.`
-              : "Tester invites join the isolated test workspace as members."
+              ? `Tester invites join ${testerWorkspace.name}. Choose Member for normal testers or Admin for trusted testers.`
+              : "Tester invites join the isolated test workspace. Choose Member or Admin."
           }
           submitLabel="Send tester invites"
           successLabel="Invited"
           defaultRole="member"
-          lockRole
           testerMode
           workspaceId={testerWorkspace?.id}
           onSuccess={() => {
