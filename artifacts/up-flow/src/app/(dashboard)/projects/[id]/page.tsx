@@ -22,7 +22,7 @@ import type {
 } from "@/lib/types";
 
 const DEFAULT_TOOLBAR: ToolbarState = {
-  view: "list",
+  view: "board",
   search: "",
   groupBy: "status",
   sortBy: "position",
