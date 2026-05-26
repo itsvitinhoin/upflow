@@ -1,0 +1,130 @@
+import { test, expect, type Page } from "@playwright/test";
+import { SEEDED, uniq } from "../helpers";
+import {
+  createProjectViaApi,
+  createTaskViaApi,
+  loggedInContext,
+  requireChromiumOrSkip,
+} from "./_ui-helpers";
+
+const MOBILE_VIEWPORTS = [
+  { width: 375, height: 667 },
+  { width: 390, height: 844 },
+  { width: 430, height: 932 },
+  { width: 768, height: 1024 },
+];
+
+async function expectNoPageOverflow(page: Page) {
+  const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+  }));
+  expect(scrollWidth, "page should not create horizontal document scroll").toBeLessThanOrEqual(
+    innerWidth + 1,
+  );
+}
+
+async function expectFitsViewport(page: Page, selector: string) {
+  const box = await page.locator(selector).first().boundingBox();
+  expect(box, `${selector} should be visible`).toBeTruthy();
+  if (!box) return;
+  const viewport = page.viewportSize();
+  expect(viewport).toBeTruthy();
+  if (!viewport) return;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+}
+
+test.describe("Mobile responsive layout", () => {
+  requireChromiumOrSkip();
+
+  test("dashboard shell keeps sidebar toggle separate from search on mobile", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
+    await expect(page.locator('input[type="search"]').first()).toBeVisible();
+
+    const button = await page.getByRole("button", { name: "Open navigation" }).boundingBox();
+    const search = await page.locator('input[type="search"]').first().boundingBox();
+    expect(button).toBeTruthy();
+    expect(search).toBeTruthy();
+    if (button && search) {
+      expect(button.x + button.width).toBeLessThanOrEqual(search.x);
+    }
+
+    await expectNoPageOverflow(page);
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    await expect(page.getByRole("button", { name: "Close navigation" })).toBeVisible();
+    await expectFitsViewport(page, "aside");
+    await page.getByRole("button", { name: "Close navigation" }).click();
+    await ctx.close();
+  });
+
+  test("primary dashboard routes do not create page-level horizontal overflow", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("MobileProject"));
+    await createTaskViaApi(ctx, projectId, uniq("MobileTask"));
+
+    const companyRes = await ctx.request.post("/api/companies", {
+      data: { name: uniq("MobileClient"), service_type: "Creative", plan_name: "Growth" },
+    });
+    const company = companyRes.ok() ? ((await companyRes.json()) as { id: string }) : null;
+
+    const routes = [
+      "/",
+      "/team",
+      "/projects",
+      `/projects/${projectId}`,
+      "/calendar",
+      "/clients",
+      company ? `/clients/${company.id}` : null,
+      "/time",
+      "/inbox",
+    ].filter(Boolean) as string[];
+
+    for (const viewport of MOBILE_VIEWPORTS) {
+      const page = await ctx.newPage();
+      await page.setViewportSize(viewport);
+      for (const route of routes) {
+        await page.goto(route);
+        await expect(page.locator("body")).toBeVisible();
+        await expectNoPageOverflow(page);
+      }
+      await page.close();
+    }
+
+    await ctx.close();
+  });
+
+  test("global create and invite dialogs fit inside mobile viewport", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto("/");
+
+    await page.getByRole("button", { name: /^New Project$/ }).first().click();
+    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
+    await expectFitsViewport(page, '[role="dialog"]');
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    await page.goto("/team");
+    await page.getByRole("button", { name: /Invite member/i }).click();
+    await expect(page.getByRole("heading", { name: "Invite to team" })).toBeVisible();
+    await expectFitsViewport(page, 'form:has-text("Invite to team")');
+    await ctx.close();
+  });
+});

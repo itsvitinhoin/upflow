@@ -108,7 +108,7 @@ export default function NewTaskDialog({
         role="dialog"
         aria-modal="true"
         aria-label="New Task"
-        className="glass-strong rounded-2xl w-full max-w-md p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -169,7 +169,7 @@ export default function NewTaskDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Priority</label>
               <select
@@ -220,7 +220,7 @@ export default function NewTaskDialog({
             <button
               type="submit"
               disabled={loading || !title.trim()}
-              className="flex-1 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2.5 rounded-lg transition-colors"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               Create Task

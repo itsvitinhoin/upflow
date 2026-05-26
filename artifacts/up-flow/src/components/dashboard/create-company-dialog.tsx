@@ -95,7 +95,7 @@ export default function CreateCompanyDialog({
     >
       <form
         onSubmit={submit}
-        className="glass-strong max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-lg overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -119,7 +119,7 @@ export default function CreateCompanyDialog({
           placeholder="Acme Corp"
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">Domain</label>
             <input
@@ -139,7 +139,7 @@ export default function CreateCompanyDialog({
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">Service type</label>
             <input

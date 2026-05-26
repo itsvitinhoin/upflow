@@ -146,7 +146,7 @@ export default function KanbanBoard({
   return (
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4 h-[calc(100vh-280px)]">
+        <div className="flex h-[calc(100dvh-300px)] min-h-[420px] max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:h-[calc(100dvh-280px)]">
           {COLUMNS.map(({ key, label, color, hex }) => (
             <Droppable key={key} droppableId={key}>
               {(provided, snapshot) => (
@@ -154,7 +154,7 @@ export default function KanbanBoard({
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "flex-shrink-0 w-[300px] rounded-lg flex flex-col bg-muted/40 transition-colors h-full overflow-hidden",
+                    "flex h-full w-[min(82vw,300px)] flex-shrink-0 flex-col overflow-hidden rounded-lg bg-muted/40 transition-colors sm:w-[300px]",
                     snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30",
                   )}
                 >
@@ -244,7 +244,7 @@ export default function KanbanBoard({
                                   )}
                                   title={`Priority: ${task.priority}`}
                                 />
-                                <p className="flex-1 text-sm text-foreground leading-snug">
+                                <p className="min-w-0 flex-1 break-words text-sm leading-snug text-foreground">
                                   {task.title}
                                 </p>
                                 {isOverdue(task.due_date) && task.status !== "done" && (
@@ -265,7 +265,7 @@ export default function KanbanBoard({
                                 </div>
                               )}
 
-                              <div className="flex items-center gap-2 mt-2">
+                              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
                                 {task.due_date && (
                                   <span
                                     className={cn(

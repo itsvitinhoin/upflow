@@ -69,9 +69,9 @@ export default function ProjectsPage() {
   return (
     <>
       <Header title="Projects" />
-      <div className="p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
+      <div className="mx-auto max-w-6xl overflow-x-hidden p-4 sm:p-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h2 className="text-xl font-bold text-foreground">All Projects</h2>
             <p className="text-muted-foreground text-sm mt-0.5">
               {projects.length} project{projects.length !== 1 ? "s" : ""}
@@ -111,8 +111,8 @@ export default function ProjectsPage() {
                 className="group relative bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all"
               >
                 <Link href={`/projects/${project.id}`} className="block">
-                  <div className="flex items-start justify-between mb-3 pr-8">
-                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                  <div className="mb-3 flex min-w-0 items-start justify-between gap-2 pr-8">
+                    <h3 className="min-w-0 truncate font-semibold text-foreground transition-colors group-hover:text-primary">
                       {project.name}
                     </h3>
                     <span
@@ -129,14 +129,14 @@ export default function ProjectsPage() {
                       {project.description}
                     </p>
                   )}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
                         {getInitials(project.owner?.name || "?")}
                       </div>
-                      <span className="text-xs text-muted-foreground">{project.owner?.name}</span>
+                      <span className="min-w-0 truncate text-xs text-muted-foreground">{project.owner?.name}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       {project.space && (
                         <span className="flex items-center gap-1">
                           <Folder className="w-3 h-3" />
@@ -214,7 +214,7 @@ function MoveToSpaceDialog({
       onClick={onClose}
     >
       <div
-        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-foreground">Move project</h3>
@@ -232,7 +232,7 @@ function MoveToSpaceDialog({
             </option>
           ))}
         </select>
-        <div className="flex gap-2 mt-6">
+        <div className="mt-6 grid gap-2 sm:flex">
           <button
             onClick={onClose}
             className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"

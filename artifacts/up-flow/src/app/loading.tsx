@@ -8,7 +8,7 @@ import { Loader2 } from "lucide-react";
 export default function RootLoading() {
   return (
     <div
-      className="flex min-h-screen w-full items-center justify-center bg-background text-muted-foreground"
+      className="flex min-h-dvh w-full items-center justify-center bg-background text-muted-foreground"
       role="status"
       aria-live="polite"
     >

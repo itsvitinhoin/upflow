@@ -96,7 +96,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
 
   return (
     <>
-      <aside className="hidden md:flex flex-shrink-0">
+      <aside className="hidden h-dvh flex-shrink-0 md:flex">
         <div className="w-[48px] flex">{renderRail()}</div>
         <div
           className={cn(
@@ -117,11 +117,11 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
         </div>
       </aside>
 
-      <div className="md:hidden fixed top-3 left-3 z-50">
+      <div className="fixed left-3 top-3 z-50 md:hidden">
         <button
           onClick={() => setMobileOpen((v) => !v)}
           aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-          className="bg-card border border-border text-foreground p-2 rounded-lg shadow-lg"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
@@ -133,9 +133,9 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
             className="md:hidden fixed inset-0 bg-black/60 z-40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="md:hidden fixed left-0 top-0 h-full z-50 shadow-2xl border-r border-sidebar-border flex">
+          <aside className="fixed left-0 top-0 z-50 flex h-dvh w-[min(100vw,288px)] border-r border-sidebar-border shadow-2xl md:hidden">
             <div className="w-[48px] flex">{renderRail(() => setMobileOpen(false))}</div>
-            <div className="w-[240px] flex">
+            <div className="min-w-0 flex-1">
               <Panel
                 pathname={pathname}
                 workspaces={workspaces}

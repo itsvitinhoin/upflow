@@ -252,6 +252,12 @@ export default function DashboardPage() {
       ),
     [commandCenterData.team_workload.items],
   );
+  const riskTotal =
+    commandCenterData.projects_at_risk.count + commandCenterData.client_risk.count;
+  const nextMeeting = commandCenterData.meetings_today.items[0] ?? null;
+  const liveTimerLabel = commandCenterData.time_today.running
+    ? "Timer running"
+    : "No active timer";
 
   const handleStatusChange = async (task: Task, status: Task["status"]) => {
     setUpdating(true);
@@ -290,50 +296,97 @@ export default function DashboardPage() {
   return (
     <>
       <Header title="Dashboard" />
-      <main className="mx-auto w-full max-w-[1440px] p-6 space-y-5">
-          <section className="glass rounded-2xl p-5">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+      <main className="mx-auto w-full max-w-[1480px] space-y-5 overflow-x-hidden p-4 sm:p-6">
+          <section className="relative overflow-hidden rounded-[1.25rem] border border-white/10 bg-[linear-gradient(135deg,rgba(124,102,255,0.18),rgba(31,162,124,0.08)_42%,rgba(255,177,92,0.10))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+            <div className="relative flex flex-col gap-6 xl:flex-row xl:items-stretch xl:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
                   Today + Risks Command Center
                 </p>
-                <h2 className="mt-2 text-2xl font-bold text-foreground">
+                <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-foreground sm:text-4xl">
                   {greeting ? `Good ${greeting}, ${firstName}` : `Hi ${firstName}`}
                 </h2>
-                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                   Focused on today&apos;s actionable work, live meetings, tracked time, delivery risk, and client health.
                 </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <SignalBadge tone="danger" label={`${riskTotal} risks`} />
+                  <SignalBadge tone="success" label={`${progress}% tasks complete`} />
+                  <SignalBadge tone="info" label={liveTimerLabel} />
+                </div>
               </div>
-              <QuickCreateMenu
-                onCreateTask={() => setShowNewTask(true)}
-                onCreateProject={() => setShowNewProject(true)}
-                onCreateMeeting={() => setShowSchedule(true)}
-                onCreateCompany={() => setShowCompany(true)}
-                onInvite={() => setShowInvite(true)}
-              />
+              <div className="flex min-w-0 flex-col gap-4 xl:w-[360px]">
+                <QuickCreateMenu
+                  onCreateTask={() => setShowNewTask(true)}
+                  onCreateProject={() => setShowNewProject(true)}
+                  onCreateMeeting={() => setShowSchedule(true)}
+                  onCreateCompany={() => setShowCompany(true)}
+                  onInvite={() => setShowInvite(true)}
+                />
+                <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Operational pulse
+                    </p>
+                    <Activity className="h-4 w-4 text-upflow-success" />
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm">
+                    <PulseLine
+                      label="Next meeting"
+                      value={
+                        nextMeeting
+                          ? new Date(nextMeeting.starts_at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "None today"
+                      }
+                    />
+                    <PulseLine
+                      label="Focus queue"
+                      value={`${todayFocusTasks.length} items`}
+                    />
+                    <PulseLine
+                      label="Open work"
+                      value={`${todoCount + inProgressCount} tasks`}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <SummaryPill
                 label="Tasks"
                 value={tasks.length}
                 hint={`${progress}% complete`}
+                tone="success"
                 onClick={() => setDrawerStatus("todo")}
               />
               <SummaryPill
                 label="Team flags"
                 value={workloadFlags.length}
                 hint="Late or overloaded"
+                tone="warning"
                 onClick={() => setCommandDrawer("team_workload")}
               />
               <SummaryPill
                 label="Activity"
                 value={commandCenterData.recent_activity.count}
                 hint="Workspace trail"
+                tone="info"
                 onClick={() => setCommandDrawer("recent_activity")}
               />
             </div>
           </section>
+
+          <TeamTimeline
+            users={users}
+            loading={loading}
+            timeEntries={timeEntries}
+            events={calendarEvents}
+          />
 
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <CommandTile
@@ -341,6 +394,7 @@ export default function DashboardPage() {
               value={commandCenterData.urgent_actions.count}
               hint="Due today, overdue, or high priority"
               icon={<AlertCircle className="w-4 h-4" />}
+              tone="danger"
               active={commandDrawer === "urgent_actions"}
               onClick={() => setCommandDrawer("urgent_actions")}
             />
@@ -349,6 +403,7 @@ export default function DashboardPage() {
               value={commandCenterData.meetings_today.count}
               hint="Calendar events scheduled today"
               icon={<CalendarIcon className="w-4 h-4" />}
+              tone="info"
               active={commandDrawer === "meetings_today"}
               onClick={() => setCommandDrawer("meetings_today")}
             />
@@ -357,6 +412,7 @@ export default function DashboardPage() {
               value={formatSecondsShort(commandCenterData.time_today.total_seconds)}
               hint={commandCenterData.time_today.running ? "Timer is running" : "Tracked entries today"}
               icon={<Timer className="w-4 h-4" />}
+              tone="success"
               active={commandDrawer === "time_today"}
               onClick={() => setCommandDrawer("time_today")}
             />
@@ -365,6 +421,7 @@ export default function DashboardPage() {
               value={commandCenterData.projects_at_risk.count}
               hint="Overdue or stale projects"
               icon={<TrendingDown className="w-4 h-4" />}
+              tone="warning"
               active={commandDrawer === "projects_at_risk"}
               onClick={() => setCommandDrawer("projects_at_risk")}
             />
@@ -373,6 +430,7 @@ export default function DashboardPage() {
               value={commandCenterData.client_risk.count}
               hint="Clients missing movement, contacts, or values"
               icon={<Building2 className="w-4 h-4" />}
+              tone="rose"
               active={commandDrawer === "client_risk"}
               onClick={() => setCommandDrawer("client_risk")}
             />
@@ -381,6 +439,7 @@ export default function DashboardPage() {
               value={moneyCompact(commandCenterData.revenue_snapshot.total_contract_value)}
               hint={`${commandCenterData.revenue_snapshot.active_clients} active clients`}
               icon={<DollarSign className="w-4 h-4" />}
+              tone="violet"
               active={commandDrawer === "revenue_snapshot"}
               onClick={() => setCommandDrawer("revenue_snapshot")}
             />
@@ -398,7 +457,8 @@ export default function DashboardPage() {
               updating={updating}
             />
 
-            <section className="glass rounded-2xl p-5">
+            <section className="glass relative overflow-hidden rounded-2xl p-5">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-upflow-warning via-primary to-upflow-success" />
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">Tasks</h3>
@@ -414,23 +474,38 @@ export default function DashboardPage() {
                   New task
                 </button>
               </div>
+              <div className="mt-4">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Completion</span>
+                  <span className="font-semibold text-foreground">{progress}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-upflow-success to-primary transition-all"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
               <div className="mt-4 grid gap-2">
                 <StatusCountButton
                   label="Upcoming"
                   value={todoCount}
                   hint="Tasks waiting to start"
+                  tone="warning"
                   onClick={() => setDrawerStatus("todo")}
                 />
                 <StatusCountButton
                   label="In progress"
                   value={inProgressCount}
                   hint="Currently being worked on"
+                  tone="info"
                   onClick={() => setDrawerStatus("in_progress")}
                 />
                 <StatusCountButton
                   label="Completed"
                   value={doneCount}
                   hint={`${progress}% of total`}
+                  tone="success"
                   onClick={() => setDrawerStatus("done")}
                 />
               </div>
@@ -591,13 +666,13 @@ function QuickCreateMenu({
   ];
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative w-full sm:w-auto xl:self-end">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto"
       >
         <Plus className="h-4 w-4" />
         Quick create
@@ -625,32 +700,132 @@ function QuickCreateMenu({
   );
 }
 
+type DashboardTone = "danger" | "warning" | "success" | "info" | "rose" | "violet";
+
+const toneStyles: Record<
+  DashboardTone,
+  {
+    dot: string;
+    surface: string;
+    border: string;
+    icon: string;
+    text: string;
+    bar: string;
+  }
+> = {
+  danger: {
+    dot: "bg-upflow-danger",
+    surface: "bg-upflow-danger/10",
+    border: "border-upflow-danger/25",
+    icon: "bg-upflow-danger/15 text-upflow-danger",
+    text: "text-upflow-danger",
+    bar: "bg-upflow-danger",
+  },
+  warning: {
+    dot: "bg-upflow-warning",
+    surface: "bg-upflow-warning/10",
+    border: "border-upflow-warning/25",
+    icon: "bg-upflow-warning/15 text-upflow-warning",
+    text: "text-upflow-warning",
+    bar: "bg-upflow-warning",
+  },
+  success: {
+    dot: "bg-upflow-success",
+    surface: "bg-upflow-success/10",
+    border: "border-upflow-success/25",
+    icon: "bg-upflow-success/15 text-upflow-success",
+    text: "text-upflow-success",
+    bar: "bg-upflow-success",
+  },
+  info: {
+    dot: "bg-sky-400",
+    surface: "bg-sky-400/10",
+    border: "border-sky-400/25",
+    icon: "bg-sky-400/15 text-sky-300",
+    text: "text-sky-300",
+    bar: "bg-sky-400",
+  },
+  rose: {
+    dot: "bg-pink-400",
+    surface: "bg-pink-400/10",
+    border: "border-pink-400/25",
+    icon: "bg-pink-400/15 text-pink-300",
+    text: "text-pink-300",
+    bar: "bg-pink-400",
+  },
+  violet: {
+    dot: "bg-primary",
+    surface: "bg-primary/10",
+    border: "border-primary/25",
+    icon: "bg-primary/15 text-primary",
+    text: "text-primary",
+    bar: "bg-primary",
+  },
+};
+
+function SignalBadge({ tone, label }: { tone: DashboardTone; label: string }) {
+  const styles = toneStyles[tone];
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+        styles.surface,
+        styles.border,
+        styles.text,
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} />
+      {label}
+    </span>
+  );
+}
+
+function PulseLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="min-w-0 truncate text-right text-sm font-semibold text-foreground">
+        {value}
+      </span>
+    </div>
+  );
+}
+
 function SummaryPill({
   label,
   value,
   hint,
+  tone,
   onClick,
 }: {
   label: string;
   value: string | number;
   hint: string;
+  tone: DashboardTone;
   onClick: () => void;
 }) {
+  const styles = toneStyles[tone];
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-white/[0.05]"
+      className={cn(
+        "group flex items-center justify-between gap-3 rounded-xl border bg-black/10 px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:bg-white/[0.05]",
+        styles.border,
+      )}
     >
-      <span className="min-w-0">
+      <span className="flex min-w-0 items-center gap-3">
+        <span className={cn("h-9 w-1 rounded-full", styles.bar)} />
+        <span className="min-w-0">
         <span className="block text-xs font-semibold uppercase text-muted-foreground">
           {label}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {hint}
         </span>
+        </span>
       </span>
-      <span className="shrink-0 text-xl font-bold text-foreground">{value}</span>
+      <span className={cn("shrink-0 text-xl font-bold", styles.text)}>{value}</span>
     </button>
   );
 }
@@ -659,26 +834,35 @@ function StatusCountButton({
   label,
   value,
   hint,
+  tone,
   onClick,
 }: {
   label: string;
   value: number;
   hint: string;
+  tone: DashboardTone;
   onClick: () => void;
 }) {
+  const styles = toneStyles[tone];
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-white/[0.05]"
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-xl border bg-white/[0.03] px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:bg-white/[0.06]",
+        styles.border,
+      )}
     >
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-foreground">{label}</span>
+        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className={cn("h-2 w-2 rounded-full", styles.dot)} />
+          {label}
+        </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
           {hint}
         </span>
       </span>
-      <span className="text-lg font-bold text-foreground">{value}</span>
+      <span className={cn("text-lg font-bold", styles.text)}>{value}</span>
     </button>
   );
 }
@@ -706,10 +890,15 @@ function TodayFocusPanel({
   const hasFocusItems = tasks.length > 0 || visibleMeetings.length > 0;
 
   return (
-    <section className="glass rounded-2xl overflow-hidden">
-      <div className="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4">
+    <section className="glass overflow-hidden rounded-2xl">
+      <div className="flex items-start justify-between gap-3 border-b border-white/5 bg-white/[0.02] px-5 py-4">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Today focus</h3>
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-upflow-danger/15 text-upflow-danger">
+              <AlertCircle className="h-4 w-4" />
+            </span>
+            <h3 className="text-sm font-semibold text-foreground">Today focus</h3>
+          </div>
           <p className="mt-1 text-xs text-muted-foreground">
             The shortest list of work that needs attention now.
           </p>
@@ -749,7 +938,7 @@ function TodayFocusPanel({
             {visibleMeetings.length > 0 && (
               <div className="space-y-2 px-5 py-4">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-300">
                     Meetings
                   </p>
                   <button
@@ -765,7 +954,7 @@ function TodayFocusPanel({
                     key={meeting.id}
                     type="button"
                     onClick={onOpenMeetings}
-                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left hover:border-primary/40"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-left hover:border-sky-300/50"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-foreground">
@@ -956,7 +1145,7 @@ function TaskStatusDrawer({
   return (
     <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <aside
-        className="absolute right-0 top-0 h-full w-full max-w-md glass-strong border-l border-white/10 p-5 overflow-y-auto"
+        className="absolute right-0 top-0 h-dvh w-full max-w-md overflow-y-auto border-l border-white/10 p-4 glass-strong sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1042,6 +1231,7 @@ function CommandTile({
   value,
   hint,
   icon,
+  tone,
   active,
   onClick,
 }: {
@@ -1049,28 +1239,40 @@ function CommandTile({
   value: number | string;
   hint: string;
   icon: React.ReactNode;
+  tone: DashboardTone;
   active: boolean;
   onClick: () => void;
 }) {
+  const styles = toneStyles[tone];
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-xl border border-white/5 bg-white/[0.03] p-4 text-left transition-colors hover:bg-white/[0.06] focus:outline-none focus:ring-2 focus:ring-primary/60",
-        active && "border-primary/60 bg-primary/10",
+        "group relative overflow-hidden rounded-xl border bg-card/75 p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:-translate-y-0.5 hover:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/60",
+        styles.border,
+        active && "border-primary/70 bg-primary/10",
       )}
     >
+      <span
+        className={cn(
+          "absolute inset-x-0 top-0 h-0.5 opacity-80 transition-opacity group-hover:opacity-100",
+          styles.bar,
+        )}
+      />
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-semibold uppercase text-muted-foreground">
           {title}
         </span>
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/5 text-primary">
+        <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", styles.icon)}>
           {icon}
         </span>
       </div>
-      <div className="mt-3 text-2xl font-bold text-foreground">{value}</div>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div className="text-3xl font-bold tracking-tight text-foreground">{value}</div>
+        <ArrowRight className={cn("mb-1 h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100", styles.text)} />
+      </div>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
     </button>
   );
@@ -1114,7 +1316,7 @@ function CommandCenterDrawer({
   return (
     <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <aside
-        className="absolute right-0 top-0 h-full w-full max-w-lg glass-strong border-l border-white/10 p-5 overflow-y-auto"
+        className="absolute right-0 top-0 h-dvh w-full max-w-lg overflow-y-auto border-l border-white/10 p-4 glass-strong sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -1508,7 +1710,7 @@ function DashboardMeetingEditor({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
       <form
         onSubmit={save}
-        className="glass-strong w-full max-w-md rounded-2xl p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -1526,7 +1728,7 @@ function DashboardMeetingEditor({
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-foreground">Time</label>
             <input
@@ -1765,16 +1967,28 @@ function TeamTimeline({
     () => buildTimelineRowsFromData(users, timeEntries, events),
     [users, timeEntries, events],
   );
+  const scheduledBlocks = rows.reduce((sum, row) => sum + row.blocks.length, 0);
 
   const inFocusWindow = (h: number) =>
     focusHour !== null && Math.abs(h - focusHour) <= 2;
 
   return (
-    <section className="glass rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Team timeline</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
+    <section className="glass relative overflow-hidden rounded-2xl p-4 sm:p-5">
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-400 via-primary to-upflow-success" />
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300">
+              <Users2 className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">Team timeline</h3>
+              <p className="text-xs text-muted-foreground">
+                Live schedule from meetings and tracked time
+              </p>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
             <span suppressHydrationWarning>{todayLabel || "\u00A0"}</span>
             {focusedLabel && (
               <>
@@ -1795,58 +2009,66 @@ function TeamTimeline({
             )}
           </p>
         </div>
-        <div className="relative" ref={optionsRef}>
-          <button
-            onClick={() => setOptionsOpen((v) => !v)}
-            aria-label="Timeline options"
-            aria-expanded={optionsOpen}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          {optionsOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-full mt-1 w-52 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+        <div className="flex items-center gap-2">
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-muted-foreground">
+            {rows.length} people
+          </span>
+          <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300">
+            {scheduledBlocks} blocks
+          </span>
+          <div className="relative" ref={optionsRef}>
+            <button
+              onClick={() => setOptionsOpen((v) => !v)}
+              aria-label="Timeline options"
+              aria-expanded={optionsOpen}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
-              <button
-                role="menuitem"
-                type="button"
-                disabled={focusHour === null}
-                onClick={() => {
-                  setFocusHour(null);
-                  setOptionsOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 hover:bg-white/5 disabled:opacity-40 focus:outline-none focus-visible:bg-white/10"
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {optionsOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-lg text-xs glass-strong"
               >
-                Clear focus window
-              </button>
-              <button
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  setCompact((v) => !v);
-                  setOptionsOpen(false);
-                }}
-                className="w-full text-left px-3 py-2 hover:bg-white/5 border-t border-white/5 focus:outline-none focus-visible:bg-white/10"
-              >
-                {compact ? "Comfortable density" : "Compact density"}
-              </button>
-              <Link
-                role="menuitem"
-                href="/team"
-                onClick={() => setOptionsOpen(false)}
-                className="block w-full text-left px-3 py-2 hover:bg-white/5 border-t border-white/5 focus:outline-none focus-visible:bg-white/10"
-              >
-                Open team page
-              </Link>
-            </div>
-          )}
+                <button
+                  role="menuitem"
+                  type="button"
+                  disabled={focusHour === null}
+                  onClick={() => {
+                    setFocusHour(null);
+                    setOptionsOpen(false);
+                  }}
+                  className="w-full px-3 py-2 text-left hover:bg-white/5 disabled:opacity-40 focus:outline-none focus-visible:bg-white/10"
+                >
+                  Clear focus window
+                </button>
+                <button
+                  role="menuitem"
+                  type="button"
+                  onClick={() => {
+                    setCompact((v) => !v);
+                    setOptionsOpen(false);
+                  }}
+                  className="w-full border-t border-white/5 px-3 py-2 text-left hover:bg-white/5 focus:outline-none focus-visible:bg-white/10"
+                >
+                  {compact ? "Comfortable density" : "Compact density"}
+                </button>
+                <Link
+                  role="menuitem"
+                  href="/team"
+                  onClick={() => setOptionsOpen(false)}
+                  className="block w-full border-t border-white/5 px-3 py-2 text-left hover:bg-white/5 focus:outline-none focus-visible:bg-white/10"
+                >
+                  Open team page
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Hour pills */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-3 pl-[140px]">
+      <div className="flex items-center gap-1 overflow-x-auto pb-3 sm:pl-[132px]">
         {hours.map((h) => {
           const isCurrent = h === currentHour;
           const isFocus = focusHour === h;
@@ -1880,7 +2102,7 @@ function TeamTimeline({
       <div className={cn("mt-2", compact ? "space-y-1" : "space-y-2")}>
         {loading ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
-            Loading…
+            Loading...
           </div>
         ) : rows.length === 0 ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
@@ -1900,8 +2122,8 @@ function TeamTimeline({
                 !rowMatches && "opacity-30"
               )}
             >
-              <div className="w-[128px] flex items-center gap-2 flex-shrink-0">
-                <div className="w-7 h-7 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+              <div className="flex w-[104px] flex-shrink-0 items-center gap-2 sm:w-[120px]">
+                <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
                   {getInitials(u.name)}
                 </div>
                 <span className="text-xs text-foreground truncate text-left">{u.name}</span>
@@ -2266,7 +2488,7 @@ function RightPanel({
           {fmt(h)}:{fmt(m)}:{fmt(s)}
         </div>
         <p className="text-xs text-muted-foreground mt-1 truncate">{activeProject}</p>
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
           <button
             onClick={handleStart}
             disabled={timerState === "running"}
@@ -2665,7 +2887,7 @@ function TaskDetailModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md glass-strong rounded-2xl p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -2714,7 +2936,7 @@ function TaskDetailModal({
             {task.description}
           </p>
         )}
-        <div className="mt-6 grid grid-cols-3 gap-2">
+        <div className="mt-6 grid gap-2 sm:grid-cols-3">
           <button
             onClick={() => onStatusChange(task, "todo")}
             disabled={updating || task.status === "todo"}

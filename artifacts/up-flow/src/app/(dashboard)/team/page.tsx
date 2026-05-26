@@ -563,7 +563,7 @@ export default function TeamPage() {
   return (
     <>
       <Header title="Team" />
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl overflow-x-hidden p-4 sm:p-6">
         <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-xl font-bold text-foreground">Team Members</h2>
@@ -579,7 +579,7 @@ export default function TeamPage() {
             </p>
           </div>
           {isAdmin && workspaceId && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -762,12 +762,12 @@ export default function TeamPage() {
                       {g.members.map((user) => (
                         <li
                           key={user.id}
-                          className="flex items-center gap-3 px-6 py-3 hover:bg-muted/30 transition-colors"
+                          className="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:px-6"
                         >
                           <div className="w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">
                             {getInitials(user.name)}
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="min-w-0 flex-1 self-stretch sm:self-auto">
                             <p className="text-sm font-medium text-foreground truncate">
                               {user.name}
                             </p>
@@ -794,7 +794,7 @@ export default function TeamPage() {
                             )}
                           </div>
                           {isAdmin ? (
-                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                               <select
                                 aria-label={`Role for ${user.name}`}
                                 value={user.workspace_role ?? user.role}
@@ -889,7 +889,7 @@ export default function TeamPage() {
                   <li
                     key={p.id}
                     data-testid="pending-invite"
-                    className="flex items-center justify-between gap-3 px-6 py-3"
+                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -905,7 +905,7 @@ export default function TeamPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={() => resendInvite(p)}
@@ -1127,7 +1127,7 @@ function TesterInvitePanel({
             workspace data unless you invite them separately.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!workspace && (
             <button
               type="button"
@@ -1204,7 +1204,7 @@ function TesterInvitePanel({
                     )}
                   </div>
                   {!accepted && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         onClick={() => onResend(invite)}
@@ -1344,7 +1344,7 @@ function CreateTesterAccountDialog({
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="glass-strong w-full max-w-md rounded-2xl p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
       >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1385,7 +1385,7 @@ function CreateTesterAccountDialog({
               rows={5}
               className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground"
             />
-            <div className="flex gap-2">
+            <div className="grid gap-2 sm:flex">
               <button
                 type="button"
                 onClick={() => navigator.clipboard?.writeText(credentialText)}
@@ -1431,7 +1431,7 @@ function CreateTesterAccountDialog({
             <label className="mb-1.5 mt-4 block text-xs font-medium text-foreground">
               Temporary password
             </label>
-            <div className="flex gap-2">
+            <div className="grid gap-2 sm:flex">
               <input
                 type="text"
                 value={password}
@@ -1636,7 +1636,7 @@ function ManageDepartmentsDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-xl w-full max-w-lg p-6 shadow-lg"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-lg sm:p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-foreground">
@@ -1670,7 +1670,7 @@ function ManageDepartmentsDialog({
 
         <div className="border-t border-border pt-4 space-y-2">
           <p className="text-xs font-medium text-foreground">Add department</p>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
               placeholder="e.g. Engineering"

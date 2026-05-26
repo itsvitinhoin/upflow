@@ -157,13 +157,13 @@ export default function CalendarPage() {
   return (
     <>
       <Header title="Calendar" />
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        <section className="glass rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
+      <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="min-w-0 rounded-2xl p-4 glass sm:p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-semibold text-foreground">
               {MONTHS[month]} {year}
             </h3>
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-1">
               <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
                 <button
                   type="button"
@@ -224,7 +224,7 @@ export default function CalendarPage() {
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid min-w-0 grid-cols-7 gap-1">
             {days.map((day) => {
               const inMonth = day.getMonth() === month;
               const isToday = isSameDay(day, today);
@@ -237,7 +237,7 @@ export default function CalendarPage() {
                   key={key}
                   onClick={() => setSelected(day)}
                   className={cn(
-                    "h-24 rounded-lg p-1.5 flex flex-col items-start text-left transition-colors border",
+                    "flex h-16 flex-col items-start rounded-lg border p-1 text-left transition-colors sm:h-24 sm:p-1.5",
                     isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-white/5",
                     !inMonth && "opacity-40",
                   )}
@@ -252,7 +252,7 @@ export default function CalendarPage() {
                   >
                     {day.getDate()}
                   </span>
-                  <div className="mt-1 w-full space-y-0.5 overflow-hidden">
+                  <div className="mt-1 hidden w-full space-y-0.5 overflow-hidden sm:block">
                     {dayEvents.slice(0, 2).map((event) => (
                       <div
                         key={event.id}
@@ -283,8 +283,8 @@ export default function CalendarPage() {
           </div>
         </section>
 
-        <aside className="space-y-4">
-          <div className="glass rounded-2xl p-5">
+        <aside className="min-w-0 space-y-4">
+          <div className="rounded-2xl p-4 glass sm:p-5">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
               {selectedIsToday ? "Today" : "Selected"}
             </p>
@@ -405,7 +405,7 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          <div className="glass rounded-2xl p-5">
+          <div className="rounded-2xl p-4 glass sm:p-5">
             <div className="flex items-center gap-2 mb-2">
               <CalendarIcon className="w-4 h-4 text-muted-foreground" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -537,7 +537,7 @@ function EventEditor({
     >
       <form
         onSubmit={save}
-        className="glass-strong rounded-2xl w-full max-w-md p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -555,7 +555,7 @@ function EventEditor({
           onChange={(e) => setTitle(e.target.value)}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">Time</label>
             <input
@@ -574,12 +574,12 @@ function EventEditor({
             />
           </div>
         </div>
-        <div className="flex gap-2 mt-6">
+        <div className="mt-6 grid gap-2 sm:flex">
           <button
             type="button"
             onClick={remove}
             disabled={submitting}
-            className="w-10 flex items-center justify-center border border-upflow-danger/30 text-upflow-danger rounded-lg hover:bg-upflow-danger/10 disabled:opacity-40"
+            className="flex h-10 items-center justify-center rounded-lg border border-upflow-danger/30 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40 sm:w-10"
             aria-label="Delete event"
           >
             <Trash2 className="w-4 h-4" />

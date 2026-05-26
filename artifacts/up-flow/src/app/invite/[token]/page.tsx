@@ -139,7 +139,7 @@ export default function AcceptInvitePage({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-background">
+    <div className="flex min-h-dvh items-center justify-center overflow-x-hidden bg-background px-4 py-6">
       <div className="w-full max-w-md rounded-xl border border-white/10 bg-white/5 p-8 backdrop-blur">
         <h1 className="text-xl font-semibold text-foreground mb-2">
           You&apos;ve been invited

@@ -39,7 +39,7 @@ export default function ClientsPage() {
   return (
     <>
       <Header title="Clients" />
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
         <section className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Clients</h2>
@@ -85,7 +85,7 @@ export default function ClientsPage() {
               <Link
                 key={company.id}
                 href={`/clients/${company.id}`}
-                className="rounded-xl border border-white/5 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]"
+                className="min-w-0 rounded-xl border border-white/5 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -135,7 +135,7 @@ export default function ClientsPage() {
                   )}
                 </div>
 
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
                   <MetricPill label="Projects" value={company.summary?.project_count ?? 0} />
                   <MetricPill label="Open" value={company.summary?.open_task_count ?? 0} />
                   <MetricPill label="Contract" value={money(company.contract_value)} />

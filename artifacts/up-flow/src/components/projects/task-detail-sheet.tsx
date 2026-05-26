@@ -217,8 +217,8 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-background border-l border-border shadow-2xl z-50 flex flex-col overflow-hidden">
-        <div className="flex items-start gap-3 px-6 py-4 border-b border-border">
+      <div className="fixed right-0 top-0 z-50 flex h-dvh w-full flex-col overflow-hidden border-l border-border bg-background shadow-2xl sm:max-w-lg">
+        <div className="flex items-start gap-3 border-b border-border px-4 py-4 sm:px-6">
           <div className="flex-1 min-w-0">
             <input
               defaultValue={currentTask.title}
@@ -246,9 +246,9 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="px-6 py-4 space-y-4 border-b border-border">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground w-24">Status</span>
+          <div className="space-y-4 border-b border-border px-4 py-4 sm:px-6">
+            <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
+              <span className="text-sm text-muted-foreground sm:w-24">Status</span>
               <select
                 value={currentTask.status}
                 onChange={(e) => update({ status: e.target.value as Task["status"] })}
@@ -259,8 +259,8 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 <option value="done">Done</option>
               </select>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground w-24">Priority</span>
+            <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
+              <span className="text-sm text-muted-foreground sm:w-24">Priority</span>
               <select
                 value={currentTask.priority}
                 onChange={(e) => update({ priority: e.target.value as Task["priority"] })}
@@ -271,12 +271,12 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 <option value="high">High</option>
               </select>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground w-24">Assignee</span>
+            <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
+              <span className="text-sm text-muted-foreground sm:w-24">Assignee</span>
               <select
                 value={currentTask.assignee_id || ""}
                 onChange={(e) => update({ assignee_id: e.target.value || null })}
-                className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring flex-1"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Unassigned</option>
                 {users.map((u) => (
@@ -284,8 +284,8 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground w-24">Due date</span>
+            <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
+              <span className="text-sm text-muted-foreground sm:w-24">Due date</span>
               <input
                 type="date"
                 defaultValue={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
@@ -295,7 +295,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             </div>
           </div>
 
-          <div className="px-6 py-4 border-b border-border">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
             <label className="block text-sm font-medium text-foreground mb-2">Description</label>
             <textarea
               defaultValue={currentTask.description || ""}
@@ -310,7 +310,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             />
           </div>
 
-          <div className="px-6 py-4 border-b border-border">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
             <label className="block text-sm font-medium text-foreground mb-2">Board cover image</label>
             <TaskCoverImageControl
               value={currentTask.cover_image_url}
@@ -319,7 +319,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             />
           </div>
 
-          <div className="px-6 py-4 border-b border-border">
+          <div className="border-b border-border px-4 py-4 sm:px-6">
             <button
               onClick={() => setSubtasksExpanded((v) => !v)}
               className="flex items-center gap-2 text-sm font-medium text-foreground mb-3 w-full"
@@ -387,12 +387,12 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                   )}
                 </div>
 
-                <form onSubmit={addSubtask} className="flex gap-2">
+                <form onSubmit={addSubtask} className="grid gap-2 sm:flex">
                   <input
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
                     placeholder="Add a subtask..."
-                    className="flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <button
                     type="submit"
@@ -410,7 +410,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             )}
           </div>
 
-          <div className="px-6 py-4">
+          <div className="px-4 py-4 sm:px-6">
             <h3 className="text-sm font-medium text-foreground mb-4">
               Comments ({comments.length})
             </h3>

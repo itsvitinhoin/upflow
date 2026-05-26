@@ -96,7 +96,7 @@ export default function ProjectPage() {
     return (
       <>
         <Header title="Project" />
-        <div className="p-6 space-y-4">
+        <div className="space-y-4 p-4 sm:p-6">
           <div className="h-8 bg-muted rounded w-48 animate-pulse" />
           <div className="h-4 bg-muted rounded w-96 animate-pulse" />
         </div>
@@ -117,7 +117,7 @@ export default function ProjectPage() {
   return (
     <>
       <Header title={project.name} />
-      <div className="p-6 max-w-[1400px] mx-auto">
+      <div className="mx-auto max-w-[1400px] overflow-x-hidden p-4 sm:p-6">
         <div className="mb-4">
           <Link
             href="/projects"
@@ -126,10 +126,10 @@ export default function ProjectPage() {
             <ArrowLeft className="w-4 h-4" /> Back to Projects
           </Link>
 
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1.5">
-                <h2 className="text-2xl font-bold text-foreground">{project.name}</h2>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-3">
+                <h2 className="min-w-0 break-words text-2xl font-bold text-foreground">{project.name}</h2>
                 <span
                   className={cn(
                     "text-xs px-2.5 py-1 rounded-full font-medium",
@@ -142,7 +142,7 @@ export default function ProjectPage() {
               {project.description && (
                 <p className="text-muted-foreground text-sm mb-3">{project.description}</p>
               )}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground sm:gap-4">
                 <span>{tasks.length} tasks</span>
                 {project.due_date && <span>Due {formatDate(project.due_date)}</span>}
                 <span className="flex items-center gap-1.5">
@@ -156,7 +156,7 @@ export default function ProjectPage() {
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/docs?project=${id}`}
                 className="flex items-center gap-2 border border-border bg-card hover:bg-muted text-foreground text-sm font-medium px-3 py-2 rounded-lg transition-colors"

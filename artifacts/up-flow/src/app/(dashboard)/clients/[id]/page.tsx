@@ -122,7 +122,7 @@ export default function ClientDetailPage() {
     return (
       <>
         <Header title="Client" />
-        <div className="p-6 space-y-4" role="status" aria-busy="true">
+        <div className="space-y-4 p-4 sm:p-6" role="status" aria-busy="true">
           <div className="h-32 animate-pulse rounded-xl bg-white/5" />
           <div className="grid gap-4 lg:grid-cols-3">
             {[1, 2, 3].map((item) => (
@@ -138,23 +138,23 @@ export default function ClientDetailPage() {
   return (
     <>
       <Header title={company.name} />
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
         <section className="glass rounded-xl p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
+            <div className="flex min-w-0 items-start gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <Building2 className="h-6 w-6" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Client</p>
-                <h2 className="text-2xl font-bold text-foreground">{company.name}</h2>
+                <h2 className="break-words text-2xl font-bold text-foreground">{company.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {company.commercial_status || company.status}
                   {company.industry ? ` · ${company.industry}` : ""}
                 </p>
               </div>
             </div>
-            <div className="grid gap-2 text-right text-xs text-muted-foreground">
+            <div className="grid gap-2 text-left text-xs text-muted-foreground sm:text-right">
               <span>Contract: {money(company.contract_value)}</span>
               <span>Commission: {money(company.commission)}</span>
               {company.website && (
@@ -228,7 +228,7 @@ export default function ClientDetailPage() {
               </h3>
             </div>
             {editingPlan ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -452,7 +452,7 @@ function MetricCard({
 
 function Panel({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="glass rounded-xl p-5">
+    <section className="rounded-xl p-4 glass sm:p-5">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-foreground">
         {icon} {title}
       </h3>
@@ -465,7 +465,7 @@ function PlanFact({ label, value, hint }: { label: string; value: string; hint?:
   return (
     <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
       <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
-      <p className="mt-3 text-lg font-semibold text-foreground">{value}</p>
+      <p className="mt-3 break-words text-lg font-semibold text-foreground">{value}</p>
       {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
@@ -478,7 +478,7 @@ function List<T extends { id?: string }>({ items, empty, render }: { items: T[];
   return (
     <div className="space-y-2">
       {items.map((item) => (
-        <div key={item.id} className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
+        <div key={item.id} className="min-w-0 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
           {render(item)}
         </div>
       ))}

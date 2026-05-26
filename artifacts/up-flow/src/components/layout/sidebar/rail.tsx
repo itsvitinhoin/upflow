@@ -116,9 +116,6 @@ export function Rail({
           ) : (
             <PanelLeftOpen className="w-[18px] h-[18px]" />
           )}
-          <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-            {panelOpen ? "Hide sidebar" : "Show sidebar"}
-          </span>
         </button>
       </nav>
 

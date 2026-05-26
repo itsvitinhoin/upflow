@@ -3,7 +3,7 @@ import { Compass } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-6">
+    <div className="flex min-h-dvh w-full items-center justify-center bg-background p-4 sm:p-6">
       <div
         data-testid="not-found"
         className="w-full max-w-md rounded-xl border border-border bg-card/60 p-8 text-center shadow-xl backdrop-blur"

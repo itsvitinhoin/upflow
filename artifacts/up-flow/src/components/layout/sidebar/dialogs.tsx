@@ -70,7 +70,7 @@ export function SpaceDialog({
     >
       <form
         onSubmit={submit}
-        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -105,7 +105,7 @@ export function SpaceDialog({
             </button>
           ))}
         </div>
-        <div className="flex gap-2 mt-6">
+        <div className="mt-6 grid gap-2 sm:flex">
           <button
             type="button"
             onClick={onClose}
@@ -182,7 +182,7 @@ export function MoveProjectDialog({
       onClick={onClose}
     >
       <div
-        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -215,7 +215,7 @@ export function MoveProjectDialog({
             );
           })}
         </select>
-        <div className="flex gap-2 mt-6">
+        <div className="mt-6 grid gap-2 sm:flex">
           <button
             onClick={onClose}
             className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
@@ -295,7 +295,7 @@ export function FolderDialog({
     >
       <form
         onSubmit={submit}
-        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -321,7 +321,7 @@ export function FolderDialog({
           placeholder="e.g. Q1 initiatives"
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        <div className="flex gap-2 mt-6">
+        <div className="mt-6 grid gap-2 sm:flex">
           <button
             type="button"
             onClick={onClose}
@@ -404,7 +404,7 @@ export function NewListDialog({
     >
       <form
         onSubmit={submit}
-        className="glass-strong rounded-2xl w-full max-w-sm p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -443,7 +443,7 @@ export function NewListDialog({
           onChange={(e) => setDueDate(e.target.value)}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        <div className="flex gap-2 mt-6">
+        <div className="mt-6 grid gap-2 sm:flex">
           <button
             type="button"
             onClick={onClose}

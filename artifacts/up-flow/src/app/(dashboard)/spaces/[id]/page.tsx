@@ -219,8 +219,8 @@ export default function SpaceContainerPage() {
     return (
       <>
         <Header title="Space" />
-        <div className="p-6">
-          <div className="glass rounded-xl p-6 max-w-lg">
+        <div className="p-4 sm:p-6">
+          <div className="max-w-lg rounded-xl p-4 glass sm:p-6">
             <h2 className="text-lg font-semibold text-foreground">
               Couldn&apos;t load this Space
             </h2>
@@ -250,7 +250,7 @@ export default function SpaceContainerPage() {
   return (
     <>
       <Header title={space.name} />
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
         <section className="glass rounded-xl p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4 min-w-0">
@@ -429,7 +429,7 @@ function SpaceDashboard({
 
   if (error || !data) {
     return (
-      <section className="glass rounded-xl p-6 max-w-lg">
+      <section className="max-w-lg rounded-xl p-4 glass sm:p-6">
         <h3 className="text-base font-semibold text-foreground">
           Couldn&apos;t load dashboard
         </h3>
@@ -704,7 +704,7 @@ function SpaceDashboardDrawer({
         onClick={onClose}
         aria-label="Close drawer"
       />
-      <aside className="absolute right-0 top-0 h-full w-full max-w-xl glass-strong border-l border-white/10 shadow-2xl flex flex-col">
+      <aside className="absolute right-0 top-0 flex h-dvh w-full max-w-xl flex-col border-l border-white/10 shadow-2xl glass-strong">
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/10">
           <div>
             <p className="text-xs uppercase text-muted-foreground">Space dashboard</p>
@@ -761,7 +761,7 @@ function SpaceDashboardDrawer({
                       {item.state}
                     </span>
                   </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
+                  <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
                     <Metric label="Open" value={item.open_tasks} />
                     <Metric label="Overdue" value={item.overdue_tasks} />
                     <Metric label="Today" value={formatSecondsShort(item.tracked_seconds_today)} />
@@ -1353,7 +1353,7 @@ function ContainerSkeleton({ title }: { title: string }) {
   return (
     <>
       <Header title={title} />
-      <div className="p-6 space-y-6" role="status" aria-busy="true">
+      <div className="space-y-6 p-4 sm:p-6" role="status" aria-busy="true">
         <span className="sr-only">Loading...</span>
         <div className="glass rounded-xl p-5">
           <div className="flex items-center gap-4">

@@ -107,7 +107,7 @@ export default function CreateTaskPanel({
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <form
         onSubmit={submit}
-        className="fixed right-0 top-0 h-full w-full max-w-[520px] bg-background border-l border-border shadow-2xl z-50 flex flex-col"
+        className="fixed right-0 top-0 z-50 flex h-dvh w-full flex-col border-l border-border bg-background shadow-2xl sm:max-w-[520px]"
       >
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
           <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-muted text-muted-foreground">
@@ -220,7 +220,7 @@ export default function CreateTaskPanel({
               </h3>
               {customFields.map((f) => (
                 <Row key={f.id} label={f.name}>
-                  <div className="flex-1 max-w-[280px]">
+                  <div className="min-w-0 flex-1 sm:max-w-[280px]">
                     <CustomFieldInput
                       definition={f}
                       value={fieldValues[f.id]}
@@ -245,7 +245,7 @@ export default function CreateTaskPanel({
           </div>
         </div>
 
-        <div className="px-5 py-3 border-t border-border bg-card/50 flex items-center gap-2 justify-end">
+        <div className="grid gap-2 border-t border-border bg-card/50 px-4 py-3 sm:flex sm:items-center sm:justify-end sm:px-5">
           <button
             type="button"
             onClick={onClose}

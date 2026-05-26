@@ -95,7 +95,7 @@ export default function ScheduleMeetingDialog({
     >
       <form
         onSubmit={submit}
-        className="glass-strong rounded-2xl w-full max-w-md p-6"
+        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -126,7 +126,7 @@ export default function ScheduleMeetingDialog({
             })}
           </p>
         )}
-        <div className="grid grid-cols-2 gap-3 mt-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">Time</label>
             <input

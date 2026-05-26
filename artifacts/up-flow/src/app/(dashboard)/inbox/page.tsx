@@ -177,7 +177,7 @@ export default function InboxPage() {
   return (
     <>
       <Header title="Inbox" />
-      <div className="p-6 space-y-4 max-w-3xl mx-auto">
+      <div className="mx-auto max-w-3xl space-y-4 overflow-x-hidden p-4 sm:p-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2 flex-wrap">
             {tabs.map((t) => {

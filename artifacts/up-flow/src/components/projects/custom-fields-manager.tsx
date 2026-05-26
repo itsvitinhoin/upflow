@@ -135,7 +135,7 @@ export default function CustomFieldsManager({
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-background border-l border-border shadow-2xl z-50 flex flex-col">
+      <div className="fixed right-0 top-0 z-50 flex h-dvh w-full flex-col border-l border-border bg-background shadow-2xl sm:max-w-md">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-muted-foreground" />
@@ -248,7 +248,7 @@ export default function CustomFieldsManager({
             </div>
             <div>
               <label className="block text-xs text-muted-foreground mb-1">Type</label>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid gap-1.5 sm:grid-cols-3">
                 {TYPES.map((t) => (
                   <button
                     key={t.value}

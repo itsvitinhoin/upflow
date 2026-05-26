@@ -114,7 +114,7 @@ export default function TimePage() {
   return (
     <>
       <Header title="Time tracking" />
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SummaryCard
             label="This week"

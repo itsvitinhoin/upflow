@@ -40,11 +40,11 @@ export default async function DashboardLayout({
 
   return (
     <UserProvider user={user}>
-      <div className="relative flex h-screen overflow-hidden bg-background">
-        <div className="relative z-10 flex w-full h-full">
+      <div className="relative flex h-dvh min-h-dvh overflow-hidden overflow-x-hidden bg-background">
+        <div className="relative z-10 flex h-full w-full min-w-0">
           <Sidebar user={user} workspaces={workspaces} />
-          <main className="relative flex-1 overflow-y-auto">
-            <div className="relative z-10">{children}</div>
+          <main className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="relative z-10 min-w-0">{children}</div>
           </main>
         </div>
       </div>

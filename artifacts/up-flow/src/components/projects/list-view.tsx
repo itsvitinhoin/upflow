@@ -95,7 +95,7 @@ export default function ListView({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card overflow-auto max-h-[calc(100vh-280px)] relative">
+    <div className="relative max-h-[calc(100dvh-300px)] max-w-full overflow-auto rounded-lg border border-border bg-card sm:max-h-[calc(100dvh-280px)]">
       <div
         className="grid items-center px-3 py-1.5 border-b border-border bg-card text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sticky top-0 z-20"
         style={{ gridTemplateColumns: cols.gridTemplate }}
@@ -177,7 +177,7 @@ export default function ListView({
                         </button>
                         <span
                           className={cn(
-                            "text-sm text-foreground truncate",
+                            "min-w-0 truncate text-sm text-foreground",
                             t.status === "done" && "line-through text-muted-foreground",
                           )}
                         >
@@ -255,7 +255,7 @@ function renderStandardCell(
   if (key === "due_date") {
     return (
       <div className="flex items-center gap-1">
-        <Calendar className="w-3 h-3" />
+        <Calendar className="h-3 w-3 flex-shrink-0" />
         <input
           type="date"
           value={t.due_date ? t.due_date.slice(0, 10) : ""}
@@ -264,7 +264,7 @@ function renderStandardCell(
           }
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "bg-transparent text-xs px-1 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring",
+            "max-w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-border focus:outline-none focus:ring-2 focus:ring-ring",
             isOverdue(t.due_date) && t.status !== "done" && "text-upflow-danger",
           )}
         />

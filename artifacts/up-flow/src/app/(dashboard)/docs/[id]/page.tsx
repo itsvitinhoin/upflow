@@ -139,7 +139,7 @@ export default function DocPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex h-dvh items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
@@ -148,8 +148,8 @@ export default function DocPage() {
   if (!doc) return null;
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      <div className="flex items-center gap-3 px-6 py-3 border-b border-border sticky top-0 bg-background z-10">
+    <div className="flex h-dvh flex-col overflow-x-hidden bg-background">
+      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6">
         <Link
           href="/docs"
           className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
@@ -223,7 +223,7 @@ export default function DocPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
           <div ref={editorWrapperRef}>
             <TiptapEditor
               content={content}

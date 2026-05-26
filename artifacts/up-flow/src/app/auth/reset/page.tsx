@@ -84,7 +84,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background p-4">
       <div
         className="absolute inset-0 opacity-30 pointer-events-none"
         style={{

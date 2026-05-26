@@ -197,10 +197,10 @@ export default function Header({ title }: HeaderProps) {
 
   return (
     <>
-      <header className="flex items-center gap-4 px-6 py-4 glass-header sticky top-0 z-30">
+      <header className="sticky top-0 z-30 flex flex-col gap-3 px-4 py-3 glass-header sm:flex-row sm:items-center sm:gap-4 sm:px-6">
         <form
           onSubmit={handleSearch}
-          className="flex-1 min-w-0 ml-10 md:ml-0"
+          className="w-full min-w-0 pl-11 sm:flex-1 md:pl-0"
           aria-label={`Search ${title}`}
         >
           <div className="relative w-full">
@@ -211,7 +211,7 @@ export default function Header({ title }: HeaderProps) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={`Search ${title.toLowerCase()}, projects, tasks, docs…`}
-              className="w-full h-11 pl-11 pr-16 text-sm bg-white/5 backdrop-blur-md border border-white/10 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary/40 placeholder:text-muted-foreground transition"
+              className="h-10 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm backdrop-blur-md transition placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/60 sm:h-11 md:pr-16"
             />
             <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground bg-white/5 border border-white/10 rounded">
               ⌘K
@@ -219,12 +219,12 @@ export default function Header({ title }: HeaderProps) {
           </div>
         </form>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:self-auto">
           <div className="relative" ref={panelRef}>
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label="Notifications"
-              className="relative w-11 h-11 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (
@@ -233,7 +233,7 @@ export default function Header({ title }: HeaderProps) {
             </button>
 
             {panelOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 glass-strong rounded-xl z-50 overflow-hidden">
+              <div className="fixed left-4 right-4 top-16 z-50 overflow-hidden rounded-xl glass-strong sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <span className="text-sm font-semibold text-foreground">
                     Notifications
@@ -287,7 +287,8 @@ export default function Header({ title }: HeaderProps) {
 
           <button
             onClick={() => setShowNewProject(true)}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-5 h-11 rounded-full transition-colors shadow-md shadow-primary/20"
+            aria-label="New Project"
+            className="flex h-10 items-center gap-2 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 sm:h-11 sm:px-5"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New Project</span>

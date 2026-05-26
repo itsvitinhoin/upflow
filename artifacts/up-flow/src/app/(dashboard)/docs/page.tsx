@@ -39,7 +39,7 @@ export default function DocsPage() {
   return (
     <>
       <Header title="Docs" />
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl overflow-x-hidden p-4 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-xl font-bold text-foreground">Documents</h2>
