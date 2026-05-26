@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { X, Loader2, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CustomFieldInput from "@/components/projects/custom-field-input";
+import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
 
 interface Props {
@@ -37,6 +38,7 @@ export default function CreateTaskPanel({
   const [status, setStatus] = useState<"todo" | "in_progress" | "done">(defaultStatus);
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState("");
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [assigneeId, setAssigneeId] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +51,7 @@ export default function CreateTaskPanel({
       setDescription("");
       setPriority("medium");
       setDueDate("");
+      setCoverImageUrl(null);
       setAssigneeId("");
       setFieldValues({});
     }
@@ -79,6 +82,7 @@ export default function CreateTaskPanel({
           project_id: projectId,
           assignee_id: assigneeId || null,
           due_date: dueDate || null,
+          cover_image_url: coverImageUrl,
           custom_fields: customFieldEntries,
         }),
       });
@@ -196,6 +200,17 @@ export default function CreateTaskPanel({
                 ))}
               </div>
             </Row>
+          </div>
+
+          <div className="px-5 py-4 border-b border-border">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Board cover image
+            </h3>
+            <TaskCoverImageControl
+              value={coverImageUrl}
+              disabled={submitting}
+              onChange={(value) => setCoverImageUrl(value)}
+            />
           </div>
 
           {customFields.length > 0 && (

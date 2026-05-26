@@ -221,6 +221,17 @@ export default function KanbanBoard({
                                   <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
+                              {task.cover_image_url && (
+                                <div className="-mx-2.5 -mt-2.5 mb-2 overflow-hidden rounded-t-md border-b border-border bg-muted/30">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={task.cover_image_url}
+                                    alt=""
+                                    className="aspect-video w-full object-cover"
+                                    loading="lazy"
+                                  />
+                                </div>
+                              )}
                               <div className="flex items-start gap-1.5">
                                 <span
                                   className={cn(

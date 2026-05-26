@@ -6,6 +6,7 @@ import {
   X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
 } from "lucide-react";
 import { cn, formatDate, getInitials } from "@/lib/utils";
+import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
 
@@ -297,6 +298,15 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
               rows={3}
               placeholder="Add a description..."
               className="w-full text-sm border border-border bg-background rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            />
+          </div>
+
+          <div className="px-6 py-4 border-b border-border">
+            <label className="block text-sm font-medium text-foreground mb-2">Board cover image</label>
+            <TaskCoverImageControl
+              value={currentTask.cover_image_url}
+              disabled={saving}
+              onChange={(cover_image_url) => update({ cover_image_url })}
             />
           </div>
 
