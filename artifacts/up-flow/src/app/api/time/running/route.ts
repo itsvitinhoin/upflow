@@ -24,7 +24,7 @@ async function GET_handler() {
     },
   });
 
-  return NextResponse.json({ entry });
+  return NextResponse.json(entry ? { ...entry, entry } : { entry: null });
 }
 
 export const GET = withErrorReporting("api:time/running:GET", GET_handler);

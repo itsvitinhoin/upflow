@@ -84,6 +84,22 @@ async function POST_handler(req: NextRequest) {
   });
   if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
+  if (!stoppedAt) {
+    const existing = await prisma.timeEntry.findFirst({
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: auth.prismaUser.id,
+        status: "running",
+      },
+      orderBy: { started_at: "desc" },
+      include: {
+        project: { select: { id: true, name: true } },
+        task: { select: { id: true, title: true } },
+      },
+    });
+    if (existing) return NextResponse.json(existing, { status: 200 });
+  }
+
   const entry = await prisma.timeEntry.create({
     data: {
       workspace_id: auth.currentWorkspaceId,
