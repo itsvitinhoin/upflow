@@ -124,8 +124,9 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
         aria-pressed={panelOpen}
         title={panelOpen ? "Hide sidebar" : "Show sidebar"}
         className={cn(
-          "fixed top-4 z-50 hidden h-9 items-center gap-2 rounded-r-xl border border-l-0 border-white/10 bg-card/95 px-3 text-xs font-semibold text-foreground shadow-lg shadow-black/20 backdrop-blur transition-[left,background-color,border-color] duration-200 hover:border-primary/50 hover:bg-card md:flex",
+          "fixed top-[84px] z-50 hidden h-9 items-center justify-center rounded-r-xl border border-l-0 border-white/10 bg-card/95 text-xs font-semibold text-foreground shadow-lg shadow-black/20 backdrop-blur transition-[left,width,background-color,border-color] duration-200 hover:border-primary/50 hover:bg-card md:flex",
           panelOpen ? "left-[288px]" : "left-[48px]",
+          panelOpen ? "w-32 gap-2 px-3" : "w-10 px-0",
         )}
       >
         {panelOpen ? (
@@ -133,7 +134,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
         ) : (
           <PanelLeftOpen className="h-4 w-4 text-primary" />
         )}
-        {panelOpen ? "Hide sidebar" : "Show sidebar"}
+        {panelOpen && <span>Hide sidebar</span>}
       </button>
 
       <div className="md:hidden fixed top-3 left-3 z-50">
