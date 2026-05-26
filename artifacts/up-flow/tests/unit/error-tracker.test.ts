@@ -141,6 +141,36 @@ test("withErrorReporting reports 5xx responses but not 4xx or 2xx", async () => 
   }
 });
 
+test("withErrorReporting rethrows Next dynamic server errors", async () => {
+  delete process.env.SENTRY_DSN;
+  const errs: unknown[][] = [];
+  const origErr = console.error;
+  console.error = (...a: unknown[]) => errs.push(a);
+  try {
+    const { withErrorReporting } = await importFresh<
+      typeof import("../../src/lib/with-error-reporting")
+    >("../../src/lib/with-error-reporting");
+
+    const dynamicError = new Error(
+      "Dynamic server usage: Route /api/example couldn't be rendered statically because it used `cookies`.",
+    );
+    const wrapped = withErrorReporting("test:dynamic", async () => {
+      throw dynamicError;
+    });
+
+    await assert.rejects(wrapped(), dynamicError);
+    assert.equal(
+      errs.some((args) =>
+        args.some((a) => typeof a === "string" && a.includes("test:dynamic")),
+      ),
+      false,
+      "Next build-time dynamic detection must not be reported as an incident",
+    );
+  } finally {
+    console.error = origErr;
+  }
+});
+
 test("handler that catches-and-returns-500 forwards original exception via logError", async () => {
   // Regression test for the 5xx-fidelity contract: when a handler swallows
   // an internal exception and returns NextResponse.json({...}, {status:500}),

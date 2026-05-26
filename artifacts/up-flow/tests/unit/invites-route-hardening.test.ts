@@ -83,14 +83,15 @@ test("admin email status exposes diagnostics without secrets", () => {
   assert.match(teamPage, /\/api\/email\/status/);
 });
 
-test("tester invites target an isolated workspace and stay member-only in the UI", () => {
+test("tester invites target an isolated workspace and allow member/admin roles in the UI", () => {
   assert.match(schema, /tester_invite\s+Boolean\s+@default\(false\)/);
   assert.match(schema, /send_status\s+InviteSendStatus\s+@default\(pending\)/);
   assert.match(route, /workspace_id/);
   assert.match(route, /tester_invite/);
   assert.match(testerWorkspaceRoute, /ensureTesterWorkspace/);
   assert.match(teamPage, /Invite testers/);
-  assert.match(teamPage, /lockRole/);
+  assert.doesNotMatch(teamPage, /lockRole/);
+  assert.match(teamPage, /Choose Member for normal testers or Admin for trusted testers/);
   assert.match(teamPage, /testerMode/);
   assert.match(teamPage, /\/api\/testers\/workspace/);
 });

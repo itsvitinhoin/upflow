@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { captureError } from "@/lib/error-tracker";
 
+function isNextDynamicServerError(err: unknown) {
+  if (!(err instanceof Error)) return false;
+  return (
+    err.message.includes("Dynamic server usage") ||
+    err.message.includes("couldn't be rendered statically")
+  );
+}
+
 /**
  * Wrap an API route handler so any thrown exception is captured by the
  * error tracker, and any 5xx response is treated as a real incident.
@@ -43,6 +51,9 @@ export function withErrorReporting<
       }
       return res;
     } catch (err) {
+      if (isNextDynamicServerError(err)) {
+        throw err;
+      }
       captureError(scope, err, { kind: "uncaught" });
       // Don't leak the error message to the wire — keep the standard
       // generic 500 shape the existing endpoints use.
