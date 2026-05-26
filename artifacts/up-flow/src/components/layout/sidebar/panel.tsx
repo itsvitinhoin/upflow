@@ -217,15 +217,15 @@ export default function Panel({
           }}
         />
         {onRequestClose && (
-          <div className="px-3 pb-2">
+          <div className="flex justify-end px-3 pb-2">
             <button
               type="button"
               onClick={onRequestClose}
               aria-label="Hide sidebar"
-              className="flex h-8 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
             >
               <PanelLeftClose className="h-3.5 w-3.5" />
-              Hide sidebar
+              Hide
             </button>
           </div>
         )}
