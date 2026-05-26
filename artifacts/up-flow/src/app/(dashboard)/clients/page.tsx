@@ -2,7 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertCircle, Building2, DollarSign, Plus, RefreshCcw } from "lucide-react";
+import {
+  AlertCircle,
+  Building2,
+  Calendar,
+  DollarSign,
+  PackageCheck,
+  Plus,
+  RefreshCcw,
+  Users,
+} from "lucide-react";
 import Header from "@/components/layout/header";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import type { Company } from "@/lib/types";
@@ -51,7 +60,7 @@ export default function ClientsPage() {
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-28 animate-pulse rounded-xl bg-white/5" />
+              <div key={item} className="h-40 animate-pulse rounded-xl bg-white/5" />
             ))}
           </div>
         ) : companies.length === 0 ? (
@@ -71,12 +80,12 @@ export default function ClientsPage() {
             </button>
           </section>
         ) : (
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {companies.map((company) => (
               <Link
                 key={company.id}
                 href={`/clients/${company.id}`}
-                className="rounded-xl border border-white/5 bg-white/[0.03] p-4 hover:bg-white/[0.06]"
+                className="rounded-xl border border-white/5 bg-white/[0.03] p-4 transition-colors hover:bg-white/[0.06]"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -91,17 +100,62 @@ export default function ClientsPage() {
                     <Building2 className="h-5 w-5 text-primary" />
                   )}
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
-                  <span className="rounded-lg bg-white/5 px-2 py-1 text-muted-foreground">
-                    {company.summary?.project_count ?? 0} projects
+
+                <div className="mt-4 rounded-lg border border-white/5 bg-white/[0.03] p-3">
+                  <div className="flex items-start gap-2">
+                    <PackageCheck className="mt-0.5 h-4 w-4 flex-shrink-0 text-primary" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {company.plan_name || "Plan not set"}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {company.service_type || "Service type not set"}
+                        {company.billing_cycle ? ` · ${formatBillingCycle(company.billing_cycle)}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {company.included_services?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {company.included_services.slice(0, 4).map((service) => (
+                        <span
+                          key={service}
+                          className="max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+                        >
+                          {service}
+                        </span>
+                      ))}
+                      {company.included_services.length > 4 ? (
+                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
+                          +{company.included_services.length - 4}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-xs text-muted-foreground">No included services listed</p>
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <MetricPill label="Projects" value={company.summary?.project_count ?? 0} />
+                  <MetricPill label="Open" value={company.summary?.open_task_count ?? 0} />
+                  <MetricPill label="Contract" value={money(company.contract_value)} />
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+                    <Users className="h-3.5 w-3.5" />
+                    {company.summary?.contact_count ?? 0} contacts
                   </span>
-                  <span className="rounded-lg bg-white/5 px-2 py-1 text-muted-foreground">
-                    {company.summary?.open_task_count ?? 0} open
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {company.summary?.meeting_count ?? 0} meetings
                   </span>
-                  <span className="rounded-lg bg-white/5 px-2 py-1 text-muted-foreground">
-                    {money(company.contract_value)}
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    Commission {money(company.commission)}
                   </span>
                 </div>
+
                 {company.summary?.risk_reasons.length ? (
                   <p className="mt-3 flex items-center gap-1 text-xs text-upflow-danger">
                     <AlertCircle className="h-3.5 w-3.5" />
@@ -110,7 +164,7 @@ export default function ClientsPage() {
                 ) : (
                   <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
                     <DollarSign className="h-3.5 w-3.5" />
-                    Commission {money(company.commission)}
+                    Client plan and commercial data are up to date
                   </p>
                 )}
               </Link>
@@ -138,6 +192,21 @@ export default function ClientsPage() {
       />
     </>
   );
+}
+
+function MetricPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <span className="min-w-0 rounded-lg bg-white/5 px-2 py-1 text-muted-foreground">
+      <span className="block truncate text-[10px] uppercase tracking-wide text-muted-foreground/70">
+        {label}
+      </span>
+      <span className="block truncate text-xs text-foreground">{value}</span>
+    </span>
+  );
+}
+
+function formatBillingCycle(value: string) {
+  return value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
 function money(value: number | null | undefined) {

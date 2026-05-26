@@ -10,6 +10,10 @@ export type Company = {
   website?: string | null;
   description?: string | null;
   status?: string;
+  service_type?: string | null;
+  plan_name?: string | null;
+  billing_cycle?: string | null;
+  included_services?: string[] | null;
   created_at: string;
 };
 
@@ -25,6 +29,10 @@ export default function CreateCompanyDialog({
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState("");
+  const [serviceType, setServiceType] = useState("");
+  const [planName, setPlanName] = useState("");
+  const [billingCycle, setBillingCycle] = useState("");
+  const [includedServices, setIncludedServices] = useState("");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -49,6 +57,13 @@ export default function CreateCompanyDialog({
               : `https://${domain.trim()}`
             : null,
           industry: industry.trim() || null,
+          service_type: serviceType.trim() || null,
+          plan_name: planName.trim() || null,
+          billing_cycle: billingCycle.trim() || null,
+          included_services: includedServices
+            .split(/\r?\n|,/)
+            .map((item) => item.trim())
+            .filter(Boolean),
           notes: notes.trim() || null,
           description: notes.trim() || null,
         }),
@@ -60,6 +75,10 @@ export default function CreateCompanyDialog({
       setName("");
       setDomain("");
       setIndustry("");
+      setServiceType("");
+      setPlanName("");
+      setBillingCycle("");
+      setIncludedServices("");
       setNotes("");
       onClose();
     } catch {
@@ -76,7 +95,7 @@ export default function CreateCompanyDialog({
     >
       <form
         onSubmit={submit}
-        className="glass-strong rounded-2xl w-full max-w-md p-6"
+        className="glass-strong max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -120,6 +139,48 @@ export default function CreateCompanyDialog({
             />
           </div>
         </div>
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Service type</label>
+            <input
+              value={serviceType}
+              onChange={(e) => setServiceType(e.target.value)}
+              placeholder="Paid media"
+              className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Plan</label>
+            <input
+              value={planName}
+              onChange={(e) => setPlanName(e.target.value)}
+              placeholder="Growth"
+              className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Billing cycle</label>
+        <select
+          value={billingCycle}
+          onChange={(e) => setBillingCycle(e.target.value)}
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Not set</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annual">Annual</option>
+          <option value="project">Per project</option>
+        </select>
+        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">
+          Included services
+        </label>
+        <textarea
+          value={includedServices}
+          onChange={(e) => setIncludedServices(e.target.value)}
+          rows={3}
+          placeholder="Meta Ads, Creative approvals, Monthly report"
+          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+        />
         <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Notes</label>
         <textarea
           value={notes}

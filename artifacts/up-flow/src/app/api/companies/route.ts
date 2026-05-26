@@ -14,6 +14,11 @@ const CompanySchema = z.object({
   contract_value: z.number().optional().nullable(),
   commission: z.number().optional().nullable(),
   industry: z.string().trim().optional().nullable(),
+  service_type: z.string().trim().optional().nullable(),
+  plan_name: z.string().trim().optional().nullable(),
+  billing_cycle: z.string().trim().optional().nullable(),
+  included_services: z.array(z.string().trim().min(1)).max(50).optional().nullable(),
+  plan_notes: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
 });
 
@@ -82,6 +87,11 @@ async function POST_handler(req: NextRequest) {
       contract_value: parsed.data.contract_value ?? null,
       commission: parsed.data.commission ?? null,
       industry: parsed.data.industry || null,
+      service_type: parsed.data.service_type || null,
+      plan_name: parsed.data.plan_name || null,
+      billing_cycle: parsed.data.billing_cycle || null,
+      included_services: parsed.data.included_services?.length ? parsed.data.included_services : undefined,
+      plan_notes: parsed.data.plan_notes || null,
       notes: parsed.data.notes || null,
     },
   });
