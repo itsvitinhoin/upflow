@@ -11,7 +11,8 @@ import {
   Kanban,
   Building2,
   HelpCircle,
-  Layers,
+  PanelLeftClose,
+  PanelLeftOpen,
   type LucideIcon,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
@@ -100,19 +101,23 @@ export function Rail({
 
         <button
           onClick={onTogglePanel}
-          title={panelOpen ? "Hide spaces" : "Show spaces"}
-          aria-label={panelOpen ? "Hide folders" : "Show folders"}
+          title={panelOpen ? "Hide sidebar" : "Show sidebar"}
+          aria-label={panelOpen ? "Hide sidebar" : "Show sidebar"}
           aria-pressed={panelOpen}
           className={cn(
             "group relative mt-1 flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
             panelOpen
               ? "text-primary bg-primary/15"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-foreground bg-primary/20 hover:bg-primary/30"
           )}
         >
-          <Layers className="w-[18px] h-[18px]" />
+          {panelOpen ? (
+            <PanelLeftClose className="w-[18px] h-[18px]" />
+          ) : (
+            <PanelLeftOpen className="w-[18px] h-[18px]" />
+          )}
           <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-[11px] font-medium text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-            {panelOpen ? "Hide folders" : "Show folders"}
+            {panelOpen ? "Hide sidebar" : "Show sidebar"}
           </span>
         </button>
       </nav>

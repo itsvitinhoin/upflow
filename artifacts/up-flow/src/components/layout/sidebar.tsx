@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { logError } from "@/lib/log-error";
+import { cn } from "@/lib/utils";
 import type { AppUser } from "@/lib/types";
 import { Rail } from "@/components/layout/sidebar/rail";
 import Panel from "@/components/layout/sidebar/panel";
@@ -97,16 +98,23 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
     <>
       <aside className="hidden md:flex flex-shrink-0">
         <div className="w-[48px] flex">{renderRail()}</div>
-        {panelOpen && (
+        <div
+          className={cn(
+            "grid overflow-hidden transition-[width,opacity] duration-200 ease-out",
+            panelOpen ? "w-[240px] opacity-100" : "w-0 opacity-0",
+          )}
+          aria-hidden={!panelOpen}
+        >
           <div className="w-[240px] flex">
             <Panel
               pathname={pathname}
               workspaces={workspaces}
               currentWorkspaceId={user.currentWorkspaceId ?? ""}
               currentRole={user.currentRole ?? null}
+              onRequestClose={() => setPanelOpen(false)}
             />
           </div>
-        )}
+        </div>
       </aside>
 
       <div className="md:hidden fixed top-3 left-3 z-50">

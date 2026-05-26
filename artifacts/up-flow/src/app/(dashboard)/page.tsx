@@ -42,9 +42,8 @@ import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialo
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import type { ActivityEvent, CalendarEvent, Company, Project, Task, TeamMember, TimeEntry } from "@/lib/types";
 
-type StatusFilter = "all" | "todo" | "in_progress" | "done";
 type ActionFilter = "all" | "completed" | "in_progress";
-type TaskDrawerStatus = Exclude<StatusFilter, "all">;
+type TaskDrawerStatus = "todo" | "in_progress" | "done";
 type CommandDrawer =
   | "urgent_actions"
   | "team_workload"
@@ -131,7 +130,6 @@ export default function DashboardPage() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [commandCenter, setCommandCenter] = useState<CommandCenterPayload | null>(null);
   const [commandDrawer, setCommandDrawer] = useState<CommandDrawer | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [drawerStatus, setDrawerStatus] = useState<TaskDrawerStatus | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [updating, setUpdating] = useState(false);
@@ -169,19 +167,6 @@ export default function DashboardPage() {
   const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
   const todoCount = tasks.filter((t) => t.status === "todo").length;
   const progress = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
-
-  const filteredTasks = useMemo(
-    () =>
-      [...tasks]
-        .filter((t) => (statusFilter === "all" ? t.status !== "done" : t.status === statusFilter))
-        .sort((a, b) => {
-          if (!a.due_date) return 1;
-          if (!b.due_date) return -1;
-          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-        })
-        .slice(0, 6),
-    [tasks, statusFilter]
-  );
 
   const drawerTasks = useMemo(
     () =>
@@ -238,6 +223,36 @@ export default function DashboardPage() {
     };
   }, [activity, calendarEvents, commandCenter, runningEntry, tasks, timeEntries, users]);
 
+  const todayFocusTasks = useMemo(() => {
+    const seen = new Set<string>();
+    const priorityRank = { high: 0, medium: 1, low: 2 };
+    return [
+      ...commandCenterData.urgent_actions.items,
+      ...tasks.filter((task) => task.status === "in_progress"),
+      ...tasks.filter((task) => task.status === "todo"),
+    ]
+      .filter((task) => {
+        if (seen.has(task.id) || task.status === "done") return false;
+        seen.add(task.id);
+        return true;
+      })
+      .sort((a, b) => {
+        if (a.priority !== b.priority) return priorityRank[a.priority] - priorityRank[b.priority];
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      })
+      .slice(0, 5);
+  }, [commandCenterData.urgent_actions.items, tasks]);
+
+  const workloadFlags = useMemo(
+    () =>
+      commandCenterData.team_workload.items.filter((item) =>
+        item.state === "late" || item.state === "overloaded",
+      ),
+    [commandCenterData.team_workload.items],
+  );
+
   const handleStatusChange = async (task: Task, status: Task["status"]) => {
     setUpdating(true);
     try {
@@ -275,20 +290,52 @@ export default function DashboardPage() {
   return (
     <>
       <Header title="Dashboard" />
-      <div className="flex">
-        {/* Main content */}
-        <div className="flex-1 min-w-0 p-6 space-y-6">
-          {/* Greeting */}
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">
-              {greeting ? `Good ${greeting}, ${firstName} 👋` : `Hi ${firstName} 👋`}
-            </h2>
-            <p className="text-muted-foreground text-sm mt-1">
-              Command Center is backed by live workspace records only.
-            </p>
-          </div>
+      <main className="mx-auto w-full max-w-[1440px] p-6 space-y-5">
+          <section className="glass rounded-2xl p-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                  Today + Risks Command Center
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-foreground">
+                  {greeting ? `Good ${greeting}, ${firstName}` : `Hi ${firstName}`}
+                </h2>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Focused on today&apos;s actionable work, live meetings, tracked time, delivery risk, and client health.
+                </p>
+              </div>
+              <QuickCreateMenu
+                onCreateTask={() => setShowNewTask(true)}
+                onCreateProject={() => setShowNewProject(true)}
+                onCreateMeeting={() => setShowSchedule(true)}
+                onCreateCompany={() => setShowCompany(true)}
+                onInvite={() => setShowInvite(true)}
+              />
+            </div>
 
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <SummaryPill
+                label="Tasks"
+                value={tasks.length}
+                hint={`${progress}% complete`}
+                onClick={() => setDrawerStatus("todo")}
+              />
+              <SummaryPill
+                label="Team flags"
+                value={workloadFlags.length}
+                hint="Late or overloaded"
+                onClick={() => setCommandDrawer("team_workload")}
+              />
+              <SummaryPill
+                label="Activity"
+                value={commandCenterData.recent_activity.count}
+                hint="Workspace trail"
+                onClick={() => setCommandDrawer("recent_activity")}
+              />
+            </div>
+          </section>
+
+          <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <CommandTile
               title="My urgent actions"
               value={commandCenterData.urgent_actions.count}
@@ -296,22 +343,6 @@ export default function DashboardPage() {
               icon={<AlertCircle className="w-4 h-4" />}
               active={commandDrawer === "urgent_actions"}
               onClick={() => setCommandDrawer("urgent_actions")}
-            />
-            <CommandTile
-              title="Team workload"
-              value={commandCenterData.team_workload.count}
-              hint="Overloaded, idle, late, or active"
-              icon={<Users2 className="w-4 h-4" />}
-              active={commandDrawer === "team_workload"}
-              onClick={() => setCommandDrawer("team_workload")}
-            />
-            <CommandTile
-              title="Time today"
-              value={formatSecondsShort(commandCenterData.time_today.total_seconds)}
-              hint={commandCenterData.time_today.running ? "Timer is running" : "Tracked entries today"}
-              icon={<Timer className="w-4 h-4" />}
-              active={commandDrawer === "time_today"}
-              onClick={() => setCommandDrawer("time_today")}
             />
             <CommandTile
               title="Meetings today"
@@ -322,12 +353,12 @@ export default function DashboardPage() {
               onClick={() => setCommandDrawer("meetings_today")}
             />
             <CommandTile
-              title="Recent activity"
-              value={commandCenterData.recent_activity.count}
-              hint="Workspace audit trail"
-              icon={<Activity className="w-4 h-4" />}
-              active={commandDrawer === "recent_activity"}
-              onClick={() => setCommandDrawer("recent_activity")}
+              title="Time today"
+              value={formatSecondsShort(commandCenterData.time_today.total_seconds)}
+              hint={commandCenterData.time_today.running ? "Timer is running" : "Tracked entries today"}
+              icon={<Timer className="w-4 h-4" />}
+              active={commandDrawer === "time_today"}
+              onClick={() => setCommandDrawer("time_today")}
             />
             <CommandTile
               title="Projects at risk"
@@ -353,219 +384,76 @@ export default function DashboardPage() {
               active={commandDrawer === "revenue_snapshot"}
               onClick={() => setCommandDrawer("revenue_snapshot")}
             />
-            <CommandTile
-              title="Quick create"
-              value={commandCenterData.quick_create.items.length}
-              hint="Task, meeting, client, project, note"
-              icon={<Command className="w-4 h-4" />}
-              active={commandDrawer === "quick_create"}
-              onClick={() => setCommandDrawer("quick_create")}
-            />
           </section>
 
-          {/* Quick actions */}
-          <section className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-            <QuickAction
-              label="Create Project"
-              hint="Start something new"
-              icon={<FolderPlus className="w-4 h-4" />}
-              tone="from-primary/30 to-primary/10 text-primary"
-              onClick={() => setShowNewProject(true)}
+          <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
+            <TodayFocusPanel
+              loading={loading}
+              tasks={todayFocusTasks}
+              meetings={commandCenterData.meetings_today.items}
+              onOpenTask={setActiveTask}
+              onMarkDone={(task) => handleStatusChange(task, "done")}
+              onCreateTask={() => setShowNewTask(true)}
+              onOpenMeetings={() => setCommandDrawer("meetings_today")}
+              updating={updating}
             />
-            <QuickAction
-              label="Create Task"
-              hint="Add to your list"
-              icon={<CheckSquare className="w-4 h-4" />}
-              tone="from-upflow-success/30 to-upflow-success/10 text-upflow-success"
-              onClick={() => setShowNewTask(true)}
-            />
-            <QuickAction
-              label="Invite to Team"
-              hint="Bring teammates in"
-              icon={<UserPlus className="w-4 h-4" />}
-              tone="from-upflow-warning/30 to-upflow-warning/10 text-upflow-warning"
-              onClick={() => setShowInvite(true)}
-            />
-            <QuickAction
-              label="Schedule Meeting"
-              hint="Today's agenda"
-              icon={<Video className="w-4 h-4" />}
-              tone="from-upflow-stat-2-from/40 to-upflow-stat-2-to/10 text-foreground"
-              onClick={() => setShowSchedule(true)}
-            />
-            <QuickAction
-              label="Create a Company"
-              hint="Track an account"
-              icon={<Building2 className="w-4 h-4" />}
-              tone="from-upflow-danger/30 to-upflow-danger/10 text-upflow-danger"
-              onClick={() => setShowCompany(true)}
-            />
-          </section>
 
-          {/* Stat cards */}
-          <section className="grid gap-4 md:grid-cols-3">
-            <StatCard
-              tone="stat-1"
-              label="Upcoming Actions"
-              value={todoCount}
-              accent="text-primary"
-              icon={<FolderKanban className="w-5 h-5" />}
-              hint="Tasks waiting to start"
-              active={statusFilter === "todo"}
-              onClick={() => {
-                setStatusFilter("todo");
-                setDrawerStatus("todo");
-              }}
-            />
-            <StatCard
-              tone="stat-2"
-              label="In progress Actions"
-              value={inProgressCount}
-              accent="text-upflow-warning"
-              icon={<AlertCircle className="w-5 h-5" />}
-              hint="Currently being worked on"
-              active={statusFilter === "in_progress"}
-              onClick={() => {
-                setStatusFilter("in_progress");
-                setDrawerStatus("in_progress");
-              }}
-            />
-            <StatCard
-              tone="stat-3"
-              label="Completed Actions"
-              value={doneCount}
-              accent="text-upflow-success"
-              icon={<CheckCircle2 className="w-5 h-5" />}
-              hint={`${progress}% of total`}
-              active={statusFilter === "done"}
-              onClick={() => {
-                setStatusFilter("done");
-                setDrawerStatus("done");
-              }}
-            />
-          </section>
-
-          {/* Progress widget */}
-          <section className="glass rounded-2xl p-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Weekly progress</p>
-                <h3 className="mt-1 text-2xl font-bold text-foreground">{progress}%</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {doneCount} of {tasks.length || 0} tasks complete
-                </p>
-              </div>
-              <button
-                onClick={() => setShowNewTask(true)}
-                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                New Task
-              </button>
-            </div>
-            <div
-              className="group relative mt-4 h-2 rounded-full bg-white/5 overflow-visible cursor-help"
-              title={`${doneCount} of ${tasks.length || 0} tasks complete`}
-            >
-              <div className="h-full rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-primary to-upflow-success transition-all"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium glass-strong opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                {doneCount} / {tasks.length || 0} complete
-              </span>
-            </div>
-          </section>
-
-          {/* Team timeline */}
-          <TeamTimeline
-            users={users}
-            loading={loading}
-            timeEntries={timeEntries}
-            events={calendarEvents}
-          />
-
-          {/* Filtered tasks list */}
-          <section className="glass rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
-              <div className="min-w-0">
-                <h3 className="text-sm font-semibold text-foreground">
-                  {statusFilter === "all"
-                    ? "Upcoming tasks"
-                    : statusFilter === "todo"
-                    ? "Upcoming"
-                    : statusFilter === "in_progress"
-                    ? "In progress"
-                    : "Completed"}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {statusFilter === "all"
-                    ? "Sorted by due date"
-                    : `Filtered by ${statusFilter.replace("_", " ")} · click the card again to reset`}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {statusFilter !== "all" && (
-                  <button
-                    onClick={() => setStatusFilter("all")}
-                    className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-                  >
-                    <X className="w-3 h-3" /> Clear
-                  </button>
-                )}
+            <section className="glass rounded-2xl p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Tasks</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Status counts stay one click away from exact records.
+                  </p>
+                </div>
                 <button
                   onClick={() => setShowNewTask(true)}
-                  className="text-xs text-primary hover:underline"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                 >
-                  + Add task
+                  <Plus className="h-3.5 w-3.5" />
+                  New task
                 </button>
               </div>
-            </div>
-            <div className="divide-y divide-white/5">
-              {loading ? (
-                [1, 2, 3].map((i) => (
-                  <div key={i} className="px-5 py-4">
-                    <div className="h-4 w-1/2 bg-white/5 rounded animate-pulse" />
-                  </div>
-                ))
-              ) : filteredTasks.length === 0 ? (
-                <div className="px-5 py-10 text-center text-sm text-muted-foreground">
-                  Nothing here yet.
-                </div>
-              ) : (
-                filteredTasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    onOpen={() => setActiveTask(task)}
-                    onMarkDone={() => handleStatusChange(task, "done")}
-                    onDelete={() => {
-                      if (confirm(`Delete "${task.title}"?`)) handleDeleteTask(task);
-                    }}
-                    disabled={updating}
-                  />
-                ))
-              )}
-            </div>
+              <div className="mt-4 grid gap-2">
+                <StatusCountButton
+                  label="Upcoming"
+                  value={todoCount}
+                  hint="Tasks waiting to start"
+                  onClick={() => setDrawerStatus("todo")}
+                />
+                <StatusCountButton
+                  label="In progress"
+                  value={inProgressCount}
+                  hint="Currently being worked on"
+                  onClick={() => setDrawerStatus("in_progress")}
+                />
+                <StatusCountButton
+                  label="Completed"
+                  value={doneCount}
+                  hint={`${progress}% of total`}
+                  onClick={() => setDrawerStatus("done")}
+                />
+              </div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                <button
+                  onClick={() => setCommandDrawer("team_workload")}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                >
+                  <span className="block font-semibold text-foreground">Team workload</span>
+                  {commandCenterData.team_workload.count} members with signals
+                </button>
+                <button
+                  onClick={() => setCommandDrawer("recent_activity")}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                >
+                  <span className="block font-semibold text-foreground">Recent activity</span>
+                  {commandCenterData.recent_activity.count} traceable records
+                </button>
+              </div>
+            </section>
           </section>
 
-          {/* People */}
-          <PeopleCard users={users} loading={loading} />
-        </div>
-
-        {/* Right panel */}
-        <RightPanel
-          projects={projects}
-          meetings={calendarEvents}
-          activity={activity}
-          runningEntry={runningEntry}
-          timeEntries={timeEntries}
-          onTimerChanged={loadData}
-          onCreateMeeting={() => setShowSchedule(true)}
-        />
-      </div>
+      </main>
 
       {showNewTask && (
         <NewTaskDialog
@@ -633,7 +521,6 @@ export default function DashboardPage() {
           updating={updating}
           onClose={() => {
             setDrawerStatus(null);
-            setStatusFilter("all");
           }}
           onOpenTask={setActiveTask}
           onStatusChange={handleStatusChange}
@@ -655,6 +542,265 @@ export default function DashboardPage() {
         />
       )}
     </>
+  );
+}
+
+function QuickCreateMenu({
+  onCreateTask,
+  onCreateProject,
+  onCreateMeeting,
+  onCreateCompany,
+  onInvite,
+}: {
+  onCreateTask: () => void;
+  onCreateProject: () => void;
+  onCreateMeeting: () => void;
+  onCreateCompany: () => void;
+  onInvite: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const choose = (action: () => void) => {
+    setOpen(false);
+    action();
+  };
+
+  const items = [
+    { label: "Task", icon: CheckSquare, action: onCreateTask },
+    { label: "Project", icon: FolderPlus, action: onCreateProject },
+    { label: "Meeting", icon: Video, action: onCreateMeeting },
+    { label: "Company", icon: Building2, action: onCreateCompany },
+    { label: "Invite", icon: UserPlus, action: onInvite },
+  ];
+
+  return (
+    <div ref={menuRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90"
+      >
+        <Plus className="h-4 w-4" />
+        Quick create
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-popover p-1 shadow-2xl"
+        >
+          {items.map(({ label, icon: Icon, action }) => (
+            <button
+              key={label}
+              type="button"
+              role="menuitem"
+              onClick={() => choose(action)}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-white/10"
+            >
+              <Icon className="h-4 w-4 text-primary" />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryPill({
+  label,
+  value,
+  hint,
+  onClick,
+}: {
+  label: string;
+  value: string | number;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-primary/40 hover:bg-white/[0.05]"
+    >
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold uppercase text-muted-foreground">
+          {label}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          {hint}
+        </span>
+      </span>
+      <span className="shrink-0 text-xl font-bold text-foreground">{value}</span>
+    </button>
+  );
+}
+
+function StatusCountButton({
+  label,
+  value,
+  hint,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-white/[0.05]"
+    >
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-foreground">{label}</span>
+        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+          {hint}
+        </span>
+      </span>
+      <span className="text-lg font-bold text-foreground">{value}</span>
+    </button>
+  );
+}
+
+function TodayFocusPanel({
+  loading,
+  tasks,
+  meetings,
+  onOpenTask,
+  onMarkDone,
+  onCreateTask,
+  onOpenMeetings,
+  updating,
+}: {
+  loading: boolean;
+  tasks: Task[];
+  meetings: CalendarEvent[];
+  onOpenTask: (task: Task) => void;
+  onMarkDone: (task: Task) => void;
+  onCreateTask: () => void;
+  onOpenMeetings: () => void;
+  updating: boolean;
+}) {
+  const visibleMeetings = meetings.slice(0, 3);
+  const hasFocusItems = tasks.length > 0 || visibleMeetings.length > 0;
+
+  return (
+    <section className="glass rounded-2xl overflow-hidden">
+      <div className="flex items-start justify-between gap-3 border-b border-white/5 px-5 py-4">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Today focus</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The shortest list of work that needs attention now.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateTask}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          + New task
+        </button>
+      </div>
+      <div className="divide-y divide-white/5">
+        {loading ? (
+          [1, 2, 3].map((item) => (
+            <div key={item} className="px-5 py-4">
+              <div className="h-4 w-1/2 animate-pulse rounded bg-white/5" />
+            </div>
+          ))
+        ) : !hasFocusItems ? (
+          <div className="px-5 py-10 text-center">
+            <p className="text-sm font-medium text-foreground">No urgent focus items</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Create a task or meeting when there is something to track today.
+            </p>
+            <button
+              type="button"
+              onClick={onCreateTask}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              New task
+            </button>
+          </div>
+        ) : (
+          <>
+            {visibleMeetings.length > 0 && (
+              <div className="space-y-2 px-5 py-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Meetings
+                  </p>
+                  <button
+                    type="button"
+                    onClick={onOpenMeetings}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    View all
+                  </button>
+                </div>
+                {visibleMeetings.map((meeting) => (
+                  <button
+                    key={meeting.id}
+                    type="button"
+                    onClick={onOpenMeetings}
+                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-left hover:border-primary/40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {meeting.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(meeting.starts_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </span>
+                    <CalendarIcon className="h-4 w-4 shrink-0 text-primary" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {tasks.length > 0 && (
+              <div>
+                {tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onOpen={() => onOpenTask(task)}
+                    onMarkDone={() => onMarkDone(task)}
+                    onDelete={() => onOpenTask(task)}
+                    disabled={updating}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -814,7 +960,7 @@ function TaskStatusDrawer({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="hidden">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Filtered tasks
             </p>

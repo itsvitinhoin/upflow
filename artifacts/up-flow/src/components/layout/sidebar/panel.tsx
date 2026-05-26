@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Search, X } from "lucide-react";
+import { PanelLeftClose, Search, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
@@ -30,6 +30,7 @@ interface PanelProps {
   currentWorkspaceId: string;
   currentRole: "owner" | "admin" | "member" | null;
   onNavigate?: () => void;
+  onRequestClose?: () => void;
 }
 
 type CreateFolderTarget =
@@ -42,6 +43,7 @@ export default function Panel({
   currentWorkspaceId,
   currentRole,
   onNavigate,
+  onRequestClose,
 }: PanelProps) {
   const {
     spaces,
@@ -214,6 +216,19 @@ export default function Panel({
             current_role: currentRole,
           }}
         />
+        {onRequestClose && (
+          <div className="px-3 pb-2">
+            <button
+              type="button"
+              onClick={onRequestClose}
+              aria-label="Hide sidebar"
+              className="flex h-8 w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            >
+              <PanelLeftClose className="h-3.5 w-3.5" />
+              Hide sidebar
+            </button>
+          </div>
+        )}
         <PanelNav
           pathname={pathname}
           onNavigate={onNavigate}
