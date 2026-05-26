@@ -19,9 +19,12 @@ async function GET_handler(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const workspaceFilter = searchParams.get("workspace_id");
+  const statusFilter = searchParams.get("status");
   const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
 
   const superAdmin = isSuperAdmin(auth);
+  const membershipStatus =
+    statusFilter === "active" || statusFilter === "inactive" ? statusFilter : undefined;
 
   let where: Prisma.UserWhereInput | undefined;
 
@@ -29,13 +32,29 @@ async function GET_handler(req: NextRequest) {
     if (!superAdmin && !auth.memberships.some((m) => m.workspace_id === workspaceFilter)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    where = { memberships: { some: { workspace_id: workspaceFilter } } };
+    where = {
+      memberships: {
+        some: {
+          workspace_id: workspaceFilter,
+          ...(membershipStatus && { status: membershipStatus }),
+        },
+      },
+    };
   } else if (!superAdmin) {
     const wsIds = auth.memberships.map((m) => m.workspace_id);
     if (wsIds.length === 0) {
       return NextResponse.json({ items: [], nextCursor: null });
     }
-    where = { memberships: { some: { workspace_id: { in: wsIds } } } };
+    where = {
+      memberships: {
+        some: {
+          workspace_id: { in: wsIds },
+          ...(membershipStatus && { status: membershipStatus }),
+        },
+      },
+    };
+  } else if (membershipStatus) {
+    where = { memberships: { some: { status: membershipStatus } } };
   }
   // super-admin + no filter → no where clause, returns everyone.
 
@@ -54,10 +73,18 @@ async function GET_handler(req: NextRequest) {
       _count: { select: { tasks: true, projects: true } },
       memberships: {
         where: workspaceFilter
-          ? { workspace_id: workspaceFilter }
+          ? {
+              workspace_id: workspaceFilter,
+              ...(membershipStatus && { status: membershipStatus }),
+            }
           : superAdmin
-            ? undefined
-            : { workspace_id: { in: auth.memberships.map((m) => m.workspace_id) } },
+            ? membershipStatus
+              ? { status: membershipStatus }
+              : undefined
+            : {
+                workspace_id: { in: auth.memberships.map((m) => m.workspace_id) },
+                ...(membershipStatus && { status: membershipStatus }),
+              },
         select: {
           workspace_id: true,
           role: true,

@@ -50,10 +50,9 @@ export default function ProjectPage() {
 
   const loadData = async () => {
     try {
-      const [pRes, tRes, uRes, fRes, meRes] = await Promise.all([
+      const [pRes, tRes, fRes, meRes] = await Promise.all([
         fetch(`/api/projects/${id}`),
         fetch(`/api/tasks?project_id=${id}`),
-        fetch(`/api/users`),
         fetch(`/api/projects/${id}/custom-fields`),
         fetch(`/api/auth/me`),
       ]);
@@ -61,13 +60,16 @@ export default function ProjectPage() {
         router.push("/projects");
         return;
       }
-      const [p, t, u, f, m] = await Promise.all([
+      const [p, t, f, m] = await Promise.all([
         pRes.json() as Promise<Project>,
         tRes.json() as Promise<{ items: Task[] }>,
-        uRes.ok ? (uRes.json() as Promise<{ items: TaskAssignee[] }>) : Promise.resolve({ items: [] as TaskAssignee[] }),
         fRes.ok ? (fRes.json() as Promise<CustomFieldDefinition[]>) : Promise.resolve([] as CustomFieldDefinition[]),
         meRes.ok ? (meRes.json() as Promise<AppUser>) : Promise.resolve(null as AppUser | null),
       ]);
+      const usersRes = await fetch(`/api/users?workspace_id=${p.workspace_id}&status=active`);
+      const u = usersRes.ok
+        ? ((await usersRes.json()) as { items: TaskAssignee[] })
+        : { items: [] as TaskAssignee[] };
       setProject(p);
       setTasks(t.items ?? []);
       setUsers(u.items ?? []);
@@ -232,6 +234,7 @@ export default function ProjectPage() {
       {selectedTask && (
         <TaskDetailSheet
           task={selectedTask}
+          users={users}
           onClose={() => setSelectedTask(null)}
           onUpdate={() => {
             setSelectedTask(null);

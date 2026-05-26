@@ -33,16 +33,30 @@ export default function NewTaskDialog({
 
   useEffect(() => {
     if (!open) return;
-    Promise.all([
-      fetch("/api/projects").then((r) => r.json()),
-      fetch("/api/users").then((r) => r.json()),
-    ])
-      .then(([p, u]: [{ items: Project[] }, { items: TaskAssignee[] }]) => {
+    setSelectedProject(projectId || "");
+    fetch("/api/projects")
+      .then((r) => r.json() as Promise<{ items: Project[] }>)
+      .then((p) => {
         setProjects(p.items ?? []);
-        setUsers(u.items ?? []);
       })
       .catch((err) => logError("new-task-dialog:load", err));
-  }, [open]);
+  }, [open, projectId]);
+
+  useEffect(() => {
+    if (!open || !selectedProject) {
+      setUsers([]);
+      return;
+    }
+    const project = projects.find((p) => p.id === selectedProject);
+    if (!project?.workspace_id) {
+      setUsers([]);
+      return;
+    }
+    fetch(`/api/users?workspace_id=${project.workspace_id}&status=active`)
+      .then((r) => r.json() as Promise<{ items: TaskAssignee[] }>)
+      .then((u) => setUsers(u.items ?? []))
+      .catch((err) => logError("new-task-dialog:load-users", err));
+  }, [open, projects, selectedProject]);
 
   if (!open) return null;
 

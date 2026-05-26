@@ -134,12 +134,12 @@ async function postHandler(req: NextRequest) {
   if (assignee_id) {
     // Assignee must be a member of the project's workspace.
     const ok = await prisma.workspaceMember.findFirst({
-      where: { workspace_id: project.workspace_id, user_id: assignee_id },
+      where: { workspace_id: project.workspace_id, user_id: assignee_id, status: "active" },
       select: { id: true },
     });
     if (!ok) {
       return NextResponse.json(
-        { error: "Assignee is not a member of this workspace" },
+        { error: "Assignee is not an active member of this workspace" },
         { status: 400 },
       );
     }

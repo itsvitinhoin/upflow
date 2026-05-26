@@ -20,6 +20,7 @@ export interface Project {
   name: string;
   description: string | null;
   status: "active" | "archived";
+  workspace_id: string;
   owner_id: string;
   space_id?: string | null;
   folder_id?: string | null;
@@ -64,6 +65,7 @@ export interface TaskAssignee {
 export interface TaskProject {
   id: string;
   name: string;
+  workspace_id?: string;
 }
 
 export interface Subtask {

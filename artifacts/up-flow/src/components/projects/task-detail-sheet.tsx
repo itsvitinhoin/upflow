@@ -12,6 +12,7 @@ import { logError } from "@/lib/log-error";
 
 interface TaskDetailSheetProps {
   task: Task;
+  users?: TaskAssignee[];
   onClose: () => void;
   onUpdate: () => void;
 }
@@ -21,14 +22,14 @@ interface DetailTask extends Omit<Task, "subtasks"> {
   comments?: Comment[];
 }
 
-export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailSheetProps) {
+export default function TaskDetailSheet({ task, users: initialUsers, onClose, onUpdate }: TaskDetailSheetProps) {
   const [currentTask, setCurrentTask] = useState<DetailTask>(task as DetailTask);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [users, setUsers] = useState<TaskAssignee[]>([]);
+  const [users, setUsers] = useState<TaskAssignee[]>(initialUsers ?? []);
   const [saving, setSaving] = useState(false);
   const [newSubtask, setNewSubtask] = useState("");
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -40,17 +41,25 @@ export default function TaskDetailSheet({ task, onClose, onUpdate }: TaskDetailS
       .then((data: DetailTask) => {
         setCurrentTask(data);
         setComments(data.comments ?? []);
+        if (!initialUsers) {
+          const workspaceId = data.project?.workspace_id;
+          if (!workspaceId) {
+            setUsers([]);
+            return;
+          }
+          fetch(`/api/users?workspace_id=${workspaceId}&status=active`)
+            .then((r) => r.json())
+            .then((usersData: { items: TaskAssignee[] }) => setUsers(usersData.items ?? []))
+            .catch((err) => logError("task-sheet:load-users", err));
+        }
       })
       .catch((err) => logError("task-sheet:load-details", err, { id: task.id }));
-  }, [task.id]);
+  }, [initialUsers, task.id]);
 
   useEffect(() => {
+    if (initialUsers) setUsers(initialUsers);
     loadTaskDetails();
-    fetch("/api/users")
-      .then((r) => r.json())
-      .then((data: { items: TaskAssignee[] }) => setUsers(data.items ?? []))
-      .catch((err) => logError("task-sheet:load-users", err));
-  }, [loadTaskDetails]);
+  }, [initialUsers, loadTaskDetails]);
 
   // Single-flight queue: rapid blur events on different fields used to fire
   // overlapping PATCH requests whose responses could land out-of-order and

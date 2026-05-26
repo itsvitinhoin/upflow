@@ -322,6 +322,7 @@ export default function KanbanBoard({
       {selectedTask && (
         <TaskDetailSheet
           task={selectedTask}
+          users={users}
           onClose={() => setSelectedTask(null)}
           onUpdate={() => {
             setSelectedTask(null);
