@@ -32,9 +32,9 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(sidebar, /transition-\[width,opacity\]/);
   assert.match(sidebar, /aria-hidden=\{!panelOpen\}/);
   assert.match(sidebar, /onRequestClose=\{\(\) => setPanelOpen\(false\)\}/);
-  assert.match(rail, /Show sidebar/);
-  assert.match(rail, /Hide sidebar/);
+  assert.match(rail, /sidebar\.show/);
+  assert.match(rail, /sidebar\.hide/);
   assert.match(rail, /aria-pressed=\{panelOpen\}/);
-  assert.match(panel, /Hide sidebar/);
+  assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
 });

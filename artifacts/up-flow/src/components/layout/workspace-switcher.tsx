@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { logError } from "@/lib/log-error";
 import { getCachedJson, primeCachedJson } from "@/lib/client-cache";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 interface WorkspaceLite {
   id: string;
@@ -26,6 +27,7 @@ export default function WorkspaceSwitcher({
 }: {
   initialData?: ListResponse;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<ListResponse | null>(initialData ?? null);
   const [busy, setBusy] = useState(false);
@@ -69,14 +71,14 @@ export default function WorkspaceSwitcher({
     });
     setBusy(false);
     if (!r.ok) {
-      toast.error("Could not switch workspace");
+      toast.error(t("workspace.switchError"));
       return;
     }
     window.location.reload();
   }
 
   async function createNew() {
-    const name = window.prompt("Workspace name")?.trim();
+    const name = window.prompt(t("workspace.namePrompt"))?.trim();
     if (!name) return;
     setBusy(true);
     const r = await fetch("/api/workspaces", {
@@ -87,7 +89,7 @@ export default function WorkspaceSwitcher({
     setBusy(false);
     if (!r.ok) {
       const j = await r.json().catch(() => ({}));
-      toast.error(j.error || "Could not create workspace");
+      toast.error(j.error || t("workspace.createError"));
       return;
     }
     const ws = (await r.json()) as { id: string };
@@ -102,7 +104,7 @@ export default function WorkspaceSwitcher({
   if (!data) {
     return (
       <div className="mx-3 mt-3 mb-1 px-2.5 py-2 rounded-lg bg-white/5 text-xs text-muted-foreground">
-        Loading workspace…
+        {t("workspace.loading")}
       </div>
     );
   }
@@ -117,7 +119,7 @@ export default function WorkspaceSwitcher({
       >
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Workspace
+            {t("sidebar.workspace")}
           </p>
           <p className="text-sm font-medium text-foreground truncate">
             {current?.name ?? "—"}
@@ -157,7 +159,7 @@ export default function WorkspaceSwitcher({
               onClick={createNew}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/5 text-muted-foreground hover:text-foreground"
             >
-              <Plus className="w-3.5 h-3.5" /> New workspace
+              <Plus className="w-3.5 h-3.5" /> {t("workspace.new")}
             </button>
           </div>
         </div>

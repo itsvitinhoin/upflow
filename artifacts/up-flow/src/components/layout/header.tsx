@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign } from "lucide-react";
+import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
+import { useLanguage } from "@/components/language-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getCachedJson } from "@/lib/client-cache";
 import { cn } from "@/lib/utils";
@@ -98,6 +99,7 @@ function notificationLabel(n: Notification) {
 export default function Header({ title }: HeaderProps) {
   const router = useRouter();
   const user = useAppUser();
+  const { language, toggleLanguage, t } = useLanguage();
   const [search, setSearch] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -210,7 +212,9 @@ export default function Header({ title }: HeaderProps) {
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${title.toLowerCase()}, projects, tasks, docs…`}
+              placeholder={t("header.searchPlaceholder", {
+                title: title.toLowerCase(),
+              })}
               className="h-10 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm backdrop-blur-md transition placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/60 sm:h-11 md:pr-16"
             />
             <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground bg-white/5 border border-white/10 rounded">
@@ -220,10 +224,24 @@ export default function Header({ title }: HeaderProps) {
         </form>
 
         <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:self-auto">
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            aria-label={t("language.toggle")}
+            title={`${t("language.toggle")}: ${
+              language === "en"
+                ? t("language.portugueseBrazil")
+                : t("language.english")
+            }`}
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground sm:h-11 sm:px-3"
+          >
+            <Languages className="h-4 w-4" />
+            <span>{language === "en" ? "EN" : "PT"}</span>
+          </button>
           <div className="relative" ref={panelRef}>
             <button
               onClick={() => setPanelOpen((v) => !v)}
-              aria-label="Notifications"
+              aria-label={t("header.notifications")}
               className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
@@ -236,21 +254,21 @@ export default function Header({ title }: HeaderProps) {
               <div className="fixed left-4 right-4 top-16 z-50 overflow-hidden rounded-xl glass-strong sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <span className="text-sm font-semibold text-foreground">
-                    Notifications
+                    {t("header.notifications")}
                   </span>
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
                       className="text-xs text-primary hover:underline"
                     >
-                      Mark all read
+                      {t("header.markAllRead")}
                     </button>
                   )}
                 </div>
                 <div className="max-h-80 overflow-y-auto divide-y divide-border">
                   {notifications.length === 0 ? (
                     <div className="py-10 text-center text-sm text-muted-foreground">
-                      You&apos;re all caught up
+                      {t("header.allCaughtUp")}
                     </div>
                   ) : (
                     notifications.map((n) => (
@@ -287,11 +305,11 @@ export default function Header({ title }: HeaderProps) {
 
           <button
             onClick={() => setShowNewProject(true)}
-            aria-label="New Project"
+            aria-label={t("header.newProject")}
             className="flex h-10 items-center gap-2 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 sm:h-11 sm:px-5"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">New Project</span>
+            <span className="hidden sm:inline">{t("header.newProject")}</span>
           </button>
         </div>
       </header>

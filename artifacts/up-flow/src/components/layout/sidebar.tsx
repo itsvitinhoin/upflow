@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { logError } from "@/lib/log-error";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import type { AppUser } from "@/lib/types";
 import { Rail } from "@/components/layout/sidebar/rail";
 import Panel from "@/components/layout/sidebar/panel";
@@ -24,6 +25,7 @@ interface SidebarProps {
 const PANEL_KEY = "upflow.sidebar.spacesOpen";
 
 export default function Sidebar({ user, workspaces }: SidebarProps) {
+  const { t } = useLanguage();
   const pathname = usePathname() ?? "";
   const [mounted, setMounted] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -65,11 +67,11 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
       const supabase = createSupabaseBrowserClient();
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
       await supabase.auth.signOut();
-      toast.success("Signed out");
+      toast.success(t("auth.signedOut"));
       window.location.assign("/login");
     } catch (err) {
       logError("sidebar:sign-out", err);
-      toast.error("Sign-out failed; please try again");
+      toast.error(t("auth.signOutFailed"));
       setSigningOut(false);
     }
   };

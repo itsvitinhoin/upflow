@@ -16,22 +16,24 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import type { AppUser } from "@/lib/types";
 
 export interface NavItem {
   href: string;
   label: string;
+  labelKey: string;
   icon: LucideIcon;
 }
 
 export const primaryNav: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: LayoutGrid },
-  { href: "/team", label: "Team", icon: Users },
-  { href: "/time", label: "Time tracking", icon: Clock },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/calendar", label: "Calendar", icon: Calendar },
-  { href: "/projects", label: "Projects", icon: Kanban },
-  { href: "/clients", label: "Clients", icon: Building2 },
+  { href: "/", label: "Dashboard", labelKey: "nav.dashboard", icon: LayoutGrid },
+  { href: "/team", label: "Team", labelKey: "nav.team", icon: Users },
+  { href: "/time", label: "Time tracking", labelKey: "nav.timeTracking", icon: Clock },
+  { href: "/inbox", label: "Inbox", labelKey: "nav.inbox", icon: Inbox },
+  { href: "/calendar", label: "Calendar", labelKey: "nav.calendar", icon: Calendar },
+  { href: "/projects", label: "Projects", labelKey: "nav.projects", icon: Kanban },
+  { href: "/clients", label: "Clients", labelKey: "nav.clients", icon: Building2 },
 ];
 
 interface RailProps {
@@ -56,6 +58,7 @@ export function Rail({
   onSignOut,
   onNavigate,
 }: RailProps) {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-col items-center w-full h-full glass-rail py-4">
       <Link
@@ -75,15 +78,16 @@ export function Rail({
       </Link>
 
       <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1">
-        {primaryNav.map(({ href, label, icon: Icon }) => {
+        {primaryNav.map(({ href, label, labelKey, icon: Icon }) => {
           const active = isActiveHref(pathname, href);
+          const translatedLabel = t(labelKey) || label;
           return (
             <Link
               key={href}
               href={href}
               onClick={onNavigate}
-              title={label}
-              aria-label={label}
+              title={translatedLabel}
+              aria-label={translatedLabel}
               className={cn(
                 "relative flex flex-col items-center justify-center w-9 h-9 rounded-lg transition-colors group",
                 active
@@ -101,8 +105,8 @@ export function Rail({
 
         <button
           onClick={onTogglePanel}
-          title={panelOpen ? "Hide sidebar" : "Show sidebar"}
-          aria-label={panelOpen ? "Hide sidebar" : "Show sidebar"}
+          title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+          aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
           aria-pressed={panelOpen}
           className={cn(
             "group relative mt-1 flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
@@ -121,16 +125,16 @@ export function Rail({
 
       <div className="flex flex-col items-center gap-2 w-full px-1 pb-1">
         <button
-          aria-label="Help"
-          title="Help"
+          aria-label={t("sidebar.help")}
+          title={t("sidebar.help")}
           className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
         <button
           onClick={onSignOut}
-          aria-label={`Sign out (${user.name || user.email || "User"})`}
-          title={`Sign out · ${user.name || user.email || "User"}`}
+          aria-label={`${t("sidebar.signOut")} (${user.name || user.email || "User"})`}
+          title={`${t("sidebar.signOut")} - ${user.name || user.email || "User"}`}
           className="mt-2 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-[10px] font-bold hover:opacity-90 transition-opacity"
         >
           {getInitials(user.name || user.email || "U")}

@@ -6,6 +6,7 @@ import { PanelLeftClose, Search, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
+import { useLanguage } from "@/components/language-provider";
 import {
   SpaceDialog,
   MoveProjectDialog,
@@ -45,6 +46,7 @@ export default function Panel({
   onNavigate,
   onRequestClose,
 }: PanelProps) {
+  const { t } = useLanguage();
   const {
     spaces,
     folders,
@@ -221,11 +223,11 @@ export default function Panel({
             <button
               type="button"
               onClick={onRequestClose}
-              aria-label="Hide sidebar"
+              aria-label={t("sidebar.hide")}
               className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
             >
               <PanelLeftClose className="h-3.5 w-3.5" />
-              Hide
+              {t("sidebar.hide")}
             </button>
           </div>
         )}
@@ -250,14 +252,14 @@ export default function Panel({
                 type="search"
                 value={sidebarQuery}
                 onChange={(event) => setSidebarQuery(event.target.value)}
-                placeholder="Search spaces..."
+                placeholder={t("sidebar.searchSpaces")}
                 className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-8 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
               />
               {sidebarQuery && (
                 <button
                   type="button"
                   onClick={() => setSidebarQuery("")}
-                  aria-label="Clear sidebar search"
+                  aria-label={t("sidebar.clearSearch")}
                   className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -266,7 +268,9 @@ export default function Panel({
             </label>
           </div>
           {loadingPanel ? (
-            <div className="px-2 py-4 text-xs text-muted-foreground">Loading…</div>
+            <div className="px-2 py-4 text-xs text-muted-foreground">
+              {t("sidebar.loading")}
+            </div>
           ) : (
             <>
               {visibleTree.spaces.map((sp) => (
@@ -284,7 +288,7 @@ export default function Panel({
 
               {isSearching && visibleTree.spaces.length === 0 && unassignedItems.length === 0 && (
                 <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                  No spaces, folders, or lists match <span className="text-foreground">{sidebarQuery.trim()}</span>.
+                  {t("sidebar.noSearchMatches", { query: sidebarQuery.trim() })}
                 </div>
               )}
 
@@ -304,12 +308,12 @@ export default function Panel({
 
               {!isSearching && spaces.length === 0 && unassignedItems.length === 0 && (
                 <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                  <p>No spaces yet.</p>
+                  <p>{t("sidebar.noSpaces")}</p>
                   <button
                     onClick={() => setShowCreate(true)}
                     className="mt-2 text-primary hover:underline"
                   >
-                    Create your first space
+                    {t("sidebar.createFirstSpace")}
                   </button>
                 </div>
               )}
