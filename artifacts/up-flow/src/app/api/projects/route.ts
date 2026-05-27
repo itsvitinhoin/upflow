@@ -4,6 +4,7 @@ import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { recordActivity } from "@/lib/activity";
 
 async function getHandler(req: NextRequest) {
   const _r = await requireAuth();
@@ -62,6 +63,8 @@ async function postHandler(req: NextRequest) {
     parsedDueDate = d;
   }
 
+  let resolvedSpaceId = space_id || null;
+
   if (space_id) {
     const space = await prisma.space.findUnique({ where: { id: space_id } });
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
@@ -75,6 +78,13 @@ async function postHandler(req: NextRequest) {
     if (folder.workspace_id !== auth.currentWorkspaceId || !canAccessWorkspace(auth, folder.workspace_id)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    if (resolvedSpaceId && folder.space_id !== resolvedSpaceId) {
+      return NextResponse.json(
+        { error: "Folder does not belong to selected space" },
+        { status: 400 },
+      );
+    }
+    resolvedSpaceId = folder.space_id;
   }
   if (company_id) {
     const company = await prisma.company.findFirst({
@@ -91,7 +101,7 @@ async function postHandler(req: NextRequest) {
       due_date: parsedDueDate,
       workspace_id: auth.currentWorkspaceId,
       owner_id: auth.prismaUser.id,
-      space_id: space_id || null,
+      space_id: resolvedSpaceId,
       folder_id: folder_id || null,
       company_id: company_id || null,
     },
@@ -100,6 +110,21 @@ async function postHandler(req: NextRequest) {
       space: { select: { id: true, name: true, icon: true } },
       folder: { select: { id: true, name: true, icon: true } },
       _count: { select: { tasks: true } },
+    },
+  });
+
+  await recordActivity({
+    workspace_id: auth.currentWorkspaceId,
+    actor_id: auth.prismaUser.id,
+    type: "project_created",
+    entity_type: "project",
+    entity_id: project.id,
+    project_id: project.id,
+    company_id: project.company_id,
+    metadata: {
+      name: project.name,
+      space_id: project.space_id,
+      folder_id: project.folder_id,
     },
   });
 

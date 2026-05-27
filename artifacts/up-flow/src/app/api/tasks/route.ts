@@ -8,6 +8,7 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 import { collectPeopleIds, validateCustomFieldBatch } from "@/lib/custom-field-validator";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { recordActivity } from "@/lib/activity";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -273,8 +274,27 @@ async function postHandler(req: NextRequest) {
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
       .catch((err) => logError("api:tasks:POST:notify", err, { task_id: task.id }));
-    await broadcastNotification(assignee_id);
+    await broadcastNotification(assignee_id).catch((err) =>
+      logError("api:tasks:POST:broadcast", err, { task_id: task.id, user_id: assignee_id }),
+    );
   }
+
+  await recordActivity({
+    workspace_id: project.workspace_id,
+    actor_id: auth.prismaUser.id,
+    type: "task_created",
+    entity_type: "task",
+    entity_id: task.id,
+    project_id: task.project_id,
+    task_id: task.id,
+    company_id: project.company_id,
+    metadata: {
+      title: task.title,
+      status: task.status,
+      priority: task.priority,
+      assignee_id: task.assignee_id,
+    },
+  });
 
   return NextResponse.json(task, { status: 201 });
 }

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { recordActivity } from "@/lib/activity";
 
 async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
@@ -52,6 +53,14 @@ async function POST_handler(req: NextRequest) {
       position,
     },
     include: { _count: { select: { projects: true } } },
+  });
+  await recordActivity({
+    workspace_id: auth.currentWorkspaceId,
+    actor_id: auth.prismaUser.id,
+    type: "space_created",
+    entity_type: "space",
+    entity_id: space.id,
+    metadata: { name: space.name },
   });
   return NextResponse.json(space, { status: 201 });
 }

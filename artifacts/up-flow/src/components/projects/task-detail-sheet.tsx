@@ -9,6 +9,7 @@ import { cn, formatDate, getInitials } from "@/lib/utils";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
+import { parseTaskBrief } from "@/lib/task-templates";
 
 interface TaskDetailSheetProps {
   task: Task;
@@ -213,6 +214,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
 
   const subtasks = currentTask.subtasks ?? [];
   const doneCount = subtasks.filter((s) => s.status === "done").length;
+  const structuredBrief = parseTaskBrief(currentTask.description);
 
   return (
     <>
@@ -296,7 +298,38 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
           </div>
 
           <div className="border-b border-border px-4 py-4 sm:px-6">
-            <label className="block text-sm font-medium text-foreground mb-2">Description</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Description / brief</label>
+            {structuredBrief && (
+              <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                    {structuredBrief.type}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Structured task brief</span>
+                </div>
+                {structuredBrief.details.length > 0 && (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {structuredBrief.details.slice(0, 8).map((item) => (
+                      <div key={`${item.label}-${item.value}`} className="min-w-0 rounded-lg bg-black/10 px-2.5 py-2">
+                        <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+                          {item.label}
+                        </p>
+                        <p className="mt-0.5 break-words text-sm text-foreground">{item.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {structuredBrief.checklist.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {structuredBrief.checklist.slice(0, 6).map((item) => (
+                      <span key={item} className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <textarea
               defaultValue={currentTask.description || ""}
               onBlur={(e) => {

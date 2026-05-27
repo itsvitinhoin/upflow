@@ -6,6 +6,8 @@ import { X, Loader2, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
+import TaskTemplateFields from "@/components/projects/task-template-fields";
+import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
 
 interface Props {
@@ -35,6 +37,9 @@ export default function CreateTaskPanel({
 }: Props) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [taskTemplateId, setTaskTemplateId] =
+    useState<TaskTemplateId>(DEFAULT_TASK_TEMPLATE_ID);
+  const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"todo" | "in_progress" | "done">(defaultStatus);
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState("");
@@ -49,6 +54,8 @@ export default function CreateTaskPanel({
     } else {
       setTitle("");
       setDescription("");
+      setTaskTemplateId(DEFAULT_TASK_TEMPLATE_ID);
+      setTemplateValues({});
       setPriority("medium");
       setDueDate("");
       setCoverImageUrl(null);
@@ -76,7 +83,11 @@ export default function CreateTaskPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          description: description || null,
+          description: buildTaskBrief({
+            templateId: taskTemplateId,
+            values: templateValues,
+            notes: description,
+          }),
           status,
           priority,
           project_id: projectId,
@@ -153,9 +164,17 @@ export default function CreateTaskPanel({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Add description..."
+              placeholder="Add task notes, client context, or internal instructions..."
               className="w-full text-sm bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none resize-none border border-transparent hover:border-border focus:border-border rounded-md px-2 py-1.5 -mx-2"
             />
+            <div className="mt-4">
+              <TaskTemplateFields
+                templateId={taskTemplateId}
+                values={templateValues}
+                onTemplateChange={setTaskTemplateId}
+                onValuesChange={setTemplateValues}
+              />
+            </div>
           </div>
 
           <div className="px-5 py-4 space-y-3 border-b border-border">

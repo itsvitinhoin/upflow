@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,19 @@ function folderPath(folder: FolderT, folders: FolderT[]) {
     cursor = cursor.parent_id ? byId.get(cursor.parent_id) : null;
   }
   return names.join(" / ");
+}
+
+function broadcastSidebarRefresh() {
+  window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+}
+
+async function readApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 const ICONS = ["📦", "🚀", "🎨", "💼", "🛠️", "🌱", "🔬", "📈", "💡", "🗂️"];
@@ -51,13 +65,14 @@ export function SpaceDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), icon }),
       });
-      if (!res.ok) throw new Error(`Space ${mode} → ${res.status}`);
+      if (!res.ok) throw new Error(await readApiError(res, `Could not ${mode} space`));
       const saved = (await res.json()) as Space;
       toast.success(mode === "create" ? "Space created" : "Space renamed");
+      broadcastSidebarRefresh();
       onSaved(saved);
     } catch (err) {
       logError("sidebar:space-dialog", err, { mode });
-      toast.error("Could not save space");
+      toast.error(err instanceof Error ? err.message : "Could not save space");
     } finally {
       setLoading(false);
     }
@@ -165,12 +180,13 @@ export function MoveProjectDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ space_id, folder_id }),
       });
-      if (!res.ok) throw new Error(`Move project → ${res.status}`);
+      if (!res.ok) throw new Error(await readApiError(res, "Could not move list"));
       toast.success("List moved");
+      broadcastSidebarRefresh();
       onSaved();
     } catch (err) {
       logError("sidebar:move-project-dialog", err, { id: project.id });
-      toast.error("Could not move list");
+      toast.error(err instanceof Error ? err.message : "Could not move list");
     } finally {
       setLoading(false);
     }
@@ -277,12 +293,13 @@ export function FolderDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`Folder ${mode} → ${res.status}`);
+      if (!res.ok) throw new Error(await readApiError(res, `Could not ${mode} folder`));
       toast.success(mode === "create" ? "Folder created" : "Folder renamed");
+      broadcastSidebarRefresh();
       onSaved();
     } catch (err) {
       logError("sidebar:folder-dialog", err, { mode });
-      toast.error("Could not save folder");
+      toast.error(err instanceof Error ? err.message : "Could not save folder");
     } finally {
       setLoading(false);
     }
@@ -351,8 +368,9 @@ export function NewListDialog({
     | { kind: "space"; space: Space }
     | { kind: "folder"; folder: FolderT };
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (project: Project) => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -381,12 +399,15 @@ export function NewListDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(`Create list → ${res.status}`);
+      if (!res.ok) throw new Error(await readApiError(res, "Could not create list"));
+      const created = (await res.json()) as Project;
       toast.success("List created");
-      onSaved();
+      broadcastSidebarRefresh();
+      onSaved(created);
+      router.push(`/projects/${created.id}`);
     } catch (err) {
       logError("sidebar:new-list-dialog", err);
-      toast.error("Could not create list");
+      toast.error(err instanceof Error ? err.message : "Could not create list");
     } finally {
       setLoading(false);
     }

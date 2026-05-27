@@ -177,7 +177,9 @@ async function PATCH_handler(
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
       .catch((err) => logError("api:tasks:PATCH:notify", err, { task_id: task.id }));
-    await broadcastNotification(assignee_id);
+    await broadcastNotification(assignee_id).catch((err) =>
+      logError("api:tasks:PATCH:broadcast", err, { task_id: task.id, user_id: assignee_id }),
+    );
   }
 
   // Status-change notifications. Notify the project owner (creator) and the
@@ -216,7 +218,9 @@ async function PATCH_handler(
         .catch((err) =>
           logError("api:tasks:PATCH:status-notify", err, { task_id: task.id, user_id: userId }),
         );
-      await broadcastNotification(userId);
+      await broadcastNotification(userId).catch((err) =>
+        logError("api:tasks:PATCH:status-broadcast", err, { task_id: task.id, user_id: userId }),
+      );
     }
   }
 

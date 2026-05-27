@@ -17,6 +17,15 @@ export type Company = {
   created_at: string;
 };
 
+async function readApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function CreateCompanyDialog({
   open,
   onClose,
@@ -68,7 +77,7 @@ export default function CreateCompanyDialog({
           description: notes.trim() || null,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create company");
+      if (!res.ok) throw new Error(await readApiError(res, "Failed to create company"));
       const company = (await res.json()) as Company;
       toast.success(`Created ${company.name}`);
       onCreated?.(company);
@@ -81,8 +90,8 @@ export default function CreateCompanyDialog({
       setIncludedServices("");
       setNotes("");
       onClose();
-    } catch {
-      toast.error("Could not create company");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not create company");
     } finally {
       setSubmitting(false);
     }

@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, TaskAssignee } from "@/lib/types";
+import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
+import TaskTemplateFields from "@/components/projects/task-template-fields";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -23,6 +25,9 @@ export default function NewTaskDialog({
 }: NewTaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [taskTemplateId, setTaskTemplateId] =
+    useState<TaskTemplateId>(DEFAULT_TASK_TEMPLATE_ID);
+  const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
@@ -73,7 +78,11 @@ export default function NewTaskDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title,
-          description: description || null,
+          description: buildTaskBrief({
+            templateId: taskTemplateId,
+            values: templateValues,
+            notes: description,
+          }),
           priority,
           status: defaultStatus,
           project_id: selectedProject,
@@ -87,6 +96,8 @@ export default function NewTaskDialog({
       }
       setTitle("");
       setDescription("");
+      setTaskTemplateId(DEFAULT_TASK_TEMPLATE_ID);
+      setTemplateValues({});
       setPriority("medium");
       setDueDate("");
       setAssigneeId("");
@@ -168,6 +179,13 @@ export default function NewTaskDialog({
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
+
+          <TaskTemplateFields
+            templateId={taskTemplateId}
+            values={templateValues}
+            onTemplateChange={setTaskTemplateId}
+            onValuesChange={setTemplateValues}
+          />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

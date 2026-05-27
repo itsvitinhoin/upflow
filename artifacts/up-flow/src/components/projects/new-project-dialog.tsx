@@ -51,6 +51,7 @@ export default function NewProjectDialog({
       setName("");
       setDescription("");
       setDueDate("");
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       onCreated();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to create project";
