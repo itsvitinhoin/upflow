@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
-import { WORKSPACE_COOKIE } from "@/lib/workspace";
+import { ensureOwnedWorkspace, WORKSPACE_COOKIE } from "@/lib/workspace";
 import { sendEmail } from "@/lib/email/send";
 import { inviteAcceptedEmail } from "@/lib/email/templates";
 import { getEmailOrigin } from "@/lib/email/origin";
@@ -36,7 +36,8 @@ async function GET_handler(req: NextRequest) {
 }
 
 // Accept an invite. The caller must be authenticated; if their email matches
-// the invite, we attach them to the workspace and switch their active one.
+// the invite, normal users are switched into their own workspace. Tester
+// invites still attach to the isolated tester workspace.
 async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
@@ -48,7 +49,7 @@ async function POST_handler(req: NextRequest) {
 
   const preview = await prisma.workspaceInvite.findUnique({
     where: { token },
-    select: { email: true },
+    select: { email: true, tester_invite: true },
   });
   if (!preview) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   if (preview.email.toLowerCase() !== auth.prismaUser.email.toLowerCase()) {
@@ -58,7 +59,14 @@ async function POST_handler(req: NextRequest) {
     );
   }
 
-  let invite: { workspace_id: string } | null = null;
+  const ownedWorkspace = preview.tester_invite
+    ? null
+    : await ensureOwnedWorkspace(
+        auth.prismaUser.id,
+        auth.prismaUser.name || auth.prismaUser.email.split("@")[0] || "My",
+      );
+
+  let invite: { source_workspace_id: string; target_workspace_id: string } | null = null;
   try {
     invite = await prisma.$transaction(async (tx) => {
       // Re-read inside the tx so two parallel accepts can't both succeed.
@@ -69,30 +77,37 @@ async function POST_handler(req: NextRequest) {
           role: true,
           accepted_at: true,
           workspace_id: true,
+          tester_invite: true,
         },
       });
       if (!fresh) throw new Error("not_found");
       if (fresh.accepted_at) throw new Error("already_used");
 
-      await tx.workspaceMember.upsert({
-        where: {
-          workspace_id_user_id: {
+      if (fresh.tester_invite) {
+        await tx.workspaceMember.upsert({
+          where: {
+            workspace_id_user_id: {
+              workspace_id: fresh.workspace_id,
+              user_id: auth.prismaUser.id,
+            },
+          },
+          create: {
             workspace_id: fresh.workspace_id,
             user_id: auth.prismaUser.id,
+            role: fresh.role,
           },
-        },
-        create: {
-          workspace_id: fresh.workspace_id,
-          user_id: auth.prismaUser.id,
-          role: fresh.role,
-        },
-        update: { role: fresh.role },
-      });
+          update: { role: fresh.role, status: "active" },
+        });
+      }
+
       await tx.workspaceInvite.update({
         where: { id: fresh.id },
         data: { accepted_at: new Date(), accepted_by: auth.prismaUser.id },
       });
-      return { workspace_id: fresh.workspace_id };
+      return {
+        source_workspace_id: fresh.workspace_id,
+        target_workspace_id: fresh.tester_invite ? fresh.workspace_id : ownedWorkspace!.id,
+      };
     });
   } catch (e) {
     const msg = (e as Error).message;
@@ -107,7 +122,7 @@ async function POST_handler(req: NextRequest) {
 
   // Notify the workspace admins via in-app notification + email.
   try {
-    const workspaceId = invite!.workspace_id;
+    const workspaceId = invite!.source_workspace_id;
     const [workspace, admins, acceptedInvite] = await Promise.all([
       prisma.workspace.findUnique({
         where: { id: workspaceId },
@@ -176,11 +191,20 @@ async function POST_handler(req: NextRequest) {
     logError("invites:accept:notify", err);
   }
 
+  const targetWorkspace =
+    ownedWorkspace ??
+    (await prisma.workspace.findUnique({
+      where: { id: invite!.target_workspace_id },
+      select: { id: true, name: true, slug: true },
+    }));
+
   const res = NextResponse.json({
     success: true,
-    workspace_id: invite!.workspace_id,
+    workspace_id: invite!.target_workspace_id,
+    workspace: targetWorkspace,
+    source_workspace_id: invite!.source_workspace_id,
   });
-  res.cookies.set(WORKSPACE_COOKIE, invite!.workspace_id, {
+  res.cookies.set(WORKSPACE_COOKIE, invite!.target_workspace_id, {
     path: "/",
     sameSite: "lax",
     httpOnly: false,

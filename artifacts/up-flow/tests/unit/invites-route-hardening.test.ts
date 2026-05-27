@@ -30,6 +30,22 @@ const acceptPage = readFileSync(
   join(__dirname, "..", "..", "src", "app", "invite", "[token]", "page.tsx"),
   "utf8",
 );
+const acceptRoute = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "api", "invites", "accept", "route.ts"),
+  "utf8",
+);
+const inviteRegisterRoute = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "api", "invites", "register", "route.ts"),
+  "utf8",
+);
+const inviteReconciliation = readFileSync(
+  join(__dirname, "..", "..", "src", "lib", "invite-reconciliation.ts"),
+  "utf8",
+);
+const workspaceLib = readFileSync(
+  join(__dirname, "..", "..", "src", "lib", "workspace.ts"),
+  "utf8",
+);
 const registerRoute = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "users", "register", "route.ts"),
   "utf8",
@@ -85,10 +101,27 @@ test("admin email status exposes diagnostics without secrets", () => {
 
 test("team page makes real workspace user invites the primary flow", () => {
   assert.match(teamPage, /Invite real users to Up Flow/);
-  assert.match(teamPage, /Send official workspace invitations/);
+  assert.match(teamPage, /Send official invitations/);
   assert.match(teamPage, /Send user invites/);
-  assert.match(teamPage, /use the real Up Flow workspace/);
+  assert.match(teamPage, /Each person gets their own UP Flow workspace/);
+  assert.match(teamPage, /They will not get access to/);
+  assert.match(inviteDialog, /hideRole/);
   assert.match(teamPage, /Sandbox tester tools/);
+});
+
+test("normal invite acceptance provisions personal workspaces instead of source workspace membership", () => {
+  assert.match(workspaceLib, /ensureOwnedWorkspace/);
+  assert.doesNotMatch(workspaceLib, /where:\s*\{\s*slug:\s*"acme"\s*\}/);
+  assert.match(acceptRoute, /ensureOwnedWorkspace/);
+  assert.match(acceptRoute, /source_workspace_id/);
+  assert.match(acceptRoute, /target_workspace_id/);
+  assert.match(acceptRoute, /fresh\.tester_invite/);
+  assert.match(inviteRegisterRoute, /ensureOwnedWorkspace/);
+  assert.match(inviteRegisterRoute, /source_workspace_id/);
+  assert.match(inviteRegisterRoute, /invite\.tester_invite/);
+  assert.match(inviteReconciliation, /tester_invite:\s*true/);
+  assert.match(acceptPage, /your own UP Flow workspace/);
+  assert.match(acceptPage, /without receiving access to/);
 });
 
 test("tester invites remain available as optional sandbox tools", () => {

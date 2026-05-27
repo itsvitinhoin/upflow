@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { WORKSPACE_COOKIE } from "@/lib/workspace";
+import { ensureOwnedWorkspace, WORKSPACE_COOKIE } from "@/lib/workspace";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { isPhoneLikeName, normalizeDisplayName, normalizePhone } from "@/lib/user-profile";
@@ -66,6 +66,7 @@ async function POST_handler(req: NextRequest) {
       role: true,
       accepted_at: true,
       workspace_id: true,
+      tester_invite: true,
       workspace: { select: { id: true, name: true, slug: true } },
     },
   });
@@ -133,32 +134,41 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: createError.message }, { status: 400 });
   }
 
+  let createdUserId = "";
+  const testerWorkspace = invite.workspace;
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: { email, name: fullName, phone, role: "member" },
       select: { id: true },
     });
+    createdUserId = user.id;
 
-    await tx.workspaceMember.upsert({
-      where: {
-        workspace_id_user_id: {
+    if (invite.tester_invite) {
+      await tx.workspaceMember.upsert({
+        where: {
+          workspace_id_user_id: {
+            workspace_id: invite.workspace_id,
+            user_id: user.id,
+          },
+        },
+        create: {
           workspace_id: invite.workspace_id,
           user_id: user.id,
+          role: invite.role,
         },
-      },
-      create: {
-        workspace_id: invite.workspace_id,
-        user_id: user.id,
-        role: invite.role,
-      },
-      update: { role: invite.role, status: "active" },
-    });
+        update: { role: invite.role, status: "active" },
+      });
+    }
 
     await tx.workspaceInvite.update({
       where: { id: invite.id },
       data: { accepted_at: new Date(), accepted_by: user.id },
     });
   });
+
+  const targetWorkspace = invite.tester_invite
+    ? testerWorkspace
+    : await ensureOwnedWorkspace(createdUserId, fullName);
 
   const supabase = createSupabaseServerClient();
   const { data: sessionData, error: sessionError } =
@@ -176,10 +186,11 @@ async function POST_handler(req: NextRequest) {
 
   const res = NextResponse.json({
     success: true,
-    workspace_id: invite.workspace_id,
-    workspace: invite.workspace,
+    workspace_id: targetWorkspace.id,
+    workspace: targetWorkspace,
+    source_workspace_id: invite.workspace_id,
   });
-  res.cookies.set(WORKSPACE_COOKIE, invite.workspace_id, {
+  res.cookies.set(WORKSPACE_COOKIE, targetWorkspace.id, {
     path: "/",
     sameSite: "lax",
     httpOnly: false,

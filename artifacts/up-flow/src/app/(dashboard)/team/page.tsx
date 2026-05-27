@@ -985,11 +985,13 @@ export default function TeamPage() {
           title="Invite users to Up Flow"
           description={
             workspace?.name
-              ? `We'll email each address an invitation link to join ${workspace.name} and use the real Up Flow workspace.`
-              : "We'll email each address an invitation link to join this real Up Flow workspace."
+              ? `We'll email each address an invitation link. Each person gets their own UP Flow workspace; they will not receive access to ${workspace.name}.`
+              : "We'll email each address an invitation link. Each person gets their own UP Flow workspace."
           }
           submitLabel="Send user invites"
           successLabel="Invited"
+          defaultRole="member"
+          hideRole
           onClose={() => {
             setInviteOpen(false);
             if (inviteDiagnosticsLoaded) {
@@ -1070,9 +1072,9 @@ function RealUserInvitePanel({
             </span>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Send official workspace invitations so users can sign up, accept access,
-            and work inside {workspace?.name ?? "this workspace"} with real tasks,
-            Spaces, calendar events, clients, and notifications.
+            Send official invitations so users can sign up and start in their own
+            workspace with real tasks, Spaces, calendar events, clients, and
+            notifications. They will not get access to {workspace?.name ?? "this workspace"}.
           </p>
         </div>
         <button
@@ -1086,8 +1088,8 @@ function RealUserInvitePanel({
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <InviteStat label="Workspace" value={workspace?.name ?? "Current workspace"} />
-        <InviteStat label="Active members" value={String(memberCount)} />
+        <InviteStat label="Source workspace" value={workspace?.name ?? "Current workspace"} />
+        <InviteStat label="Internal members" value={String(memberCount)} />
         <InviteStat label="Pending invites" value={String(pendingCount)} />
       </div>
     </section>

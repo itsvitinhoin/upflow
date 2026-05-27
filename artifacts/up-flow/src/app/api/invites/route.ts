@@ -121,9 +121,10 @@ async function POST_handler(req: NextRequest) {
       { status: 400 },
     );
   }
-  const role: "admin" | "member" = body.role === "admin" ? "admin" : "member";
   const targetWorkspaceId = body.workspace_id?.trim() || auth.currentWorkspaceId;
   const testerInvite = body.tester_invite === true;
+  const role: "admin" | "member" =
+    testerInvite && body.role === "admin" ? "admin" : "member";
 
   if (!targetWorkspaceId || !isWorkspaceAdminFor(auth, targetWorkspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -240,7 +241,7 @@ async function POST_handler(req: NextRequest) {
   let mailed = 0;
   for (const invite of created) {
     const rendered = inviteEmail({
-      workspaceName: workspace?.name ?? "your team",
+      workspaceName: testerInvite ? workspace?.name ?? "your team" : "Up Flow",
       inviterName,
       inviterEmail,
       acceptUrl: invite.accept_url,

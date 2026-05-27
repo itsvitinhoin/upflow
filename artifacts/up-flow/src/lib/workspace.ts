@@ -38,22 +38,41 @@ async function uniqueSlug(base: string): Promise<string> {
 }
 
 /**
- * Ensure the user has at least one workspace membership. First-login users
- * get a personal workspace where they are the owner.
+ * Ensure the user owns a personal workspace. This is used by invite
+ * acceptance so new users can try UP Flow without being dropped into the
+ * inviter's Admin workspace.
  */
+export async function ensureOwnedWorkspace(userId: string, displayName: string) {
+  const existingOwned = await prisma.workspaceMember.findFirst({
+    where: { user_id: userId, role: "owner", status: "active" },
+    select: {
+      workspace: { select: { id: true, name: true, slug: true } },
+    },
+    orderBy: { created_at: "asc" },
+  });
+  if (existingOwned?.workspace) return existingOwned.workspace;
+
+  const safeName = displayName?.trim() || "My";
+  const name = `${safeName}'s Workspace`;
+  const slug = await uniqueSlug(safeName);
+  const workspace = await prisma.workspace.create({
+    data: {
+      name,
+      slug,
+      members: { create: { user_id: userId, role: "owner" } },
+    },
+    select: { id: true, name: true, slug: true },
+  });
+  await ensureDepartmentSpaces(workspace.id, userId);
+  return workspace;
+}
+
 /**
  * Make sure a freshly-logged-in user always lands in a workspace.
  *
- * Order of preference (first match wins):
- *   1) If the default "acme" workspace exists, auto-join the user as a
- *      `member`. This preserves continuity with the seeded sample data and
- *      gives every new user access to the shared org by default.
- *   2) Otherwise, provision a personal workspace where the user is `owner`.
- *
- * The implementation is idempotent: it returns early if the user already
- * has any membership, and any unique-constraint races are swallowed since
- * losing the race just means another concurrent login already finished
- * provisioning.
+ * First-login users get a personal workspace where they are owner. We do not
+ * auto-join a seeded/shared workspace, because invited users should not receive
+ * access to the Admin workspace unless explicitly added later.
  */
 export async function ensureDefaultWorkspace(userId: string, displayName: string) {
   try {
@@ -63,28 +82,7 @@ export async function ensureDefaultWorkspace(userId: string, displayName: string
     });
     if (existing) return;
 
-    const acme = await prisma.workspace.findUnique({
-      where: { slug: "acme" },
-      select: { id: true },
-    });
-    if (acme) {
-      await prisma.workspaceMember.create({
-        data: { workspace_id: acme.id, user_id: userId, role: "member" },
-      });
-      return;
-    }
-
-    const name = `${displayName}'s Workspace`;
-    const slug = await uniqueSlug(displayName);
-    const workspace = await prisma.workspace.create({
-      data: {
-        name,
-        slug,
-        members: { create: { user_id: userId, role: "owner" } },
-      },
-      select: { id: true },
-    });
-    await ensureDepartmentSpaces(workspace.id, userId);
+    await ensureOwnedWorkspace(userId, displayName);
   } catch (err) {
     // The only expected failure mode is a unique-constraint race when two
     // concurrent first-logins try to provision at the same time. Anything

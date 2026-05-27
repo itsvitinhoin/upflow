@@ -18,6 +18,7 @@ export default function InviteDialog({
   successLabel = "Invited",
   defaultRole = "member",
   lockRole = false,
+  hideRole = false,
   workspaceId,
   testerMode = false,
   onSuccess,
@@ -30,6 +31,7 @@ export default function InviteDialog({
   successLabel?: string;
   defaultRole?: "admin" | "member";
   lockRole?: boolean;
+  hideRole?: boolean;
   workspaceId?: string;
   testerMode?: boolean;
   onSuccess?: () => void;
@@ -136,16 +138,20 @@ export default function InviteDialog({
           autoFocus
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
-        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Role</label>
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as "admin" | "member")}
-          disabled={lockRole}
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="member">Member</option>
-          <option value="admin">Admin</option>
-        </select>
+        {!hideRole && (
+          <>
+            <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as "admin" | "member")}
+              disabled={lockRole}
+              className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+            </select>
+          </>
+        )}
         <p className="text-[11px] text-muted-foreground mt-2">
           {description}
         </p>

@@ -156,23 +156,28 @@ export default function AcceptInvitePage({
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-1">
-              {info.inviter?.name || "Someone"} invited you to join
+              {info.inviter?.name || "Someone"} invited you to use
             </p>
             <p className="text-lg font-medium text-foreground mb-4">
-              {info.workspace.name}
+              Up Flow
             </p>
             <p className="text-xs text-muted-foreground mb-6">
               Invite for <span className="text-foreground">{info.email}</span>
-              {" - "}
-              role <span className="text-foreground">{info.role}</span>
             </p>
-            {info.tester_invite && (
-              <p className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-muted-foreground">
+            <p className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-muted-foreground">
+              {info.tester_invite ? (
+                <>
                 This invite opens an isolated UP Flow test workspace with demo
                 projects, clients, meetings, docs, and tasks. It does not grant
                 access to real client workspaces.
-              </p>
-            )}
+                </>
+              ) : (
+                <>
+                  This invite creates your own UP Flow workspace so you can use
+                  the platform without receiving access to {info.workspace.name}.
+                </>
+              )}
+            </p>
             <div className="mb-4 grid grid-cols-2 rounded-lg border border-white/10 bg-white/5 p-1 text-sm">
               <button
                 type="button"
@@ -265,7 +270,7 @@ export default function AcceptInvitePage({
                   disabled={busy}
                   className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
-                  {busy ? "Creating..." : "Create account and join"}
+                  {busy ? "Creating..." : "Create account and open workspace"}
                 </button>
               </form>
             ) : (
@@ -299,7 +304,7 @@ export default function AcceptInvitePage({
                   disabled={busy}
                   className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
-                  {busy ? "Signing in..." : "Sign in and accept invite"}
+                  {busy ? "Signing in..." : "Sign in and open workspace"}
                 </button>
                 <button
                   type="button"
