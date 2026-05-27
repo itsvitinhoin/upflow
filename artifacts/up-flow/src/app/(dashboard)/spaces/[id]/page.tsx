@@ -452,15 +452,109 @@ function SpaceDashboard({
 
   const command = data.command_center;
   const labels = data.department_preset?.dashboard_focus_labels;
+  const overloadedCount = command.team_workload.items.filter(
+    (item) => item.state === "late" || item.state === "overloaded",
+  ).length;
+  const dashboardStatus =
+    command.projects_at_risk.count > 0 || command.urgent_actions.count > 0
+      ? "Needs attention"
+      : "On track";
 
   return (
     <div className="space-y-6">
+      <section className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,rgba(124,92,255,0.18),rgba(16,185,129,0.08),rgba(245,158,11,0.06))]">
+        <div className="grid gap-5 p-5 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                {data.department_preset?.name ?? "Space"} dashboard
+              </span>
+              <span
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium",
+                  dashboardStatus === "On track"
+                    ? "bg-upflow-success/15 text-upflow-success"
+                    : "bg-upflow-warning/15 text-upflow-warning",
+                )}
+              >
+                {dashboardStatus}
+              </span>
+            </div>
+            <h3 className="mt-4 text-2xl font-bold text-foreground sm:text-3xl">
+              {data.space.name} command dashboard
+            </h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              {data.department_preset?.description ??
+                "Live Space metrics for tasks, meetings, tracked time, risk, and activity."}
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <HeroMetric
+                label="Completion"
+                value={`${stats.progress}%`}
+                detail={`${stats.done} of ${stats.total} tasks`}
+              />
+              <HeroMetric
+                label="Open work"
+                value={stats.todo + stats.inProgress}
+                detail={`${stats.inProgress} in progress`}
+              />
+              <HeroMetric
+                label="Team flags"
+                value={overloadedCount}
+                detail="Late or overloaded"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase text-muted-foreground">
+                  Today&apos;s pulse
+                </p>
+                <p className="mt-1 text-sm text-foreground">
+                  Focus on what can move this Space forward now.
+                </p>
+              </div>
+              <button
+                onClick={onCreateTask}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                New task
+              </button>
+            </div>
+            <div className="mt-4 grid gap-2">
+              <PulseRow
+                label="Urgent actions"
+                value={command.urgent_actions.count}
+                tone="danger"
+                onClick={() => onOpenDrawer("urgent_actions")}
+              />
+              <PulseRow
+                label="Meetings today"
+                value={command.meetings_today.count}
+                tone="primary"
+                onClick={() => onOpenDrawer("meetings_today")}
+              />
+              <PulseRow
+                label="Time tracked"
+                value={formatSecondsShort(command.time_today.total_seconds)}
+                tone="success"
+                onClick={() => onOpenDrawer("time_today")}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <CommandTile
           title="My urgent actions"
           value={command.urgent_actions.count}
           hint={labels?.urgent ?? "Due, overdue, or high priority"}
           icon={<AlertCircle className="w-4 h-4" />}
+          tone="danger"
           onClick={() => onOpenDrawer("urgent_actions")}
         />
         <CommandTile
@@ -468,6 +562,7 @@ function SpaceDashboard({
           value={command.team_workload.count}
           hint={labels?.workload ?? "Space workload by member"}
           icon={<Users2 className="w-4 h-4" />}
+          tone="primary"
           onClick={() => onOpenDrawer("team_workload")}
         />
         <CommandTile
@@ -479,6 +574,7 @@ function SpaceDashboard({
               : (labels?.time ?? "Tracked in this Space")
           }
           icon={<Timer className="w-4 h-4" />}
+          tone="success"
           onClick={() => onOpenDrawer("time_today")}
         />
         <CommandTile
@@ -486,6 +582,7 @@ function SpaceDashboard({
           value={command.meetings_today.count}
           hint={labels?.meetings ?? "Linked to this Space"}
           icon={<CalendarIcon className="w-4 h-4" />}
+          tone="blue"
           onClick={() => onOpenDrawer("meetings_today")}
         />
         <CommandTile
@@ -493,6 +590,7 @@ function SpaceDashboard({
           value={command.recent_activity.count}
           hint={labels?.activity ?? "Space activity trail"}
           icon={<Activity className="w-4 h-4" />}
+          tone="violet"
           onClick={() => onOpenDrawer("recent_activity")}
         />
         <CommandTile
@@ -500,6 +598,7 @@ function SpaceDashboard({
           value={command.projects_at_risk.count}
           hint={labels?.risk ?? "Overdue or stale lists"}
           icon={<TrendingDown className="w-4 h-4" />}
+          tone="warning"
           onClick={() => onOpenDrawer("projects_at_risk")}
         />
         <CommandTile
@@ -511,6 +610,7 @@ function SpaceDashboard({
               : "Task, meeting, project"
           }
           icon={<Command className="w-4 h-4" />}
+          tone="teal"
           onClick={() => onOpenDrawer("quick_create")}
         />
       </section>
@@ -521,6 +621,7 @@ function SpaceDashboard({
           value={stats.todo}
           hint="Tasks waiting to start"
           icon={<FolderKanban className="w-5 h-5" />}
+          tone="warning"
           onClick={() => onOpenDrawer("status:todo")}
         />
         <StatusCard
@@ -528,6 +629,7 @@ function SpaceDashboard({
           value={stats.inProgress}
           hint="Currently being worked on"
           icon={<AlertCircle className="w-5 h-5" />}
+          tone="primary"
           onClick={() => onOpenDrawer("status:in_progress")}
         />
         <StatusCard
@@ -535,6 +637,7 @@ function SpaceDashboard({
           value={stats.done}
           hint={`${stats.progress}% of total`}
           icon={<CheckCircle2 className="w-5 h-5" />}
+          tone="success"
           onClick={() => onOpenDrawer("status:done")}
         />
       </section>
@@ -1138,27 +1241,132 @@ function TaskRecord({
   );
 }
 
+type DashboardTone = "primary" | "success" | "warning" | "danger" | "blue" | "violet" | "teal";
+
+function toneClasses(tone: DashboardTone) {
+  const tones: Record<DashboardTone, { border: string; icon: string; text: string; bar: string }> = {
+    primary: {
+      border: "border-primary/35 hover:border-primary/60",
+      icon: "bg-primary/15 text-primary",
+      text: "text-primary",
+      bar: "bg-primary",
+    },
+    success: {
+      border: "border-upflow-success/30 hover:border-upflow-success/55",
+      icon: "bg-upflow-success/15 text-upflow-success",
+      text: "text-upflow-success",
+      bar: "bg-upflow-success",
+    },
+    warning: {
+      border: "border-upflow-warning/30 hover:border-upflow-warning/55",
+      icon: "bg-upflow-warning/15 text-upflow-warning",
+      text: "text-upflow-warning",
+      bar: "bg-upflow-warning",
+    },
+    danger: {
+      border: "border-upflow-danger/30 hover:border-upflow-danger/55",
+      icon: "bg-upflow-danger/15 text-upflow-danger",
+      text: "text-upflow-danger",
+      bar: "bg-upflow-danger",
+    },
+    blue: {
+      border: "border-sky-400/25 hover:border-sky-400/50",
+      icon: "bg-sky-400/15 text-sky-300",
+      text: "text-sky-300",
+      bar: "bg-sky-300",
+    },
+    violet: {
+      border: "border-violet-400/25 hover:border-violet-400/50",
+      icon: "bg-violet-400/15 text-violet-300",
+      text: "text-violet-300",
+      bar: "bg-violet-300",
+    },
+    teal: {
+      border: "border-teal-400/25 hover:border-teal-400/50",
+      icon: "bg-teal-400/15 text-teal-300",
+      text: "text-teal-300",
+      bar: "bg-teal-300",
+    },
+  };
+  return tones[tone];
+}
+
+function HeroMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+    </div>
+  );
+}
+
+function PulseRow({
+  label,
+  value,
+  tone,
+  onClick,
+}: {
+  label: string;
+  value: string | number;
+  tone: DashboardTone;
+  onClick: () => void;
+}) {
+  const color = toneClasses(tone);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-lg border bg-white/[0.04] px-3 py-2.5 text-left transition-colors hover:bg-white/[0.07]",
+        color.border,
+      )}
+    >
+      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+        <span className={cn("h-2 w-2 rounded-full", color.bar)} />
+        {label}
+      </span>
+      <span className={cn("text-sm font-semibold", color.text)}>{value}</span>
+    </button>
+  );
+}
+
 function CommandTile({
   title,
   value,
   hint,
   icon,
+  tone = "primary",
   onClick,
 }: {
   title: string;
   value: string | number;
   hint: string;
   icon: React.ReactNode;
+  tone?: DashboardTone;
   onClick: () => void;
 }) {
+  const color = toneClasses(tone);
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-xl border border-white/10 bg-white/[0.03] p-4 text-left transition-colors hover:bg-white/[0.06]"
+      className={cn(
+        "group relative overflow-hidden rounded-xl border bg-white/[0.03] p-4 text-left transition-colors hover:bg-white/[0.06]",
+        color.border,
+      )}
     >
+      <span className={cn("absolute inset-x-0 top-0 h-0.5", color.bar)} />
       <div className="flex items-start justify-between gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+        <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", color.icon)}>
           {icon}
         </span>
         <ArrowRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
@@ -1175,22 +1383,28 @@ function StatusCard({
   value,
   hint,
   icon,
+  tone = "primary",
   onClick,
 }: {
   label: string;
   value: number;
   hint: string;
   icon: React.ReactNode;
+  tone?: DashboardTone;
   onClick: () => void;
 }) {
+  const color = toneClasses(tone);
   return (
     <button
       onClick={onClick}
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-left hover:bg-white/[0.06] transition-colors"
+      className={cn(
+        "rounded-xl border bg-white/[0.03] p-5 text-left transition-colors hover:bg-white/[0.06]",
+        color.border,
+      )}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold uppercase text-muted-foreground">{label}</p>
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-primary">
+        <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", color.icon)}>
           {icon}
         </span>
       </div>
