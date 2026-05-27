@@ -83,7 +83,15 @@ test("admin email status exposes diagnostics without secrets", () => {
   assert.match(teamPage, /\/api\/email\/status/);
 });
 
-test("tester invites target an isolated workspace and allow member/admin roles in the UI", () => {
+test("team page makes real workspace user invites the primary flow", () => {
+  assert.match(teamPage, /Invite real users to Up Flow/);
+  assert.match(teamPage, /Send official workspace invitations/);
+  assert.match(teamPage, /Send user invites/);
+  assert.match(teamPage, /use the real Up Flow workspace/);
+  assert.match(teamPage, /Sandbox tester tools/);
+});
+
+test("tester invites remain available as optional sandbox tools", () => {
   assert.match(schema, /tester_invite\s+Boolean\s+@default\(false\)/);
   assert.match(schema, /send_status\s+InviteSendStatus\s+@default\(pending\)/);
   assert.match(route, /workspace_id/);
@@ -94,7 +102,6 @@ test("tester invites target an isolated workspace and allow member/admin roles i
   assert.match(teamPage, /Choose Member for normal testers or Admin for trusted testers/);
   assert.match(teamPage, /testerMode/);
   assert.match(teamPage, /\/api\/testers\/workspace/);
-  assert.match(teamPage, /Team member list scope/);
   assert.match(teamPage, /loadTeamOverview\(testerWorkspace\.id\)/);
   assert.match(teamPage, /View tester members/);
   assert.match(route, /reconcileAcceptedWorkspaceInvites\(targetWorkspaceId\)/);
