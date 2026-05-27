@@ -10,6 +10,7 @@ test("task templates cover agency departments and marketing modes", () => {
   assert.ok(ids.has("b2c_marketing"));
   assert.ok(ids.has("commercial"));
   assert.ok(ids.has("finance"));
+  assert.ok(ids.has("production"));
   assert.ok(ids.has("admin"));
 });
 

@@ -14,6 +14,7 @@ interface NewTaskDialogProps {
   onCreated: () => void;
   projectId?: string;
   defaultStatus?: string;
+  defaultTemplateId?: TaskTemplateId;
 }
 
 export default function NewTaskDialog({
@@ -22,11 +23,12 @@ export default function NewTaskDialog({
   onCreated,
   projectId,
   defaultStatus = "todo",
+  defaultTemplateId = DEFAULT_TASK_TEMPLATE_ID,
 }: NewTaskDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [taskTemplateId, setTaskTemplateId] =
-    useState<TaskTemplateId>(DEFAULT_TASK_TEMPLATE_ID);
+    useState<TaskTemplateId>(defaultTemplateId);
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
@@ -39,13 +41,15 @@ export default function NewTaskDialog({
   useEffect(() => {
     if (!open) return;
     setSelectedProject(projectId || "");
+    setTaskTemplateId(defaultTemplateId);
+    setTemplateValues({});
     fetch("/api/projects")
       .then((r) => r.json() as Promise<{ items: Project[] }>)
       .then((p) => {
         setProjects(p.items ?? []);
       })
       .catch((err) => logError("new-task-dialog:load", err));
-  }, [open, projectId]);
+  }, [open, projectId, defaultTemplateId]);
 
   useEffect(() => {
     if (!open || !selectedProject) {
@@ -96,7 +100,7 @@ export default function NewTaskDialog({
       }
       setTitle("");
       setDescription("");
-      setTaskTemplateId(DEFAULT_TASK_TEMPLATE_ID);
+      setTaskTemplateId(defaultTemplateId);
       setTemplateValues({});
       setPriority("medium");
       setDueDate("");

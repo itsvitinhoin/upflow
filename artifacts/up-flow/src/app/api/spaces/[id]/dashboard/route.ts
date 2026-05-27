@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { getDepartmentSpacePreset } from "@/lib/department-spaces";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { startOfToday, startOfWeekMonday } from "@/lib/time-range";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -29,6 +30,7 @@ async function GET_handler(
     },
   });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const departmentPreset = getDepartmentSpacePreset(space.name);
 
   const superAdmin = isSuperAdmin(auth);
   const { limit } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
@@ -335,6 +337,7 @@ async function GET_handler(
 
   return NextResponse.json({
     space,
+    department_preset: departmentPreset,
     tasks: buildPage(tasks, limit),
     projects: buildPage(projects, limit),
     users: buildPage(flattenedUsers, limit),

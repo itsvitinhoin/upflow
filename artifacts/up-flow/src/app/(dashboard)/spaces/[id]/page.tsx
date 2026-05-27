@@ -39,6 +39,7 @@ import type {
   TeamMember,
   TimeEntry,
 } from "@/lib/types";
+import type { DepartmentSpacePreset } from "@/lib/department-spaces";
 import { cn, formatDate, priorityColor } from "@/lib/utils";
 
 type ContainerList = Pick<Project, "id" | "name">;
@@ -90,6 +91,7 @@ interface CommandCenterPayload {
 
 interface SpaceDashboardData {
   space: Space;
+  department_preset: DepartmentSpacePreset | null;
   tasks: { items: Task[] };
   projects: { items: Project[] };
   users: { items: TeamMember[] };
@@ -262,7 +264,7 @@ export default function SpaceContainerPage() {
                   {space.name}
                 </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {space.icon || "Space"} command center
+                  {dashboard?.department_preset?.description ?? `${space.icon || "Space"} command center`}
                 </p>
               </div>
             </div>
@@ -354,6 +356,7 @@ export default function SpaceContainerPage() {
       <NewTaskDialog
         open={showNewTask}
         projectId={firstProjectId ?? undefined}
+        defaultTemplateId={dashboard?.department_preset?.default_task_template_id}
         onClose={() => setShowNewTask(false)}
         onCreated={() => {
           setShowNewTask(false);
@@ -448,6 +451,7 @@ function SpaceDashboard({
   }
 
   const command = data.command_center;
+  const labels = data.department_preset?.dashboard_focus_labels;
 
   return (
     <div className="space-y-6">
@@ -455,49 +459,57 @@ function SpaceDashboard({
         <CommandTile
           title="My urgent actions"
           value={command.urgent_actions.count}
-          hint="Due, overdue, or high priority"
+          hint={labels?.urgent ?? "Due, overdue, or high priority"}
           icon={<AlertCircle className="w-4 h-4" />}
           onClick={() => onOpenDrawer("urgent_actions")}
         />
         <CommandTile
           title="Team workload"
           value={command.team_workload.count}
-          hint="Space workload by member"
+          hint={labels?.workload ?? "Space workload by member"}
           icon={<Users2 className="w-4 h-4" />}
           onClick={() => onOpenDrawer("team_workload")}
         />
         <CommandTile
           title="Time today"
           value={formatSecondsShort(command.time_today.total_seconds)}
-          hint={command.time_today.running ? "Timer is running" : "Tracked in this Space"}
+          hint={
+            command.time_today.running
+              ? "Timer is running"
+              : (labels?.time ?? "Tracked in this Space")
+          }
           icon={<Timer className="w-4 h-4" />}
           onClick={() => onOpenDrawer("time_today")}
         />
         <CommandTile
           title="Meetings today"
           value={command.meetings_today.count}
-          hint="Linked to this Space"
+          hint={labels?.meetings ?? "Linked to this Space"}
           icon={<CalendarIcon className="w-4 h-4" />}
           onClick={() => onOpenDrawer("meetings_today")}
         />
         <CommandTile
           title="Recent activity"
           value={command.recent_activity.count}
-          hint="Space activity trail"
+          hint={labels?.activity ?? "Space activity trail"}
           icon={<Activity className="w-4 h-4" />}
           onClick={() => onOpenDrawer("recent_activity")}
         />
         <CommandTile
           title="Projects at risk"
           value={command.projects_at_risk.count}
-          hint="Overdue or stale lists"
+          hint={labels?.risk ?? "Overdue or stale lists"}
           icon={<TrendingDown className="w-4 h-4" />}
           onClick={() => onOpenDrawer("projects_at_risk")}
         />
         <CommandTile
           title="Quick create"
           value={command.quick_create.items.length}
-          hint="Task, meeting, project"
+          hint={
+            data.department_preset
+              ? `${data.department_preset.name} task, meeting, project`
+              : "Task, meeting, project"
+          }
           icon={<Command className="w-4 h-4" />}
           onClick={() => onOpenDrawer("quick_create")}
         />
@@ -563,7 +575,9 @@ function SpaceDashboard({
           />
           <RecordList
             emptyTitle="No urgent actions"
-            emptyText="Due, overdue, and high-priority assigned tasks appear here."
+            emptyText={
+              labels?.empty ?? "Due, overdue, and high-priority assigned tasks appear here."
+            }
           >
             {command.urgent_actions.items.slice(0, 5).map((task) => (
               <TaskRecord

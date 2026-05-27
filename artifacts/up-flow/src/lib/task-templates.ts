@@ -5,6 +5,7 @@ export type TaskTemplateId =
   | "b2c_marketing"
   | "commercial"
   | "finance"
+  | "production"
   | "admin";
 
 export interface TaskTemplateField {
@@ -102,6 +103,27 @@ export const TASK_TEMPLATES: TaskTemplate[] = [
       { key: "payment_method", label: "Payment method", placeholder: "Pix, card, transfer, boleto" },
     ],
     checklist: ["Amount confirmed", "Invoice/receipt attached", "Payment owner set", "Due date confirmed", "Marked paid when received"],
+  },
+  {
+    id: "production",
+    label: "Production",
+    description: "Shoots, editing, publishing, deliverables, and production handoffs.",
+    fields: [
+      { key: "deliverable", label: "Deliverable", placeholder: "Video, reels batch, photo set, podcast, edit package" },
+      { key: "shoot_date", label: "Shoot / production date", placeholder: "Date and call time" },
+      { key: "location", label: "Location", placeholder: "Studio, client site, remote, event venue" },
+      { key: "format", label: "Format / specs", placeholder: "9:16, 16:9, 4K, captions, thumbnails" },
+      { key: "publishing_channel", label: "Publishing channel", placeholder: "Instagram, YouTube, TikTok, client delivery" },
+      { key: "handoff_owner", label: "Handoff owner", placeholder: "Editor, producer, client approver" },
+    ],
+    checklist: [
+      "Pre-production confirmed",
+      "Assets and equipment ready",
+      "Shoot or capture complete",
+      "Editing complete",
+      "Review approved",
+      "Delivered or published",
+    ],
   },
   {
     id: "admin",

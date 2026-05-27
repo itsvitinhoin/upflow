@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
+import { isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { ensureDepartmentSpaces } from "@/lib/department-spaces";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -18,6 +20,10 @@ async function GET_handler(req: NextRequest) {
       projects: { items: [], nextCursor: null },
       folders: { items: [], nextCursor: null },
     });
+  }
+
+  if (isWorkspaceAdmin(auth)) {
+    await ensureDepartmentSpaces(auth.currentWorkspaceId, auth.prismaUser.id);
   }
 
   const { searchParams } = new URL(req.url);

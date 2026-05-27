@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { WorkspaceRole } from "@prisma/client";
 import { logError } from "@/lib/log-error";
+import { ensureDepartmentSpaces } from "@/lib/department-spaces";
 
 export const WORKSPACE_COOKIE = "upflow_ws";
 
@@ -75,13 +76,15 @@ export async function ensureDefaultWorkspace(userId: string, displayName: string
 
     const name = `${displayName}'s Workspace`;
     const slug = await uniqueSlug(displayName);
-    await prisma.workspace.create({
+    const workspace = await prisma.workspace.create({
       data: {
         name,
         slug,
         members: { create: { user_id: userId, role: "owner" } },
       },
+      select: { id: true },
     });
+    await ensureDepartmentSpaces(workspace.id, userId);
   } catch (err) {
     // The only expected failure mode is a unique-constraint race when two
     // concurrent first-logins try to provision at the same time. Anything
