@@ -248,27 +248,58 @@ export default function SpaceContainerPage() {
   const { space, folders, projects } = data;
   const rootFolders = folders.filter((folder) => !folder.parent_id);
   const empty = rootFolders.length === 0 && projects.length === 0;
+  const departmentPreset = dashboard?.department_preset ?? null;
+  const departmentTheme = getDepartmentDashboardTheme(departmentPreset?.department_key);
 
   return (
     <>
       <Header title={space.name} />
       <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
-        <section className="glass rounded-xl p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
+        <section
+          className={cn(
+            "relative overflow-hidden rounded-xl border p-5 shadow-2xl",
+            departmentTheme.container,
+          )}
+        >
+          <div className={cn("absolute inset-x-0 top-0 h-1", departmentTheme.accent)} />
+          <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 left-1/4 h-48 w-48 rounded-full bg-black/20 blur-3xl" />
+
+          <div className="relative flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4 min-w-0">
-              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/15 text-primary flex-shrink-0">
-                <Folder className="w-6 h-6" />
+              <div
+                className={cn(
+                  "flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border text-2xl shadow-lg",
+                  departmentTheme.icon,
+                )}
+              >
+                {departmentPreset?.emoji ?? <Folder className="h-7 w-7" />}
               </div>
               <div className="min-w-0">
-                <h2 className="text-2xl font-bold text-foreground truncate">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                      departmentTheme.badge,
+                    )}
+                  >
+                    Department dashboard
+                  </span>
+                  {departmentPreset && (
+                    <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                      {departmentPreset.default_task_template_id.replace("_", " ")} template
+                    </span>
+                  )}
+                </div>
+                <h2 className="mt-3 truncate text-2xl font-bold text-foreground sm:text-3xl">
                   {space.name}
                 </h2>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {dashboard?.department_preset?.description ?? `${space.icon || "Space"} command center`}
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  {departmentPreset?.description ?? `${space.icon || "Space"} command center`}
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowNewFolder(true)}
                 className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
@@ -285,13 +316,20 @@ export default function SpaceContainerPage() {
               </button>
             </div>
           </div>
-          <div className="mt-5 inline-flex rounded-lg border border-white/10 bg-white/[0.03] p-1">
+          <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="inline-flex rounded-lg border border-white/10 bg-black/20 p-1">
             <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>
               Dashboard
             </TabButton>
             <TabButton active={activeTab === "browse"} onClick={() => setActiveTab("browse")}>
               Browse
             </TabButton>
+            </div>
+            {departmentPreset && (
+              <p className="text-xs text-muted-foreground">
+                Starter lists: {departmentPreset.starter_lists.slice(0, 4).join(" · ")}
+              </p>
+            )}
           </div>
         </section>
 
@@ -713,6 +751,65 @@ function SpaceDashboard({
       </section>
     </div>
   );
+}
+
+function getDepartmentDashboardTheme(key?: DepartmentSpacePreset["department_key"]) {
+  const fallback = {
+    container: "border-white/10 bg-card/70",
+    icon: "border-white/10 bg-primary/15 text-primary",
+    badge: "border-primary/30 bg-primary/10 text-primary",
+    accent: "bg-primary",
+  };
+  if (!key) return fallback;
+
+  const themes: Record<
+    DepartmentSpacePreset["department_key"],
+    typeof fallback
+  > = {
+    comercial: {
+      container: "border-amber-400/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(124,92,255,0.08),rgba(255,255,255,0.03))]",
+      icon: "border-amber-300/30 bg-amber-400/15 text-amber-200",
+      badge: "border-amber-300/30 bg-amber-400/10 text-amber-200",
+      accent: "bg-amber-300",
+    },
+    marketing_b2b: {
+      container: "border-sky-400/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.14),rgba(124,92,255,0.1),rgba(255,255,255,0.03))]",
+      icon: "border-sky-300/30 bg-sky-400/15 text-sky-200",
+      badge: "border-sky-300/30 bg-sky-400/10 text-sky-200",
+      accent: "bg-sky-300",
+    },
+    marketing_b2c: {
+      container: "border-rose-400/25 bg-[linear-gradient(135deg,rgba(251,113,133,0.15),rgba(245,158,11,0.08),rgba(255,255,255,0.03))]",
+      icon: "border-rose-300/30 bg-rose-400/15 text-rose-200",
+      badge: "border-rose-300/30 bg-rose-400/10 text-rose-200",
+      accent: "bg-rose-300",
+    },
+    creative_design: {
+      container: "border-fuchsia-400/25 bg-[linear-gradient(135deg,rgba(217,70,239,0.15),rgba(124,92,255,0.12),rgba(255,255,255,0.03))]",
+      icon: "border-fuchsia-300/30 bg-fuchsia-400/15 text-fuchsia-200",
+      badge: "border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-200",
+      accent: "bg-fuchsia-300",
+    },
+    finance: {
+      container: "border-emerald-400/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.15),rgba(245,158,11,0.07),rgba(255,255,255,0.03))]",
+      icon: "border-emerald-300/30 bg-emerald-400/15 text-emerald-200",
+      badge: "border-emerald-300/30 bg-emerald-400/10 text-emerald-200",
+      accent: "bg-emerald-300",
+    },
+    production: {
+      container: "border-orange-400/25 bg-[linear-gradient(135deg,rgba(251,146,60,0.15),rgba(239,68,68,0.08),rgba(255,255,255,0.03))]",
+      icon: "border-orange-300/30 bg-orange-400/15 text-orange-200",
+      badge: "border-orange-300/30 bg-orange-400/10 text-orange-200",
+      accent: "bg-orange-300",
+    },
+    general_admin: {
+      container: "border-slate-300/20 bg-[linear-gradient(135deg,rgba(148,163,184,0.15),rgba(124,92,255,0.08),rgba(255,255,255,0.03))]",
+      icon: "border-slate-300/25 bg-slate-300/15 text-slate-200",
+      badge: "border-slate-300/25 bg-slate-300/10 text-slate-200",
+      accent: "bg-slate-300",
+    },
+  };
+  return themes[key];
 }
 
 function BrowseTab({
