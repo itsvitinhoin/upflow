@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Loader2, ListTodo } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
@@ -26,6 +27,24 @@ const STATUS_OPTIONS = [
   { value: "done", label: "Done", dot: "bg-upflow-success" },
 ] as const;
 
+function statusOptionLabel(
+  status: (typeof STATUS_OPTIONS)[number]["value"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (status === "todo") return t("status.todo");
+  if (status === "in_progress") return t("status.inProgress");
+  return t("status.done");
+}
+
+function priorityOptionLabel(
+  priority: "low" | "medium" | "high",
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (priority === "high") return t("priority.high");
+  if (priority === "medium") return t("priority.medium");
+  return t("priority.low");
+}
+
 export default function CreateTaskPanel({
   open,
   onClose,
@@ -35,6 +54,7 @@ export default function CreateTaskPanel({
   users,
   onCreated,
 }: Props) {
+  const { t } = useLanguage();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [taskTemplateId, setTaskTemplateId] =
@@ -69,7 +89,7 @@ export default function CreateTaskPanel({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      toast.error("Title is required");
+      toast.error(t("task.titleRequired"));
       return;
     }
     setSubmitting(true);
@@ -99,11 +119,11 @@ export default function CreateTaskPanel({
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Failed to create task");
+        throw new Error(data.error || t("task.failedCreate"));
       }
 
       onCreated();
-      toast.success("Task created");
+      toast.success(t("dashboard.taskCreated"));
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -123,7 +143,7 @@ export default function CreateTaskPanel({
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
           <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-md bg-muted text-muted-foreground">
             <ListTodo className="w-3.5 h-3.5" />
-            New Task
+            {t("task.newTask")}
           </div>
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -146,15 +166,15 @@ export default function CreateTaskPanel({
                   setStatus(STATUS_OPTIONS[(idx + 1) % STATUS_OPTIONS.length].value);
                 }}
                 className="flex items-center gap-1.5 mt-2 text-xs px-2 py-1 rounded-md border border-border hover:bg-muted"
-                title="Click to cycle status"
+                title={t("task.clickCycleStatus")}
               >
                 <span className={cn("w-2 h-2 rounded-full", activeStatus.dot)} />
-                {activeStatus.label}
+                {statusOptionLabel(activeStatus.value, t)}
               </button>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Task name"
+                placeholder={t("task.taskName")}
                 autoFocus
                 required
                 className="flex-1 bg-transparent text-xl font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none py-1"
@@ -164,7 +184,7 @@ export default function CreateTaskPanel({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Add task notes, client context, or internal instructions..."
+              placeholder={t("task.notesPlaceholder")}
               className="w-full text-sm bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none resize-none border border-transparent hover:border-border focus:border-border rounded-md px-2 py-1.5 -mx-2"
             />
             <div className="mt-4">
@@ -178,13 +198,13 @@ export default function CreateTaskPanel({
           </div>
 
           <div className="px-5 py-4 space-y-3 border-b border-border">
-            <Row label="Assignee">
+            <Row label={t("toolbar.assignee")}>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
                 className="text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Unassigned</option>
+                <option value="">{t("common.unassigned")}</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
@@ -192,7 +212,7 @@ export default function CreateTaskPanel({
                 ))}
               </select>
             </Row>
-            <Row label="Due date">
+            <Row label={t("toolbar.dueDate")}>
               <input
                 type="date"
                 value={dueDate}
@@ -200,7 +220,7 @@ export default function CreateTaskPanel({
                 className="text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </Row>
-            <Row label="Priority">
+            <Row label={t("toolbar.priority")}>
               <div className="flex gap-1">
                 {(["low", "medium", "high"] as const).map((p) => (
                   <button
@@ -214,7 +234,7 @@ export default function CreateTaskPanel({
                         : "border-border text-muted-foreground hover:bg-muted",
                     )}
                   >
-                    {p}
+                    {priorityOptionLabel(p, t)}
                   </button>
                 ))}
               </div>
@@ -223,7 +243,7 @@ export default function CreateTaskPanel({
 
           <div className="px-5 py-4 border-b border-border">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Board cover image
+              {t("task.boardCoverImage")}
             </h3>
             <TaskCoverImageControl
               value={coverImageUrl}
@@ -235,7 +255,7 @@ export default function CreateTaskPanel({
           {customFields.length > 0 && (
             <div className="px-5 py-4 space-y-3 border-b border-border">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Custom fields
+                {t("toolbar.customFields")}
               </h3>
               {customFields.map((f) => (
                 <Row key={f.id} label={f.name}>
@@ -256,10 +276,10 @@ export default function CreateTaskPanel({
 
           <div className="px-5 py-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Subtasks
+              {t("task.subtasks")}
             </h3>
             <p className="text-xs text-muted-foreground">
-              Add subtasks after creating the task from its detail view.
+              {t("task.addSubtasksLater")}
             </p>
           </div>
         </div>
@@ -270,7 +290,7 @@ export default function CreateTaskPanel({
             onClick={onClose}
             className="text-sm font-medium px-3 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
@@ -278,7 +298,7 @@ export default function CreateTaskPanel({
             className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-4 py-1.5 rounded-md transition-colors"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Create task
+            {t("task.createTask")}
           </button>
         </div>
       </form>

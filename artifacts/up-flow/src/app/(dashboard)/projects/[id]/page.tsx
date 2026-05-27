@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
 import ListView from "@/components/projects/list-view";
 import CreateTaskPanel from "@/components/projects/create-task-panel";
@@ -36,6 +37,7 @@ const DEFAULT_TOOLBAR: ToolbarState = {
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
+  const { t } = useLanguage();
   const id = (params?.id ?? "") as string;
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -76,7 +78,7 @@ export default function ProjectPage() {
       setCustomFields(f);
       setMe(m);
     } catch {
-      toast.error("Failed to load project");
+      toast.error(t("projects.failedToLoad"));
     } finally {
       setLoading(false);
     }
@@ -95,7 +97,7 @@ export default function ProjectPage() {
   if (loading) {
     return (
       <>
-        <Header title="Project" />
+        <Header title={t("projects.project")} />
         <div className="space-y-4 p-4 sm:p-6">
           <div className="h-8 bg-muted rounded w-48 animate-pulse" />
           <div className="h-4 bg-muted rounded w-96 animate-pulse" />
@@ -123,7 +125,7 @@ export default function ProjectPage() {
             href="/projects"
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
           >
-            <ArrowLeft className="w-4 h-4" /> Back to Projects
+            <ArrowLeft className="w-4 h-4" /> {t("projects.backToProjects")}
           </Link>
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -143,8 +145,8 @@ export default function ProjectPage() {
                 <p className="text-muted-foreground text-sm mb-3">{project.description}</p>
               )}
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground sm:gap-4">
-                <span>{tasks.length} tasks</span>
-                {project.due_date && <span>Due {formatDate(project.due_date)}</span>}
+                <span>{t("projects.tasksLabel", { count: tasks.length })}</span>
+                {project.due_date && <span>{t("projects.due", { date: formatDate(project.due_date) })}</span>}
                 <span className="flex items-center gap-1.5">
                   <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
@@ -152,7 +154,7 @@ export default function ProjectPage() {
                       style={{ width: `${progress}%` }}
                     />
                   </div>
-                  {progress}% done
+                  {t("projects.doneProgress", { progress })}
                 </span>
               </div>
             </div>
@@ -161,13 +163,13 @@ export default function ProjectPage() {
                 href={`/docs?project=${id}`}
                 className="flex items-center gap-2 border border-border bg-card hover:bg-muted text-foreground text-sm font-medium px-3 py-2 rounded-lg transition-colors"
               >
-                <FileText className="w-4 h-4" /> Docs
+                <FileText className="w-4 h-4" /> {t("projects.docs")}
               </Link>
               <button
                 onClick={() => setCreateOpen("todo")}
                 className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
-                <Plus className="w-4 h-4" /> Add Task
+                <Plus className="w-4 h-4" /> {t("projects.addTask")}
               </button>
             </div>
           </div>

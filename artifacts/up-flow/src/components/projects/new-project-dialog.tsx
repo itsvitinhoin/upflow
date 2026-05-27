@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 
 interface NewProjectDialogProps {
   open: boolean;
@@ -21,6 +22,7 @@ export default function NewProjectDialog({
   defaultSpaceId,
   defaultCompanyId,
 }: NewProjectDialogProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -46,7 +48,7 @@ export default function NewProjectDialog({
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
-        throw new Error(data.error || "Failed");
+        throw new Error(data.error || t("projects.failedCreate"));
       }
       setName("");
       setDescription("");
@@ -54,7 +56,7 @@ export default function NewProjectDialog({
       window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       onCreated();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create project";
+      const message = err instanceof Error ? err.message : t("projects.failedCreate");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -69,12 +71,12 @@ export default function NewProjectDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="New Project"
+        aria-label={t("projects.newProject")}
         className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">New Project</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("projects.newProject")}</h2>
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -86,30 +88,34 @@ export default function NewProjectDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Project name <span className="text-destructive">*</span>
+              {t("projects.projectName")} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Website Redesign"
+              placeholder={t("projects.projectNamePlaceholder")}
               required
               autoFocus
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              {t("projects.description")}
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of the project..."
+              placeholder={t("projects.descriptionPlaceholder")}
               rows={3}
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Due date</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
+              {t("projects.dueDate")}
+            </label>
             <input
               type="date"
               value={dueDate}
@@ -123,7 +129,7 @@ export default function NewProjectDialog({
               onClick={onClose}
               className="flex-1 border border-white/10 text-foreground text-sm font-medium py-2.5 rounded-lg hover:bg-white/10 transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -131,7 +137,7 @@ export default function NewProjectDialog({
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              Create Project
+              {loading ? t("common.creating") : t("projects.createProject")}
             </button>
           </div>
         </form>

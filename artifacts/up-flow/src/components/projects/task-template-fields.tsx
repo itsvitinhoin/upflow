@@ -1,6 +1,7 @@
 "use client";
 
 import { TASK_TEMPLATES, type TaskTemplateId, getTaskTemplate } from "@/lib/task-templates";
+import { useLanguage } from "@/components/language-provider";
 
 interface TaskTemplateFieldsProps {
   templateId: TaskTemplateId;
@@ -15,13 +16,23 @@ export default function TaskTemplateFields({
   onTemplateChange,
   onValuesChange,
 }: TaskTemplateFieldsProps) {
+  const { t } = useLanguage();
   const template = getTaskTemplate(templateId);
+  const templateLabel = localizedTemplateText(t, template.id, "label", template.label);
+  const templateDescription = localizedTemplateText(
+    t,
+    template.id,
+    "description",
+    template.description,
+  );
 
   return (
     <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
       <div className="grid gap-3 sm:grid-cols-[180px,1fr]">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-foreground">Task type</label>
+          <label className="mb-1.5 block text-xs font-medium text-foreground">
+            {t("taskTemplate.type")}
+          </label>
           <select
             value={templateId}
             onChange={(event) => {
@@ -32,13 +43,14 @@ export default function TaskTemplateFields({
           >
             {TASK_TEMPLATES.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.label}
+                {localizedTemplateText(t, item.id, "label", item.label)}
               </option>
             ))}
           </select>
         </div>
         <div className="min-w-0 self-end rounded-lg bg-black/10 px-3 py-2 text-xs text-muted-foreground">
-          {template.description}
+          <span className="sr-only">{templateLabel}: </span>
+          {templateDescription}
         </div>
       </div>
 
@@ -74,4 +86,15 @@ export default function TaskTemplateFields({
       </div>
     </section>
   );
+}
+
+function localizedTemplateText(
+  t: (key: string) => string,
+  id: TaskTemplateId,
+  field: "label" | "description",
+  fallback: string,
+) {
+  const key = `taskTemplate.${id}.${field}`;
+  const value = t(key);
+  return value === key ? fallback : value;
 }

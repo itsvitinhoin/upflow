@@ -10,6 +10,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import type {
   CustomFieldDefinition,
@@ -50,16 +51,17 @@ export default function ListView({
   onAddTask,
   onUpdate,
 }: Props) {
+  const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const cols = useMemo(
-    () => buildColumns(customFields, toolbar.visibleColumns),
-    [customFields, toolbar.visibleColumns],
+    () => buildColumns(customFields, toolbar.visibleColumns, t),
+    [customFields, toolbar.visibleColumns, t],
   );
 
   const groups = useMemo(
-    () => groupTasks(tasks, toolbar, users),
-    [tasks, toolbar, users],
+    () => groupTasks(tasks, toolbar, users, t),
+    [tasks, toolbar, users, t],
   );
 
   const updateField = async (
@@ -76,7 +78,7 @@ export default function ListView({
       if (!res.ok) throw new Error();
       onUpdate();
     } catch {
-      toast.error("Failed to update field");
+      toast.error(t("common.failedToUpdate"));
     }
   };
 
@@ -90,7 +92,7 @@ export default function ListView({
       if (!res.ok) throw new Error();
       onUpdate();
     } catch {
-      toast.error("Failed to update task");
+      toast.error(t("common.failedToUpdate"));
     }
   };
 
@@ -100,7 +102,7 @@ export default function ListView({
         className="grid items-center px-3 py-1.5 border-b border-border bg-card text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sticky top-0 z-20"
         style={{ gridTemplateColumns: cols.gridTemplate }}
       >
-        <div className="px-2 sticky left-0 bg-card">Name</div>
+        <div className="px-2 sticky left-0 bg-card">{t("toolbar.title")}</div>
         {cols.cols.map((c) => (
           <div key={c.key} className="px-2 truncate">
             {c.label}
@@ -136,72 +138,72 @@ export default function ListView({
                 onClick={() => onAddTask(g.key)}
                 className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted"
               >
-                <Plus className="w-3 h-3" /> Add task
+                <Plus className="w-3 h-3" /> {t("projects.addTask")}
               </button>
             </div>
 
             {!isCollapsed && (
               <div>
-                {g.tasks.map((t) => {
+                {g.tasks.map((task) => {
                   const valueMap = new Map(
-                    (t.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
+                    (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
                   );
                   return (
                     <div
-                      key={t.id}
+                      key={task.id}
                       className="grid items-center px-3 py-1.5 border-t border-border/60 hover:bg-muted/30 group"
                       style={{ gridTemplateColumns: cols.gridTemplate }}
                     >
                       <div
                         className="px-2 flex items-center gap-2 cursor-pointer min-w-0 sticky left-0 bg-card group-hover:bg-muted/30"
-                        onClick={() => onTaskClick(t)}
+                        onClick={() => onTaskClick(task)}
                       >
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            updateTask(t.id, {
-                              status: t.status === "done" ? "todo" : "done",
+                            updateTask(task.id, {
+                              status: task.status === "done" ? "todo" : "done",
                             });
                           }}
                           className={cn(
                             "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
-                            t.status === "done"
+                            task.status === "done"
                               ? "bg-upflow-success border-upflow-success"
                               : "border-border hover:border-primary",
                           )}
-                          title="Toggle complete"
+                          title={t("dashboard.completed")}
                         >
-                          {t.status === "done" && (
+                          {task.status === "done" && (
                             <span className="text-[8px] text-white">✓</span>
                           )}
                         </button>
                         <span
                           className={cn(
                             "min-w-0 truncate text-sm text-foreground",
-                            t.status === "done" && "line-through text-muted-foreground",
+                            task.status === "done" && "line-through text-muted-foreground",
                           )}
                         >
-                          {t.title}
+                          {task.title}
                         </span>
-                        {isOverdue(t.due_date) && t.status !== "done" && (
+                        {isOverdue(task.due_date) && task.status !== "done" && (
                           <AlertCircle className="w-3.5 h-3.5 text-upflow-danger flex-shrink-0" />
                         )}
-                        {(t._count?.subtasks ?? 0) > 0 && (
+                        {(task._count?.subtasks ?? 0) > 0 && (
                           <span className="text-[10px] text-muted-foreground">
-                            {t._count?.subtasks} sub
+                            {task._count?.subtasks} sub
                           </span>
                         )}
                       </div>
                       {cols.cols.map((c) => (
                         <div key={c.key} className="px-2 min-w-0 text-xs text-muted-foreground">
                           {c.kind === "standard" ? (
-                            renderStandardCell(c.key, t, users, updateTask)
+                            renderStandardCell(c.key, task, users, updateTask, t)
                           ) : (
                             <CustomFieldInput
                               definition={c.field!}
                               value={valueMap.get(c.field!.id)}
                               users={users}
-                              onChange={(v) => updateField(t.id, c.field!.id, v)}
+                              onChange={(v) => updateField(task.id, c.field!.id, v)}
                               compact
                             />
                           )}
@@ -214,7 +216,7 @@ export default function ListView({
                   onClick={() => onAddTask(g.key)}
                   className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-5 py-2 w-full text-left border-t border-border/60"
                 >
-                  <Plus className="w-3 h-3" /> Add task
+                  <Plus className="w-3 h-3" /> {t("projects.addTask")}
                 </button>
               </div>
             )}
@@ -223,7 +225,9 @@ export default function ListView({
       })}
 
       {groups.length === 0 && (
-        <div className="text-center py-12 text-sm text-muted-foreground">No tasks</div>
+        <div className="text-center py-12 text-sm text-muted-foreground">
+          {t("dashboard.noFocus")}
+        </div>
       )}
     </div>
   );
@@ -234,6 +238,7 @@ function renderStandardCell(
   t: Task,
   users: TaskAssignee[],
   updateTask: (id: string, patch: Record<string, unknown>) => void,
+  translate: (key: string, vars?: Record<string, string | number>) => string,
 ) {
   if (key === "assignee") {
     return (
@@ -272,7 +277,6 @@ function renderStandardCell(
     );
   }
   if (key === "priority") {
-    const meta = PRIORITY_META[t.priority];
     return (
       <select
         value={t.priority}
@@ -282,14 +286,13 @@ function renderStandardCell(
       >
         {(["low", "medium", "high"] as const).map((p) => (
           <option key={p} value={p}>
-            {PRIORITY_META[p].label}
+            {priorityMetaLabel(p, translate)}
           </option>
         ))}
       </select>
     );
   }
   if (key === "status") {
-    const meta = STATUS_META[t.status];
     return (
       <select
         value={t.status}
@@ -297,9 +300,9 @@ function renderStandardCell(
         onClick={(e) => e.stopPropagation()}
         className="bg-transparent text-xs text-foreground hover:bg-muted/50 px-1.5 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        {Object.entries(STATUS_META).map(([k, m]) => (
+        {Object.entries(STATUS_META).map(([k]) => (
           <option key={k} value={k}>
-            {m.label}
+            {statusMetaLabel(k as "todo" | "in_progress" | "done", translate)}
           </option>
         ))}
       </select>
@@ -319,12 +322,13 @@ interface BuiltCol {
 function buildColumns(
   customFields: CustomFieldDefinition[],
   visible: Record<string, boolean>,
+  t: (key: string, vars?: Record<string, string | number>) => string,
 ): { cols: BuiltCol[]; gridTemplate: string } {
   const standards: BuiltCol[] = [
-    { key: "assignee", label: "Assignee", kind: "standard", width: "minmax(140px, 0.8fr)" },
-    { key: "due_date", label: "Due date", kind: "standard", width: "minmax(140px, 0.8fr)" },
-    { key: "priority", label: "Priority", kind: "standard", width: "minmax(110px, 0.6fr)" },
-    { key: "status", label: "Status", kind: "standard", width: "minmax(120px, 0.6fr)" },
+    { key: "assignee", label: t("toolbar.assignee"), kind: "standard", width: "minmax(140px, 0.8fr)" },
+    { key: "due_date", label: t("toolbar.dueDate"), kind: "standard", width: "minmax(140px, 0.8fr)" },
+    { key: "priority", label: t("toolbar.priority"), kind: "standard", width: "minmax(110px, 0.6fr)" },
+    { key: "status", label: t("toolbar.status"), kind: "standard", width: "minmax(120px, 0.6fr)" },
   ];
   const customs: BuiltCol[] = customFields.map((f) => ({
     key: f.id,
@@ -345,7 +349,12 @@ interface Group {
   tasks: Task[];
 }
 
-function groupTasks(tasks: Task[], toolbar: ToolbarState, users: TaskAssignee[]): Group[] {
+function groupTasks(
+  tasks: Task[],
+  toolbar: ToolbarState,
+  users: TaskAssignee[],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): Group[] {
   let filtered = tasks;
   if (toolbar.search.trim()) {
     const q = toolbar.search.toLowerCase();
@@ -388,7 +397,7 @@ function groupTasks(tasks: Task[], toolbar: ToolbarState, users: TaskAssignee[])
     (["todo", "in_progress", "done"] as const).forEach((s) => {
       buckets.push({
         key: s,
-        label: STATUS_META[s].label,
+        label: statusMetaLabel(s, t),
         colorClass: pillFor("status", s),
         tasks: [],
       });
@@ -401,7 +410,7 @@ function groupTasks(tasks: Task[], toolbar: ToolbarState, users: TaskAssignee[])
     (["high", "medium", "low"] as const).forEach((p) => {
       buckets.push({
         key: p,
-        label: PRIORITY_META[p].label,
+        label: priorityMetaLabel(p, t),
         colorClass: pillFor("priority", p),
         tasks: [],
       });
@@ -411,15 +420,15 @@ function groupTasks(tasks: Task[], toolbar: ToolbarState, users: TaskAssignee[])
       if (g) g.tasks.push(t);
     });
   } else if (toolbar.groupBy === "assignee") {
-    sorted.forEach((t) => {
-      const key = t.assignee?.id ?? "_unassigned";
-      const label = t.assignee?.name ?? "Unassigned";
-      push(key, label, "bg-muted text-muted-foreground", t);
+    sorted.forEach((task) => {
+      const key = task.assignee?.id ?? "_unassigned";
+      const label = task.assignee?.name ?? t("common.unassigned");
+      push(key, label, "bg-muted text-muted-foreground", task);
     });
   } else {
     buckets.push({
       key: "all",
-      label: "All tasks",
+      label: t("dashboard.tasks"),
       colorClass: "bg-muted text-muted-foreground",
       tasks: sorted,
     });
@@ -440,6 +449,24 @@ function pillFor(kind: "status" | "priority", key: string) {
     if (key === "low") return "bg-muted text-muted-foreground";
   }
   return "bg-muted text-muted-foreground";
+}
+
+function statusMetaLabel(
+  status: "todo" | "in_progress" | "done",
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (status === "todo") return t("status.todo");
+  if (status === "in_progress") return t("status.inProgress");
+  return t("status.done");
+}
+
+function priorityMetaLabel(
+  priority: "high" | "medium" | "low",
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (priority === "high") return t("priority.high");
+  if (priority === "medium") return t("priority.medium");
+  return t("priority.low");
 }
 
 function compareTasks(a: Task, b: Task, toolbar: ToolbarState): number {

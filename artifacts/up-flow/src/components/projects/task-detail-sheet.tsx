@@ -6,6 +6,7 @@ import {
   X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
 } from "lucide-react";
 import { cn, formatDate, getInitials } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
@@ -24,6 +25,7 @@ interface DetailTask extends Omit<Task, "subtasks"> {
 }
 
 export default function TaskDetailSheet({ task, users: initialUsers, onClose, onUpdate }: TaskDetailSheetProps) {
+  const { t } = useLanguage();
   const [currentTask, setCurrentTask] = useState<DetailTask>(task as DetailTask);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -81,10 +83,10 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
         if (!res.ok) throw new Error(`PATCH /api/tasks/${currentTask.id} → ${res.status}`);
         const updated = (await res.json()) as Task;
         setCurrentTask((prev) => ({ ...prev, ...updated }));
-        toast.success("Updated");
+        toast.success(t("common.updated"));
       } catch (err) {
         logError("task-sheet:update", err, { id: currentTask.id, patch });
-        toast.error("Failed to update");
+        toast.error(t("common.failedToUpdate"));
       } finally {
         setSaving(false);
       }
@@ -96,10 +98,10 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
   };
 
   const deleteTask = async () => {
-    if (!confirm("Delete this task?")) return;
+    if (!confirm(t("task.deleteConfirm"))) return;
     await fetch(`/api/tasks/${currentTask.id}`, { method: "DELETE" });
     onUpdate();
-    toast.success("Task deleted");
+    toast.success(t("dashboard.taskDeleted"));
   };
 
   const addComment = async (e: React.FormEvent) => {
@@ -117,7 +119,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
       setComments((prev) => [...prev, comment]);
       setNewComment("");
     } catch {
-      toast.error("Failed to add comment");
+      toast.error(t("task.failedAddComment"));
     } finally {
       setSubmitting(false);
     }
@@ -144,7 +146,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
       setReplyText("");
       setReplyingTo(null);
     } catch {
-      toast.error("Failed to add reply");
+      toast.error(t("task.failedAddReply"));
     } finally {
       setSubmitting(false);
     }
@@ -174,14 +176,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
       }));
       setNewSubtask("");
     } catch {
-      toast.error("Failed to add subtask");
+      toast.error(t("task.failedAddSubtask"));
     } finally {
       setAddingSubtask(false);
     }
   };
 
   const deleteSubtask = async (subtaskId: string) => {
-    if (!confirm("Delete this subtask?")) return;
+    if (!confirm(t("task.deleteSubtaskConfirm"))) return;
     try {
       const res = await fetch(`/api/tasks/${subtaskId}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
@@ -190,7 +192,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
         subtasks: (prev.subtasks ?? []).filter((s) => s.id !== subtaskId),
       }));
     } catch {
-      toast.error("Failed to delete subtask");
+      toast.error(t("task.failedDeleteSubtask"));
     }
   };
 
@@ -208,7 +210,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
         subtasks: (prev.subtasks ?? []).map((s) => (s.id === subtaskId ? updated : s)),
       }));
     } catch {
-      toast.error("Failed to update subtask");
+      toast.error(t("task.failedUpdateSubtask"));
     }
   };
 
@@ -250,44 +252,44 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
         <div className="flex-1 overflow-y-auto">
           <div className="space-y-4 border-b border-border px-4 py-4 sm:px-6">
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
-              <span className="text-sm text-muted-foreground sm:w-24">Status</span>
+              <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.status")}</span>
               <select
                 value={currentTask.status}
                 onChange={(e) => update({ status: e.target.value as Task["status"] })}
                 className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="todo">To Do</option>
-                <option value="in_progress">In Progress</option>
-                <option value="done">Done</option>
+                <option value="todo">{t("status.todo")}</option>
+                <option value="in_progress">{t("status.inProgress")}</option>
+                <option value="done">{t("status.done")}</option>
               </select>
             </div>
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
-              <span className="text-sm text-muted-foreground sm:w-24">Priority</span>
+              <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.priority")}</span>
               <select
                 value={currentTask.priority}
                 onChange={(e) => update({ priority: e.target.value as Task["priority"] })}
                 className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="low">{t("priority.low")}</option>
+                <option value="medium">{t("priority.medium")}</option>
+                <option value="high">{t("priority.high")}</option>
               </select>
             </div>
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
-              <span className="text-sm text-muted-foreground sm:w-24">Assignee</span>
+              <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.assignee")}</span>
               <select
                 value={currentTask.assignee_id || ""}
                 onChange={(e) => update({ assignee_id: e.target.value || null })}
                 className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Unassigned</option>
+                <option value="">{t("common.unassigned")}</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.name}</option>
                 ))}
               </select>
             </div>
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
-              <span className="text-sm text-muted-foreground sm:w-24">Due date</span>
+              <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.dueDate")}</span>
               <input
                 type="date"
                 defaultValue={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
@@ -298,14 +300,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
           </div>
 
           <div className="border-b border-border px-4 py-4 sm:px-6">
-            <label className="block text-sm font-medium text-foreground mb-2">Description / brief</label>
+            <label className="block text-sm font-medium text-foreground mb-2">{t("task.descriptionBrief")}</label>
             {structuredBrief && (
               <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
                     {structuredBrief.type}
                   </span>
-                  <span className="text-xs text-muted-foreground">Structured task brief</span>
+                  <span className="text-xs text-muted-foreground">{t("task.structuredBrief")}</span>
                 </div>
                 {structuredBrief.details.length > 0 && (
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -338,13 +340,13 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 }
               }}
               rows={3}
-              placeholder="Add a description..."
+              placeholder={t("task.descriptionPlaceholder")}
               className="w-full text-sm border border-border bg-background rounded-lg px-3 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
 
           <div className="border-b border-border px-4 py-4 sm:px-6">
-            <label className="block text-sm font-medium text-foreground mb-2">Board cover image</label>
+            <label className="block text-sm font-medium text-foreground mb-2">{t("task.boardCoverImage")}</label>
             <TaskCoverImageControl
               value={currentTask.cover_image_url}
               disabled={saving}
@@ -362,7 +364,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
               ) : (
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               )}
-              Subtasks
+              {t("task.subtasks")}
               {subtasks.length > 0 && (
                 <span className="text-xs text-muted-foreground ml-1">
                   ({doneCount}/{subtasks.length})
@@ -407,8 +409,8 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                       <button
                         type="button"
                         onClick={() => deleteSubtask(s.id)}
-                        title="Delete subtask"
-                        aria-label="Delete subtask"
+                        title={t("task.failedDeleteSubtask")}
+                        aria-label={t("task.failedDeleteSubtask")}
                         className="text-muted-foreground/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -416,7 +418,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                     </div>
                   ))}
                   {subtasks.length === 0 && (
-                    <p className="text-sm text-muted-foreground">No subtasks yet</p>
+                    <p className="text-sm text-muted-foreground">{t("task.noSubtasks")}</p>
                   )}
                 </div>
 
@@ -424,7 +426,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                   <input
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
-                    placeholder="Add a subtask..."
+                    placeholder={t("task.addSubtask")}
                     className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <button
@@ -445,7 +447,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
 
           <div className="px-4 py-4 sm:px-6">
             <h3 className="text-sm font-medium text-foreground mb-4">
-              Comments ({comments.length})
+              {t("task.comments")} ({comments.length})
             </h3>
             <div className="space-y-4 mb-4">
               {comments.map((c) => (
@@ -472,7 +474,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                         }
                         className="mt-1 ml-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                       >
-                        Reply
+                        {t("task.reply")}
                       </button>
                     </div>
                   </div>
@@ -507,7 +509,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                       <input
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
-                        placeholder="Write a reply..."
+                        placeholder={t("task.reply")}
                         autoFocus
                         className="flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                         onKeyDown={(e) => {
@@ -534,7 +536,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 </div>
               ))}
               {comments.length === 0 && (
-                <p className="text-sm text-muted-foreground">No comments yet</p>
+                <p className="text-sm text-muted-foreground">{t("task.comments")}: 0</p>
               )}
             </div>
 
@@ -542,7 +544,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
               <input
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment..."
+                placeholder={t("task.addComment")}
                 className="flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button

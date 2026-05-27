@@ -5,6 +5,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { toast } from "sonner";
 import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
 import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CustomFieldChip from "@/components/projects/custom-field-chip";
 import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
@@ -28,6 +29,26 @@ const COLUMNS = [
 
 export type ColumnKey = "todo" | "in_progress" | "done";
 
+function columnLabel(
+  key: ColumnKey,
+  fallback: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (key === "todo") return t("status.todo");
+  if (key === "in_progress") return t("status.inProgress");
+  if (key === "done") return t("status.done");
+  return fallback;
+}
+
+function priorityLabel(
+  priority: Task["priority"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (priority === "high") return t("priority.high");
+  if (priority === "medium") return t("priority.medium");
+  return t("priority.low");
+}
+
 export default function KanbanBoard({
   projectId,
   tasks,
@@ -37,6 +58,7 @@ export default function KanbanBoard({
   onUpdate,
   onAddTask,
 }: KanbanBoardProps) {
+  const { t } = useLanguage();
   const [columns, setColumns] = useState<Record<ColumnKey, Task[]>>({
     todo: [],
     in_progress: [],
@@ -83,14 +105,14 @@ export default function KanbanBoard({
   }, [tasks, toolbar]);
 
   const deleteTask = async (taskId: string) => {
-    if (!confirm("Delete this task?")) return;
+    if (!confirm(t("task.deleteConfirm"))) return;
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       onUpdate();
-      toast.success("Task deleted");
+      toast.success(t("dashboard.taskDeleted"));
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("task.failedDelete"));
     }
   };
 
@@ -164,7 +186,7 @@ export default function KanbanBoard({
                   >
                     <div className={cn("w-2 h-2 rounded-full", color)} />
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                      {label}
+                      {columnLabel(key, label, t)}
                     </span>
                     <span className="text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
                       {columns[key].length}
@@ -172,7 +194,7 @@ export default function KanbanBoard({
                     <button
                       onClick={() => onAddTask(key)}
                       className="ml-auto text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
-                      title="Add task"
+                      title={t("projects.addTask")}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -206,7 +228,7 @@ export default function KanbanBoard({
                                     setSelectedTask(task);
                                   }}
                                   className="p-1 text-muted-foreground hover:text-foreground rounded"
-                                  title="Open"
+                                  title={t("common.open")}
                                 >
                                   <MoreHorizontal className="w-3 h-3" />
                                 </button>
@@ -216,7 +238,7 @@ export default function KanbanBoard({
                                     deleteTask(task.id);
                                   }}
                                   className="p-1 text-muted-foreground hover:text-destructive rounded"
-                                  title="Delete"
+                                  title={t("common.delete")}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -242,7 +264,7 @@ export default function KanbanBoard({
                                         ? "bg-upflow-warning"
                                         : "bg-muted-foreground/50",
                                   )}
-                                  title={`Priority: ${task.priority}`}
+                                  title={`${t("toolbar.priority")}: ${priorityLabel(task.priority, t)}`}
                                 />
                                 <p className="min-w-0 flex-1 break-words text-sm leading-snug text-foreground">
                                   {task.title}
@@ -309,7 +331,7 @@ export default function KanbanBoard({
                       onClick={() => onAddTask(key)}
                       className="w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md px-2 py-1.5 transition-colors"
                     >
-                      <Plus className="w-3 h-3" /> Add task
+                      <Plus className="w-3 h-3" /> {t("projects.addTask")}
                     </button>
                   </div>
                 </div>

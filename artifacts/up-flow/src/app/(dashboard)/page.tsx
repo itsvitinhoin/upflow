@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
+import { useLanguage } from "@/components/language-provider";
 import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
@@ -115,6 +116,7 @@ interface DashboardResponse {
 export default function DashboardPage() {
   const user = useAppUser();
   const router = useRouter();
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<TeamMember[]>([]);
@@ -256,8 +258,8 @@ export default function DashboardPage() {
     commandCenterData.projects_at_risk.count + commandCenterData.client_risk.count;
   const nextMeeting = commandCenterData.meetings_today.items[0] ?? null;
   const liveTimerLabel = commandCenterData.time_today.running
-    ? "Timer running"
-    : "No active timer";
+    ? t("dashboard.timerRunning")
+    : t("dashboard.noActiveTimer");
 
   const handleStatusChange = async (task: Task, status: Task["status"]) => {
     setUpdating(true);
@@ -268,11 +270,13 @@ export default function DashboardPage() {
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error("Failed to update");
-      toast.success(`Task moved to ${status.replace("_", " ")}`);
+      toast.success(
+        t("dashboard.taskMoved", { status: taskStatusLabel(status, t) }),
+      );
       setActiveTask(null);
       loadData();
     } catch {
-      toast.error("Could not update task");
+      toast.error(t("dashboard.couldNotUpdateTask"));
     } finally {
       setUpdating(false);
     }
@@ -283,11 +287,11 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      toast.success("Task deleted");
+      toast.success(t("dashboard.taskDeleted"));
       setActiveTask(null);
       loadData();
     } catch {
-      toast.error("Could not delete task");
+      toast.error(t("dashboard.couldNotDeleteTask"));
     } finally {
       setUpdating(false);
     }
@@ -295,24 +299,29 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Header title="Dashboard" />
+      <Header title={t("dashboard.title")} />
       <main className="mx-auto w-full max-w-[1480px] space-y-5 overflow-x-hidden p-4 sm:p-6">
           <section className="relative overflow-hidden rounded-[1.25rem] border border-white/10 bg-[linear-gradient(135deg,rgba(124,102,255,0.18),rgba(31,162,124,0.08)_42%,rgba(255,177,92,0.10))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
             <div className="relative flex flex-col gap-6 xl:flex-row xl:items-stretch xl:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-                  Today + Risks Command Center
+                  {t("dashboard.commandCenter")}
                 </p>
                 <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-foreground sm:text-4xl">
-                  {greeting ? `Good ${greeting}, ${firstName}` : `Hi ${firstName}`}
+                  {greeting
+                    ? t("dashboard.good", {
+                        greeting: t(`dashboard.greeting.${greeting}`),
+                        name: firstName,
+                      })
+                    : t("dashboard.hi", { name: firstName })}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                  Focused on today&apos;s actionable work, live meetings, tracked time, delivery risk, and client health.
+                  {t("dashboard.summary")}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <SignalBadge tone="danger" label={`${riskTotal} risks`} />
-                  <SignalBadge tone="success" label={`${progress}% tasks complete`} />
+                  <SignalBadge tone="danger" label={t("dashboard.risks", { count: riskTotal })} />
+                  <SignalBadge tone="success" label={t("dashboard.tasksComplete", { progress })} />
                   <SignalBadge tone="info" label={liveTimerLabel} />
                 </div>
               </div>
@@ -327,29 +336,29 @@ export default function DashboardPage() {
                 <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      Operational pulse
+                      {t("dashboard.operationalPulse")}
                     </p>
                     <Activity className="h-4 w-4 text-upflow-success" />
                   </div>
                   <div className="mt-4 grid gap-3 text-sm">
                     <PulseLine
-                      label="Next meeting"
+                      label={t("dashboard.nextMeeting")}
                       value={
                         nextMeeting
                           ? new Date(nextMeeting.starts_at).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
-                          : "None today"
+                          : t("dashboard.noneToday")
                       }
                     />
                     <PulseLine
-                      label="Focus queue"
-                      value={`${todayFocusTasks.length} items`}
+                      label={t("dashboard.focusQueue")}
+                      value={t("dashboard.items", { count: todayFocusTasks.length })}
                     />
                     <PulseLine
-                      label="Open work"
-                      value={`${todoCount + inProgressCount} tasks`}
+                      label={t("dashboard.openWork")}
+                      value={t("dashboard.tasksCount", { count: todoCount + inProgressCount })}
                     />
                   </div>
                 </div>
@@ -358,23 +367,23 @@ export default function DashboardPage() {
 
             <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <SummaryPill
-                label="Tasks"
+                label={t("dashboard.tasks")}
                 value={tasks.length}
-                hint={`${progress}% complete`}
+                hint={t("dashboard.tasksComplete", { progress })}
                 tone="success"
                 onClick={() => setDrawerStatus("todo")}
               />
               <SummaryPill
-                label="Team flags"
+                label={t("dashboard.teamFlags")}
                 value={workloadFlags.length}
-                hint="Late or overloaded"
+                hint={t("dashboard.lateOrOverloaded")}
                 tone="warning"
                 onClick={() => setCommandDrawer("team_workload")}
               />
               <SummaryPill
-                label="Activity"
+                label={t("dashboard.activity")}
                 value={commandCenterData.recent_activity.count}
-                hint="Workspace trail"
+                hint={t("dashboard.workspaceTrail")}
                 tone="info"
                 onClick={() => setCommandDrawer("recent_activity")}
               />
@@ -390,54 +399,54 @@ export default function DashboardPage() {
 
           <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <CommandTile
-              title="My urgent actions"
+              title={t("dashboard.myUrgentActions")}
               value={commandCenterData.urgent_actions.count}
-              hint="Due today, overdue, or high priority"
+              hint={t("dashboard.urgentHint")}
               icon={<AlertCircle className="w-4 h-4" />}
               tone="danger"
               active={commandDrawer === "urgent_actions"}
               onClick={() => setCommandDrawer("urgent_actions")}
             />
             <CommandTile
-              title="Meetings today"
+              title={t("dashboard.meetingsToday")}
               value={commandCenterData.meetings_today.count}
-              hint="Calendar events scheduled today"
+              hint={t("dashboard.meetingsHint")}
               icon={<CalendarIcon className="w-4 h-4" />}
               tone="info"
               active={commandDrawer === "meetings_today"}
               onClick={() => setCommandDrawer("meetings_today")}
             />
             <CommandTile
-              title="Time today"
+              title={t("dashboard.timeToday")}
               value={formatSecondsShort(commandCenterData.time_today.total_seconds)}
-              hint={commandCenterData.time_today.running ? "Timer is running" : "Tracked entries today"}
+              hint={commandCenterData.time_today.running ? t("dashboard.timerRunning") : t("dashboard.trackedToday")}
               icon={<Timer className="w-4 h-4" />}
               tone="success"
               active={commandDrawer === "time_today"}
               onClick={() => setCommandDrawer("time_today")}
             />
             <CommandTile
-              title="Projects at risk"
+              title={t("dashboard.projectsAtRisk")}
               value={commandCenterData.projects_at_risk.count}
-              hint="Overdue or stale projects"
+              hint={t("dashboard.projectsRiskHint")}
               icon={<TrendingDown className="w-4 h-4" />}
               tone="warning"
               active={commandDrawer === "projects_at_risk"}
               onClick={() => setCommandDrawer("projects_at_risk")}
             />
             <CommandTile
-              title="Client risk"
+              title={t("dashboard.clientRisk")}
               value={commandCenterData.client_risk.count}
-              hint="Clients missing movement, contacts, or values"
+              hint={t("dashboard.clientRiskHint")}
               icon={<Building2 className="w-4 h-4" />}
               tone="rose"
               active={commandDrawer === "client_risk"}
               onClick={() => setCommandDrawer("client_risk")}
             />
             <CommandTile
-              title="Revenue snapshot"
+              title={t("dashboard.revenueSnapshot")}
               value={moneyCompact(commandCenterData.revenue_snapshot.total_contract_value)}
-              hint={`${commandCenterData.revenue_snapshot.active_clients} active clients`}
+              hint={t("dashboard.activeClients", { count: commandCenterData.revenue_snapshot.active_clients })}
               icon={<DollarSign className="w-4 h-4" />}
               tone="violet"
               active={commandDrawer === "revenue_snapshot"}
@@ -461,9 +470,9 @@ export default function DashboardPage() {
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-upflow-warning via-primary to-upflow-success" />
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Tasks</h3>
+                  <h3 className="text-sm font-semibold text-foreground">{t("dashboard.tasks")}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Status counts stay one click away from exact records.
+                    {t("dashboard.statusHint")}
                   </p>
                 </div>
                 <button
@@ -471,12 +480,12 @@ export default function DashboardPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  New task
+                  {t("dashboard.newTask")}
                 </button>
               </div>
               <div className="mt-4">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Completion</span>
+                  <span className="text-muted-foreground">{t("dashboard.completion")}</span>
                   <span className="font-semibold text-foreground">{progress}%</span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
@@ -488,23 +497,23 @@ export default function DashboardPage() {
               </div>
               <div className="mt-4 grid gap-2">
                 <StatusCountButton
-                  label="Upcoming"
+                  label={t("dashboard.upcoming")}
                   value={todoCount}
-                  hint="Tasks waiting to start"
+                  hint={t("dashboard.upcomingHint")}
                   tone="warning"
                   onClick={() => setDrawerStatus("todo")}
                 />
                 <StatusCountButton
-                  label="In progress"
+                  label={t("dashboard.inProgress")}
                   value={inProgressCount}
-                  hint="Currently being worked on"
+                  hint={t("dashboard.inProgressHint")}
                   tone="info"
                   onClick={() => setDrawerStatus("in_progress")}
                 />
                 <StatusCountButton
-                  label="Completed"
+                  label={t("dashboard.completed")}
                   value={doneCount}
-                  hint={`${progress}% of total`}
+                  hint={t("dashboard.ofTotal", { progress })}
                   tone="success"
                   onClick={() => setDrawerStatus("done")}
                 />
@@ -514,15 +523,15 @@ export default function DashboardPage() {
                   onClick={() => setCommandDrawer("team_workload")}
                   className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                 >
-                  <span className="block font-semibold text-foreground">Team workload</span>
-                  {commandCenterData.team_workload.count} members with signals
+                  <span className="block font-semibold text-foreground">{t("dashboard.teamWorkload")}</span>
+                  {t("dashboard.membersWithSignals", { count: commandCenterData.team_workload.count })}
                 </button>
                 <button
                   onClick={() => setCommandDrawer("recent_activity")}
                   className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                 >
-                  <span className="block font-semibold text-foreground">Recent activity</span>
-                  {commandCenterData.recent_activity.count} traceable records
+                  <span className="block font-semibold text-foreground">{t("dashboard.recentActivity")}</span>
+                  {t("dashboard.traceableRecords", { count: commandCenterData.recent_activity.count })}
                 </button>
               </div>
             </section>
@@ -537,7 +546,7 @@ export default function DashboardPage() {
           onCreated={() => {
             setShowNewTask(false);
             loadData();
-            toast.success("Task created");
+            toast.success(t("dashboard.taskCreated"));
           }}
         />
       )}
@@ -549,7 +558,7 @@ export default function DashboardPage() {
           onCreated={() => {
             setShowNewProject(false);
             loadData();
-            toast.success("Project created");
+            toast.success(t("dashboard.projectCreated"));
           }}
         />
       )}
@@ -886,6 +895,7 @@ function TodayFocusPanel({
   onOpenMeetings: () => void;
   updating: boolean;
 }) {
+  const { t } = useLanguage();
   const visibleMeetings = meetings.slice(0, 3);
   const hasFocusItems = tasks.length > 0 || visibleMeetings.length > 0;
 
@@ -897,10 +907,10 @@ function TodayFocusPanel({
             <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-upflow-danger/15 text-upflow-danger">
               <AlertCircle className="h-4 w-4" />
             </span>
-            <h3 className="text-sm font-semibold text-foreground">Today focus</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("dashboard.todayFocus")}</h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            The shortest list of work that needs attention now.
+            {t("dashboard.todayFocusHint")}
           </p>
         </div>
         <button
@@ -908,7 +918,7 @@ function TodayFocusPanel({
           onClick={onCreateTask}
           className="text-xs font-medium text-primary hover:underline"
         >
-          + New task
+          + {t("dashboard.newTask")}
         </button>
       </div>
       <div className="divide-y divide-white/5">
@@ -920,9 +930,9 @@ function TodayFocusPanel({
           ))
         ) : !hasFocusItems ? (
           <div className="px-5 py-10 text-center">
-            <p className="text-sm font-medium text-foreground">No urgent focus items</p>
+            <p className="text-sm font-medium text-foreground">{t("dashboard.noFocus")}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Create a task or meeting when there is something to track today.
+              {t("dashboard.todayFocusHint")}
             </p>
             <button
               type="button"
@@ -930,7 +940,7 @@ function TodayFocusPanel({
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
-              New task
+              {t("dashboard.newTask")}
             </button>
           </div>
         ) : (
@@ -939,14 +949,14 @@ function TodayFocusPanel({
               <div className="space-y-2 px-5 py-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-300">
-                    Meetings
+                    {t("dashboard.meetingsToday")}
                   </p>
                   <button
                     type="button"
                     onClick={onOpenMeetings}
                     className="text-xs text-primary hover:underline"
                   >
-                    View all
+                    {t("common.open")}
                   </button>
                 </div>
                 {visibleMeetings.map((meeting) => (
@@ -1006,6 +1016,7 @@ function TaskRow({
   onDelete: () => void;
   disabled: boolean;
 }) {
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -1051,7 +1062,7 @@ function TaskRow({
           priorityColor(task.priority)
         )}
       >
-        {task.priority}
+        {priorityLabel(task.priority, t)}
       </span>
       {task.due_date && (
         <span
@@ -1090,7 +1101,7 @@ function TaskRow({
               }}
               className="w-full text-left px-3 py-2 hover:bg-white/5 disabled:opacity-40 focus:outline-none focus-visible:bg-white/10"
             >
-              Mark done
+              {t("status.done")}
             </button>
             <button
               role="menuitem"
@@ -1101,7 +1112,7 @@ function TaskRow({
               }}
               className="w-full text-left px-3 py-2 hover:bg-white/5 border-t border-white/5 focus:outline-none focus-visible:bg-white/10"
             >
-              Edit / details
+              {t("common.open")}
             </button>
             <button
               role="menuitem"
@@ -1113,7 +1124,7 @@ function TaskRow({
               }}
               className="w-full text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40 border-t border-white/5 focus:outline-none focus-visible:bg-upflow-danger/15"
             >
-              Delete
+              {t("common.delete")}
             </button>
           </div>
         )}
@@ -1139,8 +1150,9 @@ function TaskStatusDrawer({
   onStatusChange: (task: Task, status: Task["status"]) => void;
   onDelete: (task: Task) => void;
 }) {
+  const { t } = useLanguage();
   const label =
-    status === "todo" ? "Upcoming actions" : status === "in_progress" ? "In progress actions" : "Completed actions";
+    status === "todo" ? t("dashboard.upcoming") : status === "in_progress" ? t("dashboard.inProgress") : t("dashboard.completed");
 
   return (
     <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -1151,11 +1163,11 @@ function TaskStatusDrawer({
         <div className="flex items-start justify-between gap-3">
           <div className="hidden">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Filtered tasks
+              {t("dashboard.tasks")}
             </p>
             <h2 className="text-lg font-semibold text-foreground mt-1">{label}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {tasks.length} {tasks.length === 1 ? "task" : "tasks"}
+              {t("dashboard.tasksCount", { count: tasks.length })}
             </p>
           </div>
           <button
@@ -1171,9 +1183,9 @@ function TaskStatusDrawer({
         <div className="mt-5 divide-y divide-white/5 rounded-xl overflow-hidden border border-white/5">
           {tasks.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">No tasks in this status</p>
+              <p className="text-sm font-medium text-foreground">{t("dashboard.noFocus")}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Tasks will appear here when they match this status.
+                {t("dashboard.statusHint")}
               </p>
             </div>
           ) : (
@@ -1208,6 +1220,24 @@ function formatSecondsShort(totalSeconds: number) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+function taskStatusLabel(
+  status: Task["status"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (status === "todo") return t("status.todo");
+  if (status === "in_progress") return t("status.inProgress");
+  return t("status.done");
+}
+
+function priorityLabel(
+  priority: Task["priority"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (priority === "high") return t("priority.high");
+  if (priority === "medium") return t("priority.medium");
+  return t("priority.low");
 }
 
 function moneyCompact(value: number | null | undefined) {

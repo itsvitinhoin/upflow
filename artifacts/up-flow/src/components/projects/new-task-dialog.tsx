@@ -7,6 +7,7 @@ import { logError } from "@/lib/log-error";
 import type { Project, TaskAssignee } from "@/lib/types";
 import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
+import { useLanguage } from "@/components/language-provider";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -25,6 +26,7 @@ export default function NewTaskDialog({
   defaultStatus = "todo",
   defaultTemplateId = DEFAULT_TASK_TEMPLATE_ID,
 }: NewTaskDialogProps) {
+  const { t } = useLanguage();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [taskTemplateId, setTaskTemplateId] =
@@ -72,7 +74,7 @@ export default function NewTaskDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !selectedProject) {
-      toast.error("Please provide a title and select a project");
+      toast.error(t("task.titleRequired"));
       return;
     }
     setLoading(true);
@@ -96,7 +98,7 @@ export default function NewTaskDialog({
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
-        throw new Error(data.error || "Failed to create task");
+        throw new Error(data.error || t("task.failedCreate"));
       }
       setTitle("");
       setDescription("");
@@ -107,7 +109,7 @@ export default function NewTaskDialog({
       setAssigneeId("");
       onCreated();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create task";
+      const message = err instanceof Error ? err.message : t("task.failedCreate");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -122,12 +124,12 @@ export default function NewTaskDialog({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="New Task"
+        aria-label={t("task.newTask")}
         className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">New Task</h2>
+          <h2 className="text-lg font-semibold text-foreground">{t("task.newTask")}</h2>
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -139,13 +141,13 @@ export default function NewTaskDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Task title <span className="text-destructive">*</span>
+              {t("toolbar.title")} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Design login screen"
+              placeholder={t("task.taskName")}
               required
               autoFocus
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -155,7 +157,7 @@ export default function NewTaskDialog({
           {!projectId && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Project <span className="text-destructive">*</span>
+                {t("projects.project")} <span className="text-destructive">*</span>
               </label>
               <select
                 value={selectedProject}
@@ -163,7 +165,7 @@ export default function NewTaskDialog({
                 required
                 className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Select a project</option>
+                <option value="">{t("projects.project")}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -174,11 +176,11 @@ export default function NewTaskDialog({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Description</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">{t("task.descriptionBrief")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description..."
+              placeholder={t("task.descriptionPlaceholder")}
               rows={2}
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
@@ -193,25 +195,25 @@ export default function NewTaskDialog({
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Priority</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.priority")}</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="low">{t("priority.low")}</option>
+                <option value="medium">{t("priority.medium")}</option>
+                <option value="high">{t("priority.high")}</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Assignee</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.assignee")}</label>
               <select
                 value={assigneeId}
                 onChange={(e) => setAssigneeId(e.target.value)}
                 className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Unassigned</option>
+                <option value="">{t("common.unassigned")}</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
@@ -222,7 +224,7 @@ export default function NewTaskDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Due date</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.dueDate")}</label>
             <input
               type="date"
               value={dueDate}
@@ -237,7 +239,7 @@ export default function NewTaskDialog({
               onClick={onClose}
               className="flex-1 border border-white/10 text-foreground text-sm font-medium py-2.5 rounded-lg hover:bg-white/10 transition-colors"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -245,7 +247,7 @@ export default function NewTaskDialog({
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Create Task
+              {t("task.createTask")}
             </button>
           </div>
         </form>

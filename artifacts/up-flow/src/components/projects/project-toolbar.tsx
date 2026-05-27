@@ -12,6 +12,7 @@ import {
   Columns3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import type { CustomFieldDefinition } from "@/lib/types";
 
 export type GroupBy = "status" | "assignee" | "priority" | "none";
@@ -41,13 +42,6 @@ interface Props {
   users?: { id: string; name: string }[];
 }
 
-const STANDARD_COLUMNS = [
-  { key: "assignee", label: "Assignee" },
-  { key: "due_date", label: "Due date" },
-  { key: "priority", label: "Priority" },
-  { key: "status", label: "Status" },
-];
-
 export default function ProjectToolbar({
   state,
   onChange,
@@ -56,10 +50,18 @@ export default function ProjectToolbar({
   canManage,
   users = [],
 }: Props) {
+  const { t } = useLanguage();
   const filterCount =
     (state.filterPriority !== "all" ? 1 : 0) +
     (state.filterAssignee !== "all" ? 1 : 0);
   const set = (patch: Partial<ToolbarState>) => onChange({ ...state, ...patch });
+
+  const standardColumns = [
+    { key: "assignee", label: t("toolbar.assignee") },
+    { key: "due_date", label: t("toolbar.dueDate") },
+    { key: "priority", label: t("toolbar.priority") },
+    { key: "status", label: t("toolbar.status") },
+  ];
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap py-2 border-b border-border mb-3">
@@ -68,13 +70,13 @@ export default function ProjectToolbar({
           active={state.view === "list"}
           onClick={() => set({ view: "list" })}
           icon={<LayoutList className="w-3.5 h-3.5" />}
-          label="List"
+          label={t("toolbar.list")}
         />
         <ToolbarTab
           active={state.view === "board"}
           onClick={() => set({ view: "board" })}
           icon={<Columns3 className="w-3.5 h-3.5" />}
-          label="Board"
+          label={t("toolbar.board")}
         />
       </div>
 
@@ -83,7 +85,7 @@ export default function ProjectToolbar({
         <input
           value={state.search}
           onChange={(e) => set({ search: e.target.value })}
-          placeholder="Search tasks..."
+          placeholder={t("toolbar.searchTasks")}
           className="pl-8 pr-3 py-1.5 text-sm bg-card border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring w-52"
         />
       </div>
@@ -97,12 +99,12 @@ export default function ProjectToolbar({
 
       <DropdownButton
         icon={<Filter className="w-3.5 h-3.5" />}
-        label={`Group: ${groupLabel(state.groupBy)}`}
+        label={t("toolbar.group", { label: groupLabel(state.groupBy, t) })}
         items={[
-          { label: "Status", value: "status" },
-          { label: "Assignee", value: "assignee" },
-          { label: "Priority", value: "priority" },
-          { label: "None", value: "none" },
+          { label: t("toolbar.status"), value: "status" },
+          { label: t("toolbar.assignee"), value: "assignee" },
+          { label: t("toolbar.priority"), value: "priority" },
+          { label: t("common.none"), value: "none" },
         ]}
         active={state.groupBy}
         onPick={(v) => set({ groupBy: v as GroupBy })}
@@ -110,13 +112,13 @@ export default function ProjectToolbar({
 
       <DropdownButton
         icon={<ArrowUpDown className="w-3.5 h-3.5" />}
-        label={`Sort: ${sortLabel(state.sortBy)}`}
+        label={t("toolbar.sort", { label: sortLabel(state.sortBy, t) })}
         items={[
-          { label: "Manual", value: "position" },
-          { label: "Due date", value: "due_date" },
-          { label: "Priority", value: "priority" },
-          { label: "Title", value: "title" },
-          { label: "Created", value: "created_at" },
+          { label: t("toolbar.manual"), value: "position" },
+          { label: t("toolbar.dueDate"), value: "due_date" },
+          { label: t("toolbar.priority"), value: "priority" },
+          { label: t("toolbar.title"), value: "title" },
+          { label: t("toolbar.created"), value: "created_at" },
         ]}
         active={state.sortBy}
         onPick={(v) => set({ sortBy: v as SortBy })}
@@ -125,7 +127,7 @@ export default function ProjectToolbar({
       <button
         onClick={() => set({ sortDir: state.sortDir === "asc" ? "desc" : "asc" })}
         className="text-xs px-2 py-1.5 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-        title={`Sort ${state.sortDir === "asc" ? "ascending" : "descending"}`}
+        title={state.sortDir === "asc" ? t("toolbar.sortAscending") : t("toolbar.sortDescending")}
       >
         {state.sortDir === "asc" ? "↑" : "↓"}
       </button>
@@ -139,12 +141,12 @@ export default function ProjectToolbar({
             : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted",
         )}
       >
-        Show closed
+        {t("toolbar.showClosed")}
       </button>
 
       <ColumnsDropdown
         columns={[
-          ...STANDARD_COLUMNS,
+          ...standardColumns,
           ...customFields.map((f) => ({ key: f.id, label: f.name })),
         ]}
         visible={state.visibleColumns}
@@ -163,7 +165,7 @@ export default function ProjectToolbar({
           onClick={onManageFields}
           className="ml-auto flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
         >
-          <Settings2 className="w-3.5 h-3.5" /> Custom fields
+          <Settings2 className="w-3.5 h-3.5" /> {t("toolbar.customFields")}
         </button>
       )}
     </div>
@@ -264,6 +266,7 @@ function ColumnsDropdown({
   visible: Record<string, boolean>;
   onToggle: (key: string) => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -283,7 +286,7 @@ function ColumnsDropdown({
         className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
       >
         <Eye className="w-3.5 h-3.5" />
-        Columns
+        {t("toolbar.columns")}
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
@@ -325,6 +328,7 @@ function FilterPopover({
   users: { id: string; name: string }[];
   count: number;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -348,7 +352,7 @@ function FilterPopover({
         )}
       >
         <Filter className="w-3.5 h-3.5" />
-        Filter
+        {t("toolbar.filter")}
         {count > 0 && (
           <span className="ml-0.5 inline-flex items-center justify-center min-w-[16px] h-4 text-[10px] font-semibold bg-primary text-primary-foreground rounded-full px-1">
             {count}
@@ -360,7 +364,7 @@ function FilterPopover({
         <div className="absolute z-30 mt-1 left-0 min-w-[240px] bg-popover border border-border rounded-lg shadow-xl p-3 space-y-3">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Priority
+              {t("toolbar.priority")}
             </div>
             <div className="flex flex-wrap gap-1">
               {(["all", "high", "medium", "low"] as const).map((p) => (
@@ -374,14 +378,14 @@ function FilterPopover({
                       : "border-border text-muted-foreground hover:bg-muted",
                   )}
                 >
-                  {p}
+                  {priorityFilterLabel(p, t)}
                 </button>
               ))}
             </div>
           </div>
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-              Assignee
+              {t("toolbar.assignee")}
             </div>
             <select
               value={state.filterAssignee}
@@ -390,8 +394,8 @@ function FilterPopover({
               }
               className="w-full text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="all">Anyone</option>
-              <option value="unassigned">Unassigned</option>
+              <option value="all">{t("common.anyone")}</option>
+              <option value="unassigned">{t("common.unassigned")}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.name}
@@ -406,7 +410,7 @@ function FilterPopover({
               }
               className="w-full text-xs text-muted-foreground hover:text-foreground border-t border-border pt-2"
             >
-              Clear filters
+              {t("toolbar.clearFilters")}
             </button>
           )}
         </div>
@@ -415,12 +419,32 @@ function FilterPopover({
   );
 }
 
-function groupLabel(g: GroupBy) {
-  return g === "none" ? "None" : g.charAt(0).toUpperCase() + g.slice(1);
+function groupLabel(
+  g: GroupBy,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (g === "none") return t("common.none");
+  if (g === "status") return t("toolbar.status");
+  if (g === "assignee") return t("toolbar.assignee");
+  return t("toolbar.priority");
 }
-function sortLabel(s: SortBy) {
-  if (s === "position") return "Manual";
-  if (s === "due_date") return "Due date";
-  if (s === "created_at") return "Created";
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function sortLabel(
+  s: SortBy,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (s === "position") return t("toolbar.manual");
+  if (s === "due_date") return t("toolbar.dueDate");
+  if (s === "created_at") return t("toolbar.created");
+  if (s === "title") return t("toolbar.title");
+  return t("toolbar.priority");
+}
+
+function priorityFilterLabel(
+  priority: FilterPriority,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (priority === "all") return t("common.anyone");
+  if (priority === "high") return t("priority.high");
+  if (priority === "medium") return t("priority.medium");
+  return t("priority.low");
 }

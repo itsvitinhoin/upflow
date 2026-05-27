@@ -12,7 +12,7 @@ function read(rel: string) {
 test("home dashboard defaults to a focused today and risks command center", () => {
   const page = read("src/app/(dashboard)/page.tsx");
 
-  assert.match(page, /Today \+ Risks Command Center/);
+  assert.match(page, /t\("dashboard\.commandCenter"\)/);
   assert.match(page, /TodayFocusPanel/);
   assert.match(page, /QuickCreateMenu/);
   assert.match(page, /StatusCountButton/);
