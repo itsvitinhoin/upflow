@@ -206,6 +206,8 @@ export default function AcceptInvitePage({
                   </label>
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
                     value={accountEmail}
                     onChange={(e) => setAccountEmail(e.target.value)}
                     placeholder="you@company.com"
@@ -218,6 +220,8 @@ export default function AcceptInvitePage({
                     Full name
                   </label>
                   <input
+                    name="name"
+                    autoComplete="name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Your full name"
@@ -231,6 +235,8 @@ export default function AcceptInvitePage({
                   </label>
                   <input
                     type="tel"
+                    name="tel"
+                    autoComplete="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+55 11 99999-9999"
@@ -244,6 +250,8 @@ export default function AcceptInvitePage({
                   </label>
                   <input
                     type="password"
+                    name="new-password"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     minLength={8}

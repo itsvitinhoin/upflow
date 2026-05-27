@@ -12,6 +12,7 @@ import {
 } from "@/lib/workspace";
 import { logError } from "@/lib/log-error";
 import { TEST_AUTH_COOKIE, verifyTestAuthCookie } from "@/lib/test-auth";
+import { normalizeDisplayName } from "@/lib/user-profile";
 
 export interface AuthUser {
   supabaseId: string;
@@ -76,8 +77,8 @@ export async function getAuthResult(): Promise<AuthResult> {
       email = user.email;
       supabaseId = user.id;
       metadataName =
-        (user.user_metadata?.name as string | undefined) ||
-        (user.user_metadata?.full_name as string | undefined);
+        (user.user_metadata?.full_name as string | undefined) ||
+        (user.user_metadata?.name as string | undefined);
     } catch (err) {
       // Supabase could not validate the browser session; log it and let the
       // — the user MAY be logged in, we just can't tell right now. Surface
@@ -92,7 +93,7 @@ export async function getAuthResult(): Promise<AuthResult> {
   // pretending the user is logged out.
   try {
     const wantsAdmin = isAdminEmail(email);
-    const displayName = metadataName || email.split("@")[0];
+    const displayName = normalizeDisplayName(metadataName, email);
 
     let prismaUser = await prisma.user.findUnique({ where: { email } });
     if (!prismaUser) {
@@ -124,6 +125,13 @@ export async function getAuthResult(): Promise<AuthResult> {
       prismaUser = await prisma.user.update({
         where: { id: prismaUser.id },
         data: { role: "admin" },
+      });
+    }
+
+    if (prismaUser.name !== displayName && normalizeDisplayName(prismaUser.name, email, prismaUser.phone) !== prismaUser.name) {
+      prismaUser = await prisma.user.update({
+        where: { id: prismaUser.id },
+        data: { name: displayName },
       });
     }
 

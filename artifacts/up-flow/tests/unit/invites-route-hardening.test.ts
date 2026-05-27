@@ -94,6 +94,10 @@ test("tester invites target an isolated workspace and allow member/admin roles i
   assert.match(teamPage, /Choose Member for normal testers or Admin for trusted testers/);
   assert.match(teamPage, /testerMode/);
   assert.match(teamPage, /\/api\/testers\/workspace/);
+  assert.match(teamPage, /Team member list scope/);
+  assert.match(teamPage, /loadTeamOverview\(testerWorkspace\.id\)/);
+  assert.match(teamPage, /View tester members/);
+  assert.match(route, /reconcileAcceptedWorkspaceInvites\(targetWorkspaceId\)/);
 });
 
 test("tester invite acceptance explains the isolated workspace", () => {

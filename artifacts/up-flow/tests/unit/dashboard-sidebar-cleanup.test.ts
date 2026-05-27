@@ -16,9 +16,9 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(page, /TodayFocusPanel/);
   assert.match(page, /QuickCreateMenu/);
   assert.match(page, /StatusCountButton/);
+  assert.match(page, /<TeamTimeline\s/);
   assert.match(page, /\/api\/dashboard\/summary/);
   assert.doesNotMatch(page, /<RightPanel\s/);
-  assert.doesNotMatch(page, /<TeamTimeline\s/);
   assert.doesNotMatch(page, /<QuickAction\s/);
   assert.doesNotMatch(page, /<StatCard\s/);
   assert.doesNotMatch(page, /<PeopleCard\s/);

@@ -64,3 +64,12 @@ test("users API exposes department_id scoped to the requested workspace", () => 
   assert.match(src, /department_id:\s*scopedMembership\?\.department_id/);
   assert.match(src, /scopedWorkspaceId\s*=\s*workspaceFilter\s*\?\?/);
 });
+
+test("team overview can safely target a member-accessible workspace", () => {
+  const src = read("team/overview/route.ts");
+  assert.match(src, /workspace_id/);
+  assert.match(src, /canAccessWorkspace\(\s*auth\s*,\s*targetWorkspaceId\s*\)/);
+  assert.match(src, /reconcileAcceptedWorkspaceInvites\(targetWorkspaceId\)/);
+  assert.match(src, /Workspace not found/);
+  assert.match(src, /workspace_id:\s*targetWorkspaceId/);
+});

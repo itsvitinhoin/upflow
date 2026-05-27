@@ -7,6 +7,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { emailIsConfigured, sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
+import { reconcileAcceptedWorkspaceInvites } from "@/lib/invite-reconciliation";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -45,6 +46,8 @@ async function GET_handler(req: NextRequest) {
   if (!targetWorkspaceId || !isWorkspaceAdminFor(auth, targetWorkspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  await reconcileAcceptedWorkspaceInvites(targetWorkspaceId);
 
   const invites = await prisma.workspaceInvite.findMany({
     where: {

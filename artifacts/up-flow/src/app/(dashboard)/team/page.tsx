@@ -75,6 +75,8 @@ const COLLAPSE_STORAGE_KEY = "upflow:team:collapsedDepartments";
 export default function TeamPage() {
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [workspace, setWorkspace] = useState<TeamOverview["workspace"]>(null);
+  const [primaryWorkspace, setPrimaryWorkspace] = useState<TeamOverview["workspace"]>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] =
     useState<"owner" | "admin" | "member" | null>(null);
@@ -108,6 +110,33 @@ export default function TeamPage() {
   // OR cross-workspace super-admin can manage departments + assignments.
   const isAdmin =
     isSuperAdmin || currentRole === "owner" || currentRole === "admin";
+
+  const loadTeamOverview = useCallback(async (targetWorkspaceId?: string | null) => {
+    setLoading(true);
+    try {
+      const path = targetWorkspaceId
+        ? `/api/team/overview?workspace_id=${encodeURIComponent(targetWorkspaceId)}`
+        : "/api/team/overview";
+      const overview = await getCachedJson<TeamOverview>(
+        `team:overview:${targetWorkspaceId || "current"}`,
+        path,
+        { ttlMs: 0, force: true },
+      );
+      const wsId: string | null = overview.workspace?.id ?? null;
+      setWorkspace(overview.workspace ?? null);
+      if (!targetWorkspaceId) setPrimaryWorkspace(overview.workspace ?? null);
+      setWorkspaceId(wsId);
+      setCurrentRole(overview.current_role ?? null);
+      setIsSuperAdmin(overview.is_super_admin === true);
+      setUsers(overview.members ?? []);
+      setDepartments(overview.departments ?? []);
+      setQuery("");
+    } catch {
+      setToast("Couldn't load team members for this workspace");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const loadPending = useCallback(async () => {
     try {
@@ -221,31 +250,8 @@ export default function TeamPage() {
   }, [collapsed]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const overview = await getCachedJson<TeamOverview>(
-          "team:overview",
-          "/api/team/overview",
-          { ttlMs: 0, force: true },
-        );
-        if (cancelled) return;
-        const wsId: string | null = overview.workspace?.id ?? null;
-        setWorkspaceId(wsId);
-        setCurrentRole(overview.current_role ?? null);
-        setIsSuperAdmin(overview.is_super_admin === true);
-        setUsers(overview.members ?? []);
-        setDepartments(overview.departments ?? []);
-      } catch {
-        /* noop */
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    loadTeamOverview();
+  }, [loadTeamOverview]);
 
   useEffect(() => {
     if (!isAdmin || !workspaceId || !inviteDiagnosticsLoaded) {
@@ -559,6 +565,9 @@ export default function TeamPage() {
       members: groups.get(UNASSIGNED_KEY) ?? [],
     },
   ];
+  const viewingTesterWorkspace =
+    Boolean(testerWorkspace?.id) && testerWorkspace?.id === workspaceId;
+  const acceptedTesterCount = testerInvites.filter((invite) => invite.accepted_at).length;
 
   return (
     <>
@@ -569,6 +578,12 @@ export default function TeamPage() {
             <h2 className="text-xl font-bold text-foreground">Team Members</h2>
             <p className="text-muted-foreground text-sm mt-0.5">
               {users.length} member{users.length !== 1 ? "s" : ""}
+              {workspace?.name && (
+                <>
+                  {" · "}
+                  viewing {workspace.name}
+                </>
+              )}
               {departments.length > 0 && (
                 <>
                   {" · "}
@@ -633,6 +648,9 @@ export default function TeamPage() {
             resending={resending}
             canceling={cancelingInvite}
             onPrepare={() => ensureTesterWorkspace()}
+            onViewMembers={() => {
+              if (testerWorkspace) loadTeamOverview(testerWorkspace.id);
+            }}
             onInvite={() => {
               loadInviteDiagnostics();
               ensureTesterWorkspace({ openDialog: true });
@@ -647,6 +665,49 @@ export default function TeamPage() {
             onReset={resetTesterAccount}
             resetting={resettingTester}
           />
+        )}
+
+        {isAdmin && testerWorkspace && (
+          <div className="mb-4 rounded-xl border border-border bg-card/70 p-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Team member list scope
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Tester invites are isolated in {testerWorkspace.name}. Switch
+                  here to view the {acceptedTesterCount} accepted tester
+                  member{acceptedTesterCount !== 1 ? "s" : ""}.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 rounded-lg border border-border bg-background/40 p-1 text-xs sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => loadTeamOverview(primaryWorkspace?.id ?? null)}
+                  className={cn(
+                    "rounded-md px-3 py-2 font-medium transition",
+                    !viewingTesterWorkspace
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {primaryWorkspace?.name || "Current workspace"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadTeamOverview(testerWorkspace.id)}
+                  className={cn(
+                    "rounded-md px-3 py-2 font-medium transition",
+                    viewingTesterWorkspace
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  Tester workspace
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="mb-4 flex items-center gap-3 flex-wrap">
@@ -1087,6 +1148,7 @@ function TesterInvitePanel({
   resending,
   canceling,
   onPrepare,
+  onViewMembers,
   onInvite,
   onCreateAccount,
   onResend,
@@ -1101,6 +1163,7 @@ function TesterInvitePanel({
   canceling: string | null;
   resetting: boolean;
   onPrepare: () => void;
+  onViewMembers: () => void;
   onInvite: () => void;
   onCreateAccount: () => void;
   onResend: (invite: PendingInvite) => void;
@@ -1165,6 +1228,16 @@ function TesterInvitePanel({
             <UserPlus className="h-3.5 w-3.5" />
             Email invite
           </button>
+          {workspace && (
+            <button
+              type="button"
+              onClick={onViewMembers}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60"
+            >
+              <Users className="h-3.5 w-3.5" />
+              View tester members
+            </button>
+          )}
         </div>
       </div>
 

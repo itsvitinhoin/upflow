@@ -62,7 +62,7 @@ const taskColor: Record<Task["priority"], string> = {
 };
 
 export default function CalendarPage() {
-  const today = useMemo(() => new Date(), []);
+  const [today, setToday] = useState(() => new Date());
   const [cursor, setCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
   );
@@ -73,6 +73,19 @@ export default function CalendarPage() {
   const [showSchedule, setShowSchedule] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [manageEvents, setManageEvents] = useState(false);
+
+  useEffect(() => {
+    const refreshToday = () => setToday(new Date());
+    const interval = window.setInterval(refreshToday, 60_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshToday();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const year = cursor.getFullYear();
   const month = cursor.getMonth();
@@ -134,8 +147,10 @@ export default function CalendarPage() {
   const goPrev = () => setCursor(new Date(year, month - 1, 1));
   const goNext = () => setCursor(new Date(year, month + 1, 1));
   const goToday = () => {
-    setCursor(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelected(today);
+    const now = new Date();
+    setToday(now);
+    setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
+    setSelected(now);
   };
 
   const deleteEvent = async (event: CalendarEvent) => {

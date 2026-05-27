@@ -7,6 +7,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { ensureTesterWorkspace } from "@/lib/tester-workspace";
+import { isPhoneLikeName, normalizeDisplayName, normalizePhone } from "@/lib/user-profile";
 
 // Workspace-admin-only direct provisioning. Creates the auth user in
 // Supabase and adds them as a member of the caller's active workspace.
@@ -32,13 +33,20 @@ async function POST_handler(req: NextRequest) {
   };
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
-  const name = body.name?.trim() || (email ? email.split("@")[0] : undefined);
-  const phone = body.phone?.trim() || null;
+  const rawName = body.name?.trim();
+  const phone = normalizePhone(body.phone);
   const role = body.role === "admin" && !body.tester_account ? "admin" : "member";
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
+  if (rawName && isPhoneLikeName(rawName)) {
+    return NextResponse.json(
+      { error: "Name must be a person name, not a phone number" },
+      { status: 400 },
+    );
+  }
+  const name = normalizeDisplayName(rawName, email, phone);
   if (!password || password.length < 8) {
     return NextResponse.json(
       { error: "Password is required (minimum 8 characters)" },
@@ -126,8 +134,8 @@ async function POST_handler(req: NextRequest) {
     if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
       const user = await prisma.user.upsert({
         where: { email },
-        create: { email, name: name ?? email.split("@")[0], phone, role: "member" },
-        update: { name: name ?? email.split("@")[0], phone },
+        create: { email, name, phone, role: "member" },
+        update: { name, phone },
         select: { id: true },
       });
       await prisma.workspaceMember.upsert({
@@ -146,7 +154,7 @@ async function POST_handler(req: NextRequest) {
   }
 
   const created = await prisma.user.create({
-    data: { email, name: name ?? email.split("@")[0], phone, role: "member" },
+    data: { email, name, phone, role: "member" },
     select: { id: true },
   });
 

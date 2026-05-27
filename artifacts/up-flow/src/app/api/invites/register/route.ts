@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { WORKSPACE_COOKIE } from "@/lib/workspace";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { isPhoneLikeName, normalizeDisplayName, normalizePhone } from "@/lib/user-profile";
 
 async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, {
@@ -23,19 +24,32 @@ async function POST_handler(req: NextRequest) {
   };
   const token = body.token?.trim();
   const submittedEmail = body.email?.trim().toLowerCase();
-  const fullName = body.full_name?.trim();
-  const phone = body.phone?.trim();
+  const rawFullName = body.full_name?.trim();
+  const phone = normalizePhone(body.phone);
   const password = body.password ?? "";
 
   if (!token) return NextResponse.json({ error: "Token required" }, { status: 400 });
   if (!submittedEmail) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
-  if (!fullName) {
+  if (!rawFullName) {
     return NextResponse.json({ error: "Full name is required" }, { status: 400 });
+  }
+  if (isPhoneLikeName(rawFullName)) {
+    return NextResponse.json(
+      { error: "Full name must be your name, not your cellphone number" },
+      { status: 400 },
+    );
   }
   if (!phone) {
     return NextResponse.json({ error: "Cellphone number is required" }, { status: 400 });
+  }
+  const fullName = normalizeDisplayName(rawFullName, submittedEmail, phone);
+  if (fullName.replace(/\D/g, "") === phone.replace(/\D/g, "")) {
+    return NextResponse.json(
+      { error: "Full name must be different from cellphone number" },
+      { status: 400 },
+    );
   }
   if (password.length < 8) {
     return NextResponse.json(

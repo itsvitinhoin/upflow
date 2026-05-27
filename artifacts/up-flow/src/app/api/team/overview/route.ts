@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isSuperAdmin } from "@/lib/auth-helpers";
+import { canAccessWorkspace, isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { reconcileAcceptedWorkspaceInvites } from "@/lib/invite-reconciliation";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
-async function GET_handler() {
+async function GET_handler(req: Request) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const requestedWorkspaceId = new URL(req.url).searchParams.get("workspace_id")?.trim();
+  const targetWorkspaceId = requestedWorkspaceId || auth.currentWorkspaceId;
 
-  if (!auth.currentWorkspaceId) {
+  if (!targetWorkspaceId) {
     return NextResponse.json({
       workspace: null,
       current_role: null,
@@ -19,16 +22,22 @@ async function GET_handler() {
     });
   }
 
+  if (!canAccessWorkspace(auth, targetWorkspaceId)) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+  }
+
+  await reconcileAcceptedWorkspaceInvites(targetWorkspaceId);
+
   if (isSuperAdmin(auth)) {
     await prisma.workspaceMember.upsert({
       where: {
         workspace_id_user_id: {
-          workspace_id: auth.currentWorkspaceId,
+          workspace_id: targetWorkspaceId,
           user_id: auth.prismaUser.id,
         },
       },
       create: {
-        workspace_id: auth.currentWorkspaceId,
+        workspace_id: targetWorkspaceId,
         user_id: auth.prismaUser.id,
         role: "owner",
       },
@@ -38,12 +47,12 @@ async function GET_handler() {
 
   const [workspace, members, departments] = await Promise.all([
     prisma.workspace.findUnique({
-      where: { id: auth.currentWorkspaceId },
+      where: { id: targetWorkspaceId },
       select: { id: true, name: true, slug: true },
     }),
     prisma.user.findMany({
       where: {
-        memberships: { some: { workspace_id: auth.currentWorkspaceId } },
+        memberships: { some: { workspace_id: targetWorkspaceId } },
       },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       select: {
@@ -55,7 +64,7 @@ async function GET_handler() {
         created_at: true,
         _count: { select: { tasks: true, projects: true } },
         memberships: {
-          where: { workspace_id: auth.currentWorkspaceId },
+          where: { workspace_id: targetWorkspaceId },
           select: {
             workspace_id: true,
             role: true,
@@ -66,7 +75,7 @@ async function GET_handler() {
       },
     }),
     prisma.department.findMany({
-      where: { workspace_id: auth.currentWorkspaceId },
+      where: { workspace_id: targetWorkspaceId },
       orderBy: [{ sort_order: "asc" }, { name: "asc" }],
       select: {
         id: true,
