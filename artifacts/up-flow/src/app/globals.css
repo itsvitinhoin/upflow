@@ -90,6 +90,26 @@
     filter: invert(0.7);
     cursor: pointer;
   }
+  select {
+    color-scheme: dark;
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
+  }
+  select option,
+  select optgroup {
+    background-color: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+  }
+  select option:checked,
+  select option:hover,
+  select option:focus {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+  select:disabled,
+  select option:disabled {
+    color: hsl(var(--muted-foreground));
+  }
 }
 
 @layer components {
