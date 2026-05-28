@@ -67,6 +67,7 @@ async function POST_handler(req: NextRequest) {
       accepted_at: true,
       workspace_id: true,
       tester_invite: true,
+      invite_mode: true,
       workspace: { select: { id: true, name: true, slug: true } },
     },
   });
@@ -135,7 +136,9 @@ async function POST_handler(req: NextRequest) {
   }
 
   let createdUserId = "";
-  const testerWorkspace = invite.workspace;
+  const joinsSourceWorkspace =
+    invite.tester_invite || invite.invite_mode === "workspace_access";
+  const sourceWorkspace = invite.workspace;
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
       data: { email, name: fullName, phone, role: "member" },
@@ -143,7 +146,7 @@ async function POST_handler(req: NextRequest) {
     });
     createdUserId = user.id;
 
-    if (invite.tester_invite) {
+    if (joinsSourceWorkspace) {
       await tx.workspaceMember.upsert({
         where: {
           workspace_id_user_id: {
@@ -166,8 +169,8 @@ async function POST_handler(req: NextRequest) {
     });
   });
 
-  const targetWorkspace = invite.tester_invite
-    ? testerWorkspace
+  const targetWorkspace = joinsSourceWorkspace
+    ? sourceWorkspace
     : await ensureOwnedWorkspace(createdUserId, fullName);
 
   const supabase = createSupabaseServerClient();

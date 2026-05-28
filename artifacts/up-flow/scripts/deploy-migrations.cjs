@@ -14,6 +14,12 @@ const baselineMigrations = [
 
 const prismaCommand = process.platform === "win32" ? "prisma.cmd" : "prisma";
 const shouldBaseline = process.env.PRISMA_BASELINE_EXISTING_DB === "1";
+const shouldRunOnVercel = process.env.RUN_PRISMA_MIGRATIONS === "1";
+
+if (process.env.VERCEL === "1" && !shouldRunOnVercel) {
+  console.log("Skipping Prisma migrations during Vercel build. Run migrations manually or set RUN_PRISMA_MIGRATIONS=1.");
+  process.exit(0);
+}
 
 function runPrisma(args, options = {}) {
   const result = spawnSync(prismaCommand, args, {

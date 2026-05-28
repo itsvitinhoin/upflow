@@ -175,6 +175,7 @@ model WorkspaceInvite {
   token         String           @unique
   invited_by    String
   tester_invite Boolean          @default(false)
+  invite_mode   String           @default("personal_workspace")
   send_status   InviteSendStatus @default(pending)
   send_error    String?
   last_sent_at  DateTime?
@@ -187,6 +188,7 @@ model WorkspaceInvite {
   @@index([workspace_id])
   @@index([email])
   @@index([tester_invite])
+  @@index([invite_mode])
   @@index([send_status])
 }
 

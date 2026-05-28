@@ -8,6 +8,7 @@ type InviteErrorCode =
   | "APP_URL_MISSING"
   | "EMAIL_NOT_CONFIGURED"
   | "EMAIL_SEND_FAILED";
+type InviteMode = "personal_workspace" | "workspace_access";
 
 export default function InviteDialog({
   open,
@@ -21,6 +22,8 @@ export default function InviteDialog({
   hideRole = false,
   workspaceId,
   testerMode = false,
+  defaultMode = "personal_workspace",
+  hideMode = false,
   onSuccess,
 }: {
   open: boolean;
@@ -34,10 +37,13 @@ export default function InviteDialog({
   hideRole?: boolean;
   workspaceId?: string;
   testerMode?: boolean;
+  defaultMode?: InviteMode;
+  hideMode?: boolean;
   onSuccess?: () => void;
 }) {
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState<"admin" | "member">(defaultRole);
+  const [inviteMode, setInviteMode] = useState<InviteMode>(defaultMode);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{
     message: string;
@@ -48,7 +54,8 @@ export default function InviteDialog({
     if (!open) return;
     setError(null);
     setRole(defaultRole);
-  }, [defaultRole, open]);
+    setInviteMode(defaultMode);
+  }, [defaultMode, defaultRole, open]);
 
   if (!open) return null;
 
@@ -71,6 +78,7 @@ export default function InviteDialog({
         body: JSON.stringify({
           emails: list,
           role,
+          mode: testerMode ? "workspace_access" : inviteMode,
           ...(workspaceId ? { workspace_id: workspaceId } : {}),
           ...(testerMode ? { tester_invite: true } : {}),
         }),
@@ -105,6 +113,11 @@ export default function InviteDialog({
       setLoading(false);
     }
   };
+  const showRoleControl = !hideRole || (!testerMode && inviteMode === "workspace_access");
+  const modeDescription =
+    inviteMode === "workspace_access"
+      ? "They join this workspace and appear as team members after accepting."
+      : "They get their own UP Flow workspace and do not see this workspace.";
 
   return (
     <div
@@ -138,7 +151,41 @@ export default function InviteDialog({
           autoFocus
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
-        {!hideRole && (
+        {!testerMode && !hideMode && (
+          <div className="mt-4">
+            <label className="block text-xs font-medium text-foreground mb-1.5">
+              Invite mode
+            </label>
+            <div className="grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setInviteMode("personal_workspace")}
+                className={`rounded-md px-3 py-2 font-medium transition ${
+                  inviteMode === "personal_workspace"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Own workspace
+              </button>
+              <button
+                type="button"
+                onClick={() => setInviteMode("workspace_access")}
+                className={`rounded-md px-3 py-2 font-medium transition ${
+                  inviteMode === "workspace_access"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                This workspace
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {modeDescription}
+            </p>
+          </div>
+        )}
+        {showRoleControl && (
           <>
             <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Role</label>
             <select

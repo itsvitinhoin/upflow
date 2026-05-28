@@ -21,6 +21,7 @@ async function GET_handler(req: NextRequest) {
       email: true,
       role: true,
       tester_invite: true,
+      invite_mode: true,
       accepted_at: true,
       last_sent_at: true,
       workspace: { select: { id: true, name: true, slug: true } },
@@ -36,8 +37,8 @@ async function GET_handler(req: NextRequest) {
 }
 
 // Accept an invite. The caller must be authenticated; if their email matches
-// the invite, normal users are switched into their own workspace. Tester
-// invites still attach to the isolated tester workspace.
+// the invite, workspace-access invites attach them to the source workspace.
+// Personal-workspace invites create or reuse the user's own workspace.
 async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
@@ -49,7 +50,7 @@ async function POST_handler(req: NextRequest) {
 
   const preview = await prisma.workspaceInvite.findUnique({
     where: { token },
-    select: { email: true, tester_invite: true },
+    select: { email: true, tester_invite: true, invite_mode: true },
   });
   if (!preview) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
   if (preview.email.toLowerCase() !== auth.prismaUser.email.toLowerCase()) {
@@ -59,7 +60,9 @@ async function POST_handler(req: NextRequest) {
     );
   }
 
-  const ownedWorkspace = preview.tester_invite
+  const joinsSourceWorkspace =
+    preview.tester_invite || preview.invite_mode === "workspace_access";
+  const ownedWorkspace = joinsSourceWorkspace
     ? null
     : await ensureOwnedWorkspace(
         auth.prismaUser.id,
@@ -78,12 +81,15 @@ async function POST_handler(req: NextRequest) {
           accepted_at: true,
           workspace_id: true,
           tester_invite: true,
+          invite_mode: true,
         },
       });
       if (!fresh) throw new Error("not_found");
       if (fresh.accepted_at) throw new Error("already_used");
 
-      if (fresh.tester_invite) {
+      const joinsWorkspace =
+        fresh.tester_invite || fresh.invite_mode === "workspace_access";
+      if (joinsWorkspace) {
         await tx.workspaceMember.upsert({
           where: {
             workspace_id_user_id: {
@@ -106,7 +112,7 @@ async function POST_handler(req: NextRequest) {
       });
       return {
         source_workspace_id: fresh.workspace_id,
-        target_workspace_id: fresh.tester_invite ? fresh.workspace_id : ownedWorkspace!.id,
+        target_workspace_id: joinsWorkspace ? fresh.workspace_id : ownedWorkspace!.id,
       };
     });
   } catch (e) {

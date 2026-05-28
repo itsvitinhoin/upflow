@@ -92,23 +92,23 @@
   }
   select {
     color-scheme: dark;
-    background-color: hsl(var(--card));
-    color: hsl(var(--foreground));
+    background-color: hsl(var(--card)) !important;
+    color: hsl(var(--foreground)) !important;
   }
   select option,
   select optgroup {
-    background-color: hsl(var(--popover));
-    color: hsl(var(--popover-foreground));
+    background-color: hsl(var(--popover)) !important;
+    color: hsl(var(--popover-foreground)) !important;
   }
   select option:checked,
   select option:hover,
   select option:focus {
-    background-color: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
   }
   select:disabled,
   select option:disabled {
-    color: hsl(var(--muted-foreground));
+    color: hsl(var(--muted-foreground)) !important;
   }
 }
 

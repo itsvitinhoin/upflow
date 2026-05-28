@@ -8,6 +8,7 @@ interface InviteInfo {
   email: string;
   role: "owner" | "admin" | "member";
   tester_invite?: boolean;
+  invite_mode?: "personal_workspace" | "workspace_access";
   last_sent_at?: string | null;
   workspace: { id: string; name: string };
   inviter: { name: string; email: string } | null;
@@ -150,16 +151,18 @@ export default function AcceptInvitePage({
         )}
         {info && (
           <>
-            {info.tester_invite && (
+            {(info.tester_invite || info.invite_mode === "workspace_access") && (
               <p className="mb-3 inline-flex rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                Tester workspace
+                {info.tester_invite ? "Tester workspace" : "Workspace access"}
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-1">
               {info.inviter?.name || "Someone"} invited you to use
             </p>
             <p className="text-lg font-medium text-foreground mb-4">
-              Up Flow
+              {info.invite_mode === "workspace_access" || info.tester_invite
+                ? info.workspace.name
+                : "Up Flow"}
             </p>
             <p className="text-xs text-muted-foreground mb-6">
               Invite for <span className="text-foreground">{info.email}</span>
@@ -170,6 +173,12 @@ export default function AcceptInvitePage({
                 This invite opens an isolated UP Flow test workspace with demo
                 projects, clients, meetings, docs, and tasks. It does not grant
                 access to real client workspaces.
+                </>
+              ) : info.invite_mode === "workspace_access" ? (
+                <>
+                  This invite adds you to {info.workspace.name}. After accepting,
+                  you will appear as a team member and can work with real
+                  workspace projects, tasks, calendar events, and clients.
                 </>
               ) : (
                 <>

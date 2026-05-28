@@ -15,6 +15,7 @@ type InviteFailureCode =
   | "APP_URL_MISSING"
   | "EMAIL_NOT_CONFIGURED"
   | "EMAIL_SEND_FAILED";
+type InviteMode = "workspace_access" | "personal_workspace";
 
 function generateToken(): string {
   return randomBytes(24).toString("base64url");
@@ -66,6 +67,7 @@ async function GET_handler(req: NextRequest) {
       role: true,
       token: true,
       tester_invite: true,
+      invite_mode: true,
       send_status: true,
       send_error: true,
       last_sent_at: true,
@@ -96,6 +98,7 @@ async function POST_handler(req: NextRequest) {
     role?: "admin" | "member";
     workspace_id?: string;
     tester_invite?: boolean;
+    mode?: InviteMode;
   };
   const emails = (body.emails || [])
     .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
@@ -123,8 +126,15 @@ async function POST_handler(req: NextRequest) {
   }
   const targetWorkspaceId = body.workspace_id?.trim() || auth.currentWorkspaceId;
   const testerInvite = body.tester_invite === true;
+  const inviteMode: InviteMode = testerInvite
+    ? "workspace_access"
+    : body.mode === "workspace_access"
+      ? "workspace_access"
+      : "personal_workspace";
   const role: "admin" | "member" =
-    testerInvite && body.role === "admin" ? "admin" : "member";
+    inviteMode === "workspace_access" && body.role === "admin"
+      ? "admin"
+      : "member";
 
   if (!targetWorkspaceId || !isWorkspaceAdminFor(auth, targetWorkspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -182,6 +192,7 @@ async function POST_handler(req: NextRequest) {
           workspace_id: targetWorkspaceId,
           email,
           role,
+          invite_mode: inviteMode,
           accepted_at: null,
         },
         select: {
@@ -190,6 +201,7 @@ async function POST_handler(req: NextRequest) {
           role: true,
           token: true,
           tester_invite: true,
+          invite_mode: true,
           send_status: true,
           send_error: true,
           last_sent_at: true,
@@ -200,7 +212,13 @@ async function POST_handler(req: NextRequest) {
       if (existing && testerInvite && !existing.tester_invite) {
         await prisma.workspaceInvite.update({
           where: { id: existing.id },
-          data: { tester_invite: true },
+          data: { tester_invite: true, invite_mode: inviteMode },
+        });
+      }
+      if (existing && existing.invite_mode !== inviteMode) {
+        await prisma.workspaceInvite.update({
+          where: { id: existing.id },
+          data: { invite_mode: inviteMode },
         });
       }
       const invite =
@@ -213,6 +231,7 @@ async function POST_handler(req: NextRequest) {
             token: generateToken(),
             invited_by: auth.prismaUser.id,
             tester_invite: testerInvite,
+            invite_mode: inviteMode,
           },
           select: {
             id: true,
@@ -220,6 +239,7 @@ async function POST_handler(req: NextRequest) {
             role: true,
             token: true,
             tester_invite: true,
+            invite_mode: true,
             send_status: true,
             send_error: true,
             last_sent_at: true,
@@ -229,6 +249,7 @@ async function POST_handler(req: NextRequest) {
         }));
       return {
         ...invite,
+        invite_mode: inviteMode,
         accept_url: `${origin}/invite/${invite.token}`,
         reused: existing !== null,
       };
@@ -241,7 +262,8 @@ async function POST_handler(req: NextRequest) {
   let mailed = 0;
   for (const invite of created) {
     const rendered = inviteEmail({
-      workspaceName: testerInvite ? workspace?.name ?? "your team" : "Up Flow",
+      workspaceName:
+        inviteMode === "workspace_access" ? workspace?.name ?? "your workspace" : "Up Flow",
       inviterName,
       inviterEmail,
       acceptUrl: invite.accept_url,
@@ -264,6 +286,7 @@ async function POST_handler(req: NextRequest) {
           send_error: null,
           last_sent_at: new Date(),
           ...(testerInvite ? { tester_invite: true } : {}),
+          invite_mode: inviteMode,
         },
       });
       continue;
@@ -286,6 +309,7 @@ async function POST_handler(req: NextRequest) {
           send_status: "failed",
           send_error: result.error || "Email provider rejected the invite.",
           ...(testerInvite ? { tester_invite: true } : {}),
+          invite_mode: inviteMode,
         },
       });
     }

@@ -22,6 +22,14 @@ const emailStatusRoute = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "email", "status", "route.ts"),
   "utf8",
 );
+const adminHealthRoute = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "api", "admin", "health", "route.ts"),
+  "utf8",
+);
+const adminHealthPage = readFileSync(
+  join(__dirname, "..", "..", "src", "app", "(dashboard)", "admin", "health", "page.tsx"),
+  "utf8",
+);
 const testerWorkspaceRoute = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "testers", "workspace", "route.ts"),
   "utf8",
@@ -103,25 +111,45 @@ test("team page makes real workspace user invites the primary flow", () => {
   assert.match(teamPage, /Invite real users to Up Flow/);
   assert.match(teamPage, /Send official invitations/);
   assert.match(teamPage, /Send user invites/);
-  assert.match(teamPage, /Each person gets their own UP Flow workspace/);
-  assert.match(teamPage, /They will not get access to/);
+  assert.match(teamPage, /own\s+UP Flow workspace/);
+  assert.match(teamPage, /join\s+\{workspace\?\.name/);
+  assert.match(inviteDialog, /Own workspace/);
+  assert.match(inviteDialog, /This workspace/);
   assert.match(inviteDialog, /hideRole/);
   assert.match(teamPage, /Sandbox tester tools/);
 });
 
-test("normal invite acceptance provisions personal workspaces instead of source workspace membership", () => {
+test("invite modes support personal workspaces and current workspace access", () => {
   assert.match(workspaceLib, /ensureOwnedWorkspace/);
   assert.doesNotMatch(workspaceLib, /where:\s*\{\s*slug:\s*"acme"\s*\}/);
+  assert.match(schema, /invite_mode\s+String\s+@default\("personal_workspace"\)/);
+  assert.match(route, /mode\?:\s*InviteMode/);
+  assert.match(route, /const inviteMode:\s*InviteMode = testerInvite/);
+  assert.match(route, /invite_mode:\s*inviteMode/);
+  assert.match(route, /body\.mode === "workspace_access"/);
   assert.match(acceptRoute, /ensureOwnedWorkspace/);
   assert.match(acceptRoute, /source_workspace_id/);
   assert.match(acceptRoute, /target_workspace_id/);
-  assert.match(acceptRoute, /fresh\.tester_invite/);
+  assert.match(acceptRoute, /fresh\.invite_mode === "workspace_access"/);
   assert.match(inviteRegisterRoute, /ensureOwnedWorkspace/);
   assert.match(inviteRegisterRoute, /source_workspace_id/);
-  assert.match(inviteRegisterRoute, /invite\.tester_invite/);
+  assert.match(inviteRegisterRoute, /invite\.invite_mode === "workspace_access"/);
   assert.match(inviteReconciliation, /tester_invite:\s*true/);
   assert.match(acceptPage, /your own UP Flow workspace/);
+  assert.match(acceptPage, /This invite adds you to/);
   assert.match(acceptPage, /without receiving access to/);
+});
+
+test("admin health exposes actionable production diagnostics without secrets", () => {
+  assert.match(adminHealthRoute, /isWorkspaceAdmin/);
+  assert.match(adminHealthRoute, /Database unreachable/);
+  assert.match(adminHealthRoute, /NEXT_PUBLIC_SUPABASE_URL/);
+  assert.match(adminHealthRoute, /RESEND_API_KEY/);
+  assert.match(adminHealthRoute, /APP_URL/);
+  assert.match(adminHealthRoute, /"_prisma_migrations"/);
+  assert.doesNotMatch(adminHealthRoute, /process\.env\.RESEND_API_KEY\s*,/);
+  assert.match(adminHealthPage, /UP Flow admin health/);
+  assert.match(adminHealthPage, /\/api\/admin\/health/);
 });
 
 test("tester invites remain available as optional sandbox tools", () => {

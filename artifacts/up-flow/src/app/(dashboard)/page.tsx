@@ -136,18 +136,28 @@ export default function DashboardPage() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [updating, setUpdating] = useState(false);
   const [greeting, setGreeting] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     setGreeting(greetingTime());
   }, []);
 
   const loadData = () => {
+    setLoadError(null);
     fetch("/api/dashboard/summary")
-      .then(
-        (r) =>
-          r.json() as Promise<DashboardResponse>,
-      )
+      .then(async (r) => {
+        const data = (await r.json().catch(() => ({}))) as DashboardResponse & {
+          error?: string;
+        };
+        if (!r.ok) {
+          throw new Error(data.error || `Dashboard unavailable (${r.status})`);
+        }
+        return data;
+      })
       .then((data) => {
+        if (!data.command_center) {
+          throw new Error("Dashboard summary is missing command center data");
+        }
         setTasks(data.tasks.items ?? []);
         setProjects(data.projects.items ?? []);
         setUsers(data.users.items ?? []);
@@ -158,7 +168,10 @@ export default function DashboardPage() {
         setCommandCenter(data.command_center ?? null);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err: unknown) => {
+        setLoadError(err instanceof Error ? err.message : "Dashboard unavailable");
+        setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -296,6 +309,38 @@ export default function DashboardPage() {
       setUpdating(false);
     }
   };
+
+  if (loadError && !commandCenter) {
+    return (
+      <>
+        <Header title={t("dashboard.title")} />
+        <main className="mx-auto w-full max-w-3xl p-4 sm:p-6">
+          <section className="rounded-2xl border border-upflow-danger/30 bg-upflow-danger/10 p-5">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="mt-1 h-5 w-5 flex-shrink-0 text-upflow-danger" />
+              <div>
+                <h1 className="text-lg font-semibold text-foreground">
+                  Dashboard data could not load
+                </h1>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {loadError}. Check database connectivity, workspace access, and
+                  the dashboard summary API.
+                </p>
+                <button
+                  type="button"
+                  onClick={loadData}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Retry
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
+      </>
+    );
+  }
 
   return (
     <>
@@ -1380,7 +1425,7 @@ function CommandCenterDrawer({
                 >
                   <p className="text-sm font-medium text-foreground">{task.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {task.project?.name ?? "No project"} {task.due_date ? `Â· ${formatDate(task.due_date)}` : ""}
+                    {task.project?.name ?? "No project"} {task.due_date ? `· ${formatDate(task.due_date)}` : ""}
                   </p>
                 </button>
               ))
@@ -1399,7 +1444,7 @@ function CommandCenterDrawer({
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {item.open_tasks} open Â· {item.overdue_tasks} overdue Â· {formatSecondsShort(item.tracked_seconds_today)} today
+                  {item.open_tasks} open · {item.overdue_tasks} overdue · {formatSecondsShort(item.tracked_seconds_today)} today
                 </p>
               </div>
             ))}
@@ -1514,7 +1559,7 @@ function CommandCenterDrawer({
                   className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
                 >
                   <p className="text-sm font-medium text-foreground">{project.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" Â· ")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" · ")}</p>
                 </Link>
               ))
             ))}

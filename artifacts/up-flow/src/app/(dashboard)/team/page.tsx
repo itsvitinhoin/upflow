@@ -37,6 +37,7 @@ interface PendingInvite {
   role: "admin" | "member";
   token: string;
   tester_invite?: boolean;
+  invite_mode?: "personal_workspace" | "workspace_access";
   send_status?: "pending" | "sent" | "failed";
   send_error?: string | null;
   last_sent_at?: string | null;
@@ -985,12 +986,13 @@ export default function TeamPage() {
           title="Invite users to Up Flow"
           description={
             workspace?.name
-              ? `We'll email each address an invitation link. Each person gets their own UP Flow workspace; they will not receive access to ${workspace.name}.`
-              : "We'll email each address an invitation link. Each person gets their own UP Flow workspace."
+              ? `Choose whether each person gets their own UP Flow workspace or joins ${workspace.name} as a team member.`
+              : "Choose whether each person gets their own UP Flow workspace or joins the current workspace."
           }
           submitLabel="Send user invites"
           successLabel="Invited"
           defaultRole="member"
+          defaultMode="personal_workspace"
           hideRole
           onClose={() => {
             setInviteOpen(false);
@@ -1072,9 +1074,9 @@ function RealUserInvitePanel({
             </span>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Send official invitations so users can sign up and start in their own
-            workspace with real tasks, Spaces, calendar events, clients, and
-            notifications. They will not get access to {workspace?.name ?? "this workspace"}.
+            Send official invitations for two clear paths: users can get their own
+            UP Flow workspace, or they can join {workspace?.name ?? "this workspace"}
+            and appear here as team members after accepting.
           </p>
         </div>
         <button

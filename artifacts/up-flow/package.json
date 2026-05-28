@@ -5,8 +5,8 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p $PORT",
-    "build": "prisma migrate deploy && prisma generate && next build",
-    "start": "prisma migrate deploy && next start -H 0.0.0.0 -p $PORT",
+    "build": "prisma generate && next build",
+    "start": "next start -H 0.0.0.0 -p $PORT",
     "typecheck": "tsc --noEmit",
     "lint": "next lint --max-warnings=0",
     "db:generate": "prisma generate",
