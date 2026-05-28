@@ -14,6 +14,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next({ request: { headers: req.headers } });
   }
 
+  const isLoginPage = pathname === "/login";
+  // Public, unauthenticated pages: login + the password-recovery flow +
+  // the invite landing page (lets a logged-out invitee click the email
+  // link and sign up before joining).
+  const isPublicAuthPage =
+    isLoginPage ||
+    pathname === "/auth/forgot" ||
+    pathname === "/auth/reset" ||
+    pathname.startsWith("/invite/");
+
   let response = NextResponse.next({ request: { headers: req.headers } });
   const cookieMutations: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
@@ -31,42 +41,44 @@ export async function middleware(req: NextRequest) {
     : null;
 
   if (!user) {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return req.cookies.getAll().map(({ name, value }) => ({ name, value }));
-          },
-          setAll(cookiesToSet) {
-            for (const { name, value, options } of cookiesToSet) {
-              const opts: CookieOptions = options ?? {};
-              cookieMutations.push({ name, value, options: opts });
-              response.cookies.set({ name, value, ...opts });
-            }
-          },
-        },
-      }
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+    const hasValidSupabaseUrl =
+      Boolean(supabaseUrl) && (supabaseUrl!.startsWith("https://") || supabaseUrl!.startsWith("http://"));
 
-    try {
-      const got = await supabase.auth.getUser();
-      user = got.data.user;
-    } catch {
-      user = null;
+    if (hasValidSupabaseUrl && supabaseAnonKey) {
+      try {
+        const supabase = createServerClient(
+          supabaseUrl!,
+          supabaseAnonKey,
+          {
+            cookies: {
+              getAll() {
+                return req.cookies.getAll().map(({ name, value }) => ({ name, value }));
+              },
+              setAll(cookiesToSet) {
+                for (const { name, value, options } of cookiesToSet) {
+                  const opts: CookieOptions = options ?? {};
+                  cookieMutations.push({ name, value, options: opts });
+                  response.cookies.set({ name, value, ...opts });
+                }
+              },
+            },
+          }
+        );
+
+        const got = await supabase.auth.getUser();
+        user = got.data.user;
+      } catch {
+        user = null;
+      }
+    } else if (!isPublicAuthPage) {
+      const loginUrl = req.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      return NextResponse.redirect(loginUrl);
     }
   }
 
-  const isLoginPage = pathname === "/login";
-  // Public, unauthenticated pages: login + the password-recovery flow +
-  // the invite landing page (lets a logged-out invitee click the email
-  // link and sign up before joining).
-  const isPublicAuthPage =
-    isLoginPage ||
-    pathname === "/auth/forgot" ||
-    pathname === "/auth/reset" ||
-    pathname.startsWith("/invite/");
   if (!user && !isPublicAuthPage) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = "/login";
