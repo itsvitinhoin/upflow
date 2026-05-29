@@ -35,7 +35,16 @@ import {
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
-import { cn, formatDate, getInitials, isOverdue, priorityColor } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatLongDate,
+  formatShortDate,
+  formatTime,
+  getInitials,
+  isOverdue,
+  priorityColor,
+} from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import InviteDialog from "@/components/dashboard/invite-dialog";
@@ -390,10 +399,7 @@ export default function DashboardPage() {
                       label={t("dashboard.nextMeeting")}
                       value={
                         nextMeeting
-                          ? new Date(nextMeeting.starts_at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
+                          ? formatTime(nextMeeting.starts_at)
                           : t("dashboard.noneToday")
                       }
                     />
@@ -1016,10 +1022,7 @@ function TodayFocusPanel({
                         {meeting.title}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(meeting.starts_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatTime(meeting.starts_at)}
                       </span>
                     </span>
                     <CalendarIcon className="h-4 w-4 shrink-0 text-primary" />
@@ -2019,13 +2022,7 @@ function TeamTimeline({
   useEffect(() => {
     const now = new Date();
     setCurrentHour(now.getHours());
-    setTodayLabel(
-      now.toLocaleDateString(undefined, {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      }),
-    );
+    setTodayLabel(formatLongDate(now));
   }, []);
 
   useEffect(() => {
@@ -2280,7 +2277,7 @@ function dashboardWhen(value: string) {
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatShortDate(value);
 }
 
 function dashboardActivityText(event: ActivityEvent) {
@@ -2403,10 +2400,7 @@ function RightPanel({
         .filter((meeting) => sameLocalDate(new Date(meeting.starts_at), new Date()))
         .map((meeting) => ({
           id: meeting.id,
-          time: new Date(meeting.starts_at).toLocaleTimeString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
+          time: formatTime(meeting.starts_at),
           title: meeting.title,
           event: meeting,
         }))

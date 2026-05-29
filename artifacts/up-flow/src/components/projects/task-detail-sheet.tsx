@@ -8,6 +8,7 @@ import {
 import { cn, formatDate, getInitials } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
+import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
 import { parseTaskBrief } from "@/lib/task-templates";
@@ -290,10 +291,10 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             </div>
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
               <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.dueDate")}</span>
-              <input
-                type="date"
-                defaultValue={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
-                onBlur={(e) => update({ due_date: e.target.value || null })}
+              <BrazilianDateInput
+                value={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
+                onChange={() => {}}
+                onCommit={(value) => update({ due_date: value || null })}
                 className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>

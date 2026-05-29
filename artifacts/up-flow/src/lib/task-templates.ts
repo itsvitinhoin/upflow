@@ -6,6 +6,7 @@ export type TaskTemplateId =
   | "commercial"
   | "finance"
   | "production"
+  | "technical_support"
   | "admin";
 
 export interface TaskTemplateField {
@@ -123,6 +124,29 @@ export const TASK_TEMPLATES: TaskTemplate[] = [
       "Editing complete",
       "Review approved",
       "Delivered or published",
+    ],
+  },
+  {
+    id: "technical_support",
+    label: "Technical Support",
+    description: "Support tickets, bug reports, access issues, escalations, and resolution notes.",
+    fields: [
+      { key: "client", label: "Client / requester", placeholder: "Client, team member, or department" },
+      { key: "issue_type", label: "Issue type", placeholder: "Bug, access, setup, request, question" },
+      { key: "severity", label: "Severity / SLA", placeholder: "Critical, high, normal, low; response deadline" },
+      { key: "system", label: "System / platform", placeholder: "Website, Meta, GA4, Vesti, CRM, email, UP Flow" },
+      { key: "impact", label: "Impact", placeholder: "Who is blocked and what work is affected?", kind: "textarea" },
+      { key: "reproduction", label: "Steps / evidence", placeholder: "Steps, screenshots, links, error messages", kind: "textarea" },
+      { key: "resolution", label: "Resolution notes", placeholder: "Fix applied, workaround, or next escalation", kind: "textarea" },
+    ],
+    checklist: [
+      "Classify severity",
+      "Confirm requester and affected client",
+      "Collect evidence",
+      "Assign owner",
+      "Communicate status",
+      "Resolve or escalate",
+      "Confirm with requester",
     ],
   },
   {

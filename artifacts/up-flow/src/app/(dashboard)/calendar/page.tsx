@@ -6,14 +6,14 @@ import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X, Trash2, Pencil } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatLongDate, formatTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sab", "Dom"];
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
 function isSameDay(a: Date, b: Date) {
@@ -37,10 +37,7 @@ function startOfMonthGrid(year: number, month: number) {
 }
 
 function eventTime(event: CalendarEvent) {
-  return new Date(event.starts_at).toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatTime(event.starts_at);
 }
 
 function toTimeInput(value: string) {
@@ -304,11 +301,7 @@ export default function CalendarPage() {
               {selectedIsToday ? "Today" : "Selected"}
             </p>
             <h3 className="text-lg font-semibold text-foreground mt-1">
-              {selected.toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              })}
+              {formatLongDate(selected)}
             </h3>
             {manageEvents && (
               <button

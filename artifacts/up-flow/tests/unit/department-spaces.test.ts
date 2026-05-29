@@ -25,6 +25,17 @@ test("department space presets include all requested departments with emojis and
       assert.ok(departmentSpacesSource.includes(value), `missing ${value}`);
     }
   }
+
+  for (const value of [
+    "Technical Support",
+    "Support Tickets",
+    "Bug Reports",
+    "Access Issues",
+    "Client Requests",
+    "Resolved",
+  ]) {
+    assert.ok(departmentSpacesSource.includes(value), `missing ${value}`);
+  }
 });
 
 test("department setup is idempotent and wired into workspace/sidebar load paths", () => {

@@ -9,6 +9,7 @@ export type DepartmentSpaceKey =
   | "creative_design"
   | "finance"
   | "production"
+  | "technical_support"
   | "general_admin";
 
 export interface DepartmentSpacePreset {
@@ -130,6 +131,23 @@ export const DEPARTMENT_SPACE_PRESETS: DepartmentSpacePreset[] = [
       activity: "Shoot, editing, and publishing activity",
       risk: "Production work overdue, blocked, or waiting delivery",
       empty: "Create a production list to manage shoots, editing, publishing, and deliverables.",
+    },
+  },
+  {
+    department_key: "technical_support",
+    name: "Technical Support",
+    emoji: "🛠️",
+    description: "Support tickets, bug reports, access issues, client requests, and resolutions.",
+    starter_lists: ["Support Tickets", "Bug Reports", "Access Issues", "Client Requests", "Resolved"],
+    default_task_template_id: "technical_support",
+    dashboard_focus_labels: {
+      urgent: "Critical tickets, access issues, and client requests needing action",
+      workload: "Support workload by owner",
+      time: "Tracked on support and troubleshooting",
+      meetings: "Support calls and escalation meetings",
+      activity: "Ticket, bug, and access activity",
+      risk: "Support work overdue, unresolved, or waiting escalation",
+      empty: "Create a support list to manage tickets, bugs, access issues, and client requests.",
     },
   },
   {

@@ -23,7 +23,7 @@ import {
 import Header from "@/components/layout/header";
 import InviteDialog from "@/components/dashboard/invite-dialog";
 import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
-import { cn, getInitials } from "@/lib/utils";
+import { cn, formatTime, getInitials } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
 import {
   DEPARTMENT_COLORS,
@@ -526,20 +526,20 @@ export default function TeamPage() {
         setEmailTestStatus({
           ok: false,
           message: json.error || "Email provider rejected the test message.",
-          checkedAt: new Date().toLocaleTimeString(),
+          checkedAt: formatTime(new Date()),
         });
         return;
       }
       setEmailTestStatus({
         ok: true,
         message: `Test email accepted for ${json.recipient || "your admin email"}.`,
-        checkedAt: new Date().toLocaleTimeString(),
+        checkedAt: formatTime(new Date()),
       });
     } catch {
       setEmailTestStatus({
         ok: false,
         message: "Could not send the test email.",
-        checkedAt: new Date().toLocaleTimeString(),
+        checkedAt: formatTime(new Date()),
       });
     } finally {
       setTestingEmail(false);

@@ -40,7 +40,14 @@ import type {
   TimeEntry,
 } from "@/lib/types";
 import type { DepartmentSpacePreset } from "@/lib/department-spaces";
-import { cn, formatDate, priorityColor } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatDateTime as formatBrazilianDateTime,
+  formatLongDate,
+  formatTime,
+  priorityColor,
+} from "@/lib/utils";
 
 type ContainerList = Pick<Project, "id" | "name">;
 type SpaceTab = "dashboard" | "browse";
@@ -802,6 +809,12 @@ function getDepartmentDashboardTheme(key?: DepartmentSpacePreset["department_key
       badge: "border-orange-300/30 bg-orange-400/10 text-orange-200",
       accent: "bg-orange-300",
     },
+    technical_support: {
+      container: "border-cyan-400/25 bg-[linear-gradient(135deg,rgba(34,211,238,0.15),rgba(59,130,246,0.1),rgba(255,255,255,0.03))]",
+      icon: "border-cyan-300/30 bg-cyan-400/15 text-cyan-200",
+      badge: "border-cyan-300/30 bg-cyan-400/10 text-cyan-200",
+      accent: "bg-cyan-300",
+    },
     general_admin: {
       container: "border-slate-300/20 bg-[linear-gradient(135deg,rgba(148,163,184,0.15),rgba(124,92,255,0.08),rgba(255,255,255,0.03))]",
       icon: "border-slate-300/25 bg-slate-300/15 text-slate-200",
@@ -1120,13 +1133,7 @@ function SpaceTaskTimeline({
   useEffect(() => {
     const now = new Date();
     setCurrentHour(now.getHours());
-    setTodayLabel(
-      now.toLocaleDateString(undefined, {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-      }),
-    );
+    setTodayLabel(formatLongDate(now));
   }, []);
 
   const timelineItems = useMemo<TaskTimelineItem[]>(() => {
@@ -1263,10 +1270,7 @@ function SpaceTaskTimeline({
                         ))}
                       </div>
                       <div
-                        title={`${task.title} · ${overdue ? "Overdue" : due.toLocaleTimeString(undefined, {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}`}
+                        title={`${task.title} · ${overdue ? "Overdue" : formatTime(due)}`}
                         className={cn(
                           "absolute top-1 bottom-1 flex items-center rounded-md border-l-2 px-2 text-[10px] font-medium transition-opacity",
                           taskTimelineClass(task, overdue),
@@ -1736,12 +1740,7 @@ function entrySeconds(entry: TimeEntry) {
 }
 
 function formatDateTime(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatBrazilianDateTime(value);
 }
 
 function humanize(value: string) {

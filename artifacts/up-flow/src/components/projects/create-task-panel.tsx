@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
+import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
 
@@ -213,10 +214,9 @@ export default function CreateTaskPanel({
               </select>
             </Row>
             <Row label={t("toolbar.dueDate")}>
-              <input
-                type="date"
+              <BrazilianDateInput
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={setDueDate}
                 className="text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </Row>

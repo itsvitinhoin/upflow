@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
+import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 
 interface NewProjectDialogProps {
   open: boolean;
@@ -116,10 +117,9 @@ export default function NewProjectDialog({
             <label className="block text-sm font-medium text-foreground mb-1.5">
               {t("projects.dueDate")}
             </label>
-            <input
-              type="date"
+            <BrazilianDateInput
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={setDueDate}
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

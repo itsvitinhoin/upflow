@@ -8,6 +8,7 @@ import type { Project, TaskAssignee } from "@/lib/types";
 import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
 import { useLanguage } from "@/components/language-provider";
+import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 
 interface NewTaskDialogProps {
   open: boolean;
@@ -225,10 +226,9 @@ export default function NewTaskDialog({
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.dueDate")}</label>
-            <input
-              type="date"
+            <BrazilianDateInput
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={setDueDate}
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>

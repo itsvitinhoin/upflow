@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  APP_LOCALE,
+  APP_TIME_ZONE,
+  formatDate,
+  formatIsoDateInput,
+  formatLongDate,
+  formatTime,
+  maskBrazilianDateInput,
+  parseBrazilianDateInput,
+} from "../../src/lib/utils";
+
+const SAMPLE_UTC = "2026-05-28T12:30:00.000Z";
+
+test("shared date helpers use Brazilian locale and Sao Paulo timezone", () => {
+  assert.equal(APP_LOCALE, "pt-BR");
+  assert.equal(APP_TIME_ZONE, "America/Sao_Paulo");
+  assert.equal(formatDate(SAMPLE_UTC), "28/05/2026");
+  assert.equal(formatTime(SAMPLE_UTC), "09:30");
+});
+
+test("long dates render with Brazilian month and weekday names", () => {
+  const label = formatLongDate(SAMPLE_UTC).toLowerCase();
+
+  assert.match(label, /quinta-feira/);
+  assert.match(label, /maio/);
+});
+
+test("Brazilian date inputs mask and parse dd/mm/aaaa values", () => {
+  assert.equal(maskBrazilianDateInput("28052026"), "28/05/2026");
+  assert.equal(formatIsoDateInput("2026-05-28"), "28/05/2026");
+  assert.equal(parseBrazilianDateInput("28/05/2026"), "2026-05-28");
+  assert.equal(parseBrazilianDateInput("31/02/2026"), "invalid");
+});

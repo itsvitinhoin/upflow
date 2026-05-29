@@ -14,7 +14,7 @@ import {
   ArrowRightCircle,
   AtSign,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -91,7 +91,7 @@ function timeAgo(iso: string) {
   if (h < 24) return `${h}h ago`;
   const d = Math.floor(h / 24);
   if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
+  return formatDate(iso);
 }
 
 export default function InboxPage() {

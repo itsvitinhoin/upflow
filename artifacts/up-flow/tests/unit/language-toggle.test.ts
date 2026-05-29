@@ -51,6 +51,7 @@ test("dashboard and project task surfaces use translation keys", () => {
   assert.match(provider, /"toolbar\.board": "Quadro"/);
   assert.match(provider, /"task\.createTask": "Criar tarefa"/);
   assert.match(provider, /"taskTemplate\.creative\.label": "Criativo \/ Design"/);
+  assert.match(provider, /"taskTemplate\.technical_support\.label": "Suporte tecnico"/);
   assert.match(dashboard, /t\("dashboard\.commandCenter"\)/);
   assert.match(dashboard, /t\("dashboard\.todayFocus"\)/);
   assert.match(projectPage, /t\("projects\.addTask"\)/);

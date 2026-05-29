@@ -12,6 +12,7 @@ import {
 import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
+import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import type {
   CustomFieldDefinition,
   Task,
@@ -261,15 +262,13 @@ function renderStandardCell(
     return (
       <div className="flex items-center gap-1">
         <Calendar className="h-3 w-3 flex-shrink-0" />
-        <input
-          type="date"
+        <BrazilianDateInput
           value={t.due_date ? t.due_date.slice(0, 10) : ""}
-          onChange={(e) =>
-            updateTask(t.id, { due_date: e.target.value || null })
-          }
+          onChange={() => {}}
+          onCommit={(value) => updateTask(t.id, { due_date: value || null })}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "max-w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-border focus:outline-none focus:ring-2 focus:ring-ring",
+            "w-[82px] max-w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-border focus:outline-none focus:ring-2 focus:ring-ring",
             isOverdue(t.due_date) && t.status !== "done" && "text-upflow-danger",
           )}
         />

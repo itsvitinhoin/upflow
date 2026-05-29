@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Video } from "lucide-react";
 import type { CalendarEvent } from "@/lib/types";
+import { formatLongDate } from "@/lib/utils";
 
 const COLORS = [
   "bg-primary/20 text-primary",
@@ -119,11 +120,7 @@ export default function ScheduleMeetingDialog({
         />
         {initialDate && (
           <p className="mt-2 text-xs text-muted-foreground">
-            {initialDate.toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
+            {formatLongDate(initialDate)}
           </p>
         )}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

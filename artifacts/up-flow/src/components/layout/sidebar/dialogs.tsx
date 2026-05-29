@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
+import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 
 type FolderTarget =
   | { kind: "space"; space: Space }
@@ -458,10 +459,9 @@ export function NewListDialog({
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
           Due date <span className="text-muted-foreground font-normal">(optional)</span>
         </label>
-        <input
-          type="date"
+        <BrazilianDateInput
           value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
+          onChange={setDueDate}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         <div className="mt-6 grid gap-2 sm:flex">

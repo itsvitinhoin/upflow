@@ -199,6 +199,7 @@ const translations: Record<Language, Record<string, string>> = {
     "taskTemplate.commercial.label": "Commercial",
     "taskTemplate.finance.label": "Finance",
     "taskTemplate.production.label": "Production",
+    "taskTemplate.technical_support.label": "Technical Support",
     "taskTemplate.admin.label": "General Admin",
     "taskTemplate.general.description": "Simple work item with flexible notes.",
     "taskTemplate.creative.description": "Asset production, design, and approval work.",
@@ -207,6 +208,7 @@ const translations: Record<Language, Record<string, string>> = {
     "taskTemplate.commercial.description": "Sales, proposals, contracts, follow-up, and commissions.",
     "taskTemplate.finance.description": "Invoices, payments, commissions, expenses, and cashflow.",
     "taskTemplate.production.description": "Shoots, editing, publishing, deliverables, and production handoffs.",
+    "taskTemplate.technical_support.description": "Support tickets, bug reports, access issues, escalations, and resolution notes.",
     "taskTemplate.admin.description": "Internal operations, access, documents, suppliers, and approvals.",
   },
   "pt-BR": {
@@ -392,6 +394,7 @@ const translations: Record<Language, Record<string, string>> = {
     "taskTemplate.commercial.label": "Comercial",
     "taskTemplate.finance.label": "Financeiro",
     "taskTemplate.production.label": "Producao",
+    "taskTemplate.technical_support.label": "Suporte tecnico",
     "taskTemplate.admin.label": "Administrativo geral",
     "taskTemplate.general.description": "Item simples de trabalho com notas flexiveis.",
     "taskTemplate.creative.description": "Producao de assets, design e aprovacoes.",
@@ -400,6 +403,7 @@ const translations: Record<Language, Record<string, string>> = {
     "taskTemplate.commercial.description": "Vendas, propostas, contratos, follow-up e comissoes.",
     "taskTemplate.finance.description": "Notas, pagamentos, comissoes, despesas e caixa.",
     "taskTemplate.production.description": "Gravacoes, edicao, publicacao, entregaveis e handoffs.",
+    "taskTemplate.technical_support.description": "Tickets de suporte, bugs, acessos, escalacoes e notas de resolucao.",
     "taskTemplate.admin.description": "Operacoes internas, acessos, documentos, fornecedores e aprovacoes.",
   },
 };
