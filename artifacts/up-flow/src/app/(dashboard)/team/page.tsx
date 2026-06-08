@@ -637,10 +637,10 @@ export default function TeamPage() {
           />
         )}
 
-        {isAdmin && (
+        {isSuperAdmin && (
           <details className="mb-4 rounded-xl border border-border bg-card/50 p-3">
             <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-              Sandbox tester tools
+              Sandbox tester tools · super admin only
             </summary>
             <div className="mt-3">
               <TesterInvitePanel

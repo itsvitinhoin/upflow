@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+function read(rel: string) {
+  return readFileSync(join(__dirname, "..", "..", rel), "utf8");
+}
+
 const route = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "invites", "route.ts"),
   "utf8",
@@ -166,6 +170,18 @@ test("tester invites remain available as optional sandbox tools", () => {
   assert.match(teamPage, /loadTeamOverview\(testerWorkspace\.id\)/);
   assert.match(teamPage, /View tester members/);
   assert.match(route, /reconcileAcceptedWorkspaceInvites\(targetWorkspaceId\)/);
+});
+
+test("tester reset is super-admin only and limited to sandbox tester accounts", () => {
+  const testerResetRoute = read("src/app/api/testers/reset/route.ts");
+
+  assert.match(testerResetRoute, /isSuperAdmin/);
+  assert.doesNotMatch(testerResetRoute, /isWorkspaceAdmin/);
+  assert.match(testerResetRoute, /TESTER_WORKSPACE_SLUG/);
+  assert.match(testerResetRoute, /tester_invite:\s*true/);
+  assert.match(testerResetRoute, /Tester reset is limited to sandbox tester accounts/);
+  assert.match(teamPage, /Sandbox tester tools/);
+  assert.match(teamPage, /super admin only/);
 });
 
 test("tester invite acceptance explains the isolated workspace", () => {

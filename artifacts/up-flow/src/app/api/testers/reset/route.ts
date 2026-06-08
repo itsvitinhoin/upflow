@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
-import { isWorkspaceAdmin } from "@/lib/auth-helpers";
+import { isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { TESTER_WORKSPACE_SLUG } from "@/lib/tester-workspace";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 async function deleteSupabaseUsersByEmail(email: string) {
@@ -45,7 +46,7 @@ async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
-  if (!isWorkspaceAdmin(auth)) {
+  if (!isSuperAdmin(auth)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -57,6 +58,36 @@ async function POST_handler(req: NextRequest) {
   if (email === auth.prismaUser.email.toLowerCase()) {
     return NextResponse.json(
       { error: "You cannot reset your own signed-in account" },
+      { status: 400 },
+    );
+  }
+
+  const testerWorkspace = await prisma.workspace.findUnique({
+    where: { slug: TESTER_WORKSPACE_SLUG },
+    select: { id: true },
+  });
+
+  const testerInvite = await prisma.workspaceInvite.findFirst({
+    where: { email, tester_invite: true },
+    select: { id: true },
+  });
+
+  const testerMembership =
+    testerWorkspace &&
+    (await prisma.workspaceMember.findFirst({
+      where: {
+        workspace_id: testerWorkspace.id,
+        user: { email },
+      },
+      select: { id: true },
+    }));
+
+  if (!testerInvite && !testerMembership) {
+    return NextResponse.json(
+      {
+        error:
+          "Tester reset is limited to sandbox tester accounts. Remove normal workspace members from Team instead.",
+      },
       { status: 400 },
     );
   }

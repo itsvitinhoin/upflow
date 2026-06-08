@@ -19,6 +19,19 @@ async function loadMembership(workspaceId: string, userId: string) {
   });
 }
 
+async function hasOtherActiveOwner(workspaceId: string, userId: string) {
+  const owner = await prisma.workspaceMember.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      user_id: { not: userId },
+      role: "owner",
+      status: "active",
+    },
+    select: { id: true },
+  });
+  return Boolean(owner);
+}
+
 async function PATCH_handler(
   req: NextRequest,
   { params }: { params: { id: string; memberId: string } },
@@ -53,6 +66,16 @@ async function PATCH_handler(
   }
   if (parsed.data.status === "inactive" && auth.prismaUser.id === params.memberId) {
     return NextResponse.json({ error: "You cannot deactivate yourself" }, { status: 400 });
+  }
+  const ownerWouldLoseAccess =
+    membership.role === "owner" &&
+    ((parsed.data.role !== undefined && parsed.data.role !== "owner") ||
+      parsed.data.status === "inactive");
+  if (ownerWouldLoseAccess && !(await hasOtherActiveOwner(params.id, params.memberId))) {
+    return NextResponse.json(
+      { error: "You cannot leave this workspace without an active owner" },
+      { status: 400 },
+    );
   }
 
   if (parsed.data.department_id) {
@@ -118,6 +141,12 @@ async function DELETE_handler(
   if (!membership) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (membership.role === "owner" && !isSuperAdmin(auth) && auth.currentRole !== "owner") {
     return NextResponse.json({ error: "Only owners can remove owners" }, { status: 403 });
+  }
+  if (membership.role === "owner" && !(await hasOtherActiveOwner(params.id, params.memberId))) {
+    return NextResponse.json(
+      { error: "You cannot leave this workspace without an active owner" },
+      { status: 400 },
+    );
   }
 
   await prisma.workspaceMember.delete({
