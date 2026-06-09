@@ -164,7 +164,7 @@ export default function ClientsPage() {
                   <MetricPill label="Contract" value={money(company.contract_value)} />
                 </div>
                 <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
-                  <MetricPill label="Tracked time" value={formatSeconds(company.summary?.tracked_seconds ?? 0)} />
+                  <MetricPill label="Linked time" value={formatSeconds(company.summary?.tracked_seconds ?? 0)} />
                   <MetricPill
                     label="Value / hour"
                     value={

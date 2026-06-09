@@ -20,9 +20,10 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(clientsPage, /company\.service_type/);
   assert.match(clientsPage, /company\.included_services/);
   assert.match(clientsPage, /Commission/);
-  assert.match(clientsPage, /Tracked time/);
+  assert.match(clientsPage, /Linked time/);
   assert.match(clientsPage, /contract_value_per_tracked_hour/);
   assert.match(clientDetail, /Value \/ hour/);
+  assert.match(clientDetail, /Linked project time only/);
   assert.match(clientDetail, /commission_per_tracked_hour/);
   assert.match(createDialog, /service_type/);
   assert.match(createDialog, /included_services/);

@@ -22,6 +22,10 @@ const teamPage = readFileSync(
   join(__dirname, "..", "..", "src", "app", "(dashboard)", "team", "page.tsx"),
   "utf8",
 );
+const teamInvitePanels = readFileSync(
+  join(__dirname, "..", "..", "src", "components", "team", "team-invite-panels.tsx"),
+  "utf8",
+);
 const emailStatusRoute = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "email", "status", "route.ts"),
   "utf8",
@@ -112,11 +116,12 @@ test("admin email status exposes diagnostics without secrets", () => {
 });
 
 test("team page makes real workspace user invites the primary flow", () => {
-  assert.match(teamPage, /Invite real users to Up Flow/);
-  assert.match(teamPage, /Send official invitations/);
+  assert.match(teamPage, /RealUserInvitePanel/);
+  assert.match(teamInvitePanels, /Invite real users to Up Flow/);
+  assert.match(teamInvitePanels, /Send official invitations/);
   assert.match(teamPage, /Send user invites/);
-  assert.match(teamPage, /own\s+UP Flow workspace/);
-  assert.match(teamPage, /join\s+\{workspace\?\.name/);
+  assert.match(teamInvitePanels, /own UP Flow workspace/);
+  assert.match(teamInvitePanels, /join \{workspace\?\.name/);
   assert.match(inviteDialog, /Own workspace/);
   assert.match(inviteDialog, /This workspace/);
   assert.match(inviteDialog, /hideRole/);
@@ -162,13 +167,14 @@ test("tester invites remain available as optional sandbox tools", () => {
   assert.match(route, /workspace_id/);
   assert.match(route, /tester_invite/);
   assert.match(testerWorkspaceRoute, /ensureTesterWorkspace/);
-  assert.match(teamPage, /Invite testers/);
+  assert.match(teamPage, /TesterInvitePanel/);
+  assert.match(teamInvitePanels, /Tester invite workspace/);
   assert.doesNotMatch(teamPage, /lockRole/);
   assert.match(teamPage, /Choose Member for normal testers or Admin for trusted testers/);
   assert.match(teamPage, /testerMode/);
   assert.match(teamPage, /\/api\/testers\/workspace/);
   assert.match(teamPage, /loadTeamOverview\(testerWorkspace\.id\)/);
-  assert.match(teamPage, /View tester members/);
+  assert.match(teamInvitePanels, /View tester members/);
   assert.match(route, /reconcileAcceptedWorkspaceInvites\(targetWorkspaceId\)/);
 });
 
@@ -182,6 +188,7 @@ test("tester reset is super-admin only and limited to sandbox tester accounts", 
   assert.match(testerResetRoute, /Tester reset is limited to sandbox tester accounts/);
   assert.match(teamPage, /Sandbox tester tools/);
   assert.match(teamPage, /super admin only/);
+  assert.match(teamInvitePanels, /Reset tester/);
 });
 
 test("tester invite acceptance explains the isolated workspace", () => {
@@ -196,7 +203,7 @@ test("manual tester accounts use Supabase auth and the isolated test workspace",
   assert.match(registerRoute, /ensureTesterWorkspace/);
   assert.match(registerRoute, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(registerRoute, /auth\.admin\.createUser/);
-  assert.match(teamPage, /Create tester account/);
+  assert.match(teamInvitePanels, /Create tester account/);
   assert.match(teamPage, /Copy credentials/);
   assert.match(teamPage, /\/api\/users\/register/);
 });

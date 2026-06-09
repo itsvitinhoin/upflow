@@ -38,6 +38,8 @@ export default function NewTaskDialog({
   const [assigneeId, setAssigneeId] = useState("");
   const [selectedProject, setSelectedProject] = useState(projectId || "");
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [loading, setLoading] = useState(false);
   const selectedProjectName = projects.find((project) => project.id === selectedProject)?.name;
@@ -47,14 +49,24 @@ export default function NewTaskDialog({
     setSelectedProject(projectId || "");
     setTaskTemplateId(defaultTemplateId);
     setTemplateValues({});
+    setProjectsLoading(true);
+    setProjectsError(null);
     fetch("/api/projects")
-      .then((r) => r.json() as Promise<{ items: Project[] }>)
+      .then((r) => {
+        if (!r.ok) throw new Error("Could not load available lists.");
+        return r.json() as Promise<{ items: Project[] }>;
+      })
       .then((p) => {
         setProjects(p.items ?? []);
       })
       .catch((err) => {
         logError("new-task-dialog:load", err);
+        setProjects([]);
+        setProjectsError("Could not load lists. Close and reopen this dialog, then try again.");
         toast.error("Could not load available lists. Try again before creating the task.");
+      })
+      .finally(() => {
+        setProjectsLoading(false);
       });
   }, [open, projectId, defaultTemplateId]);
 
@@ -81,8 +93,14 @@ export default function NewTaskDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !selectedProject) {
-      toast.error(t("task.titleRequired"));
+    if (loading) return;
+    const cleanTitle = title.trim();
+    if (!cleanTitle) {
+      toast.error("Add a clear task title before creating it.");
+      return;
+    }
+    if (!selectedProject) {
+      toast.error("Choose the list or campaign where this task belongs.");
       return;
     }
     setLoading(true);
@@ -91,7 +109,7 @@ export default function NewTaskDialog({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: cleanTitle,
           description: buildTaskBrief({
             templateId: taskTemplateId,
             values: templateValues,
@@ -115,7 +133,7 @@ export default function NewTaskDialog({
       setPriority("medium");
       setDueDate("");
       setAssigneeId("");
-      toast.success("Deliverable created");
+      toast.success(`${cleanTitle} created${selectedProjectName ? ` in ${selectedProjectName}` : ""}`);
       onCreated();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("task.failedCreate");
@@ -128,7 +146,9 @@ export default function NewTaskDialog({
   return (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
+      onClick={() => {
+        if (!loading) onClose();
+      }}
     >
       <div
         role="dialog"
@@ -178,15 +198,25 @@ export default function NewTaskDialog({
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
                 required
+                disabled={loading || projectsLoading}
                 className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">Choose where this deliverable belongs</option>
+                <option value="">
+                  {projectsLoading ? "Loading lists..." : "Choose where this deliverable belongs"}
+                </option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
               </select>
+              {projectsError ? (
+                <p className="mt-1 text-xs text-upflow-danger">{projectsError}</p>
+              ) : !projectsLoading && projects.length === 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  No lists are available yet. Create a project/list first, then add tasks.
+                </p>
+              ) : null}
             </div>
           )}
 
@@ -262,7 +292,7 @@ export default function NewTaskDialog({
             </button>
             <button
               type="submit"
-              disabled={loading || !title.trim()}
+              disabled={loading || projectsLoading || !title.trim() || !selectedProject}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}

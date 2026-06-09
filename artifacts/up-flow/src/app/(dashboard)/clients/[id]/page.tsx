@@ -239,7 +239,7 @@ export default function ClientDetailPage() {
           <MetricCard
             label="Tracked time"
             value={formatSeconds(summary?.tracked_seconds ?? 0)}
-            hint="Across linked projects"
+            hint="Linked project time only"
             icon={<Timer className="h-4 w-4" />}
           />
           <MetricCard

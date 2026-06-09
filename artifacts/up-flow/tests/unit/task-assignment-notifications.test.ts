@@ -35,3 +35,13 @@ test("task assignment validates active members and creates assignment notificati
   assert.match(tasksRoute, /Assignee is not an active member of this workspace/);
   assert.match(taskRoute, /Assignee is not an active member of this workspace/);
 });
+
+test("task creation dialog prevents duplicate submits and explains project context", () => {
+  const newTaskDialog = read("src/components/projects/new-task-dialog.tsx");
+
+  assert.match(newTaskDialog, /if \(loading\) return/);
+  assert.match(newTaskDialog, /Choose the list or campaign where this task belongs/);
+  assert.match(newTaskDialog, /No lists are available yet/);
+  assert.match(newTaskDialog, /dashboard risk and delivery views/);
+  assert.match(newTaskDialog, /projectsLoading/);
+});
