@@ -352,6 +352,8 @@ export interface Company {
     tracked_seconds: number;
     risk_reasons: string[];
     profitability_ratio: number | null;
+    contract_value_per_tracked_hour: number | null;
+    commission_per_tracked_hour: number | null;
     next_deadline: string | null;
   };
   contacts?: CompanyContact[];

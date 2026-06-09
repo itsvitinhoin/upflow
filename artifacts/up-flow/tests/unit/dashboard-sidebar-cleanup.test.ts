@@ -11,13 +11,17 @@ function read(rel: string) {
 
 test("home dashboard defaults to a focused today and risks command center", () => {
   const page = read("src/app/(dashboard)/page.tsx");
+  const agencyPanel = read("src/components/dashboard/agency-operations-panel.tsx");
 
   assert.match(page, /t\("dashboard\.commandCenter"\)/);
   assert.match(page, /TodayFocusPanel/);
   assert.match(page, /QuickCreateMenu/);
   assert.match(page, /StatusCountButton/);
   assert.match(page, /<TeamTimeline\s/);
+  assert.match(page, /agency-operations-panel/);
+  assert.match(agencyPanel, /Client work, delivery, creative queue, and workload/);
   assert.match(page, /\/api\/dashboard\/summary/);
+  assert.doesNotMatch(page, /function AgencyOperationsPanel/);
   assert.doesNotMatch(page, /<RightPanel\s/);
   assert.doesNotMatch(page, /<QuickAction\s/);
   assert.doesNotMatch(page, /<StatCard\s/);

@@ -47,6 +47,14 @@ async function GET_handler() {
         select: {
           id: true,
           due_date: true,
+          time_entries: {
+            select: {
+              id: true,
+              started_at: true,
+              duration_seconds: true,
+              status: true,
+            },
+          },
           tasks: {
             select: {
               id: true,
@@ -120,6 +128,12 @@ function withCompanySummary<T extends {
   projects?: Array<{
     id: string;
     due_date: Date | null;
+    time_entries?: Array<{
+      id: string;
+      started_at: Date;
+      duration_seconds: number;
+      status: string;
+    }>;
     tasks: Array<{ id: string; status: string; due_date: Date | null }>;
   }>;
 }>(company: T) {
@@ -129,6 +143,7 @@ function withCompanySummary<T extends {
   sevenDaysAgo.setDate(todayStart.getDate() - 7);
   const projects = company.projects ?? [];
   const tasks = projects.flatMap((project) => project.tasks);
+  const timeEntries = projects.flatMap((project) => project.time_entries ?? []);
   const openTasks = tasks.filter((task) => task.status !== "done");
   const overdueTasks = openTasks.filter((task) => task.due_date && task.due_date < todayStart);
   const nextDeadline =
@@ -148,6 +163,13 @@ function withCompanySummary<T extends {
   if (overdueTasks.length > 0) riskReasons.push(`${overdueTasks.length} overdue task${overdueTasks.length === 1 ? "" : "s"}`);
   if (!lastActivityAt || lastActivityAt < sevenDaysAgo) riskReasons.push("No activity in 7 days");
   if (company.contract_value == null) riskReasons.push("No contract value");
+  const trackedSeconds = timeEntries.reduce((sum, entry) => {
+    if (entry.status === "running") {
+      return sum + Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000));
+    }
+    return sum + entry.duration_seconds;
+  }, 0);
+  const trackedHours = trackedSeconds / 3600;
 
   return {
     ...company,
@@ -157,12 +179,20 @@ function withCompanySummary<T extends {
       overdue_task_count: overdueTasks.length,
       meeting_count: company.calendar_events?.length ?? 0,
       contact_count: company.contacts?.length ?? 0,
-      tracked_seconds: 0,
+      tracked_seconds: trackedSeconds,
       risk_reasons: riskReasons,
       next_deadline: nextDeadline,
       profitability_ratio:
         company.contract_value && company.commission != null
           ? company.commission / company.contract_value
+          : null,
+      contract_value_per_tracked_hour:
+        company.contract_value != null && trackedHours > 0
+          ? company.contract_value / trackedHours
+          : null,
+      commission_per_tracked_hour:
+        company.commission != null && trackedHours > 0
+          ? company.commission / trackedHours
           : null,
     },
   };

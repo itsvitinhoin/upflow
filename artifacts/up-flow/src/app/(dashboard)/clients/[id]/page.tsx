@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, Users, X } from "lucide-react";
+import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, TrendingUp, Users, X } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import type { Company, CompanyContact, CompanyNote, TimeEntry } from "@/lib/types";
@@ -228,7 +228,7 @@ export default function ClientDetailPage() {
           </div>
         </section>
 
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard
             label="Open work"
             value={summary?.open_task_count ?? 0}
@@ -247,6 +247,20 @@ export default function ClientDetailPage() {
             value={money(company.contract_value)}
             hint={`Commission ${money(company.commission)}`}
             icon={<DollarSign className="h-4 w-4" />}
+          />
+          <MetricCard
+            label="Value / hour"
+            value={
+              summary?.contract_value_per_tracked_hour != null
+                ? money(summary.contract_value_per_tracked_hour)
+                : "No tracked time"
+            }
+            hint={
+              summary?.commission_per_tracked_hour != null
+                ? `Commission / hour ${money(summary.commission_per_tracked_hour)}`
+                : "Track time to calculate profitability"
+            }
+            icon={<TrendingUp className="h-4 w-4" />}
           />
           <MetricCard
             label="Risk"

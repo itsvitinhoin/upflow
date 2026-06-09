@@ -10,6 +10,7 @@ import {
   PackageCheck,
   Plus,
   RefreshCcw,
+  Timer,
   Users,
 } from "lucide-react";
 import Header from "@/components/layout/header";
@@ -162,6 +163,17 @@ export default function ClientsPage() {
                   <MetricPill label="Open" value={company.summary?.open_task_count ?? 0} />
                   <MetricPill label="Contract" value={money(company.contract_value)} />
                 </div>
+                <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                  <MetricPill label="Tracked time" value={formatSeconds(company.summary?.tracked_seconds ?? 0)} />
+                  <MetricPill
+                    label="Value / hour"
+                    value={
+                      company.summary?.contract_value_per_tracked_hour != null
+                        ? money(company.summary.contract_value_per_tracked_hour)
+                        : "No time value"
+                    }
+                  />
+                </div>
 
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
@@ -175,6 +187,10 @@ export default function ClientsPage() {
                   <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
                     <DollarSign className="h-3.5 w-3.5" />
                     Commission {money(company.commission)}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+                    <Timer className="h-3.5 w-3.5" />
+                    {formatSeconds(company.summary?.tracked_seconds ?? 0)} tracked
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
                     <Users className="h-3.5 w-3.5" />
@@ -254,5 +270,12 @@ function shortDate(value: string) {
     day: "2-digit",
     month: "2-digit",
   }).format(new Date(value));
+}
+
+function formatSeconds(totalSeconds: number) {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
 

@@ -123,6 +123,7 @@ async function getCompany(id: string, workspaceId: string) {
     }
     return sum + entry.duration_seconds;
   }, 0);
+  const trackedHours = trackedSeconds / 3600;
 
   return {
     ...company,
@@ -140,6 +141,14 @@ async function getCompany(id: string, workspaceId: string) {
       profitability_ratio:
         company.contract_value && company.commission != null
           ? company.commission / company.contract_value
+          : null,
+      contract_value_per_tracked_hour:
+        company.contract_value != null && trackedHours > 0
+          ? company.contract_value / trackedHours
+          : null,
+      commission_per_tracked_hour:
+        company.commission != null && trackedHours > 0
+          ? company.commission / trackedHours
           : null,
     },
   };
