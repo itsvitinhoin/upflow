@@ -352,6 +352,7 @@ export interface Company {
     tracked_seconds: number;
     risk_reasons: string[];
     profitability_ratio: number | null;
+    next_deadline: string | null;
   };
   contacts?: CompanyContact[];
   notes_log?: CompanyNote[];

@@ -131,6 +131,15 @@ function withCompanySummary<T extends {
   const tasks = projects.flatMap((project) => project.tasks);
   const openTasks = tasks.filter((task) => task.status !== "done");
   const overdueTasks = openTasks.filter((task) => task.due_date && task.due_date < todayStart);
+  const nextDeadline =
+    [
+      ...projects
+        .map((project) => project.due_date)
+        .filter((date): date is Date => Boolean(date)),
+      ...openTasks
+        .map((task) => task.due_date)
+        .filter((date): date is Date => Boolean(date)),
+    ].sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
   const lastActivityAt = company.activity_events?.[0]?.created_at ?? null;
   const riskReasons: string[] = [];
 
@@ -150,6 +159,7 @@ function withCompanySummary<T extends {
       contact_count: company.contacts?.length ?? 0,
       tracked_seconds: 0,
       risk_reasons: riskReasons,
+      next_deadline: nextDeadline,
       profitability_ratio:
         company.contract_value && company.commission != null
           ? company.commission / company.contract_value

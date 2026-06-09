@@ -39,7 +39,6 @@ import {
   cn,
   formatDate,
   formatLongDate,
-  formatShortDate,
   formatTime,
   getInitials,
   isOverdue,
@@ -51,6 +50,18 @@ import InviteDialog from "@/components/dashboard/invite-dialog";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import type { ActivityEvent, CalendarEvent, Company, Project, Task, TeamMember, TimeEntry } from "@/lib/types";
+import {
+  buildDashboardRecent,
+  buildDashboardWeekActivity,
+  dashboardActivityText,
+  entrySeconds,
+  formatSecondsShort,
+  greetingTime,
+  moneyCompact,
+  priorityLabel,
+  sameLocalDate,
+  taskStatusLabel,
+} from "@/components/dashboard/dashboard-utils";
 
 type ActionFilter = "all" | "completed" | "in_progress";
 type TaskDrawerStatus = "todo" | "in_progress" | "done";
@@ -1256,54 +1267,6 @@ function TaskStatusDrawer({
   );
 }
 
-function greetingTime() {
-  const h = new Date().getHours();
-  if (h < 12) return "morning";
-  if (h < 18) return "afternoon";
-  return "evening";
-}
-
-function formatSecondsShort(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-function taskStatusLabel(
-  status: Task["status"],
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  if (status === "todo") return t("status.todo");
-  if (status === "in_progress") return t("status.inProgress");
-  return t("status.done");
-}
-
-function priorityLabel(
-  priority: Task["priority"],
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  if (priority === "high") return t("priority.high");
-  if (priority === "medium") return t("priority.medium");
-  return t("priority.low");
-}
-
-function moneyCompact(value: number | null | undefined) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value ?? 0);
-}
-
-function entrySeconds(entry: TimeEntry) {
-  if (entry.status === "running") {
-    return Math.max(0, Math.floor((Date.now() - new Date(entry.started_at).getTime()) / 1000));
-  }
-  return entry.duration_seconds;
-}
-
 function CommandTile({
   title,
   value,
@@ -1937,14 +1900,6 @@ function decimalHour(value: string) {
   return date.getHours() + date.getMinutes() / 60;
 }
 
-function sameLocalDate(a: Date, b: Date) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
 function clampTimelineBlock(start: number, end: number): TimelineBlock | null {
   const clampedStart = Math.max(8, Math.min(19, start));
   const clampedEnd = Math.max(clampedStart + 0.25, Math.min(19, end));
@@ -2248,92 +2203,6 @@ function TeamTimeline({
       </div>
     </section>
   );
-}
-
-type DashboardRecent = {
-  who: string;
-  what: string;
-  target: string;
-  when: string;
-  status: "completed" | "in_progress";
-  dayIndex: number;
-};
-
-function dashboardDayIndex(value: string | Date) {
-  const day = (typeof value === "string" ? new Date(value) : value).getDay();
-  return day === 0 ? 6 : day - 1;
-}
-
-function dashboardDurationSeconds(entry: TimeEntry) {
-  if (entry.status === "running" && !entry.stopped_at) {
-    return Math.max(0, Math.round((Date.now() - new Date(entry.started_at).getTime()) / 1000));
-  }
-  return entry.duration_seconds;
-}
-
-function dashboardWhen(value: string) {
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 60000));
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return formatShortDate(value);
-}
-
-function dashboardActivityText(event: ActivityEvent) {
-  const rawName = event.metadata?.title ?? event.metadata?.name ?? event.entity_type;
-  const target = typeof rawName === "string" ? rawName : event.entity_type;
-  const what = event.type
-    .replace(/_/g, " ")
-    .replace("task status changed", "changed")
-    .replace("calendar event", "event")
-    .replace("time entry", "timer");
-  return { what, target };
-}
-
-function dashboardActivityStatus(event: ActivityEvent): "completed" | "in_progress" {
-  return event.type.includes("deleted") || event.type.includes("stopped") || event.type.includes("done")
-    ? "completed"
-    : "in_progress";
-}
-
-function buildDashboardWeekActivity(activity: ActivityEvent[], timeEntries: TimeEntry[]) {
-  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return labels.map((day, index) => {
-    const actions = activity.filter((event) => dashboardDayIndex(event.created_at) === index).length;
-    const seconds = timeEntries
-      .filter((entry) => dashboardDayIndex(entry.started_at) === index)
-      .reduce((sum, entry) => sum + dashboardDurationSeconds(entry), 0);
-    const dots = Math.min(5, Math.max(actions, seconds > 0 ? 1 : 0));
-    return {
-      day,
-      hours: Math.round((seconds / 3600) * 10) / 10,
-      tasks: actions,
-      items: Array.from({ length: dots }, (_, dotIndex) => ({
-        size: Math.min(18, 8 + dotIndex * 2 + actions),
-        color:
-          dotIndex % 3 === 0
-            ? "bg-primary"
-            : dotIndex % 3 === 1
-            ? "bg-upflow-success"
-            : "bg-upflow-warning",
-      })),
-    };
-  });
-}
-
-function buildDashboardRecent(activity: ActivityEvent[]): DashboardRecent[] {
-  return activity.map((event) => {
-    const label = dashboardActivityText(event);
-    return {
-      who: event.actor?.name ?? "Someone",
-      what: label.what,
-      target: label.target,
-      when: dashboardWhen(event.created_at),
-      status: dashboardActivityStatus(event),
-      dayIndex: dashboardDayIndex(event.created_at),
-    };
-  });
 }
 
 type TimerState = "stopped" | "running" | "paused";

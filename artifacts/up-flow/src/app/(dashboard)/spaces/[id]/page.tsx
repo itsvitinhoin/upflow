@@ -43,24 +43,32 @@ import type { DepartmentSpacePreset } from "@/lib/department-spaces";
 import {
   cn,
   formatDate,
-  formatDateTime as formatBrazilianDateTime,
   formatLongDate,
   formatTime,
   priorityColor,
 } from "@/lib/utils";
+import {
+  clampTaskTimelineBlock,
+  drawerTitle,
+  entrySeconds,
+  formatDateTime,
+  formatSecondsShort,
+  getDepartmentDashboardTheme,
+  humanize,
+  isSameLocalDay,
+  statusLabel,
+  statusTitle,
+  taskDueHour,
+  taskTimelineClass,
+  toneClasses,
+  type DashboardTone,
+  type DrawerKind,
+  type TaskStatus,
+  type TaskTimelineItem,
+} from "@/components/spaces/space-dashboard-utils";
 
 type ContainerList = Pick<Project, "id" | "name">;
 type SpaceTab = "dashboard" | "browse";
-type TaskStatus = "todo" | "in_progress" | "done";
-type DrawerKind =
-  | "urgent_actions"
-  | "team_workload"
-  | "time_today"
-  | "meetings_today"
-  | "recent_activity"
-  | "projects_at_risk"
-  | "quick_create"
-  | `status:${TaskStatus}`;
 
 interface SpaceContainerData {
   space: Space;
@@ -139,10 +147,12 @@ export default function SpaceContainerPage() {
         setNotFoundState(true);
         return;
       }
-      if (!res.ok) throw new Error("Failed to load");
+      if (!res.ok) {
+        throw new Error(await readSpaceApiError(res, "Could not load this Space. Check your workspace access and try again."));
+      }
       setData((await res.json()) as SpaceContainerData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      setError(err instanceof Error ? err.message : "Could not load this Space. Check your workspace access and try again.");
     } finally {
       setLoading(false);
     }
@@ -157,10 +167,12 @@ export default function SpaceContainerPage() {
         setNotFoundState(true);
         return;
       }
-      if (!res.ok) throw new Error("Failed to load dashboard");
+      if (!res.ok) {
+        throw new Error(await readSpaceApiError(res, "Could not load this Space dashboard yet."));
+      }
       setDashboard((await res.json()) as SpaceDashboardData);
     } catch (err) {
-      setDashboardError(err instanceof Error ? err.message : "Failed to load dashboard");
+      setDashboardError(err instanceof Error ? err.message : "Could not load this Space dashboard yet.");
     } finally {
       setDashboardLoading(false);
     }
@@ -206,11 +218,13 @@ export default function SpaceContainerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error("Failed to update");
+      if (!res.ok) {
+        throw new Error(await readSpaceApiError(res, "Could not update this task status."));
+      }
       toast.success(`Task moved to ${status.replace("_", " ")}`);
       loadDashboard();
-    } catch {
-      toast.error("Could not update task");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update task");
     } finally {
       setUpdatingTask(false);
     }
@@ -234,7 +248,7 @@ export default function SpaceContainerPage() {
               Couldn&apos;t load this Space
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
-              Something went wrong while fetching the Space. Try again in a moment.
+              {error || "Could not load this Space. Check your workspace access and try again."}
             </p>
             <button
               onClick={() => {
@@ -760,71 +774,6 @@ function SpaceDashboard({
   );
 }
 
-function getDepartmentDashboardTheme(key?: DepartmentSpacePreset["department_key"]) {
-  const fallback = {
-    container: "border-white/10 bg-card/70",
-    icon: "border-white/10 bg-primary/15 text-primary",
-    badge: "border-primary/30 bg-primary/10 text-primary",
-    accent: "bg-primary",
-  };
-  if (!key) return fallback;
-
-  const themes: Record<
-    DepartmentSpacePreset["department_key"],
-    typeof fallback
-  > = {
-    comercial: {
-      container: "border-amber-400/25 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(124,92,255,0.08),rgba(255,255,255,0.03))]",
-      icon: "border-amber-300/30 bg-amber-400/15 text-amber-200",
-      badge: "border-amber-300/30 bg-amber-400/10 text-amber-200",
-      accent: "bg-amber-300",
-    },
-    marketing_b2b: {
-      container: "border-sky-400/25 bg-[linear-gradient(135deg,rgba(56,189,248,0.14),rgba(124,92,255,0.1),rgba(255,255,255,0.03))]",
-      icon: "border-sky-300/30 bg-sky-400/15 text-sky-200",
-      badge: "border-sky-300/30 bg-sky-400/10 text-sky-200",
-      accent: "bg-sky-300",
-    },
-    marketing_b2c: {
-      container: "border-rose-400/25 bg-[linear-gradient(135deg,rgba(251,113,133,0.15),rgba(245,158,11,0.08),rgba(255,255,255,0.03))]",
-      icon: "border-rose-300/30 bg-rose-400/15 text-rose-200",
-      badge: "border-rose-300/30 bg-rose-400/10 text-rose-200",
-      accent: "bg-rose-300",
-    },
-    creative_design: {
-      container: "border-fuchsia-400/25 bg-[linear-gradient(135deg,rgba(217,70,239,0.15),rgba(124,92,255,0.12),rgba(255,255,255,0.03))]",
-      icon: "border-fuchsia-300/30 bg-fuchsia-400/15 text-fuchsia-200",
-      badge: "border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-200",
-      accent: "bg-fuchsia-300",
-    },
-    finance: {
-      container: "border-emerald-400/25 bg-[linear-gradient(135deg,rgba(16,185,129,0.15),rgba(245,158,11,0.07),rgba(255,255,255,0.03))]",
-      icon: "border-emerald-300/30 bg-emerald-400/15 text-emerald-200",
-      badge: "border-emerald-300/30 bg-emerald-400/10 text-emerald-200",
-      accent: "bg-emerald-300",
-    },
-    production: {
-      container: "border-orange-400/25 bg-[linear-gradient(135deg,rgba(251,146,60,0.15),rgba(239,68,68,0.08),rgba(255,255,255,0.03))]",
-      icon: "border-orange-300/30 bg-orange-400/15 text-orange-200",
-      badge: "border-orange-300/30 bg-orange-400/10 text-orange-200",
-      accent: "bg-orange-300",
-    },
-    technical_support: {
-      container: "border-cyan-400/25 bg-[linear-gradient(135deg,rgba(34,211,238,0.15),rgba(59,130,246,0.1),rgba(255,255,255,0.03))]",
-      icon: "border-cyan-300/30 bg-cyan-400/15 text-cyan-200",
-      badge: "border-cyan-300/30 bg-cyan-400/10 text-cyan-200",
-      accent: "bg-cyan-300",
-    },
-    general_admin: {
-      container: "border-slate-300/20 bg-[linear-gradient(135deg,rgba(148,163,184,0.15),rgba(124,92,255,0.08),rgba(255,255,255,0.03))]",
-      icon: "border-slate-300/25 bg-slate-300/15 text-slate-200",
-      badge: "border-slate-300/25 bg-slate-300/10 text-slate-200",
-      accent: "bg-slate-300",
-    },
-  };
-  return themes[key];
-}
-
 function BrowseTab({
   empty,
   rootFolders,
@@ -1081,43 +1030,6 @@ function SpaceDashboardDrawer({
   );
 }
 
-type TaskTimelineItem = {
-  task: Task;
-  due: Date;
-  start: number;
-  end: number;
-  overdue: boolean;
-};
-
-function isSameLocalDay(a: Date, b: Date) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-function taskDueHour(date: Date) {
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-  if (hour === 0 && minute === 0) return 9;
-  return hour + minute / 60;
-}
-
-function clampTaskTimelineBlock(start: number, duration = 0.75) {
-  const clampedStart = Math.max(8, Math.min(18.75, start));
-  const clampedEnd = Math.max(clampedStart + 0.5, Math.min(19, clampedStart + duration));
-  return { start: clampedStart, end: clampedEnd };
-}
-
-function taskTimelineClass(task: Task, overdue: boolean) {
-  if (overdue) return "bg-upflow-danger/30 border-l-upflow-danger text-upflow-danger";
-  if (task.status === "done") return "bg-upflow-success/30 border-l-upflow-success text-upflow-success";
-  if (task.status === "in_progress") return "bg-primary/35 border-l-primary text-primary";
-  if (task.priority === "high") return "bg-upflow-warning/30 border-l-upflow-warning text-upflow-warning";
-  return "bg-white/10 border-l-white/40 text-foreground/80";
-}
-
 function SpaceTaskTimeline({
   tasks,
   onCreateTask,
@@ -1340,56 +1252,6 @@ function TaskRecord({
       </div>
     </div>
   );
-}
-
-type DashboardTone = "primary" | "success" | "warning" | "danger" | "blue" | "violet" | "teal";
-
-function toneClasses(tone: DashboardTone) {
-  const tones: Record<DashboardTone, { border: string; icon: string; text: string; bar: string }> = {
-    primary: {
-      border: "border-primary/35 hover:border-primary/60",
-      icon: "bg-primary/15 text-primary",
-      text: "text-primary",
-      bar: "bg-primary",
-    },
-    success: {
-      border: "border-upflow-success/30 hover:border-upflow-success/55",
-      icon: "bg-upflow-success/15 text-upflow-success",
-      text: "text-upflow-success",
-      bar: "bg-upflow-success",
-    },
-    warning: {
-      border: "border-upflow-warning/30 hover:border-upflow-warning/55",
-      icon: "bg-upflow-warning/15 text-upflow-warning",
-      text: "text-upflow-warning",
-      bar: "bg-upflow-warning",
-    },
-    danger: {
-      border: "border-upflow-danger/30 hover:border-upflow-danger/55",
-      icon: "bg-upflow-danger/15 text-upflow-danger",
-      text: "text-upflow-danger",
-      bar: "bg-upflow-danger",
-    },
-    blue: {
-      border: "border-sky-400/25 hover:border-sky-400/50",
-      icon: "bg-sky-400/15 text-sky-300",
-      text: "text-sky-300",
-      bar: "bg-sky-300",
-    },
-    violet: {
-      border: "border-violet-400/25 hover:border-violet-400/50",
-      icon: "bg-violet-400/15 text-violet-300",
-      text: "text-violet-300",
-      bar: "bg-violet-300",
-    },
-    teal: {
-      border: "border-teal-400/25 hover:border-teal-400/50",
-      icon: "bg-teal-400/15 text-teal-300",
-      text: "text-teal-300",
-      bar: "bg-teal-300",
-    },
-  };
-  return tones[tone];
 }
 
 function HeroMetric({
@@ -1699,50 +1561,11 @@ function ContainerSkeleton({ title }: { title: string }) {
   );
 }
 
-function drawerTitle(kind: DrawerKind) {
-  const titles: Record<Exclude<DrawerKind, `status:${TaskStatus}`>, string> = {
-    urgent_actions: "My urgent actions",
-    team_workload: "Team workload",
-    time_today: "Time today",
-    meetings_today: "Meetings today",
-    recent_activity: "Recent activity",
-    projects_at_risk: "Projects at risk",
-    quick_create: "Quick create",
-  };
-  return titles[kind as Exclude<DrawerKind, `status:${TaskStatus}`>] ?? "Space records";
-}
-
-function statusTitle(status: TaskStatus) {
-  if (status === "todo") return "Upcoming Actions";
-  if (status === "in_progress") return "In Progress Actions";
-  return "Completed Actions";
-}
-
-function statusLabel(status: TaskStatus) {
-  if (status === "todo") return "To do";
-  if (status === "in_progress") return "In progress";
-  return "Done";
-}
-
-function formatSecondsShort(seconds: number) {
-  if (seconds <= 0) return "0m";
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours <= 0) return `${minutes}m`;
-  return `${hours}h ${minutes}m`;
-}
-
-function entrySeconds(entry: TimeEntry) {
-  if (entry.status === "running") {
-    return Math.max(0, Math.floor((Date.now() - new Date(entry.started_at).getTime()) / 1000));
+async function readSpaceApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
   }
-  return entry.duration_seconds;
-}
-
-function formatDateTime(value: string) {
-  return formatBrazilianDateTime(value);
-}
-
-function humanize(value: string) {
-  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }

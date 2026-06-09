@@ -195,7 +195,7 @@ export default function CreateCompanyDialog({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
-          placeholder="Optional context…"
+          placeholder="Optional context..."
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
         />
         <div className="flex gap-2 mt-6">
@@ -209,7 +209,7 @@ export default function CreateCompanyDialog({
           </button>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !name.trim()}
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg disabled:opacity-50"
           >
             {submitting ? "Creating..." : "Create"}

@@ -353,13 +353,7 @@ async function GET_handler(req: NextRequest) {
       projects_at_risk: {
         items: projectsAtRisk,
         count: projectsAtRisk.length,
-        rules: [
-          "overdue open tasks",
-          "no owner",
-          "no activity in 7 days",
-          "blocked tasks",
-          "no due-date movement",
-        ],
+        rules: ["overdue open tasks", "no owner", "no activity in 7 days"],
       },
       client_risk: { items: [], count: 0 },
       revenue_snapshot: {

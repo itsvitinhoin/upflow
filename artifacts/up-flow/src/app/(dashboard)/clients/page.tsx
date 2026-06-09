@@ -132,7 +132,7 @@ export default function ClientsPage() {
                       </p>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {company.service_type || "Service type not set"}
-                        {company.billing_cycle ? ` · ${formatBillingCycle(company.billing_cycle)}` : ""}
+                        {company.billing_cycle ? ` - ${formatBillingCycle(company.billing_cycle)}` : ""}
                       </p>
                     </div>
                   </div>
@@ -176,12 +176,20 @@ export default function ClientsPage() {
                     <DollarSign className="h-3.5 w-3.5" />
                     Commission {money(company.commission)}
                   </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+                    <Users className="h-3.5 w-3.5" />
+                    Owner {company.owner?.name || "not assigned"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-white/5 px-2 py-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Next deadline {company.summary?.next_deadline ? shortDate(company.summary.next_deadline) : "not set"}
+                  </span>
                 </div>
 
                 {company.summary?.risk_reasons.length ? (
                   <p className="mt-3 flex items-center gap-1 text-xs text-upflow-danger">
                     <AlertCircle className="h-3.5 w-3.5" />
-                    {company.summary.risk_reasons.slice(0, 2).join(" · ")}
+                    {company.summary.risk_reasons.slice(0, 2).join(" - ")}
                   </p>
                 ) : (
                   <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
@@ -240,3 +248,11 @@ function money(value: number | null | undefined) {
     maximumFractionDigits: 1,
   }).format(value);
 }
+
+function shortDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date(value));
+}
+

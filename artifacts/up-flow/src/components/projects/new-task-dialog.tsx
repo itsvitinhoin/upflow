@@ -51,7 +51,10 @@ export default function NewTaskDialog({
       .then((p) => {
         setProjects(p.items ?? []);
       })
-      .catch((err) => logError("new-task-dialog:load", err));
+      .catch((err) => {
+        logError("new-task-dialog:load", err);
+        toast.error("Could not load available lists. Try again before creating the task.");
+      });
   }, [open, projectId, defaultTemplateId]);
 
   useEffect(() => {
@@ -67,7 +70,10 @@ export default function NewTaskDialog({
     fetch(`/api/users?workspace_id=${project.workspace_id}&status=active`)
       .then((r) => r.json() as Promise<{ items: TaskAssignee[] }>)
       .then((u) => setUsers(u.items ?? []))
-      .catch((err) => logError("new-task-dialog:load-users", err));
+      .catch((err) => {
+        logError("new-task-dialog:load-users", err);
+        toast.error("Could not load assignees for this project.");
+      });
   }, [open, projects, selectedProject]);
 
   if (!open) return null;
@@ -108,6 +114,7 @@ export default function NewTaskDialog({
       setPriority("medium");
       setDueDate("");
       setAssigneeId("");
+      toast.success("Task created");
       onCreated();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("task.failedCreate");

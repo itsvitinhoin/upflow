@@ -49,6 +49,10 @@ export default function InviteDialog({
     message: string;
     code?: InviteErrorCode;
   } | null>(null);
+  const hasEmails = emails
+    .split(/[\s,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean).length > 0;
 
   useEffect(() => {
     if (!open) return;
@@ -217,13 +221,14 @@ export default function InviteDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            disabled={loading}
+            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !hasEmails}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
