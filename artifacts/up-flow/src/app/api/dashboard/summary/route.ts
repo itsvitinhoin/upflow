@@ -38,6 +38,8 @@ async function GET_handler(req: NextRequest) {
   nextWeekStart.setDate(weekStart.getDate() + 7);
   const sevenDaysAgo = new Date(todayStart);
   sevenDaysAgo.setDate(todayStart.getDate() - 7);
+  const nextSevenDays = new Date(todayStart);
+  nextSevenDays.setDate(todayStart.getDate() + 7);
 
   const userWhere: Prisma.UserWhereInput | undefined = superAdmin
     ? undefined
@@ -63,6 +65,9 @@ async function GET_handler(req: NextRequest) {
     activeClientCount,
     companyRevenue,
     topClients,
+    companiesForHealth,
+    deliveryProjects,
+    departments,
   ] = await Promise.all([
     prisma.task.findMany({
       where: {
@@ -180,7 +185,15 @@ async function GET_handler(req: NextRequest) {
       orderBy: [{ due_date: "asc" }, { priority: "desc" }, { created_at: "desc" }],
       include: {
         assignee: { select: { id: true, name: true, email: true } },
-        project: { select: { id: true, name: true } },
+        project: {
+          select: {
+            id: true,
+            name: true,
+            due_date: true,
+            space: { select: { id: true, name: true, icon: true } },
+            company: { select: { id: true, name: true } },
+          },
+        },
         _count: { select: { comments: true, subtasks: true } },
       },
     }),
@@ -227,6 +240,67 @@ async function GET_handler(req: NextRequest) {
         name: true,
         contract_value: true,
         commission: true,
+      },
+    }),
+    prisma.company.findMany({
+      where: { workspace_id: auth.currentWorkspaceId, status: { not: "archived" } },
+      take: 100,
+      orderBy: [{ updated_at: "desc" }, { id: "asc" }],
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        contacts: { select: { id: true } },
+        activity_events: {
+          take: 1,
+          orderBy: [{ created_at: "desc" }, { id: "asc" }],
+          select: { created_at: true },
+        },
+        projects: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            due_date: true,
+            owner: { select: { id: true, name: true, email: true } },
+            tasks: {
+              select: {
+                id: true,
+                status: true,
+                due_date: true,
+                assignee_id: true,
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.project.findMany({
+      where: { workspace_id: auth.currentWorkspaceId, status: "active" },
+      take: 30,
+      orderBy: [{ due_date: "asc" }, { created_at: "desc" }, { id: "asc" }],
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        company: { select: { id: true, name: true } },
+        space: { select: { id: true, name: true, icon: true } },
+        tasks: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            priority: true,
+            due_date: true,
+            assignee_id: true,
+          },
+        },
+      },
+    }),
+    prisma.department.findMany({
+      where: { workspace_id: auth.currentWorkspaceId },
+      orderBy: [{ sort_order: "asc" }, { name: "asc" }],
+      include: {
+        members: {
+          where: { status: "active" },
+          select: { user_id: true },
+        },
       },
     }),
   ]);
@@ -329,6 +403,273 @@ async function GET_handler(req: NextRequest) {
   }, 0);
   const companyCount = companyRevenue._count.id;
   const clientsWithContractValue = companyRevenue._count.contract_value;
+  const clientHealthItems = companiesForHealth.map((company) => {
+    const companyTasks = company.projects.flatMap((project) => project.tasks);
+    const openTasks = companyTasks.filter((task) => task.status !== "done");
+    const overdueTasks = openTasks.filter(
+      (task) => task.due_date && task.due_date < todayStart,
+    );
+    const nextDeadline =
+      [
+        ...company.projects
+          .map((project) => project.due_date)
+          .filter((date): date is Date => Boolean(date)),
+        ...openTasks
+          .map((task) => task.due_date)
+          .filter((date): date is Date => Boolean(date)),
+      ].sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+    const lastActivityAt = company.activity_events[0]?.created_at ?? null;
+    const noRecentActivity = !lastActivityAt || lastActivityAt < sevenDaysAgo;
+    const missingPlan = !company.plan_name && !company.service_type;
+    const reasons: string[] = [];
+
+    if (company.projects.length === 0) reasons.push("No active client work");
+    if (company.contacts.length === 0) reasons.push("No contacts");
+    if (overdueTasks.length > 0) {
+      reasons.push(`${overdueTasks.length} overdue deliverable${overdueTasks.length === 1 ? "" : "s"}`);
+    }
+    if (noRecentActivity) reasons.push("No activity in 7 days");
+    if (company.contract_value == null && missingPlan) reasons.push("No contract value or plan");
+
+    const health_status =
+      company.projects.length === 0 &&
+      company.contacts.length === 0 &&
+      !lastActivityAt &&
+      company.contract_value == null &&
+      missingPlan
+        ? "not_enough_data"
+        : overdueTasks.length > 0
+          ? "at_risk"
+          : reasons.length > 0
+            ? "attention_needed"
+            : "healthy";
+
+    return {
+      company: {
+        id: company.id,
+        name: company.name,
+        commercial_status: company.commercial_status,
+        status: company.status,
+        contract_value: company.contract_value,
+        commission: company.commission,
+        plan_name: company.plan_name,
+        service_type: company.service_type,
+        owner: company.owner,
+      },
+      health_status,
+      reasons,
+      open_tasks: openTasks.length,
+      overdue_tasks: overdueTasks.length,
+      active_projects: company.projects.length,
+      contact_count: company.contacts.length,
+      next_deadline: nextDeadline,
+      last_activity_at: lastActivityAt,
+    };
+  });
+  const clientHealthCounts = clientHealthItems.reduce(
+    (acc, item) => {
+      acc[item.health_status as keyof typeof acc] += 1;
+      return acc;
+    },
+    { healthy: 0, attention_needed: 0, at_risk: 0, not_enough_data: 0 },
+  );
+  const clientRiskItems = clientHealthItems
+    .filter((item) => item.health_status === "at_risk" || item.health_status === "attention_needed")
+    .slice(0, 10);
+  const deliveryOverview = deliveryProjects.map((project) => {
+    const done = project.tasks.filter((task) => task.status === "done").length;
+    const openTasks = project.tasks.filter((task) => task.status !== "done");
+    const overdue = openTasks.filter((task) => task.due_date && task.due_date < todayStart).length;
+    const nextDeadline =
+      [
+        project.due_date,
+        ...openTasks.map((task) => task.due_date),
+      ].filter((date): date is Date => Boolean(date)).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+    const state =
+      overdue > 0
+        ? "at_risk"
+        : nextDeadline && nextDeadline < nextSevenDays
+          ? "attention_needed"
+          : project.tasks.length === 0
+            ? "not_enough_data"
+            : "on_track";
+
+    return {
+      project: {
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        due_date: project.due_date,
+        owner: project.owner,
+        company: project.company,
+        space: project.space,
+      },
+      progress: project.tasks.length ? Math.round((done / project.tasks.length) * 100) : 0,
+      open_tasks: openTasks.length,
+      overdue_tasks: overdue,
+      next_deadline: nextDeadline,
+      state,
+    };
+  });
+  const creativeKeywords = [
+    "creative",
+    "design",
+    "content",
+    "reel",
+    "video",
+    "asset",
+    "copy",
+    "landing",
+    "approval",
+    "revision",
+    "brief",
+  ];
+  const creativeQueueTasks = workspaceOpenTasks.filter((task) => {
+    const haystack = [
+      task.title,
+      task.description,
+      task.project?.name,
+      task.project?.space?.name,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return creativeKeywords.some((keyword) => haystack.includes(keyword));
+  });
+  const creativeQueue = {
+    source_note:
+      "Uses real open tasks from creative, production, marketing, approval, and content-related spaces or task text. Approval-specific fields are not modeled yet.",
+    items: creativeQueueTasks.slice(0, 12).map((task) => {
+      const haystack = `${task.title} ${task.description ?? ""}`.toLowerCase();
+      const stage =
+        haystack.includes("revision")
+          ? "revision_requested"
+          : haystack.includes("approval") || haystack.includes("review")
+            ? "waiting_for_approval"
+            : task.status === "in_progress"
+              ? "in_production"
+              : haystack.includes("brief")
+                ? "waiting_for_briefing"
+                : "ready_to_start";
+      return {
+        task,
+        stage,
+      };
+    }),
+    counts: creativeQueueTasks.reduce(
+      (acc, task) => {
+        const haystack = `${task.title} ${task.description ?? ""}`.toLowerCase();
+        const stage =
+          haystack.includes("revision")
+            ? "revision_requested"
+            : haystack.includes("approval") || haystack.includes("review")
+              ? "waiting_for_approval"
+              : task.status === "in_progress"
+                ? "in_production"
+                : haystack.includes("brief")
+                  ? "waiting_for_briefing"
+                  : "ready_to_start";
+        acc[stage as keyof typeof acc] += 1;
+        return acc;
+      },
+      {
+        waiting_for_briefing: 0,
+        ready_to_start: 0,
+        in_production: 0,
+        waiting_for_approval: 0,
+        revision_requested: 0,
+      },
+    ),
+  };
+  const departmentByUser = new Map<string, string | null>();
+  for (const member of flattenedUsers) {
+    departmentByUser.set(member.id, member.department_id ?? null);
+  }
+  const departmentWorkload = [
+    ...departments.map((department) => {
+      const userIds = new Set(department.members.map((member) => member.user_id));
+      const assignedTasks = workspaceOpenTasks.filter(
+        (task) => task.assignee_id && userIds.has(task.assignee_id),
+      );
+      const overdueTasks = assignedTasks.filter(
+        (task) => task.due_date && new Date(task.due_date) < todayStart,
+      );
+      const upcomingTasks = assignedTasks.filter(
+        (task) =>
+          task.due_date &&
+          new Date(task.due_date) >= todayStart &&
+          new Date(task.due_date) < nextSevenDays,
+      );
+      return {
+        department: { id: department.id, name: department.name, color: department.color },
+        active_tasks: assignedTasks.length,
+        overdue_tasks: overdueTasks.length,
+        upcoming_tasks: upcomingTasks.length,
+        assigned_members: userIds.size,
+      };
+    }),
+    {
+      department: { id: "unassigned", name: "Unassigned", color: "slate" },
+      active_tasks: workspaceOpenTasks.filter((task) => !task.assignee_id || !departmentByUser.get(task.assignee_id)).length,
+      overdue_tasks: workspaceOpenTasks.filter(
+        (task) =>
+          (!task.assignee_id || !departmentByUser.get(task.assignee_id)) &&
+          task.due_date &&
+          new Date(task.due_date) < todayStart,
+      ).length,
+      upcoming_tasks: workspaceOpenTasks.filter(
+        (task) =>
+          (!task.assignee_id || !departmentByUser.get(task.assignee_id)) &&
+          task.due_date &&
+          new Date(task.due_date) >= todayStart &&
+          new Date(task.due_date) < nextSevenDays,
+      ).length,
+      assigned_members: flattenedUsers.filter((member) => !member.department_id).length,
+    },
+  ];
+  const overdueDeliverables = workspaceOpenTasks.filter(
+    (task) => task.due_date && new Date(task.due_date) < todayStart,
+  );
+  const unassignedDeliverables = workspaceOpenTasks.filter((task) => !task.assignee_id);
+  const projectsWithoutDeadlines = deliveryProjects.filter((project) => !project.due_date);
+  const busiestMember = workload
+    .filter((member) => member.open_tasks > 0)
+    .sort((a, b) => b.open_tasks - a.open_tasks)[0];
+  const workloadConcentration =
+    busiestMember && workspaceOpenTasks.length > 0 && busiestMember.open_tasks / workspaceOpenTasks.length >= 0.5
+      ? 1
+      : 0;
+  const agencyRiskSignals = [
+    {
+      key: "overdue_deliverables",
+      label: "Overdue deliverables",
+      count: overdueDeliverables.length,
+      trace: "Open tasks with due dates before today",
+    },
+    {
+      key: "unassigned_deliverables",
+      label: "Tasks without owners",
+      count: unassignedDeliverables.length,
+      trace: "Open tasks without an assignee",
+    },
+    {
+      key: "projects_without_deadlines",
+      label: "Projects without deadlines",
+      count: projectsWithoutDeadlines.length,
+      trace: "Active projects missing a project due date",
+    },
+    {
+      key: "clients_needing_attention",
+      label: "Clients needing attention",
+      count: clientRiskItems.length,
+      trace: "Clients with overdue work, missing setup, or stale activity",
+    },
+    {
+      key: "workload_concentration",
+      label: "Workload concentration",
+      count: workloadConcentration,
+      trace: busiestMember
+        ? `${busiestMember.user.name} owns ${busiestMember.open_tasks} of ${workspaceOpenTasks.length} open tasks`
+        : "No assigned open tasks",
+    },
+  ];
 
   return NextResponse.json({
     tasks: buildPage(tasks, limit),
@@ -355,7 +696,29 @@ async function GET_handler(req: NextRequest) {
         count: projectsAtRisk.length,
         rules: ["overdue open tasks", "no owner", "no activity in 7 days"],
       },
-      client_risk: { items: [], count: 0 },
+      client_risk: {
+        items: clientRiskItems.map((item) => ({
+          company: item.company,
+          reasons: item.reasons,
+          open_tasks: item.open_tasks,
+          overdue_tasks: item.overdue_tasks,
+        })),
+        count: clientRiskItems.length,
+      },
+      client_health: {
+        items: clientHealthItems.slice(0, 12),
+        counts: clientHealthCounts,
+      },
+      delivery_overview: {
+        items: deliveryOverview.slice(0, 12),
+      },
+      creative_queue: creativeQueue,
+      department_workload: {
+        items: departmentWorkload,
+      },
+      agency_risk_signals: {
+        items: agencyRiskSignals,
+      },
       revenue_snapshot: {
         active_clients: activeClientCount,
         total_contract_value: companyRevenue._sum.contract_value ?? 0,

@@ -134,6 +134,7 @@ export default function ClientDetailPage() {
     );
   }
   const summary = company.summary;
+  const clientHealth = getClientHealth(company);
 
   return (
     <>
@@ -150,7 +151,7 @@ export default function ClientDetailPage() {
                 <h2 className="break-words text-2xl font-bold text-foreground">{company.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {company.commercial_status || company.status}
-                  {company.industry ? ` · ${company.industry}` : ""}
+                  {company.industry ? ` - ${company.industry}` : ""}
                 </p>
               </div>
             </div>
@@ -171,6 +172,59 @@ export default function ClientDetailPage() {
                 New project
               </button>
             </div>
+          </div>
+        </section>
+
+        <section className="grid gap-3 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+          <div className="glass rounded-xl p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                  Client operations snapshot
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-foreground">
+                  Plan, delivery, deadline, and owner context
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Built only from linked projects, tasks, contacts, activity, and commercial fields.
+                </p>
+              </div>
+              <StatusPill status={clientHealth.status} />
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <PlanFact label="Plan" value={company.plan_name || "Not set"} hint={company.service_type || "Service type not set"} />
+              <PlanFact
+                label="Next deadline"
+                value={summary?.next_deadline ? formatDate(summary.next_deadline) : "Not scheduled"}
+                hint="From linked project or open task due dates"
+              />
+              <PlanFact label="Client owner" value={company.owner?.name ?? "Not assigned"} hint={company.owner?.email ?? "Assign owner for accountability"} />
+              <PlanFact
+                label="Delivery load"
+                value={`${summary?.open_task_count ?? 0} open`}
+                hint={`${summary?.project_count ?? 0} linked projects`}
+              />
+            </div>
+          </div>
+
+          <div className="glass rounded-xl p-5">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <AlertCircle className="h-4 w-4 text-upflow-warning" />
+              Health trace
+            </h3>
+            {clientHealth.reasons.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {clientHealth.reasons.map((reason) => (
+                  <span key={reason} className="rounded-full bg-white/5 px-3 py-1 text-xs text-muted-foreground">
+                    {reason}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
+                No traceable client health issues from current records.
+              </p>
+            )}
           </div>
         </section>
 
@@ -386,7 +440,7 @@ export default function ClientDetailPage() {
             <List items={company.notes_log ?? []} empty="No notes yet" render={(note: CompanyNote) => (
               <div>
                 <p className="text-sm text-foreground">{note.body}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? "Unknown"} · {formatDate(note.created_at)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? "Unknown"} - {formatDate(note.created_at)}</p>
               </div>
             )} />
           </Panel>
@@ -471,6 +525,27 @@ function PlanFact({ label, value, hint }: { label: string; value: string; hint?:
   );
 }
 
+function StatusPill({ status }: { status: "healthy" | "attention" | "risk" | "not_enough_data" }) {
+  const styles = {
+    healthy: "bg-upflow-success/15 text-upflow-success",
+    attention: "bg-upflow-warning/15 text-upflow-warning",
+    risk: "bg-upflow-danger/15 text-upflow-danger",
+    not_enough_data: "bg-white/10 text-muted-foreground",
+  };
+  const labels = {
+    healthy: "Healthy",
+    attention: "Needs attention",
+    risk: "At risk",
+    not_enough_data: "Not enough data",
+  };
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${styles[status]}`}>
+      {labels[status]}
+    </span>
+  );
+}
+
 function List<T extends { id?: string }>({ items, empty, render }: { items: T[]; empty: string; render: (item: T) => React.ReactNode }) {
   if (items.length === 0) {
     return <p className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-4 text-center text-xs text-muted-foreground">{empty}</p>;
@@ -516,4 +591,27 @@ function formatSeconds(totalSeconds: number) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
+}
+
+function getClientHealth(company: ClientPayload) {
+  const reasons = company.summary?.risk_reasons ?? [];
+  const hasAnyClientOpsData = Boolean(
+    company.plan_name ||
+      company.service_type ||
+      company.contract_value != null ||
+      (company.contacts?.length ?? 0) > 0 ||
+      (company.projects?.length ?? 0) > 0 ||
+      (company.activity_events?.length ?? 0) > 0,
+  );
+
+  if (!hasAnyClientOpsData) {
+    return { status: "not_enough_data" as const, reasons: ["Add plan, contacts, linked work, or activity"] };
+  }
+  if ((company.summary?.overdue_task_count ?? 0) > 0) {
+    return { status: "risk" as const, reasons };
+  }
+  if (reasons.length > 0) {
+    return { status: "attention" as const, reasons };
+  }
+  return { status: "healthy" as const, reasons: [] };
 }

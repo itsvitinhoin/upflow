@@ -40,6 +40,7 @@ export default function NewTaskDialog({
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [loading, setLoading] = useState(false);
+  const selectedProjectName = projects.find((project) => project.id === selectedProject)?.name;
 
   useEffect(() => {
     if (!open) return;
@@ -114,7 +115,7 @@ export default function NewTaskDialog({
       setPriority("medium");
       setDueDate("");
       setAssigneeId("");
-      toast.success("Task created");
+      toast.success("Deliverable created");
       onCreated();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("task.failedCreate");
@@ -137,9 +138,15 @@ export default function NewTaskDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-foreground">{t("task.newTask")}</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">Create deliverable</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add client work, campaign actions, creative requests, or internal agency operations.
+            </p>
+          </div>
           <button
             onClick={onClose}
+            disabled={loading}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
@@ -149,13 +156,13 @@ export default function NewTaskDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              {t("toolbar.title")} <span className="text-destructive">*</span>
+              Deliverable / action title <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={t("task.taskName")}
+              placeholder="Example: Approve Meta Ads creative set"
               required
               autoFocus
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -165,7 +172,7 @@ export default function NewTaskDialog({
           {!projectId && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                {t("projects.project")} <span className="text-destructive">*</span>
+                Client work / campaign list <span className="text-destructive">*</span>
               </label>
               <select
                 value={selectedProject}
@@ -173,7 +180,7 @@ export default function NewTaskDialog({
                 required
                 className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="">{t("projects.project")}</option>
+                <option value="">Choose where this deliverable belongs</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -184,11 +191,11 @@ export default function NewTaskDialog({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">{t("task.descriptionBrief")}</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Context and acceptance notes</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("task.descriptionPlaceholder")}
+              placeholder="Brief, links, client expectations, approval notes, or performance context"
               rows={2}
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
@@ -238,12 +245,17 @@ export default function NewTaskDialog({
               onChange={setDueDate}
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Use the real client deadline. This powers dashboard risk and delivery views.
+              {selectedProjectName ? ` Selected list: ${selectedProjectName}.` : ""}
+            </p>
           </div>
 
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
+              disabled={loading}
               className="flex-1 border border-white/10 text-foreground text-sm font-medium py-2.5 rounded-lg hover:bg-white/10 transition-colors"
             >
               {t("common.cancel")}
@@ -254,7 +266,7 @@ export default function NewTaskDialog({
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {t("task.createTask")}
+              {loading ? t("common.creating") : t("task.createTask")}
             </button>
           </div>
         </form>

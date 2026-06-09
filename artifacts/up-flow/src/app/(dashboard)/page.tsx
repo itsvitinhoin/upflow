@@ -73,6 +73,11 @@ type CommandDrawer =
   | "recent_activity"
   | "projects_at_risk"
   | "client_risk"
+  | "client_health"
+  | "delivery_overview"
+  | "creative_queue"
+  | "department_workload"
+  | "agency_risk_signals"
   | "revenue_snapshot"
   | "quick_create";
 
@@ -109,6 +114,77 @@ interface CommandCenterPayload {
       overdue_tasks: number;
     }>;
     count: number;
+  };
+  client_health?: {
+    counts: {
+      healthy: number;
+      attention_needed: number;
+      at_risk: number;
+      not_enough_data: number;
+    };
+    items: Array<{
+      company: Pick<Company, "id" | "name" | "commercial_status" | "status" | "contract_value" | "commission" | "plan_name" | "service_type"> & {
+        owner?: { id: string; name: string; email: string } | null;
+      };
+      health_status: "healthy" | "attention_needed" | "at_risk" | "not_enough_data";
+      reasons: string[];
+      open_tasks: number;
+      overdue_tasks: number;
+      active_projects: number;
+      contact_count: number;
+      next_deadline: string | null;
+      last_activity_at: string | null;
+    }>;
+  };
+  delivery_overview?: {
+    items: Array<{
+      project: Pick<Project, "id" | "name" | "status" | "due_date"> & {
+        owner?: { id: string; name: string; email: string } | null;
+        company?: { id: string; name: string } | null;
+        space?: { id: string; name: string; icon: string | null } | null;
+      };
+      progress: number;
+      open_tasks: number;
+      overdue_tasks: number;
+      next_deadline: string | null;
+      state: "on_track" | "attention_needed" | "at_risk" | "not_enough_data";
+    }>;
+  };
+  creative_queue?: {
+    source_note: string;
+    counts: {
+      waiting_for_briefing: number;
+      ready_to_start: number;
+      in_production: number;
+      waiting_for_approval: number;
+      revision_requested: number;
+    };
+    items: Array<{
+      task: Task;
+      stage:
+        | "waiting_for_briefing"
+        | "ready_to_start"
+        | "in_production"
+        | "waiting_for_approval"
+        | "revision_requested";
+    }>;
+  };
+  department_workload?: {
+    items: Array<{
+      department: { id: string; name: string; color: string };
+      active_tasks: number;
+      overdue_tasks: number;
+      upcoming_tasks: number;
+      assigned_members: number;
+    }>;
+  };
+  agency_risk_signals?: {
+    items: Array<{
+      key: string;
+      label: string;
+      count: number;
+      trace: string;
+    }>;
   };
   revenue_snapshot: {
     active_clients: number;
@@ -247,6 +323,24 @@ export default function DashboardPage() {
       recent_activity: { items: activity, count: activity.length },
       projects_at_risk: { items: [], count: 0, rules: [] },
       client_risk: { items: [], count: 0 },
+      client_health: {
+        counts: { healthy: 0, attention_needed: 0, at_risk: 0, not_enough_data: 0 },
+        items: [],
+      },
+      delivery_overview: { items: [] },
+      creative_queue: {
+        source_note: "Creative queue appears when matching deliverables exist.",
+        counts: {
+          waiting_for_briefing: 0,
+          ready_to_start: 0,
+          in_production: 0,
+          waiting_for_approval: 0,
+          revision_requested: 0,
+        },
+        items: [],
+      },
+      department_workload: { items: [] },
+      agency_risk_signals: { items: [] },
       revenue_snapshot: {
         active_clients: 0,
         total_contract_value: 0,
@@ -516,6 +610,12 @@ export default function DashboardPage() {
             />
           </section>
 
+          <AgencyOperationsPanel
+            data={commandCenterData}
+            onOpenDrawer={setCommandDrawer}
+            onOpenTask={setActiveTask}
+          />
+
           <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
             <TodayFocusPanel
               loading={loading}
@@ -690,7 +790,6 @@ export default function DashboardPage() {
     </>
   );
 }
-
 function QuickCreateMenu({
   onCreateTask,
   onCreateProject,
@@ -770,7 +869,6 @@ function QuickCreateMenu({
     </div>
   );
 }
-
 type DashboardTone = "danger" | "warning" | "success" | "info" | "rose" | "violet";
 
 const toneStyles: Record<
@@ -1319,6 +1417,245 @@ function CommandTile({
   );
 }
 
+function AgencyOperationsPanel({
+  data,
+  onOpenDrawer,
+  onOpenTask,
+}: {
+  data: CommandCenterPayload;
+  onOpenDrawer: (drawer: CommandDrawer) => void;
+  onOpenTask: (task: Task) => void;
+}) {
+  const clientHealth = data.client_health;
+  const deliveryItems = data.delivery_overview?.items ?? [];
+  const creativeQueue = data.creative_queue;
+  const riskSignals = data.agency_risk_signals?.items ?? [];
+  const topRisks = riskSignals.filter((signal) => signal.count > 0).slice(0, 3);
+
+  return (
+    <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
+      <div className="glass relative overflow-hidden rounded-2xl p-5">
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-upflow-success via-primary to-upflow-warning" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+              Agency operations
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-foreground">
+              Client work, delivery, creative queue, and workload
+            </h3>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              Built from real clients, campaigns, deliverables, deadlines, owners, activity, and time records.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenDrawer("agency_risk_signals")}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:bg-primary/10"
+          >
+            <AlertCircle className="h-3.5 w-3.5" />
+            Trace risks
+          </button>
+        </div>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <AgencyMiniCard
+            title="Client health"
+            value={
+              clientHealth
+                ? `${clientHealth.counts.healthy} healthy`
+                : "Not enough data"
+            }
+            hint={
+              clientHealth
+                ? `${clientHealth.counts.attention_needed + clientHealth.counts.at_risk} need attention`
+                : "Add clients, projects, contacts, and activity"
+            }
+            onClick={() => onOpenDrawer("client_health")}
+          />
+          <AgencyMiniCard
+            title="Campaign delivery"
+            value={`${deliveryItems.length} active`}
+            hint={deliveryItems.length ? "Progress and next deadlines" : "No active client work yet"}
+            onClick={() => onOpenDrawer("delivery_overview")}
+          />
+          <AgencyMiniCard
+            title="Creative queue"
+            value={`${creativeQueue?.items.length ?? 0} deliverables`}
+            hint={creativeQueue?.items.length ? "Briefing, production, approval signals" : "No creative tasks matched yet"}
+            onClick={() => onOpenDrawer("creative_queue")}
+          />
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold text-foreground">Closest delivery deadlines</h4>
+              <button
+                type="button"
+                onClick={() => onOpenDrawer("delivery_overview")}
+                className="text-xs text-primary hover:text-primary/80"
+              >
+                View all
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {deliveryItems.length === 0 ? (
+                <p className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
+                  No active client work yet. Apply an agency template or create a client campaign.
+                </p>
+              ) : (
+                deliveryItems.slice(0, 4).map((item) => (
+                  <Link
+                    key={item.project.id}
+                    href={`/projects/${item.project.id}`}
+                    className="block rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.06]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-medium text-foreground">{item.project.name}</p>
+                      <span className="text-xs font-semibold text-foreground">{item.progress}%</span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {item.project.company?.name ?? item.project.space?.name ?? "Internal work"}
+                      {item.next_deadline ? ` - ${formatDate(item.next_deadline)}` : " - No deadline"}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold text-foreground">Creative production queue</h4>
+              <button
+                type="button"
+                onClick={() => onOpenDrawer("creative_queue")}
+                className="text-xs text-primary hover:text-primary/80"
+              >
+                View queue
+              </button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {!creativeQueue?.items.length ? (
+                <p className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
+                  No creative/content deliverables matched yet. Use Creative, Production, or Marketing templates to populate this queue.
+                </p>
+              ) : (
+                creativeQueue.items.slice(0, 4).map(({ task, stage }) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => onOpenTask(task)}
+                    className="w-full rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/[0.06]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-medium text-foreground">{task.title}</p>
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+                        {creativeStageLabel(stage)}
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {task.project?.name ?? "No project"}{task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
+                    </p>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside className="glass rounded-2xl p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Agency risk signals</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Only traceable signals from tasks, clients, projects, owners, and activity.
+            </p>
+          </div>
+          <TrendingDown className="h-5 w-5 text-upflow-warning" />
+        </div>
+        <div className="mt-4 space-y-2">
+          {topRisks.length === 0 ? (
+            <p className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
+              Not enough risk data yet, or no current operational risks were detected from real records.
+            </p>
+          ) : (
+            topRisks.map((signal) => (
+              <button
+                key={signal.key}
+                type="button"
+                onClick={() => onOpenDrawer("agency_risk_signals")}
+                className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-left hover:bg-white/[0.06]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-foreground">{signal.label}</span>
+                  <span className="text-lg font-bold text-upflow-warning">{signal.count}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{signal.trace}</p>
+              </button>
+            ))
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onOpenDrawer("department_workload")}
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:bg-primary/10"
+        >
+          <Users2 className="h-3.5 w-3.5" />
+          Workload by department
+        </button>
+      </aside>
+    </section>
+  );
+}
+
+function AgencyMiniCard({
+  title,
+  value,
+  hint,
+  onClick,
+}: {
+  title: string;
+  value: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/10"
+    >
+      <p className="text-xs font-semibold uppercase text-muted-foreground">{title}</p>
+      <p className="mt-2 text-xl font-bold text-foreground">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    </button>
+  );
+}
+
+function creativeStageLabel(stage: NonNullable<CommandCenterPayload["creative_queue"]>["items"][number]["stage"]) {
+  const labels: Record<typeof stage, string> = {
+    waiting_for_briefing: "Briefing",
+    ready_to_start: "Ready",
+    in_production: "Production",
+    waiting_for_approval: "Approval",
+    revision_requested: "Revision",
+  };
+  return labels[stage];
+}
+
+function healthLabel(status: NonNullable<CommandCenterPayload["client_health"]>["items"][number]["health_status"]) {
+  const labels: Record<typeof status, string> = {
+    healthy: "Healthy",
+    attention_needed: "Needs attention",
+    at_risk: "At risk",
+    not_enough_data: "Not enough data",
+  };
+  return labels[status];
+}
+
 function CommandCenterDrawer({
   kind,
   data,
@@ -1350,6 +1687,11 @@ function CommandCenterDrawer({
     recent_activity: "Recent activity",
     projects_at_risk: "Projects at risk",
     client_risk: "Client risk",
+    client_health: "Client health overview",
+    delivery_overview: "Campaign delivery overview",
+    creative_queue: "Creative production queue",
+    department_workload: "Workload by department",
+    agency_risk_signals: "Agency risk signals",
     revenue_snapshot: "Revenue snapshot",
     quick_create: "Quick create",
   };
@@ -1391,7 +1733,7 @@ function CommandCenterDrawer({
                 >
                   <p className="text-sm font-medium text-foreground">{task.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {task.project?.name ?? "No project"} {task.due_date ? `· ${formatDate(task.due_date)}` : ""}
+                    {task.project?.name ?? "No project"} {task.due_date ? `- ${formatDate(task.due_date)}` : ""}
                   </p>
                 </button>
               ))
@@ -1410,7 +1752,7 @@ function CommandCenterDrawer({
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {item.open_tasks} open · {item.overdue_tasks} overdue · {formatSecondsShort(item.tracked_seconds_today)} today
+                  {item.open_tasks} open - {item.overdue_tasks} overdue - {formatSecondsShort(item.tracked_seconds_today)} today
                 </p>
               </div>
             ))}
@@ -1525,7 +1867,7 @@ function CommandCenterDrawer({
                   className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
                 >
                   <p className="text-sm font-medium text-foreground">{project.name}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" · ")}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" - ")}</p>
                 </Link>
               ))
             ))}
@@ -1543,16 +1885,149 @@ function CommandCenterDrawer({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{company.name}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" · ")}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" - ")}</p>
                     </div>
                     <span className="rounded-full bg-upflow-danger/15 px-2 py-1 text-xs text-upflow-danger">
                       {overdue_tasks} overdue
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {open_tasks} open tasks · {moneyCompact(company.contract_value)}
+                    {open_tasks} open tasks - {moneyCompact(company.contract_value)}
                   </p>
                 </Link>
+              ))
+            ))}
+
+          {kind === "client_health" &&
+            (!data.client_health?.items.length ? (
+              <DrawerEmpty title="Not enough client data yet" text="Client health appears after clients have linked work, contacts, plan data, or activity." />
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <HealthCount label="Healthy" value={data.client_health.counts.healthy} />
+                  <HealthCount label="Needs attention" value={data.client_health.counts.attention_needed} />
+                  <HealthCount label="At risk" value={data.client_health.counts.at_risk} />
+                  <HealthCount label="Not enough data" value={data.client_health.counts.not_enough_data} />
+                </div>
+                {data.client_health.items.map((item) => (
+                  <Link
+                    key={item.company.id}
+                    href={`/clients/${item.company.id}`}
+                    className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{item.company.name}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {item.company.plan_name ?? item.company.service_type ?? "Plan not set"}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-foreground">
+                        {healthLabel(item.health_status)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {item.active_projects} active projects - {item.open_tasks} open tasks
+                      {item.next_deadline ? ` - next ${formatDate(item.next_deadline)}` : " - no deadline"}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {item.reasons.length ? item.reasons.join(" - ") : "No traceable client health issues"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            ))}
+
+          {kind === "delivery_overview" &&
+            (!data.delivery_overview?.items.length ? (
+              <DrawerEmpty title="No active client work yet" text="Apply an agency template or create a client campaign to start tracking delivery." />
+            ) : (
+              data.delivery_overview.items.map((item) => (
+                <Link
+                  key={item.project.id}
+                  href={`/projects/${item.project.id}`}
+                  className="block rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">{item.project.name}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {item.project.company?.name ?? item.project.space?.name ?? "Internal operation"}
+                      </p>
+                    </div>
+                    <span className="text-sm font-bold text-foreground">{item.progress}%</span>
+                  </div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full bg-gradient-to-r from-primary to-upflow-success" style={{ width: `${item.progress}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {item.open_tasks} open - {item.overdue_tasks} overdue
+                    {item.next_deadline ? ` - next ${formatDate(item.next_deadline)}` : " - no deadline"}
+                  </p>
+                </Link>
+              ))
+            ))}
+
+          {kind === "creative_queue" &&
+            (!data.creative_queue?.items.length ? (
+              <DrawerEmpty title="No creative queue yet" text="Use Creative, Production, or Marketing task templates to make creative deliverables visible here." />
+            ) : (
+              <div className="space-y-3">
+                <p className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-xs text-muted-foreground">
+                  {data.creative_queue.source_note}
+                </p>
+                {data.creative_queue.items.map(({ task, stage }) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    onClick={() => onOpenTask(task)}
+                    className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left hover:bg-white/[0.06]"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {task.project?.name ?? "No project"}{task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
+                        {creativeStageLabel(stage)}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ))}
+
+          {kind === "department_workload" &&
+            (!data.department_workload?.items.length ? (
+              <DrawerEmpty title="No department workload yet" text="Assign members to departments and tasks to members to populate this view." />
+            ) : (
+              data.department_workload.items.map((item) => (
+                <div key={item.department.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground">{item.department.name}</p>
+                    <span className="text-lg font-bold text-foreground">{item.active_tasks}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {item.assigned_members} members - {item.upcoming_tasks} due soon - {item.overdue_tasks} overdue
+                  </p>
+                </div>
+              ))
+            ))}
+
+          {kind === "agency_risk_signals" &&
+            (!data.agency_risk_signals?.items.length ? (
+              <DrawerEmpty title="No agency risk signals yet" text="Traceable operational risk appears after tasks, clients, projects, owners, and activity records exist." />
+            ) : (
+              data.agency_risk_signals.items.map((signal) => (
+                <div key={signal.key} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground">{signal.label}</p>
+                    <span className="text-xl font-bold text-foreground">{signal.count}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{signal.trace}</p>
+                </div>
               ))
             ))}
 
@@ -1591,7 +2066,7 @@ function CommandCenterDrawer({
                   >
                     <p className="text-sm font-medium text-foreground">{company.name}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Contract {moneyCompact(company.contract_value)} · Commission {moneyCompact(company.commission)}
+                      Contract {moneyCompact(company.contract_value)} - Commission {moneyCompact(company.commission)}
                     </p>
                   </Link>
                 ))
@@ -1828,6 +2303,15 @@ function DrawerEmpty({ title, text }: { title: string; text: string }) {
   );
 }
 
+function HealthCount({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+      <p className="text-lg font-bold text-foreground">{value}</p>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
 function StatCard({
   tone,
   label,
@@ -2019,13 +2503,13 @@ function TeamTimeline({
             <span suppressHydrationWarning>{todayLabel || "\u00A0"}</span>
             {focusedLabel && (
               <>
-                {" · "}
+                {" - "}
                 <span className="text-primary">Showing {focusedLabel.toLowerCase()}s</span>
               </>
             )}
             {focusHour !== null && (
               <>
-                {" · "}
+                {" - "}
                 <button
                   onClick={() => setFocusHour(null)}
                   className="text-primary hover:underline"
@@ -2180,7 +2664,7 @@ function TeamTimeline({
                   return (
                     <div
                       key={i}
-                      title={`${u.name} · ${b.label} · ${fmtH(b.start)} – ${fmtH(b.end)}`}
+                      title={`${u.name} - ${b.label} - ${fmtH(b.start)} – ${fmtH(b.end)}`}
                       className={cn(
                         "absolute top-1 bottom-1 rounded-md border-l-2 px-2 flex items-center text-[10px] font-medium text-foreground/80 truncate transition-opacity",
                         color,
@@ -2645,7 +3129,7 @@ function RightPanel({
                   type="button"
                   onClick={() => setActiveDay((c) => (c === i ? null : i))}
                   aria-pressed={isActive}
-                  title={`${d.hours}h · ${d.tasks} tasks`}
+                  title={`${d.hours}h - ${d.tasks} tasks`}
                   className={cn(
                     "group relative w-full flex flex-col items-center justify-end gap-1 py-2 rounded-full min-h-[96px] transition-all hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
                     isActive
@@ -2667,7 +3151,7 @@ function RightPanel({
                     />
                   ))}
                   <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium glass-strong opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    {d.hours}h · {d.tasks} tasks
+                    {d.hours}h - {d.tasks} tasks
                   </span>
                 </button>
                 <span
