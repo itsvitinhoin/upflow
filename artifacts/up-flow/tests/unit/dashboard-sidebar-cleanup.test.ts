@@ -12,6 +12,7 @@ function read(rel: string) {
 test("home dashboard defaults to a focused today and risks command center", () => {
   const page = read("src/app/(dashboard)/page.tsx");
   const agencyPanel = read("src/components/dashboard/agency-operations-panel.tsx");
+  const teamTimeline = read("src/components/dashboard/team-timeline.tsx");
   const taskDetailModal = read("src/components/dashboard/task-detail-modal.tsx");
 
   assert.match(page, /t\("dashboard\.commandCenter"\)/);
@@ -19,10 +20,15 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(page, /QuickCreateMenu/);
   assert.match(page, /StatusCountButton/);
   assert.match(page, /<TeamTimeline\s/);
+  assert.match(page, /components\/dashboard\/team-timeline/);
   assert.match(page, /agency-operations-panel/);
   assert.match(agencyPanel, /Client work, delivery, creative queue, and workload/);
+  assert.match(teamTimeline, /Live schedule from meetings and tracked time/);
+  assert.match(teamTimeline, /buildTimelineRowsFromData/);
   assert.match(page, /\/api\/dashboard\/summary/);
   assert.doesNotMatch(page, /function AgencyOperationsPanel/);
+  assert.doesNotMatch(page, /function TeamTimeline/);
+  assert.doesNotMatch(page, /type TimelineBlock/);
   assert.doesNotMatch(page, /<RightPanel\s/);
   assert.doesNotMatch(page, /<QuickAction\s/);
   assert.doesNotMatch(page, /<StatCard\s/);

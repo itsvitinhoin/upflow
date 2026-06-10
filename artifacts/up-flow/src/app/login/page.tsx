@@ -37,13 +37,13 @@ export default function LoginPage() {
           `Too many login attempts. Please try again in ${retryAfter} second${retryAfter === 1 ? "" : "s"}.`,
         );
       } else if (!res.ok) {
-        toast.error(body.error || "Login failed");
+        toast.error(body.error || "Could not sign in. Check your email and password, then try again.");
       } else {
         router.push(nextPath);
         router.refresh();
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error("Could not reach Up Flow. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="••••••••"
+                placeholder="********"
                 className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
               />
             </div>

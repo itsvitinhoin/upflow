@@ -73,11 +73,11 @@ export default function ResetPasswordPage() {
         return;
       }
       toast.success("Password updated. You're signed in.");
-      // The recovery session is a normal Supabase session — push to home.
+      // The recovery session is a normal Supabase session; push to home.
       router.push("/");
       router.refresh();
     } catch {
-      toast.error("Something went wrong");
+      toast.error("Could not update your password. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  placeholder="••••••••"
+                  placeholder="********"
                   className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
                 />
               </div>
@@ -144,7 +144,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setConfirm(e.target.value)}
                   required
                   minLength={8}
-                  placeholder="••••••••"
+                  placeholder="********"
                   className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
                 />
               </div>

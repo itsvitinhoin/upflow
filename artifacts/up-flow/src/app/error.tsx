@@ -34,12 +34,13 @@ export default function GlobalRouteError({
             <AlertTriangle className="h-5 w-5" aria-hidden />
           </div>
           <h1 className="text-lg font-semibold text-foreground">
-            Something went wrong
+            This page could not load
           </h1>
         </div>
         <p className="mb-6 text-sm text-muted-foreground">
-          We hit an unexpected error and our team has been notified. You can
-          try again, or head back to the dashboard.
+          The app could not finish loading this screen. Try again first. If it
+          keeps happening, go back to the dashboard and check Admin Health for
+          database, Supabase, or email configuration issues.
         </p>
         {error.digest ? (
           <p className="mb-6 break-all text-xs text-muted-foreground/70">
@@ -53,13 +54,13 @@ export default function GlobalRouteError({
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <RefreshCw className="h-4 w-4" aria-hidden />
-            Try again
+            Retry page
           </button>
           <Link
             href="/"
             className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
-            Back to dashboard
+            Open dashboard
           </Link>
         </div>
       </div>

@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
         setSent(true);
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error("Could not request a reset link. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
