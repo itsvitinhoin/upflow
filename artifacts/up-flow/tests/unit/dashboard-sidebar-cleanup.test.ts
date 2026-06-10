@@ -12,6 +12,7 @@ function read(rel: string) {
 test("home dashboard defaults to a focused today and risks command center", () => {
   const page = read("src/app/(dashboard)/page.tsx");
   const agencyPanel = read("src/components/dashboard/agency-operations-panel.tsx");
+  const taskDetailModal = read("src/components/dashboard/task-detail-modal.tsx");
 
   assert.match(page, /t\("dashboard\.commandCenter"\)/);
   assert.match(page, /TodayFocusPanel/);
@@ -26,6 +27,11 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.doesNotMatch(page, /<QuickAction\s/);
   assert.doesNotMatch(page, /<StatCard\s/);
   assert.doesNotMatch(page, /<PeopleCard\s/);
+  assert.doesNotMatch(page, /function TaskDetailModal/);
+  assert.match(page, /components\/dashboard\/task-detail-modal/);
+  assert.match(taskDetailModal, /aria-modal="true"/);
+  assert.match(taskDetailModal, /focusables/);
+  assert.match(taskDetailModal, /Delete task/);
 });
 
 test("desktop sidebar exposes a clear sliding drawer toggle", () => {
