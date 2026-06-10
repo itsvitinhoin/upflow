@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { prisma } from "@/lib/prisma";
@@ -8,6 +10,11 @@ type HealthCheck = {
   ok: boolean;
   label: string;
   message: string;
+};
+
+type ReadinessStep = {
+  title: string;
+  detail: string;
 };
 
 async function GET_handler() {
@@ -21,6 +28,7 @@ async function GET_handler() {
 
   const checks: Record<string, HealthCheck> = {
     database: await checkDatabase(),
+    database_urls: checkDatabaseUrls(),
     supabase: checkSupabase(),
     resend: checkResend(),
     app_url: checkAppUrl(),
@@ -31,9 +39,11 @@ async function GET_handler() {
 
   return NextResponse.json({
     status: ready ? "ok" : "degraded",
+    ready,
     checked_at: new Date().toISOString(),
     workspace_id: auth.currentWorkspaceId,
     checks,
+    rollout_steps: buildRolloutSteps(),
   });
 }
 
@@ -52,6 +62,48 @@ async function checkDatabase(): Promise<HealthCheck> {
       message: "Check DATABASE_URL, DIRECT_URL, Supabase status, and migrations.",
     };
   }
+}
+
+function checkDatabaseUrls(): HealthCheck {
+  const databaseUrl = process.env.DATABASE_URL?.trim();
+  const directUrl = process.env.DIRECT_URL?.trim();
+  const missing = [
+    !databaseUrl && "DATABASE_URL",
+    !directUrl && "DIRECT_URL",
+  ].filter(Boolean);
+  const placeholders = [databaseUrl, directUrl].some((value) =>
+    value?.includes("[YOUR-PASSWORD]"),
+  );
+  const invalidDirectUrl = Boolean(directUrl && !/^postgres(?:ql)?:\/\//.test(directUrl));
+  const invalidDatabaseUrl = Boolean(databaseUrl && !/^postgres(?:ql)?:\/\//.test(databaseUrl));
+
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      label: "Database URLs incomplete",
+      message: `Missing ${missing.join(", ")}. DATABASE_URL is used by the app; DIRECT_URL is required for Prisma migrations.`,
+    };
+  }
+  if (placeholders) {
+    return {
+      ok: false,
+      label: "Database URL still has placeholder",
+      message: "Replace [YOUR-PASSWORD] with the real Supabase database password before deploying.",
+    };
+  }
+  if (invalidDatabaseUrl || invalidDirectUrl) {
+    return {
+      ok: false,
+      label: "Database URL format invalid",
+      message: "DATABASE_URL and DIRECT_URL must be Postgres connection strings, not the Supabase project HTTPS URL.",
+    };
+  }
+
+  return {
+    ok: true,
+    label: "Database URLs configured",
+    message: "DATABASE_URL and DIRECT_URL are present and use Postgres connection-string format.",
+  };
 }
 
 function checkSupabase(): HealthCheck {
@@ -90,12 +142,28 @@ function checkResend(): HealthCheck {
 
 function checkAppUrl(): HealthCheck {
   const appUrl = process.env.APP_URL?.trim();
+  let valid = Boolean(appUrl);
+  let message = appUrl
+    ? "Invite links will use the configured public URL."
+    : "Set APP_URL to the canonical production URL.";
+
+  if (appUrl) {
+    try {
+      const parsed = new URL(appUrl);
+      if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
+        valid = false;
+        message = "Production APP_URL must use HTTPS.";
+      }
+    } catch {
+      valid = false;
+      message = "APP_URL must be a valid absolute URL, for example https://upflow-mocha.vercel.app.";
+    }
+  }
+
   return {
-    ok: Boolean(appUrl),
-    label: appUrl ? "APP_URL configured" : "APP_URL missing",
-    message: appUrl
-      ? "Invite links will use the configured public URL."
-      : "Set APP_URL to the canonical production URL.",
+    ok: valid,
+    label: valid ? "APP_URL configured" : "APP_URL needs attention",
+    message,
   };
 }
 
@@ -119,10 +187,22 @@ async function checkLatestMigration(): Promise<HealthCheck> {
       LIMIT 1
     `;
     const latest = rows[0]?.migration_name;
+    const expected = getLatestBundledMigration();
+    if (latest && expected && latest !== expected) {
+      return {
+        ok: false,
+        label: "Production migrations behind",
+        message: `Database latest migration is ${latest}; app bundle expects ${expected}. Run npm run db:migrate:deploy before redeploying.`,
+      };
+    }
     return {
       ok: Boolean(latest),
-      label: latest ? "Migration history readable" : "No applied migrations found",
-      message: latest ? `Latest applied migration: ${latest}.` : "Run Prisma migrations for this database.",
+      label: latest ? "Latest migration applied" : "No applied migrations found",
+      message: latest
+        ? expected
+          ? `Database is on latest bundled migration: ${latest}.`
+          : `Latest applied migration: ${latest}.`
+        : "Run Prisma migrations for this database.",
     };
   } catch {
     return {
@@ -131,6 +211,38 @@ async function checkLatestMigration(): Promise<HealthCheck> {
       message: "Could not read Prisma migration history.",
     };
   }
+}
+
+function getLatestBundledMigration(): string | null {
+  try {
+    const migrationsDir = join(process.cwd(), "prisma", "migrations");
+    if (!existsSync(migrationsDir)) return null;
+    const migrations = readdirSync(migrationsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .filter((name) => /^\d{14}_/.test(name))
+      .sort();
+    return migrations.at(-1) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function buildRolloutSteps(): ReadinessStep[] {
+  return [
+    {
+      title: "Run migrations before redeploy",
+      detail: "Use npm run db:migrate:deploy against production, then redeploy the Vercel project.",
+    },
+    {
+      title: "Verify core flows",
+      detail: "Create a space, folder, list, task, client, meeting, invite, and time entry in production.",
+    },
+    {
+      title: "Pilot with real users",
+      detail: "Invite one user from each department, confirm notifications, and keep the old system read-only during the pilot.",
+    },
+  ];
 }
 
 export const GET = withErrorReporting("api:admin/health:GET", GET_handler);

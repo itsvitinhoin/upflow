@@ -164,12 +164,20 @@ test("invite modes support personal workspaces and current workspace access", ()
 test("admin health exposes actionable production diagnostics without secrets", () => {
   assert.match(adminHealthRoute, /isWorkspaceAdmin/);
   assert.match(adminHealthRoute, /Database unreachable/);
+  assert.match(adminHealthRoute, /checkDatabaseUrls/);
+  assert.match(adminHealthRoute, /DIRECT_URL/);
+  assert.match(adminHealthRoute, /\[YOUR-PASSWORD\]/);
   assert.match(adminHealthRoute, /NEXT_PUBLIC_SUPABASE_URL/);
   assert.match(adminHealthRoute, /RESEND_API_KEY/);
   assert.match(adminHealthRoute, /APP_URL/);
   assert.match(adminHealthRoute, /"_prisma_migrations"/);
+  assert.match(adminHealthRoute, /getLatestBundledMigration/);
+  assert.match(adminHealthRoute, /Run npm run db:migrate:deploy before redeploying/);
   assert.doesNotMatch(adminHealthRoute, /process\.env\.RESEND_API_KEY\s*,/);
   assert.match(adminHealthPage, /UP Flow admin health/);
+  assert.match(adminHealthPage, /Ready for internal rollout/);
+  assert.match(adminHealthPage, /Rollout blocked/);
+  assert.match(adminHealthPage, /Final rollout sequence/);
   assert.match(adminHealthPage, /\/api\/admin\/health/);
 });
 

@@ -13,8 +13,13 @@ type HealthCheck = {
 
 type HealthPayload = {
   status: "ok" | "degraded";
+  ready: boolean;
   checked_at: string;
   checks: Record<string, HealthCheck>;
+  rollout_steps?: Array<{
+    title: string;
+    detail: string;
+  }>;
 };
 
 export default function AdminHealthPage() {
@@ -56,7 +61,7 @@ export default function AdminHealthPage() {
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
                 Operational checks for database, Supabase, Resend, app URL,
-                active workspace, and Prisma migrations.
+                active workspace, database URLs, and Prisma migrations.
               </p>
             </div>
             <button
@@ -78,31 +83,75 @@ export default function AdminHealthPage() {
         )}
 
         {payload && (
-          <section className="grid gap-3 md:grid-cols-2">
-            {Object.entries(payload.checks).map(([key, check]) => (
-              <div
-                key={key}
-                className={cn(
-                  "rounded-xl border bg-white/[0.03] p-4",
-                  check.ok ? "border-upflow-success/25" : "border-upflow-warning/30",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  {check.ok ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-success" />
-                  ) : (
-                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
+          <>
+            <section
+              className={cn(
+                "rounded-2xl border p-4",
+                payload.ready
+                  ? "border-upflow-success/30 bg-upflow-success/10"
+                  : "border-upflow-warning/30 bg-upflow-warning/10",
+              )}
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {payload.ready ? "Ready for internal rollout" : "Rollout blocked"}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {payload.ready
+                      ? "All required production checks are passing. Run the manual acceptance flow before inviting the full team."
+                      : "Resolve the failed checks below before using UP Flow as the primary internal project-management system."}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Checked {new Date(payload.checked_at).toLocaleString("pt-BR")}
+                </p>
+              </div>
+            </section>
+
+            <section className="grid gap-3 md:grid-cols-2">
+              {Object.entries(payload.checks).map(([key, check]) => (
+                <div
+                  key={key}
+                  className={cn(
+                    "rounded-xl border bg-white/[0.03] p-4",
+                    check.ok ? "border-upflow-success/25" : "border-upflow-warning/30",
                   )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">{check.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                      {check.message}
-                    </p>
+                >
+                  <div className="flex items-start gap-3">
+                    {check.ok ? (
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-success" />
+                    ) : (
+                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">{check.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                        {check.message}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </section>
+
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <p className="text-sm font-semibold text-foreground">
+                Final rollout sequence
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {(payload.rollout_steps ?? []).map((step, index) => (
+                  <div key={step.title} className="rounded-xl border border-white/10 bg-background/40 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                      Step {index + 1}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">{step.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </section>
+            </section>
+          </>
         )}
       </main>
     </>
