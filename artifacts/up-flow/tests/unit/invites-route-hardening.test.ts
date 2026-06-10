@@ -26,6 +26,18 @@ const teamInvitePanels = readFileSync(
   join(__dirname, "..", "..", "src", "components", "team", "team-invite-panels.tsx"),
   "utf8",
 );
+const teamManagementDialogs = readFileSync(
+  join(
+    __dirname,
+    "..",
+    "..",
+    "src",
+    "components",
+    "team",
+    "team-management-dialogs.tsx",
+  ),
+  "utf8",
+);
 const emailStatusRoute = readFileSync(
   join(__dirname, "..", "..", "src", "app", "api", "email", "status", "route.ts"),
   "utf8",
@@ -204,6 +216,15 @@ test("manual tester accounts use Supabase auth and the isolated test workspace",
   assert.match(registerRoute, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(registerRoute, /auth\.admin\.createUser/);
   assert.match(teamInvitePanels, /Create tester account/);
-  assert.match(teamPage, /Copy credentials/);
-  assert.match(teamPage, /\/api\/users\/register/);
+  assert.match(teamPage, /CreateTesterAccountDialog/);
+  assert.match(teamManagementDialogs, /Copy credentials/);
+  assert.match(teamManagementDialogs, /\/api\/users\/register/);
+  assert.match(teamManagementDialogs, /if \(loading\) return/);
+});
+
+test("team department management is isolated from the main team page", () => {
+  assert.match(teamPage, /ManageDepartmentsDialog/);
+  assert.match(teamManagementDialogs, /Manage departments/);
+  assert.match(teamManagementDialogs, /Delete "\$\{dep\.name\}"/);
+  assert.match(teamManagementDialogs, /No departments yet/);
 });

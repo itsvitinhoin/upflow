@@ -16,7 +16,7 @@ export const DEPARTMENT_COLORS = [
 
 export type DepartmentColor = (typeof DEPARTMENT_COLORS)[number];
 
-// Server-side validation also imports this — keep the palette as a single
+// Server-side validation also imports this. Keep the palette as a single
 // source of truth so the client picker and the API stay in sync.
 export const DEPARTMENT_COLOR_SET: ReadonlySet<string> = new Set(
   DEPARTMENT_COLORS,
