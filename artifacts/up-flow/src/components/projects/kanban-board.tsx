@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import type { CSSProperties } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
@@ -207,11 +208,16 @@ export default function KanbanBoard({
                       );
                       return (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
-                          {(provided, snapshot) => (
+                          {(provided, snapshot) => {
+                            const { style: draggableStyle, ...draggableProps } =
+                              provided.draggableProps;
+
+                            return (
                             <div
                               ref={provided.innerRef}
-                              {...provided.draggableProps}
+                              {...draggableProps}
                               {...provided.dragHandleProps}
+                              style={draggableStyle as CSSProperties | undefined}
                               onClick={() => {
                                 if (isDraggingRef.current) return;
                                 setSelectedTask(task);
@@ -322,7 +328,8 @@ export default function KanbanBoard({
                                 )}
                               </div>
                             </div>
-                          )}
+                          );
+                          }}
                         </Draggable>
                       );
                     })}
