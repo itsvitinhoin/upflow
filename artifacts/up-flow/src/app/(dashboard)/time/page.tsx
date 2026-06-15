@@ -3,11 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/header";
 import { Clock, TrendingUp, Calendar as CalendarIcon, FolderKanban } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import { logError } from "@/lib/log-error";
 import type { TimeEntry } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { appDateKey, appDateTimeToUtc, cn } from "@/lib/utils";
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABEL_KEYS = [
+  "time.day.mon",
+  "time.day.tue",
+  "time.day.wed",
+  "time.day.thu",
+  "time.day.fri",
+  "time.day.sat",
+  "time.day.sun",
+];
 
 function fmtHM(minutes: number) {
   const h = Math.floor(minutes / 60);
@@ -17,23 +26,26 @@ function fmtHM(minutes: number) {
   return `${h}h ${m}m`;
 }
 
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+function appDateTuple(value: string | Date) {
+  return appDateKey(value).split("-").map(Number) as [number, number, number];
 }
 
-function startOfWeekMonday() {
-  const d = startOfToday();
-  const day = d.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
+function startOfWeekMonday(now = new Date()) {
+  const [year, month, day] = appDateTuple(now);
+  const weekday = new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+  const diff = weekday === 0 ? -6 : 1 - weekday;
+  return appDateTimeToUtc(year, month, day + diff);
 }
 
-function dayIndex(value: string) {
-  const d = new Date(value).getDay();
-  return d === 0 ? 6 : d - 1;
+function startOfNextWeek(weekStart: Date) {
+  const [year, month, day] = appDateTuple(weekStart);
+  return appDateTimeToUtc(year, month, day + 7);
+}
+
+function dayIndex(value: string | Date) {
+  const [year, month, day] = appDateTuple(value);
+  const weekday = new Date(Date.UTC(year, month - 1, day, 12)).getUTCDay();
+  return weekday === 0 ? 6 : weekday - 1;
 }
 
 function entrySeconds(entry: TimeEntry, now: Date) {
@@ -44,6 +56,7 @@ function entrySeconds(entry: TimeEntry, now: Date) {
 }
 
 export default function TimePage() {
+  const { t } = useLanguage();
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => new Date());
@@ -55,8 +68,7 @@ export default function TimePage() {
 
   useEffect(() => {
     const weekStart = startOfWeekMonday();
-    const nextWeek = new Date(weekStart);
-    nextWeek.setDate(weekStart.getDate() + 7);
+    const nextWeek = startOfNextWeek(weekStart);
     let alive = true;
     fetch(`/api/time/entries?from=${weekStart.toISOString()}&to=${nextWeek.toISOString()}`)
       .then((r) => r.json())
@@ -71,20 +83,20 @@ export default function TimePage() {
     };
   }, []);
 
-  const todayIdx = dayIndex(startOfToday().toISOString());
+  const todayIdx = dayIndex(now);
 
   const totals = useMemo(() => {
     const perDay = Array.from({ length: 7 }, () => 0);
     const perProject = new Map<string, number>();
-    const todayStart = startOfToday();
-    const tomorrowStart = new Date(todayStart);
-    tomorrowStart.setDate(todayStart.getDate() + 1);
+    const [todayYear, todayMonth, todayDay] = appDateTuple(now);
+    const todayStart = appDateTimeToUtc(todayYear, todayMonth, todayDay);
+    const tomorrowStart = appDateTimeToUtc(todayYear, todayMonth, todayDay + 1);
 
     entries.forEach((entry) => {
       const seconds = entrySeconds(entry, now);
       const idx = dayIndex(entry.started_at);
       perDay[idx] += seconds;
-      const project = entry.project?.name ?? "No project";
+      const project = entry.project?.name ?? t("time.noProject");
       perProject.set(project, (perProject.get(project) ?? 0) + seconds);
     });
 
@@ -107,27 +119,27 @@ export default function TimePage() {
         minutes: Math.round(seconds / 60),
       })).sort((a, b) => b.minutes - a.minutes),
     };
-  }, [entries, now]);
+  }, [entries, now, t]);
 
   const maxDayMinutes = Math.max(1, ...totals.perDay.map((seconds) => Math.round(seconds / 60)));
 
   return (
     <>
-      <Header title="Time tracking" />
+      <Header title={t("time.title")} />
       <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SummaryCard
-            label="This week"
+            label={t("time.thisWeek")}
             value={fmtHM(totals.weekMinutes)}
             icon={<Clock className="w-4 h-4" />}
           />
           <SummaryCard
-            label="Today"
+            label={t("time.today")}
             value={fmtHM(totals.todayMinutes)}
             icon={<CalendarIcon className="w-4 h-4" />}
           />
           <SummaryCard
-            label="Daily average"
+            label={t("time.dailyAverage")}
             value={fmtHM(totals.averageMinutes)}
             icon={<TrendingUp className="w-4 h-4" />}
           />
@@ -136,19 +148,20 @@ export default function TimePage() {
         <section className="glass rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Weekly hours</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("time.weeklyHours")}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Time tracked from saved entries
+                {t("time.savedEntriesHint")}
               </p>
             </div>
           </div>
           <div className="flex items-end gap-3 h-40 pl-2">
-            {DAY_LABELS.map((label, idx) => {
+            {DAY_LABEL_KEYS.map((labelKey, idx) => {
+              const label = t(labelKey);
               const mins = Math.round(totals.perDay[idx] / 60);
               const heightPct = (mins / maxDayMinutes) * 100;
               const isToday = idx === todayIdx;
               return (
-                <div key={label} className="flex-1 flex flex-col items-center gap-2">
+                <div key={labelKey} className="flex-1 flex flex-col items-center gap-2">
                   <div className="flex-1 w-full flex items-end">
                     <div
                       title={`${label}: ${fmtHM(mins)}`}
@@ -176,18 +189,18 @@ export default function TimePage() {
         <section className="glass rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">By project</h3>
+              <h3 className="text-sm font-semibold text-foreground">{t("time.byProject")}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Time logged per project this week
+                {t("time.projectHint")}
               </p>
             </div>
             <FolderKanban className="w-4 h-4 text-muted-foreground" />
           </div>
           {loading ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">Loading...</p>
+            <p className="text-xs text-muted-foreground py-6 text-center">{t("common.loading")}</p>
           ) : totals.perProject.length === 0 ? (
             <p className="text-xs text-muted-foreground py-6 text-center">
-              No tracked time this week.
+              {t("time.noTrackedTime")}
             </p>
           ) : (
             <ul className="space-y-3">

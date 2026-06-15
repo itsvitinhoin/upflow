@@ -345,16 +345,24 @@ export interface Company {
   owner?: { id: string; name: string; email: string } | null;
   summary?: {
     project_count: number;
+    active_project_count?: number;
     open_task_count: number;
     overdue_task_count: number;
     meeting_count: number;
     contact_count: number;
     tracked_seconds: number;
     risk_reasons: string[];
+    health_status?: "healthy" | "attention" | "risk" | "not_enough_data";
     profitability_ratio: number | null;
     contract_value_per_tracked_hour: number | null;
     commission_per_tracked_hour: number | null;
     next_deadline: string | null;
+    latest_activity?: {
+      type: string;
+      created_at: string;
+      actor?: { id: string; name: string; email: string } | null;
+    } | null;
+    assigned_members?: Array<{ id: string; name: string; email: string }>;
   };
   contacts?: CompanyContact[];
   notes_log?: CompanyNote[];

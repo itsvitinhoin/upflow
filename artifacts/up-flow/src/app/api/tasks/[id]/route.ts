@@ -11,6 +11,7 @@ import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { recordActivity } from "@/lib/activity";
+import { parseAppDate } from "@/lib/utils";
 
 const UpdateTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -45,8 +46,7 @@ function parseTaskImage(value: string | null | undefined) {
 function parsePatchDate(value: string | null | undefined) {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "invalid" : date;
+  return parseAppDate(value);
 }
 
 async function GET_handler(

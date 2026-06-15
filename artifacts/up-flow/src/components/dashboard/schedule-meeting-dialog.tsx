@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Video } from "lucide-react";
 import type { CalendarEvent } from "@/lib/types";
-import { formatLongDate } from "@/lib/utils";
+import { APP_TIME_ZONE, formatLongDate, mergeAppDateAndTime } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 const COLORS = [
   "bg-primary/20 text-primary",
@@ -14,10 +15,7 @@ const COLORS = [
 ];
 
 function buildStartsAt(time: string, date?: Date) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const startsAt = date ? new Date(date) : new Date();
-  startsAt.setHours(hours || 0, minutes || 0, 0, 0);
-  return startsAt;
+  return mergeAppDateAndTime(date ?? new Date(), time);
 }
 
 export default function ScheduleMeetingDialog({
@@ -26,7 +24,7 @@ export default function ScheduleMeetingDialog({
   onScheduled,
   initialDate,
   initialTime = "09:00",
-  title: dialogTitle = "Schedule meeting",
+  title: dialogTitle,
   defaultProjectId,
 }: {
   open: boolean;
@@ -37,6 +35,7 @@ export default function ScheduleMeetingDialog({
   title?: string;
   defaultProjectId?: string | null;
 }) {
+  const { t } = useLanguage();
   const [title, setTitle] = useState("");
   const [time, setTime] = useState(initialTime);
   const [withWho, setWithWho] = useState("");
@@ -53,7 +52,7 @@ export default function ScheduleMeetingDialog({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !time) {
-      toast.error("Title and time are required");
+      toast.error(t("calendar.titleAndTimeRequired"));
       return;
     }
 
@@ -70,20 +69,20 @@ export default function ScheduleMeetingDialog({
           type: "meeting",
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
+          timezone: APP_TIME_ZONE,
           color: COLORS[colorIdx],
           ...(defaultProjectId ? { project_id: defaultProjectId } : {}),
         }),
       });
       if (!res.ok) throw new Error("Failed to schedule meeting");
       const meeting = (await res.json()) as CalendarEvent;
-      toast.success("Meeting scheduled");
+      toast.success(t("calendar.meetingScheduled"));
       onScheduled?.(meeting);
       setTitle("");
       setWithWho("");
       onClose();
     } catch {
-      toast.error("Could not schedule meeting");
+      toast.error(t("calendar.couldNotSchedule"));
     } finally {
       setSubmitting(false);
     }
@@ -104,18 +103,20 @@ export default function ScheduleMeetingDialog({
             <div className="w-8 h-8 rounded-lg bg-upflow-success/20 text-upflow-success flex items-center justify-center">
               <Video className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">{dialogTitle}</h2>
+            <h2 className="text-base font-semibold text-foreground">
+              {dialogTitle ?? t("calendar.scheduleMeeting")}
+            </h2>
           </div>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Title</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldTitle")}</label>
         <input
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. Sprint review"
+          placeholder={t("calendar.titlePlaceholder")}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
         {initialDate && (
@@ -125,7 +126,7 @@ export default function ScheduleMeetingDialog({
         )}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Time</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldTime")}</label>
             <input
               type="time"
               value={time}
@@ -134,16 +135,16 @@ export default function ScheduleMeetingDialog({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">With</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.with")}</label>
             <input
               value={withWho}
               onChange={(e) => setWithWho(e.target.value)}
-              placeholder="Team / client"
+              placeholder={t("calendar.withPlaceholder")}
               className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
         </div>
-        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Tag</label>
+        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("calendar.tag")}</label>
         <div className="flex gap-2">
           {COLORS.map((c, i) => (
             <button
@@ -164,14 +165,14 @@ export default function ScheduleMeetingDialog({
             disabled={submitting}
             className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10 disabled:opacity-40"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg disabled:opacity-50"
           >
-            {submitting ? "Scheduling..." : "Schedule"}
+            {submitting ? t("calendar.scheduling") : t("calendar.schedule")}
           </button>
         </div>
       </form>

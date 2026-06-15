@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -11,6 +12,23 @@ const StartSchema = z.object({
   task_id: z.string().uuid().optional().nullable(),
   description: z.string().trim().optional().nullable(),
 });
+
+const runningEntryInclude = {
+  project: { select: { id: true, name: true } },
+  task: { select: { id: true, title: true } },
+} satisfies Prisma.TimeEntryInclude;
+
+function findRunningEntry(workspaceId: string, userId: string) {
+  return prisma.timeEntry.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      user_id: userId,
+      status: "running",
+    },
+    orderBy: { started_at: "desc" },
+    include: runningEntryInclude,
+  });
+}
 
 async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
@@ -33,36 +51,32 @@ async function POST_handler(req: NextRequest) {
   });
   if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
-  const existing = await prisma.timeEntry.findFirst({
-    where: {
-      workspace_id: auth.currentWorkspaceId,
-      user_id: auth.prismaUser.id,
-      status: "running",
-    },
-    include: {
-      project: { select: { id: true, name: true } },
-      task: { select: { id: true, title: true } },
-    },
-  });
+  const existing = await findRunningEntry(auth.currentWorkspaceId, auth.prismaUser.id);
   if (existing) {
     return NextResponse.json(existing, { status: 200 });
   }
 
-  const entry = await prisma.timeEntry.create({
-    data: {
-      workspace_id: auth.currentWorkspaceId,
-      user_id: auth.prismaUser.id,
-      project_id: body.project_id || null,
-      task_id: body.task_id || null,
-      description: body.description || null,
-      started_at: new Date(),
-      status: "running",
-    },
-    include: {
-      project: { select: { id: true, name: true } },
-      task: { select: { id: true, title: true } },
-    },
-  });
+  let entry;
+  try {
+    entry = await prisma.timeEntry.create({
+      data: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: auth.prismaUser.id,
+        project_id: body.project_id || null,
+        task_id: body.task_id || null,
+        description: body.description || null,
+        started_at: new Date(),
+        status: "running",
+      },
+      include: runningEntryInclude,
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const running = await findRunningEntry(auth.currentWorkspaceId, auth.prismaUser.id);
+      if (running) return NextResponse.json(running, { status: 200 });
+    }
+    throw err;
+  }
 
   await recordActivity({
     workspace_id: auth.currentWorkspaceId,

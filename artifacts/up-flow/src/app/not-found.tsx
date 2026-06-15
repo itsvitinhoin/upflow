@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { Compass } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 
 export default function NotFound() {
+  const { t } = useLanguage();
   return (
     <div className="flex min-h-dvh w-full items-center justify-center bg-background p-4 sm:p-6">
       <div
@@ -12,16 +16,16 @@ export default function NotFound() {
           <Compass className="h-6 w-6" aria-hidden />
         </div>
         <h1 className="mb-2 text-xl font-semibold text-foreground">
-          Page not found
+          {t("error.notFoundTitle")}
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
-          The page you were looking for doesn&apos;t exist or has been moved.
+          {t("error.notFoundBody")}
         </p>
         <Link
           href="/"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
         >
-          Back to dashboard
+          {t("error.backDashboard")}
         </Link>
       </div>
     </div>

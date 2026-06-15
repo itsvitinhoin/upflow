@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
+import { useLanguage } from "@/components/language-provider";
 
 /**
  * Route-level error boundary. Wraps everything below `app/layout.tsx`
@@ -20,6 +21,7 @@ export default function GlobalRouteError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useLanguage();
   useEffect(() => {
     // Forward to Sentry on mount. Safe even when the SDK is unconfigured
     // (it's an explicit no-op in that case).
@@ -34,17 +36,15 @@ export default function GlobalRouteError({
             <AlertTriangle className="h-5 w-5" aria-hidden />
           </div>
           <h1 className="text-lg font-semibold text-foreground">
-            This page could not load
+            {t("error.pageTitle")}
           </h1>
         </div>
         <p className="mb-6 text-sm text-muted-foreground">
-          The app could not finish loading this screen. Try again first. If it
-          keeps happening, go back to the dashboard and check Admin Health for
-          database, Supabase, or email configuration issues.
+          {t("error.pageBody")}
         </p>
         {error.digest ? (
           <p className="mb-6 break-all text-xs text-muted-foreground/70">
-            Reference: <span className="font-mono">{error.digest}</span>
+            {t("error.reference")}: <span className="font-mono">{error.digest}</span>
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
@@ -54,13 +54,13 @@ export default function GlobalRouteError({
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <RefreshCw className="h-4 w-4" aria-hidden />
-            Retry page
+            {t("error.retryPage")}
           </button>
           <Link
             href="/"
             className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
-            Open dashboard
+            {t("error.openDashboard")}
           </Link>
         </div>
       </div>

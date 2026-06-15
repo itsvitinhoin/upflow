@@ -28,6 +28,7 @@ import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
 import { cn, formatTime, getInitials } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
 import { colorDotClass } from "@/lib/department-colors";
+import { useLanguage } from "@/components/language-provider";
 import {
   COLLAPSE_STORAGE_KEY,
   UNASSIGNED_KEY,
@@ -38,6 +39,7 @@ import {
 } from "@/components/team/team-page-types";
 
 export default function TeamPage() {
+  const { t } = useLanguage();
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [workspace, setWorkspace] = useState<TeamOverview["workspace"]>(null);
@@ -97,11 +99,11 @@ export default function TeamPage() {
       setDepartments(overview.departments ?? []);
       setQuery("");
     } catch {
-      setToast("Couldn't load team members for this workspace");
+      setToast(t("team.couldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadPending = useCallback(async () => {
     try {
@@ -265,7 +267,7 @@ export default function TeamPage() {
             u.id === userId ? { ...u, department_id: previous } : u,
           ),
         );
-        setToast("Couldn't update department");
+        setToast(t("team.couldNotUpdateDepartment"));
       } else {
         clearCachedJson("team:overview");
         loadDepartments(workspaceId);
@@ -276,7 +278,7 @@ export default function TeamPage() {
           u.id === userId ? { ...u, department_id: previous } : u,
         ),
       );
-      setToast("Couldn't update department");
+      setToast(t("team.couldNotUpdateDepartment"));
     }
   }
 
@@ -311,17 +313,17 @@ export default function TeamPage() {
       });
       if (!r.ok) throw new Error("Failed to update member");
       clearCachedJson("team:overview");
-      setToast("Member updated");
+      setToast(t("team.memberUpdated"));
       if (patch.department_id !== undefined) loadDepartments(workspaceId);
     } catch {
       setUsers((prev) => prev.map((u) => (u.id === userId ? previous : u)));
-      setToast("Couldn't update member");
+      setToast(t("team.couldNotUpdateMember"));
     }
   }
 
   async function removeMember(user: TeamMember) {
     if (!workspaceId) return;
-    if (!window.confirm(`Remove ${user.name} from this workspace?`)) return;
+    if (!window.confirm(t("team.removeConfirm", { name: user.name }))) return;
     const previous = users;
     setUsers((prev) => prev.filter((u) => u.id !== user.id));
     try {
@@ -330,11 +332,11 @@ export default function TeamPage() {
       });
       if (!r.ok) throw new Error("Failed to remove member");
       clearCachedJson("team:overview");
-      setToast("Member removed");
+      setToast(t("team.memberRemoved"));
       loadDepartments(workspaceId);
     } catch {
       setUsers(previous);
-      setToast("Couldn't remove member");
+      setToast(t("team.couldNotRemoveMember"));
     }
   }
 
@@ -375,15 +377,15 @@ export default function TeamPage() {
       });
       if (!r.ok) {
         const json = (await r.json().catch(() => ({}))) as { error?: string };
-        setToast(json.error || `Couldn't resend to ${invite.email}`);
+        setToast(json.error || t("team.couldNotResend", { email: invite.email }));
       } else {
         const json = (await r.json()) as {
           mailed?: number;
         };
         if (json.mailed && json.mailed > 0) {
-          setToast(`Invite re-sent to ${invite.email}`);
+          setToast(t("team.inviteResent", { email: invite.email }));
         } else {
-          setToast("Invite email delivery was not confirmed");
+          setToast(t("team.inviteDeliveryNotConfirmed"));
         }
         if (invite.tester_invite && invite.workspace?.id) {
           loadTesterInvites(invite.workspace.id);
@@ -392,14 +394,14 @@ export default function TeamPage() {
         }
       }
     } catch {
-      setToast(`Couldn't resend to ${invite.email}`);
+      setToast(t("team.couldNotResend", { email: invite.email }));
     } finally {
       setResending(null);
     }
   }
 
   async function cancelInvite(invite: PendingInvite) {
-    if (!window.confirm(`Cancel invite for ${invite.email}?`)) return;
+    if (!window.confirm(t("team.cancelInviteConfirm", { email: invite.email }))) return;
     setCancelingInvite(invite.id);
     setToast(null);
     try {
@@ -410,17 +412,17 @@ export default function TeamPage() {
       });
       const json = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) {
-        setToast(json.error || `Couldn't cancel invite for ${invite.email}`);
+        setToast(json.error || t("team.couldNotCancelInvite", { email: invite.email }));
         return;
       }
-      setToast(`Invite canceled for ${invite.email}`);
+      setToast(t("team.inviteCanceled", { email: invite.email }));
       if (invite.tester_invite && invite.workspace?.id) {
         loadTesterInvites(invite.workspace.id);
       } else {
         loadPending();
       }
     } catch {
-      setToast(`Couldn't cancel invite for ${invite.email}`);
+      setToast(t("team.couldNotCancelInvite", { email: invite.email }));
     } finally {
       setCancelingInvite(null);
     }
@@ -525,31 +527,34 @@ export default function TeamPage() {
     })),
     {
       key: UNASSIGNED_KEY,
-      name: "Unassigned",
+      name: t("common.unassigned"),
       color: "slate",
       members: groups.get(UNASSIGNED_KEY) ?? [],
     },
   ];
   return (
     <>
-      <Header title="Team" />
+      <Header title={t("team.title")} />
       <div className="mx-auto max-w-4xl overflow-x-hidden p-4 sm:p-6">
         <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
           <div>
-            <h2 className="text-xl font-bold text-foreground">Team Members</h2>
+            <h2 className="text-xl font-bold text-foreground">{t("team.membersTitle")}</h2>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {users.length} member{users.length !== 1 ? "s" : ""}
+              {users.length === 1
+                ? t("team.memberCount", { count: users.length })
+                : t("team.memberCountPlural", { count: users.length })}
               {workspace?.name && (
                 <>
                   {" · "}
-                  viewing {workspace.name}
+                  {t("team.viewingWorkspace", { workspace: workspace.name })}
                 </>
               )}
               {departments.length > 0 && (
                 <>
                   {" · "}
-                  {departments.length} department
-                  {departments.length !== 1 ? "s" : ""}
+                  {departments.length === 1
+                    ? t("team.departmentCount", { count: departments.length })
+                    : t("team.departmentCountPlural", { count: departments.length })}
                 </>
               )}
             </p>
@@ -565,7 +570,7 @@ export default function TeamPage() {
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                Invite users
+                {t("team.inviteUsers")}
               </button>
               <button
                 type="button"
@@ -573,7 +578,7 @@ export default function TeamPage() {
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
               >
                 <Settings2 className="w-3.5 h-3.5" />
-                Manage departments
+                {t("team.manageDepartments")}
               </button>
             </div>
           )}
@@ -604,7 +609,7 @@ export default function TeamPage() {
         {isSuperAdmin && (
           <details className="mb-4 rounded-xl border border-border bg-card/50 p-3">
             <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-              Sandbox tester tools · super admin only
+              {t("team.sandboxTools")}
             </summary>
             <div className="mt-3">
               <TesterInvitePanel
@@ -640,11 +645,11 @@ export default function TeamPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Search members…"
+              placeholder={t("team.searchMembers")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full rounded-md border border-border bg-card pl-9 pr-3 py-2 text-sm"
-              aria-label="Search members"
+              aria-label={t("team.searchMembers")}
             />
           </div>
           <label className="inline-flex items-center gap-2 text-xs text-muted-foreground select-none">
@@ -654,7 +659,7 @@ export default function TeamPage() {
               onChange={(e) => setShowEmpty(e.target.checked)}
               className="rounded border-border"
             />
-            Show empty groups
+            {t("team.showEmptyGroups")}
           </label>
         </div>
 
@@ -676,7 +681,7 @@ export default function TeamPage() {
         ) : users.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No team members yet</p>
+            <p className="font-medium">{t("team.noMembers")}</p>
           </div>
         ) : isSearching &&
           orderedGroups.every((g) => g.members.length === 0) ? (
@@ -685,8 +690,8 @@ export default function TeamPage() {
             className="text-center py-16 text-muted-foreground"
           >
             <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No members match &ldquo;{query}&rdquo;</p>
-            <p className="text-xs mt-1">Try a different name or email.</p>
+            <p className="font-medium">{t("team.noSearchMatches", { query })}</p>
+            <p className="text-xs mt-1">{t("team.tryDifferentSearch")}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -739,7 +744,9 @@ export default function TeamPage() {
                       {g.name}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {memberCount} member{memberCount !== 1 ? "s" : ""}
+                      {memberCount === 1
+                        ? t("team.memberCount", { count: memberCount })
+                        : t("team.memberCountPlural", { count: memberCount })}
                     </span>
                   </button>
 
@@ -775,14 +782,14 @@ export default function TeamPage() {
                             </span>
                             {user.workspace_status === "inactive" && (
                               <span className="text-[10px] px-2 py-0.5 rounded-full bg-upflow-danger/15 text-upflow-danger">
-                                inactive
+                                {t("common.inactive")}
                               </span>
                             )}
                           </div>
                           {isAdmin ? (
                             <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                               <select
-                                aria-label={`Role for ${user.name}`}
+                                aria-label={t("team.roleFor", { name: user.name })}
                                 value={user.workspace_role ?? user.role}
                                 onChange={(e) =>
                                   updateMember(user.id, {
@@ -791,12 +798,12 @@ export default function TeamPage() {
                                 }
                                 className="text-xs rounded-md border border-border bg-card px-2 py-1"
                               >
-                                <option value="member">Member</option>
-                                <option value="admin">Admin</option>
-                                <option value="owner">Owner</option>
+                                <option value="member">{t("common.member")}</option>
+                                <option value="admin">{t("common.admin")}</option>
+                                <option value="owner">{t("common.owner")}</option>
                               </select>
                               <select
-                                aria-label={`Status for ${user.name}`}
+                                aria-label={t("team.statusFor", { name: user.name })}
                                 value={user.workspace_status ?? "active"}
                                 onChange={(e) =>
                                   updateMember(user.id, {
@@ -805,11 +812,11 @@ export default function TeamPage() {
                                 }
                                 className="text-xs rounded-md border border-border bg-card px-2 py-1"
                               >
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
+                                <option value="active">{t("common.active")}</option>
+                                <option value="inactive">{t("common.inactive")}</option>
                               </select>
                               <select
-                                aria-label={`Department for ${user.name}`}
+                                aria-label={t("team.departmentFor", { name: user.name })}
                                 value={user.department_id ?? ""}
                                 onChange={(e) =>
                                   updateMember(user.id, {
@@ -818,7 +825,7 @@ export default function TeamPage() {
                                 }
                                 className="text-xs rounded-md border border-border bg-card px-2 py-1"
                               >
-                                <option value="">Unassigned</option>
+                                <option value="">{t("common.unassigned")}</option>
                                 {departments.map((d) => (
                                   <option key={d.id} value={d.id}>
                                     {d.name}
@@ -828,7 +835,7 @@ export default function TeamPage() {
                               <button
                                 type="button"
                                 onClick={() => removeMember(user)}
-                                aria-label={`Remove ${user.name}`}
+                                aria-label={t("team.removeMember", { name: user.name })}
                                 className="p-1.5 text-muted-foreground hover:text-upflow-danger rounded-md hover:bg-upflow-danger/10"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -861,11 +868,12 @@ export default function TeamPage() {
             <div className="mb-3 flex items-end justify-between">
               <div>
                 <h3 className="text-base font-semibold text-foreground">
-                  Pending invites
+                  {t("team.pendingInvites")}
                 </h3>
                 <p className="text-muted-foreground text-xs mt-0.5">
-                  {pending.length} invite{pending.length !== 1 ? "s" : ""}{" "}
-                  awaiting acceptance
+                  {pending.length === 1
+                    ? t("team.awaitingAcceptanceOne", { count: pending.length })
+                    : t("team.awaitingAcceptance", { count: pending.length })}
                 </p>
               </div>
             </div>
@@ -886,7 +894,7 @@ export default function TeamPage() {
                         <p className="text-xs text-muted-foreground capitalize">
                           {p.role}
                           {p.inviter
-                            ? ` · invited by ${p.inviter.name || p.inviter.email}`
+                            ? ` - ${t("team.invitedBy", { name: p.inviter.name || p.inviter.email })}`
                             : ""}
                         </p>
                       </div>
@@ -901,7 +909,7 @@ export default function TeamPage() {
                         "text-xs font-medium text-foreground hover:bg-muted/60 transition-colors",
                         "disabled:opacity-60 disabled:cursor-not-allowed",
                       )}
-                      aria-label={`Resend invite to ${p.email}`}
+                      aria-label={t("team.inviteResent", { email: p.email })}
                     >
                       <RotateCw
                         className={cn(
@@ -909,17 +917,17 @@ export default function TeamPage() {
                           resending === p.id && "animate-spin",
                         )}
                       />
-                      {resending === p.id ? "Sending..." : "Resend"}
+                      {resending === p.id ? t("team.sending") : t("team.resend")}
                     </button>
                     <button
                       type="button"
                       onClick={() => cancelInvite(p)}
                       disabled={cancelingInvite === p.id}
                       className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-upflow-danger/10 hover:text-upflow-danger disabled:opacity-60"
-                      aria-label={`Cancel invite to ${p.email}`}
+                      aria-label={t("team.cancelInviteConfirm", { email: p.email })}
                     >
                       <XCircle className="h-3.5 w-3.5" />
-                      Cancel
+                      {t("team.cancelInvite")}
                     </button>
                     </div>
                   </li>
@@ -947,14 +955,14 @@ export default function TeamPage() {
         )}
         <InviteDialog
           open={inviteOpen}
-          title="Invite users to Up Flow"
+          title={t("invite.realUsersTitle")}
           description={
             workspace?.name
-              ? `Choose whether each person gets their own UP Flow workspace or joins ${workspace.name} as a team member.`
-              : "Choose whether each person gets their own UP Flow workspace or joins the current workspace."
+              ? t("invite.realUsersDescription", { workspace: workspace.name })
+              : t("invite.realUsersDescription", { workspace: t("invite.currentWorkspace") })
           }
-          submitLabel="Send user invites"
-          successLabel="Invited"
+          submitLabel={t("invite.submitDefault")}
+          successLabel={t("invite.successDefault")}
           defaultRole="member"
           defaultMode="personal_workspace"
           hideRole
@@ -968,14 +976,14 @@ export default function TeamPage() {
         />
         <InviteDialog
           open={testerInviteOpen}
-          title="Invite testers"
+          title={t("team.testerInviteTitle")}
           description={
             testerWorkspace
-              ? `Tester invites join ${testerWorkspace.name}. Choose Member for normal testers or Admin for trusted testers.`
-              : "Tester invites join the isolated test workspace. Choose Member or Admin."
+              ? t("team.testerInviteDescriptionWithWorkspace", { workspace: testerWorkspace.name })
+              : t("team.testerInviteDescriptionFallback")
           }
-          submitLabel="Send tester invites"
-          successLabel="Invited"
+          submitLabel={t("team.sendTesterInvites")}
+          successLabel={t("invite.successDefault")}
           defaultRole="member"
           testerMode
           workspaceId={testerWorkspace?.id}

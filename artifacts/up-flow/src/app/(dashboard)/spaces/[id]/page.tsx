@@ -85,6 +85,7 @@ interface CommandCenterPayload {
       overdue_tasks: number;
       due_today_tasks: number;
       tracked_seconds_today: number;
+      tasks: Task[];
       state: "late" | "overloaded" | "idle" | "active";
     }>;
     count: number;
@@ -560,7 +561,7 @@ function SpaceDashboard({
               <HeroMetric
                 label="Team flags"
                 value={overloadedCount}
-                detail="Late or overloaded"
+                detail="Overdue or 8+ open tasks"
               />
             </div>
           </div>
@@ -655,7 +656,7 @@ function SpaceDashboard({
         <CommandTile
           title="Projects at risk"
           value={command.projects_at_risk.count}
-          hint={labels?.risk ?? "Overdue or stale lists"}
+          hint={labels?.risk ?? "Overdue tasks or no activity"}
           icon={<TrendingDown className="w-4 h-4" />}
           tone="warning"
           onClick={() => onOpenDrawer("projects_at_risk")}
@@ -942,6 +943,22 @@ function SpaceDashboardDrawer({
                     <Metric label="Overdue" value={item.overdue_tasks} />
                     <Metric label="Today" value={formatSecondsShort(item.tracked_seconds_today)} />
                   </div>
+                  {item.tasks.length > 0 ? (
+                    <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
+                      {item.tasks.map((task) => (
+                        <TaskRecord
+                          key={task.id}
+                          task={task}
+                          updating={updatingTask}
+                          onStatusChange={onTaskStatusChange}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 rounded-lg bg-black/10 px-3 py-2 text-xs text-muted-foreground">
+                      No open assigned tasks behind this workload signal.
+                    </p>
+                  )}
                 </div>
               ))}
             </RecordList>
@@ -997,7 +1014,7 @@ function SpaceDashboardDrawer({
           )}
 
           {kind === "projects_at_risk" && (
-            <RecordList emptyTitle="No projects at risk" emptyText="Overdue or stale Space projects appear here.">
+            <RecordList emptyTitle="No projects at risk" emptyText="Projects appear here only when they have overdue open tasks, no owner, or no activity record in 7 days.">
               {data.command_center.projects_at_risk.items.map(({ project, reasons }) => (
                 <Link
                   key={project.id}

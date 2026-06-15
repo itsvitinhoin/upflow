@@ -37,6 +37,24 @@ async function expectFitsViewport(page: Page, selector: string) {
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
 }
 
+async function createSpaceViaApi(ctx: BrowserContext, name: string): Promise<string> {
+  const res = await ctx.request.post("/api/spaces", { data: { name } });
+  expect(res.ok(), `create space failed: ${res.status()}`).toBeTruthy();
+  const body = (await res.json()) as { id: string };
+  return body.id;
+}
+
+async function createFolderViaApi(
+  ctx: BrowserContext,
+  spaceId: string,
+  name: string,
+): Promise<string> {
+  const res = await ctx.request.post("/api/folders", { data: { name, space_id: spaceId } });
+  expect(res.ok(), `create folder failed: ${res.status()}`).toBeTruthy();
+  const body = (await res.json()) as { id: string };
+  return body.id;
+}
+
 test.describe("Mobile responsive layout", () => {
   requireChromiumOrSkip();
 
@@ -75,6 +93,8 @@ test.describe("Mobile responsive layout", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const projectId = await createProjectViaApi(ctx, uniq("MobileProject"));
     await createTaskViaApi(ctx, projectId, uniq("MobileTask"));
+    const spaceId = await createSpaceViaApi(ctx, uniq("MobileSpace"));
+    const folderId = await createFolderViaApi(ctx, spaceId, uniq("MobileFolder"));
 
     const companyRes = await ctx.request.post("/api/companies", {
       data: { name: uniq("MobileClient"), service_type: "Creative", plan_name: "Growth" },
@@ -89,6 +109,8 @@ test.describe("Mobile responsive layout", () => {
       "/calendar",
       "/clients",
       company ? `/clients/${company.id}` : null,
+      `/spaces/${spaceId}`,
+      `/folders/${folderId}`,
       "/time",
       "/inbox",
     ].filter(Boolean) as string[];
@@ -104,6 +126,35 @@ test.describe("Mobile responsive layout", () => {
       await page.close();
     }
 
+    await ctx.close();
+  });
+
+  test("project board and task sheet remain usable on phone-sized screens", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("MobileBoardProject"));
+    const taskTitle = uniq("MobileBoardTask");
+    await createTaskViaApi(ctx, projectId, taskTitle);
+
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/projects/${projectId}`);
+    await expectNoPageOverflow(page);
+
+    const boardButton = page.getByRole("button", { name: /Board/i }).first();
+    if (await boardButton.isVisible().catch(() => false)) {
+      await boardButton.click();
+    }
+
+    await expect(page.getByText(taskTitle).first()).toBeVisible();
+    await expectNoPageOverflow(page);
+    await page.getByText(taskTitle).first().click();
+
+    await expect(page.getByDisplayValue(taskTitle)).toBeVisible();
+    await expectFitsViewport(page, "div.fixed.right-0.top-0.z-50");
+    await expectNoPageOverflow(page);
     await ctx.close();
   });
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertCircle, TrendingDown, Users2 } from "lucide-react";
 import type { Project, Task } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 type AgencyDrawer =
   | "client_health"
@@ -60,6 +61,7 @@ export default function AgencyOperationsPanel({
   onOpenDrawer: (drawer: AgencyDrawer) => void;
   onOpenTask: (task: Task) => void;
 }) {
+  const { t } = useLanguage();
   const clientHealth = data.client_health;
   const deliveryItems = data.delivery_overview?.items ?? [];
   const creativeQueue = data.creative_queue;
@@ -73,13 +75,13 @@ export default function AgencyOperationsPanel({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Agency operations
+              {t("dashboard.agencyOperations")}
             </p>
             <h3 className="mt-2 text-lg font-semibold text-foreground">
-              Client work, delivery, creative queue, and workload
+              {t("dashboard.agencyOperationsTitle")}
             </h3>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Built from real clients, campaigns, deliverables, deadlines, owners, activity, and time records.
+              {t("dashboard.agencyOperationsHint")}
             </p>
           </div>
           <button
@@ -88,31 +90,31 @@ export default function AgencyOperationsPanel({
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:bg-primary/10"
           >
             <AlertCircle className="h-3.5 w-3.5" />
-            Trace risks
+            {t("dashboard.traceRisks")}
           </button>
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <AgencyMiniCard
-            title="Client health"
-            value={clientHealth ? `${clientHealth.counts.healthy} healthy` : "Not enough data"}
+            title={t("dashboard.clientHealth")}
+            value={clientHealth ? t("dashboard.healthyCount", { count: clientHealth.counts.healthy }) : t("clients.health.notEnough")}
             hint={
               clientHealth
-                ? `${clientHealth.counts.attention_needed + clientHealth.counts.at_risk} need attention`
-                : "Add clients, projects, contacts, and activity"
+                ? t("dashboard.needAttentionCount", { count: clientHealth.counts.attention_needed + clientHealth.counts.at_risk })
+                : t("dashboard.addClientDataHint")
             }
             onClick={() => onOpenDrawer("client_health")}
           />
           <AgencyMiniCard
-            title="Campaign delivery"
-            value={`${deliveryItems.length} active`}
-            hint={deliveryItems.length ? "Progress and next deadlines" : "No active client work yet"}
+            title={t("dashboard.campaignDelivery")}
+            value={t("dashboard.activeCount", { count: deliveryItems.length })}
+            hint={deliveryItems.length ? t("dashboard.progressAndDeadlines") : t("dashboard.noActiveClientWork")}
             onClick={() => onOpenDrawer("delivery_overview")}
           />
           <AgencyMiniCard
-            title="Creative queue"
-            value={`${creativeQueue?.items.length ?? 0} deliverables`}
-            hint={creativeQueue?.items.length ? "Briefing, production, approval signals" : "No creative tasks matched yet"}
+            title={t("dashboard.creativeQueue")}
+            value={t("dashboard.deliverablesCount", { count: creativeQueue?.items.length ?? 0 })}
+            hint={creativeQueue?.items.length ? t("dashboard.creativeSignalsHint") : t("dashboard.noCreativeMatched")}
             onClick={() => onOpenDrawer("creative_queue")}
           />
         </div>
@@ -120,19 +122,19 @@ export default function AgencyOperationsPanel({
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-white/10 bg-black/10 p-4">
             <div className="flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold text-foreground">Closest delivery deadlines</h4>
+              <h4 className="text-sm font-semibold text-foreground">{t("dashboard.closestDeliveryDeadlines")}</h4>
               <button
                 type="button"
                 onClick={() => onOpenDrawer("delivery_overview")}
                 className="text-xs text-primary hover:text-primary/80"
               >
-                View all
+                {t("dashboard.viewAll")}
               </button>
             </div>
             <div className="mt-3 space-y-2">
               {deliveryItems.length === 0 ? (
                 <p className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
-                  No active client work yet. Apply an agency template or create a client campaign.
+                  {t("dashboard.applyAgencyTemplateHint")}
                 </p>
               ) : (
                 deliveryItems.slice(0, 4).map((item) => (
@@ -146,8 +148,8 @@ export default function AgencyOperationsPanel({
                       <span className="text-xs font-semibold text-foreground">{item.progress}%</span>
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {item.project.company?.name ?? item.project.space?.name ?? "Internal work"}
-                      {item.next_deadline ? ` - ${formatDate(item.next_deadline)}` : " - No deadline"}
+                      {item.project.company?.name ?? item.project.space?.name ?? t("dashboard.internalOperation")}
+                      {item.next_deadline ? ` - ${formatDate(item.next_deadline)}` : ` - ${t("dashboard.noDeadline")}`}
                     </p>
                   </Link>
                 ))
@@ -157,19 +159,19 @@ export default function AgencyOperationsPanel({
 
           <div className="rounded-xl border border-white/10 bg-black/10 p-4">
             <div className="flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold text-foreground">Creative production queue</h4>
+              <h4 className="text-sm font-semibold text-foreground">{t("dashboard.creativeProductionQueue")}</h4>
               <button
                 type="button"
                 onClick={() => onOpenDrawer("creative_queue")}
                 className="text-xs text-primary hover:text-primary/80"
               >
-                View queue
+                {t("dashboard.viewQueue")}
               </button>
             </div>
             <div className="mt-3 space-y-2">
               {!creativeQueue?.items.length ? (
                 <p className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
-                  No creative/content deliverables matched yet. Use Creative, Production, or Marketing templates to populate this queue.
+                  {t("dashboard.noCreativeQueueLong")}
                 </p>
               ) : (
                 creativeQueue.items.slice(0, 4).map(({ task, stage }) => (
@@ -182,11 +184,11 @@ export default function AgencyOperationsPanel({
                     <div className="flex items-center justify-between gap-3">
                       <p className="min-w-0 truncate text-sm font-medium text-foreground">{task.title}</p>
                       <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-                        {creativeStageLabel(stage)}
+                        {creativeStageLabel(stage, t)}
                       </span>
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {task.project?.name ?? "No project"}{task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
+                      {task.project?.name ?? t("dashboard.noProject")}{task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
                     </p>
                   </button>
                 ))
@@ -199,9 +201,9 @@ export default function AgencyOperationsPanel({
       <aside className="glass rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">Agency risk signals</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("dashboard.agencyRiskSignals")}</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Only traceable signals from tasks, clients, projects, owners, and activity.
+              {t("dashboard.agencyRiskOnlyTraceable")}
             </p>
           </div>
           <TrendingDown className="h-5 w-5 text-upflow-warning" />
@@ -209,7 +211,7 @@ export default function AgencyOperationsPanel({
         <div className="mt-4 space-y-2">
           {topRisks.length === 0 ? (
             <p className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
-              Not enough risk data yet, or no current operational risks were detected from real records.
+              {t("dashboard.notEnoughRiskData")}
             </p>
           ) : (
             topRisks.map((signal) => (
@@ -234,7 +236,7 @@ export default function AgencyOperationsPanel({
           className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:bg-primary/10"
         >
           <Users2 className="h-3.5 w-3.5" />
-          Workload by department
+          {t("dashboard.workloadByDepartment")}
         </button>
       </aside>
     </section>
@@ -265,13 +267,16 @@ function AgencyMiniCard({
   );
 }
 
-function creativeStageLabel(stage: CreativeStage) {
+function creativeStageLabel(
+  stage: CreativeStage,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   const labels: Record<CreativeStage, string> = {
-    waiting_for_briefing: "Briefing",
-    ready_to_start: "Ready",
-    in_production: "Production",
-    waiting_for_approval: "Approval",
-    revision_requested: "Revision",
+    waiting_for_briefing: t("dashboard.stageBriefing"),
+    ready_to_start: t("dashboard.stageReady"),
+    in_production: t("dashboard.stageProduction"),
+    waiting_for_approval: t("dashboard.stageApproval"),
+    revision_requested: t("dashboard.stageRevision"),
   };
   return labels[stage];
 }

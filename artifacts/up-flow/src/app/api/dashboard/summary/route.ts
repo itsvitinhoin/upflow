@@ -360,6 +360,7 @@ async function GET_handler(req: NextRequest) {
       overdue_tasks: overdueTasks.length,
       due_today_tasks: dueTodayTasks.length,
       tracked_seconds_today: trackedSecondsToday,
+      tasks: assignedOpenTasks.slice(0, 8),
       state:
         overdueTasks.length > 0
           ? "late"
@@ -659,7 +660,7 @@ async function GET_handler(req: NextRequest) {
       key: "clients_needing_attention",
       label: "Clients needing attention",
       count: clientRiskItems.length,
-      trace: "Clients with overdue work, missing setup, or stale activity",
+      trace: "Clients with overdue work, missing setup, or no recent activity",
     },
     {
       key: "workload_concentration",

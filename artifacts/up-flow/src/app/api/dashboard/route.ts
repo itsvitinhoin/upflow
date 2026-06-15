@@ -289,6 +289,7 @@ async function GET_handler(req: NextRequest) {
       overdue_tasks: overdueTasks.length,
       due_today_tasks: dueTodayTasks.length,
       tracked_seconds_today: trackedSecondsToday,
+      tasks: assignedOpenTasks.slice(0, 8),
       state:
         overdueTasks.length > 0
           ? "late"
@@ -403,13 +404,7 @@ async function GET_handler(req: NextRequest) {
       projects_at_risk: {
         items: projectsAtRisk,
         count: projectsAtRisk.length,
-        rules: [
-          "overdue open tasks",
-          "no owner",
-          "no activity in 7 days",
-          "blocked tasks",
-          "no due-date movement",
-        ],
+        rules: ["overdue open tasks", "no owner", "no activity in 7 days"],
       },
       client_risk: {
         items: clientsAtRisk,

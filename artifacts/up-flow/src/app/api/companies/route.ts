@@ -41,12 +41,28 @@ async function GET_handler() {
       activity_events: {
         orderBy: [{ created_at: "desc" }, { id: "asc" }],
         take: 1,
-        select: { created_at: true },
+        select: {
+          type: true,
+          created_at: true,
+          actor: { select: { id: true, name: true, email: true } },
+        },
+      },
+      tasks: {
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          due_date: true,
+          assignee: { select: { id: true, name: true, email: true } },
+        },
       },
       projects: {
         select: {
           id: true,
+          name: true,
+          status: true,
           due_date: true,
+          owner: { select: { id: true, name: true, email: true } },
           time_entries: {
             select: {
               id: true,
@@ -58,8 +74,10 @@ async function GET_handler() {
           tasks: {
             select: {
               id: true,
+              title: true,
               status: true,
               due_date: true,
+              assignee: { select: { id: true, name: true, email: true } },
             },
           },
         },
@@ -122,19 +140,40 @@ export const POST = withErrorReporting("api:companies:POST", POST_handler);
 function withCompanySummary<T extends {
   contract_value: number | null;
   commission: number | null;
+  owner?: { id: string; name: string; email: string } | null;
   contacts?: Array<{ id: string }>;
   calendar_events?: Array<{ id: string }>;
-  activity_events?: Array<{ created_at: Date }>;
+  activity_events?: Array<{
+    type: string;
+    created_at: Date;
+    actor?: { id: string; name: string; email: string } | null;
+  }>;
+  tasks?: Array<{
+    id: string;
+    title: string;
+    status: string;
+    due_date: Date | null;
+    assignee?: { id: string; name: string; email: string } | null;
+  }>;
   projects?: Array<{
     id: string;
+    name: string;
+    status: string;
     due_date: Date | null;
+    owner?: { id: string; name: string; email: string } | null;
     time_entries?: Array<{
       id: string;
       started_at: Date;
       duration_seconds: number;
       status: string;
     }>;
-    tasks: Array<{ id: string; status: string; due_date: Date | null }>;
+    tasks: Array<{
+      id: string;
+      title: string;
+      status: string;
+      due_date: Date | null;
+      assignee?: { id: string; name: string; email: string } | null;
+    }>;
   }>;
 }>(company: T) {
   const now = new Date();
@@ -142,8 +181,12 @@ function withCompanySummary<T extends {
   const sevenDaysAgo = new Date(todayStart);
   sevenDaysAgo.setDate(todayStart.getDate() - 7);
   const projects = company.projects ?? [];
-  const tasks = projects.flatMap((project) => project.tasks);
+  const tasksById = new Map<string, NonNullable<T["tasks"]>[number] | NonNullable<T["projects"]>[number]["tasks"][number]>();
+  for (const task of company.tasks ?? []) tasksById.set(task.id, task);
+  for (const task of projects.flatMap((project) => project.tasks)) tasksById.set(task.id, task);
+  const tasks = Array.from(tasksById.values());
   const timeEntries = projects.flatMap((project) => project.time_entries ?? []);
+  const activeProjects = projects.filter((project) => project.status === "active");
   const openTasks = tasks.filter((task) => task.status !== "done");
   const overdueTasks = openTasks.filter((task) => task.due_date && task.due_date < todayStart);
   const nextDeadline =
@@ -170,18 +213,40 @@ function withCompanySummary<T extends {
     return sum + entry.duration_seconds;
   }, 0);
   const trackedHours = trackedSeconds / 3600;
+  const assignedMembers = new Map<string, { id: string; name: string; email: string }>();
+  if (company.owner) assignedMembers.set(company.owner.id, company.owner);
+  for (const project of projects) {
+    if (project.owner) assignedMembers.set(project.owner.id, project.owner);
+  }
+  for (const task of tasks) {
+    if (task.assignee) assignedMembers.set(task.assignee.id, task.assignee);
+  }
+  const hasPlanData = Boolean(company.contract_value != null || company.commission != null);
+  const hasServiceData = Boolean((company as { service_type?: unknown }).service_type || (company as { plan_name?: unknown }).plan_name);
+  const healthStatus =
+    riskReasons.some((reason) => reason.includes("overdue") || reason === "No linked projects")
+      ? "risk"
+      : riskReasons.length > 0
+        ? "attention"
+        : projects.length === 0 && !hasPlanData && !hasServiceData
+          ? "not_enough_data"
+          : "healthy";
 
   return {
     ...company,
     summary: {
       project_count: projects.length,
+      active_project_count: activeProjects.length,
       open_task_count: openTasks.length,
       overdue_task_count: overdueTasks.length,
       meeting_count: company.calendar_events?.length ?? 0,
       contact_count: company.contacts?.length ?? 0,
       tracked_seconds: trackedSeconds,
       risk_reasons: riskReasons,
+      health_status: healthStatus,
       next_deadline: nextDeadline,
+      latest_activity: company.activity_events?.[0] ?? null,
+      assigned_members: Array.from(assignedMembers.values()).slice(0, 5),
       profitability_ratio:
         company.contract_value && company.commission != null
           ? company.commission / company.contract_value

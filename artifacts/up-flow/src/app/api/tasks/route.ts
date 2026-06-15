@@ -9,12 +9,12 @@ import { collectPeopleIds, validateCustomFieldBatch } from "@/lib/custom-field-v
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
+import { parseAppDate } from "@/lib/utils";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
   if (typeof input !== "string") return "invalid";
-  const d = new Date(input);
-  return isNaN(d.getTime()) ? "invalid" : d;
+  return parseAppDate(input);
 }
 
 function isValidTaskImage(value: string) {

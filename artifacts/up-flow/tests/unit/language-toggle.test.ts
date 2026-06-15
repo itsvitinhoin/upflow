@@ -61,3 +61,43 @@ test("dashboard and project task surfaces use translation keys", () => {
   assert.match(taskPanel, /t\("task\.boardCoverImage"\)/);
   assert.match(taskTemplates, /t\("taskTemplate\.type"\)/);
 });
+
+test("core rollout surfaces are wired to the language provider", () => {
+  const provider = read("src/components/language-provider.tsx");
+  const dashboard = read("src/app/(dashboard)/page.tsx");
+  const calendar = read("src/app/(dashboard)/calendar/page.tsx");
+  const clients = read("src/app/(dashboard)/clients/page.tsx");
+  const team = read("src/app/(dashboard)/team/page.tsx");
+  const time = read("src/app/(dashboard)/time/page.tsx");
+  const inviteDialog = read("src/components/dashboard/invite-dialog.tsx");
+  const teamInvitePanels = read("src/components/team/team-invite-panels.tsx");
+  const scheduleDialog = read("src/components/dashboard/schedule-meeting-dialog.tsx");
+  const errorPage = read("src/app/error.tsx");
+  const notFoundPage = read("src/app/not-found.tsx");
+
+  assert.match(provider, /"calendar\.manage": "Gerenciar"/);
+  assert.match(provider, /"clients\.assignedTeam": "Equipe atribuida"/);
+  assert.match(provider, /"team\.membersTitle": "Membros da equipe"/);
+  assert.match(provider, /"time\.weeklyHours": "Horas da semana"/);
+  assert.match(provider, /"invite\.mode": "Modo do convite"/);
+  assert.match(provider, /"error\.pageTitle": "Esta pagina nao carregou"/);
+
+  assert.match(dashboard, /t\("dashboard\.noTrackedTime"\)/);
+  assert.match(dashboard, /t\("dashboard\.todayMeetings"\)/);
+  assert.match(dashboard, /t\("dashboard\.lastActions"\)/);
+  assert.match(calendar, /useLanguage/);
+  assert.match(calendar, /t\("calendar\.newEvent"\)/);
+  assert.match(calendar, /Intl\.DateTimeFormat\(language/);
+  assert.match(clients, /t\("clients\.planNotSet"\)/);
+  assert.match(clients, /t\("clients\.assignedTeam"\)/);
+  assert.match(team, /t\("team\.membersTitle"\)/);
+  assert.match(team, /t\("team\.searchMembers"\)/);
+  assert.match(time, /t\("time\.title"\)/);
+  assert.match(time, /t\("time\.weeklyHours"\)/);
+  assert.match(inviteDialog, /t\("invite\.mode"\)/);
+  assert.match(inviteDialog, /inviteErrorHint\(error\.code, t\)/);
+  assert.match(teamInvitePanels, /t\("invite\.realUsersTitle"\)/);
+  assert.match(scheduleDialog, /t\("calendar\.scheduleMeeting"\)/);
+  assert.match(errorPage, /t\("error\.pageTitle"\)/);
+  assert.match(notFoundPage, /t\("error\.notFoundTitle"\)/);
+});

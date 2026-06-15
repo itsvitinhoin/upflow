@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLanguage } from "@/components/language-provider";
 
 interface InviteInfo {
   email: string;
@@ -20,6 +21,7 @@ export default function AcceptInvitePage({
   params: { token: string };
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [info, setInfo] = useState<InviteInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -35,15 +37,15 @@ export default function AcceptInvitePage({
       .then(async (r) => {
         if (!r.ok) {
           const j = await r.json().catch(() => ({}));
-          setError(j.error || "Invite not found");
+          setError(j.error || t("invite.notFound"));
           return;
         }
         const data = (await r.json()) as InviteInfo;
         setInfo(data);
         setAccountEmail(data.email);
       })
-      .catch(() => setError("Failed to load invite"));
-  }, [params.token]);
+      .catch(() => setError(t("invite.loadFailed")));
+  }, [params.token, t]);
 
   async function accept() {
     setBusy(true);
@@ -61,7 +63,7 @@ export default function AcceptInvitePage({
     }
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-      setError(data.error || "Could not accept invite");
+      setError(data.error || t("invite.acceptFailed"));
       setBusy(false);
       return;
     }
@@ -81,7 +83,7 @@ export default function AcceptInvitePage({
     });
     const loginData = await loginRes.json().catch(() => ({}));
     if (!loginRes.ok) {
-      setError(loginData.error || "Could not sign in with that password.");
+      setError(loginData.error || t("invite.signInFailed"));
       setBusy(false);
       return;
     }
@@ -93,7 +95,7 @@ export default function AcceptInvitePage({
     });
     const acceptData = await acceptRes.json().catch(() => ({}));
     if (!acceptRes.ok) {
-      setError(acceptData.error || "Signed in, but could not accept invite.");
+      setError(acceptData.error || t("invite.signInAcceptFailed"));
       setBusy(false);
       return;
     }
@@ -126,12 +128,12 @@ export default function AcceptInvitePage({
     }
     if (r.status === 409 && data.code === "ACCOUNT_EXISTS") {
       setMode("signin");
-      setError(data.error || "Account already exists. Sign in to accept.");
+      setError(data.error || t("invite.accountExists"));
       setBusy(false);
       return;
     }
     if (!r.ok) {
-      setError(data.error || "Could not create account");
+      setError(data.error || t("invite.createAccountFailed"));
       setBusy(false);
       return;
     }
@@ -143,47 +145,48 @@ export default function AcceptInvitePage({
     <div className="flex min-h-dvh items-center justify-center overflow-x-hidden bg-background px-4 py-6">
       <div className="w-full max-w-md rounded-xl border border-white/10 bg-white/5 p-8 backdrop-blur">
         <h1 className="text-xl font-semibold text-foreground mb-2">
-          You&apos;ve been invited
+          {t("invite.pageTitle")}
         </h1>
         {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
         {!error && !info && (
-          <p className="text-sm text-muted-foreground">Loading invite...</p>
+          <p className="text-sm text-muted-foreground">{t("invite.loading")}</p>
         )}
         {info && (
           <>
             {(info.tester_invite || info.invite_mode === "workspace_access") && (
               <p className="mb-3 inline-flex rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                {info.tester_invite ? "Tester workspace" : "Workspace access"}
+                {info.tester_invite ? t("invite.testerBadge") : t("invite.workspaceAccessBadge")}
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-1">
-              {info.inviter?.name || "Someone"} invited you to use
+              {t("invite.invitedBy", {
+                name: info.inviter?.name || t("invite.someone"),
+              })}
             </p>
             <p className="text-lg font-medium text-foreground mb-4">
               {info.invite_mode === "workspace_access" || info.tester_invite
                 ? info.workspace.name
-                : "Up Flow"}
+                : t("invite.productName")}
             </p>
             <p className="text-xs text-muted-foreground mb-6">
-              Invite for <span className="text-foreground">{info.email}</span>
+              {t("invite.inviteFor")} <span className="text-foreground">{info.email}</span>
             </p>
             <p className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-muted-foreground">
               {info.tester_invite ? (
                 <>
-                This invite opens an isolated UP Flow test workspace with demo
-                projects, clients, meetings, docs, and tasks. It does not grant
-                access to real client workspaces.
+                  {t("invite.testerExplanation")}
                 </>
               ) : info.invite_mode === "workspace_access" ? (
                 <>
-                  This invite adds you to {info.workspace.name}. After accepting,
-                  you will appear as a team member and can work with real
-                  workspace projects, tasks, calendar events, and clients.
+                  {t("invite.workspaceAccessExplanation", {
+                    workspace: info.workspace.name,
+                  })}
                 </>
               ) : (
                 <>
-                  This invite creates your own UP Flow workspace so you can use
-                  the platform without receiving access to {info.workspace.name}.
+                  {t("invite.personalWorkspaceExplanation", {
+                    workspace: info.workspace.name,
+                  })}
                 </>
               )}
             </p>
@@ -197,7 +200,7 @@ export default function AcceptInvitePage({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Create account
+                {t("invite.createAccount")}
               </button>
               <button
                 type="button"
@@ -208,7 +211,7 @@ export default function AcceptInvitePage({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Sign in
+                {t("invite.signIn")}
               </button>
             </div>
 
@@ -216,7 +219,7 @@ export default function AcceptInvitePage({
               <form onSubmit={createAccount} className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Email
+                    {t("invite.email")}
                   </label>
                   <input
                     type="email"
@@ -231,21 +234,21 @@ export default function AcceptInvitePage({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Full name
+                    {t("invite.fullName")}
                   </label>
                   <input
                     name="name"
                     autoComplete="name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Your full name"
+                    placeholder={t("invite.fullNamePlaceholder")}
                     required
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Cellphone number
+                    {t("invite.cellphone")}
                   </label>
                   <input
                     type="tel"
@@ -260,7 +263,7 @@ export default function AcceptInvitePage({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Password
+                    {t("invite.password")}
                   </label>
                   <input
                     type="password"
@@ -270,7 +273,7 @@ export default function AcceptInvitePage({
                     onChange={(e) => setPassword(e.target.value)}
                     minLength={8}
                     required
-                    placeholder="Minimum 8 characters"
+                    placeholder={t("invite.passwordPlaceholder")}
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
                   />
                 </div>
@@ -279,14 +282,14 @@ export default function AcceptInvitePage({
                   disabled={busy}
                   className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
-                  {busy ? "Creating..." : "Create account and open workspace"}
+                  {busy ? t("invite.creating") : t("invite.createAndOpen")}
                 </button>
               </form>
             ) : (
               <form onSubmit={signInAndAccept} className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Email
+                    {t("invite.email")}
                   </label>
                   <input
                     type="email"
@@ -297,14 +300,14 @@ export default function AcceptInvitePage({
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                    Password
+                    {t("invite.password")}
                   </label>
                   <input
                     type="password"
                     value={signInPassword}
                     onChange={(e) => setSignInPassword(e.target.value)}
                     required
-                    placeholder="Enter your password"
+                    placeholder={t("invite.enterPassword")}
                     className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
                   />
                 </div>
@@ -313,7 +316,7 @@ export default function AcceptInvitePage({
                   disabled={busy}
                   className="w-full rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                 >
-                  {busy ? "Signing in..." : "Sign in and open workspace"}
+                  {busy ? t("invite.signingIn") : t("invite.signInAndOpen")}
                 </button>
                 <button
                   type="button"
@@ -321,15 +324,15 @@ export default function AcceptInvitePage({
                   disabled={busy}
                   className="w-full rounded-lg border border-white/10 bg-white/5 py-2 text-sm font-medium text-foreground transition hover:bg-white/10 disabled:opacity-50"
                 >
-                  I am already signed in
+                  {t("invite.alreadySignedIn")}
                 </button>
                 <p className="text-center text-xs text-muted-foreground">
-                  Need the full login page?{" "}
+                  {t("invite.fullLoginPrompt")}{" "}
                   <Link
                     href={`/login?next=${encodeURIComponent(`/invite/${params.token}`)}&email=${encodeURIComponent(info.email)}`}
                     className="underline"
                   >
-                    Open sign in
+                    {t("invite.openSignIn")}
                   </Link>
                 </p>
               </form>

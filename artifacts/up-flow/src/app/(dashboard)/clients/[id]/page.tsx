@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, TrendingUp, Users, X } from "lucide-react";
+import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, Trash2, TrendingUp, Users, X } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import type { Company, CompanyContact, CompanyNote, TimeEntry } from "@/lib/types";
@@ -20,6 +20,17 @@ export default function ClientDetailPage() {
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [noteBody, setNoteBody] = useState("");
+  const [clientMutationError, setClientMutationError] = useState<string | null>(null);
+  const [clientMutationSuccess, setClientMutationSuccess] = useState<string | null>(null);
+  const [pendingClientAction, setPendingClientAction] = useState<string | null>(null);
+  const [editingContact, setEditingContact] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+  } | null>(null);
+  const [editingNote, setEditingNote] = useState<{ id: string; body: string } | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [editingPlan, setEditingPlan] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
@@ -45,6 +56,28 @@ export default function ClientDetailPage() {
     setLoading(false);
   };
 
+  const showClientMutationError = (message: string) => {
+    setClientMutationSuccess(null);
+    setClientMutationError(message);
+  };
+
+  const showClientMutationSuccess = (message: string) => {
+    setClientMutationError(null);
+    setClientMutationSuccess(message);
+  };
+
+  const parseErrorMessage = async (res: Response, fallback: string) => {
+    try {
+      const payload = (await res.json()) as { error?: string };
+      if (payload.error === "Forbidden") {
+        return "You do not have permission to manage this client record.";
+      }
+      return payload.error || fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   useEffect(() => {
     if (id) loadCompany();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,6 +86,8 @@ export default function ClientDetailPage() {
   const addContact = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!contactName.trim()) return;
+    setPendingClientAction("contact:create");
+    setClientMutationError(null);
     const res = await fetch(`/api/companies/${id}/contacts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,13 +99,19 @@ export default function ClientDetailPage() {
     if (res.ok) {
       setContactName("");
       setContactEmail("");
-      loadCompany();
+      await loadCompany();
+      showClientMutationSuccess("Contact added.");
+    } else {
+      showClientMutationError(await parseErrorMessage(res, "Could not add contact. Check the fields and try again."));
     }
+    setPendingClientAction(null);
   };
 
   const addNote = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!noteBody.trim()) return;
+    setPendingClientAction("note:create");
+    setClientMutationError(null);
     const res = await fetch(`/api/companies/${id}/notes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -78,8 +119,91 @@ export default function ClientDetailPage() {
     });
     if (res.ok) {
       setNoteBody("");
-      loadCompany();
+      await loadCompany();
+      showClientMutationSuccess("Note added.");
+    } else {
+      showClientMutationError(await parseErrorMessage(res, "Could not add note. Add note text and try again."));
     }
+    setPendingClientAction(null);
+  };
+
+  const saveContact = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingContact?.name.trim()) {
+      showClientMutationError("Contact name is required.");
+      return;
+    }
+    setPendingClientAction(`contact:update:${editingContact.id}`);
+    setClientMutationError(null);
+    const res = await fetch(`/api/companies/${id}/contacts/${editingContact.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editingContact.name.trim(),
+        email: cleanNullable(editingContact.email),
+        phone: cleanNullable(editingContact.phone),
+        role: cleanNullable(editingContact.role),
+      }),
+    });
+    if (res.ok) {
+      setEditingContact(null);
+      await loadCompany();
+      showClientMutationSuccess("Contact updated.");
+    } else {
+      showClientMutationError(await parseErrorMessage(res, "Could not update contact. Check the fields and try again."));
+    }
+    setPendingClientAction(null);
+  };
+
+  const deleteContact = async (contact: CompanyContact) => {
+    if (!window.confirm(`Delete ${contact.name}? This cannot be undone.`)) return;
+    setPendingClientAction(`contact:delete:${contact.id}`);
+    setClientMutationError(null);
+    const res = await fetch(`/api/companies/${id}/contacts/${contact.id}`, { method: "DELETE" });
+    if (res.ok) {
+      await loadCompany();
+      showClientMutationSuccess("Contact deleted.");
+    } else {
+      showClientMutationError(await parseErrorMessage(res, "Could not delete contact."));
+    }
+    setPendingClientAction(null);
+  };
+
+  const saveNote = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!editingNote?.body.trim()) {
+      showClientMutationError("Note text is required.");
+      return;
+    }
+    setPendingClientAction(`note:update:${editingNote.id}`);
+    setClientMutationError(null);
+    const res = await fetch(`/api/companies/${id}/notes/${editingNote.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: editingNote.body.trim() }),
+    });
+    if (res.ok) {
+      setEditingNote(null);
+      await loadCompany();
+      showClientMutationSuccess("Note updated.");
+    } else {
+      showClientMutationError(await parseErrorMessage(res, "Could not update note."));
+    }
+    setPendingClientAction(null);
+  };
+
+  const deleteNote = async (note: CompanyNote) => {
+    if (!window.confirm("Delete this note? This cannot be undone.")) return;
+    setPendingClientAction(`note:delete:${note.id}`);
+    setClientMutationError(null);
+    const res = await fetch(`/api/companies/${id}/notes/${note.id}`, { method: "DELETE" });
+    if (res.ok) {
+      await loadCompany();
+      showClientMutationSuccess("Note deleted.");
+    } else {
+      showClientMutationError(await parseErrorMessage(res, "Could not delete note."));
+    }
+    setPendingClientAction(null);
   };
 
   const savePlan = async (event: React.FormEvent) => {
@@ -410,20 +534,102 @@ export default function ClientDetailPage() {
           )}
         </section>
 
+        <ClientMutationFeedback error={clientMutationError} success={clientMutationSuccess} />
+
         <div className="grid gap-4 xl:grid-cols-3">
           <Panel title="Contacts" icon={<Users className="h-4 w-4" />}>
             <form onSubmit={addContact} className="grid gap-2">
-              <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Name" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
-                <Plus className="h-4 w-4" /> Add contact
+              <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email address" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <button
+                type="submit"
+                disabled={!contactName.trim() || pendingClientAction === "contact:create"}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Plus className="h-4 w-4" /> {pendingClientAction === "contact:create" ? "Adding..." : "Add contact"}
               </button>
             </form>
             <List items={company.contacts ?? []} empty="No contacts yet" render={(contact: CompanyContact) => (
-              <div>
-                <p className="text-sm font-medium text-foreground">{contact.name}</p>
-                <p className="text-xs text-muted-foreground">{contact.email || contact.phone || "No contact info"}</p>
-              </div>
+              editingContact?.id === contact.id ? (
+                <form onSubmit={saveContact} className="grid gap-2">
+                  <input
+                    value={editingContact.name}
+                    onChange={(e) => setEditingContact((current) => current ? { ...current, name: e.target.value } : current)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                    aria-label="Contact name"
+                  />
+                  <input
+                    value={editingContact.email}
+                    onChange={(e) => setEditingContact((current) => current ? { ...current, email: e.target.value } : current)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                    aria-label="Contact email"
+                    placeholder="Email"
+                  />
+                  <input
+                    value={editingContact.phone}
+                    onChange={(e) => setEditingContact((current) => current ? { ...current, phone: e.target.value } : current)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                    aria-label="Contact phone"
+                    placeholder="Phone"
+                  />
+                  <input
+                    value={editingContact.role}
+                    onChange={(e) => setEditingContact((current) => current ? { ...current, role: e.target.value } : current)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                    aria-label="Contact role"
+                    placeholder="Role"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      disabled={pendingClientAction === `contact:update:${contact.id}`}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                    >
+                      <Save className="h-3.5 w-3.5" /> Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingContact(null)}
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-1.5 text-xs text-muted-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" /> Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm font-medium text-foreground">{contact.name}</p>
+                    <p className="break-words text-xs text-muted-foreground">{contact.email || contact.phone || "No contact info"}</p>
+                    {contact.role ? <p className="mt-1 text-xs text-muted-foreground">{contact.role}</p> : null}
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingContact({
+                        id: contact.id,
+                        name: contact.name,
+                        email: contact.email ?? "",
+                        phone: contact.phone ?? "",
+                        role: contact.role ?? "",
+                      })}
+                      className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label={`Edit ${contact.name}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteContact(contact)}
+                      disabled={pendingClientAction === `contact:delete:${contact.id}`}
+                      className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
+                      aria-label={`Delete ${contact.name}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )
             )} />
           </Panel>
 
@@ -447,15 +653,68 @@ export default function ClientDetailPage() {
           <Panel title="Notes" icon={<FileText className="h-4 w-4" />}>
             <form onSubmit={addNote} className="grid gap-2">
               <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} placeholder="Add a note" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
-                <Plus className="h-4 w-4" /> Add note
+              <button
+                type="submit"
+                disabled={!noteBody.trim() || pendingClientAction === "note:create"}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Plus className="h-4 w-4" /> {pendingClientAction === "note:create" ? "Adding..." : "Add note"}
               </button>
             </form>
             <List items={company.notes_log ?? []} empty="No notes yet" render={(note: CompanyNote) => (
-              <div>
-                <p className="text-sm text-foreground">{note.body}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? "Unknown"} - {formatDate(note.created_at)}</p>
-              </div>
+              editingNote?.id === note.id ? (
+                <form onSubmit={saveNote} className="grid gap-2">
+                  <textarea
+                    value={editingNote.body}
+                    onChange={(e) => setEditingNote((current) => current ? { ...current, body: e.target.value } : current)}
+                    rows={3}
+                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
+                    aria-label="Note text"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="submit"
+                      disabled={pendingClientAction === `note:update:${note.id}`}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                    >
+                      <Save className="h-3.5 w-3.5" /> Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingNote(null)}
+                      className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-1.5 text-xs text-muted-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" /> Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="break-words text-sm text-foreground">{note.body}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? "Unknown"} - {formatDate(note.created_at)}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setEditingNote({ id: note.id, body: note.body })}
+                      className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label="Edit note"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteNote(note)}
+                      disabled={pendingClientAction === `note:delete:${note.id}`}
+                      className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
+                      aria-label="Delete note"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )
             )} />
           </Panel>
         </div>
@@ -571,6 +830,22 @@ function List<T extends { id?: string }>({ items, empty, render }: { items: T[];
           {render(item)}
         </div>
       ))}
+    </div>
+  );
+}
+
+function ClientMutationFeedback({ error, success }: { error: string | null; success: string | null }) {
+  if (!error && !success) return null;
+  return (
+    <div
+      className={`rounded-lg border px-3 py-2 text-sm ${
+        error
+          ? "border-upflow-danger/25 bg-upflow-danger/10 text-upflow-danger"
+          : "border-upflow-success/25 bg-upflow-success/10 text-upflow-success"
+      }`}
+      role={error ? "alert" : "status"}
+    >
+      {error || success}
     </div>
   );
 }

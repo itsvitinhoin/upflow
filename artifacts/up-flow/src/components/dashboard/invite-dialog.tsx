@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { X, Loader2, Mail } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 
 type InviteErrorCode =
   | "APP_URL_MISSING"
@@ -13,10 +14,10 @@ type InviteMode = "personal_workspace" | "workspace_access";
 export default function InviteDialog({
   open,
   onClose,
-  title = "Invite to team",
-  description = "We'll email each address an invitation link.",
-  submitLabel = "Send invites",
-  successLabel = "Invited",
+  title,
+  description,
+  submitLabel,
+  successLabel,
   defaultRole = "member",
   lockRole = false,
   hideRole = false,
@@ -41,6 +42,7 @@ export default function InviteDialog({
   hideMode?: boolean;
   onSuccess?: () => void;
 }) {
+  const { t } = useLanguage();
   const [emails, setEmails] = useState("");
   const [role, setRole] = useState<"admin" | "member">(defaultRole);
   const [inviteMode, setInviteMode] = useState<InviteMode>(defaultMode);
@@ -70,7 +72,7 @@ export default function InviteDialog({
       .map((s) => s.trim())
       .filter(Boolean);
     if (list.length === 0) {
-      toast.error("Add at least one email");
+      toast.error(t("invite.addAtLeastOne"));
       return;
     }
     setLoading(true);
@@ -95,24 +97,24 @@ export default function InviteDialog({
       };
       if (!res.ok) {
         setError({
-          message: data.error || "Could not send invites",
+          message: data.error || t("invite.couldNotSend"),
           code: data.code,
         });
-        throw new Error(data.error || "Failed");
+        throw new Error(data.error || t("invite.couldNotSend"));
       }
       const sent = data.sent ?? 0;
       const mailed = data.mailed ?? sent;
-      const noun = `teammate${sent === 1 ? "" : "s"}`;
+      const noun = sent === 1 ? t("invite.teammate") : t("invite.teammates");
       if (mailed !== sent) {
-        setError({ message: "Invite email delivery was not confirmed" });
-        throw new Error("Invite email delivery was not confirmed");
+        setError({ message: t("invite.deliveryNotConfirmed") });
+        throw new Error(t("invite.deliveryNotConfirmed"));
       }
-      toast.success(`${successLabel} ${sent} ${noun}`);
+      toast.success(`${successLabel || t("invite.successDefault")} ${sent} ${noun}`);
       setEmails("");
       onSuccess?.();
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Could not send invites");
+      toast.error(err instanceof Error ? err.message : t("invite.couldNotSend"));
     } finally {
       setLoading(false);
     }
@@ -120,8 +122,8 @@ export default function InviteDialog({
   const showRoleControl = !hideRole || (!testerMode && inviteMode === "workspace_access");
   const modeDescription =
     inviteMode === "workspace_access"
-      ? "They join this workspace and appear as team members after accepting."
-      : "They get their own UP Flow workspace and do not see this workspace.";
+      ? t("invite.workspaceModeHint")
+      : t("invite.personalModeHint");
 
   return (
     <div
@@ -138,14 +140,16 @@ export default function InviteDialog({
             <div className="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center">
               <Mail className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <h2 className="text-base font-semibold text-foreground">
+              {title || t("invite.titleDefault")}
+            </h2>
           </div>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
         <label className="block text-xs font-medium text-foreground mb-1.5">
-          Emails (comma or newline separated)
+          {t("invite.emailLabel")}
         </label>
         <textarea
           value={emails}
@@ -158,7 +162,7 @@ export default function InviteDialog({
         {!testerMode && !hideMode && (
           <div className="mt-4">
             <label className="block text-xs font-medium text-foreground mb-1.5">
-              Invite mode
+              {t("invite.mode")}
             </label>
             <div className="grid grid-cols-2 rounded-lg border border-white/10 bg-black/20 p-1 text-sm">
               <button
@@ -170,7 +174,7 @@ export default function InviteDialog({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Own workspace
+                {t("invite.ownWorkspace")}
               </button>
               <button
                 type="button"
@@ -181,7 +185,7 @@ export default function InviteDialog({
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                This workspace
+                {t("invite.workspaceAccess")}
               </button>
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
@@ -191,20 +195,20 @@ export default function InviteDialog({
         )}
         {showRoleControl && (
           <>
-            <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Role</label>
+            <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("invite.role")}</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "admin" | "member")}
               disabled={lockRole}
               className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="member">{t("common.member")}</option>
+              <option value="admin">{t("common.admin")}</option>
             </select>
           </>
         )}
         <p className="text-[11px] text-muted-foreground mt-2">
-          {description}
+          {description || t("invite.descriptionDefault")}
         </p>
         {error && (
           <div className="mt-4 rounded-lg border border-upflow-danger/30 bg-upflow-danger/10 px-3 py-2">
@@ -213,7 +217,7 @@ export default function InviteDialog({
               {error.message}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {inviteErrorHint(error.code)}
+              {inviteErrorHint(error.code, t)}
             </p>
           </div>
         )}
@@ -224,7 +228,7 @@ export default function InviteDialog({
             disabled={loading}
             className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10 disabled:opacity-50"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
@@ -232,7 +236,7 @@ export default function InviteDialog({
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitLabel}
+            {submitLabel || t("invite.submitDefault")}
           </button>
         </div>
       </form>
@@ -240,15 +244,18 @@ export default function InviteDialog({
   );
 }
 
-function inviteErrorHint(code?: InviteErrorCode) {
+function inviteErrorHint(
+  code: InviteErrorCode | undefined,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   if (code === "APP_URL_MISSING") {
-    return "Set APP_URL to the canonical public app URL and restart the app.";
+    return t("invite.appUrlMissing");
   }
   if (code === "EMAIL_NOT_CONFIGURED") {
-    return "Set RESEND_API_KEY and EMAIL_FROM with a verified Resend sender, then restart the app.";
+    return t("invite.emailNotConfigured");
   }
   if (code === "EMAIL_SEND_FAILED") {
-    return "Check the Resend dashboard, API key, sender verification, recipient restrictions, and provider message.";
+    return t("invite.emailSendFailed");
   }
-  return "Check invite email setup and try again.";
+  return t("invite.checkSetup");
 }

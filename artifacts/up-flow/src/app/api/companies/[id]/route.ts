@@ -41,8 +41,16 @@ async function getCompany(id: string, workspaceId: string) {
           name: true,
           status: true,
           due_date: true,
+          owner: { select: { id: true, name: true, email: true } },
           tasks: {
-            select: { id: true, title: true, status: true, priority: true, due_date: true },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              priority: true,
+              due_date: true,
+              assignee: { select: { id: true, name: true, email: true } },
+            },
             orderBy: [{ due_date: "asc" }, { created_at: "desc" }],
           },
         },
@@ -63,7 +71,11 @@ async function getCompany(id: string, workspaceId: string) {
   const [tasks, timeEntries] = await Promise.all([
     prisma.task.findMany({
       where: {
-        project: { company_id: company.id, workspace_id: workspaceId },
+        project: { workspace_id: workspaceId },
+        OR: [
+          { company_id: company.id },
+          { project: { company_id: company.id } },
+        ],
       },
       orderBy: [{ due_date: "asc" }, { created_at: "desc" }],
       select: {
@@ -72,6 +84,7 @@ async function getCompany(id: string, workspaceId: string) {
         status: true,
         priority: true,
         due_date: true,
+        assignee: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, name: true } },
       },
       take: 100,
@@ -99,6 +112,7 @@ async function getCompany(id: string, workspaceId: string) {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const sevenDaysAgo = new Date(todayStart);
   sevenDaysAgo.setDate(todayStart.getDate() - 7);
+  const activeProjects = company.projects.filter((project) => project.status === "active");
   const openTasks = tasks.filter((task) => task.status !== "done");
   const overdueTasks = openTasks.filter((task) => task.due_date && task.due_date < todayStart);
   const nextDeadline =
@@ -124,6 +138,22 @@ async function getCompany(id: string, workspaceId: string) {
     return sum + entry.duration_seconds;
   }, 0);
   const trackedHours = trackedSeconds / 3600;
+  const assignedMembers = new Map<string, { id: string; name: string; email: string }>();
+  assignedMembers.set(company.owner.id, company.owner);
+  for (const project of company.projects) {
+    assignedMembers.set(project.owner.id, project.owner);
+  }
+  for (const task of tasks) {
+    if (task.assignee) assignedMembers.set(task.assignee.id, task.assignee);
+  }
+  const healthStatus =
+    riskReasons.some((reason) => reason.includes("overdue") || reason === "No linked projects")
+      ? "risk"
+      : riskReasons.length > 0
+        ? "attention"
+        : company.projects.length === 0 && company.contract_value == null && !company.plan_name && !company.service_type
+          ? "not_enough_data"
+          : "healthy";
 
   return {
     ...company,
@@ -131,13 +161,17 @@ async function getCompany(id: string, workspaceId: string) {
     time_entries: timeEntries,
     summary: {
       project_count: company.projects.length,
+      active_project_count: activeProjects.length,
       open_task_count: openTasks.length,
       overdue_task_count: overdueTasks.length,
       meeting_count: company.calendar_events.length,
       contact_count: company.contacts.length,
       tracked_seconds: trackedSeconds,
       risk_reasons: riskReasons,
+      health_status: healthStatus,
       next_deadline: nextDeadline,
+      latest_activity: company.activity_events[0] ?? null,
+      assigned_members: Array.from(assignedMembers.values()).slice(0, 8),
       profitability_ratio:
         company.contract_value && company.commission != null
           ? company.commission / company.contract_value

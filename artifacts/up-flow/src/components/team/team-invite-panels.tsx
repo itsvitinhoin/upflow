@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import type {
   EmailStatus,
   PendingInvite,
@@ -33,6 +34,7 @@ export function RealUserInvitePanel({
   emailReady: boolean | null;
   onInvite: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <section className="mb-5 overflow-hidden rounded-xl border border-primary/25 bg-[linear-gradient(135deg,rgba(124,92,255,0.14),rgba(16,185,129,0.07),rgba(255,255,255,0.03))] p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -42,7 +44,7 @@ export function RealUserInvitePanel({
               <UserPlus className="h-4 w-4" />
             </span>
             <h3 className="text-base font-semibold text-foreground">
-              Invite real users to Up Flow
+              {t("invite.realUsersTitle")}
             </h3>
             <span
               className={cn(
@@ -52,13 +54,13 @@ export function RealUserInvitePanel({
                   : "bg-upflow-warning/15 text-upflow-warning",
               )}
             >
-              {emailReady ? "Email ready" : "Check email setup"}
+              {emailReady ? t("invite.emailReady") : t("invite.checkEmailSetup")}
             </span>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Send official invitations for two clear paths: users can get their
-            own UP Flow workspace, or they can join {workspace?.name ?? "this workspace"}
-            and appear here as team members after accepting.
+            {t("invite.realUsersDescription", {
+              workspace: workspace?.name ?? t("invite.thisWorkspace"),
+            })}
           </p>
         </div>
         <button
@@ -67,14 +69,14 @@ export function RealUserInvitePanel({
           className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <MailCheck className="h-4 w-4" />
-          Invite users
+          {t("team.inviteUsers")}
         </button>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <InviteStat label="Source workspace" value={workspace?.name ?? "Current workspace"} />
-        <InviteStat label="Internal members" value={String(memberCount)} />
-        <InviteStat label="Pending invites" value={String(pendingCount)} />
+        <InviteStat label={t("invite.sourceWorkspace")} value={workspace?.name ?? t("invite.currentWorkspace")} />
+        <InviteStat label={t("invite.internalMembers")} value={String(memberCount)} />
+        <InviteStat label={t("invite.pendingInvites")} value={String(pendingCount)} />
       </div>
     </section>
   );
@@ -91,6 +93,7 @@ export function EmailSetupWarning({
   testingEmail: boolean;
   onSendTest: () => void;
 }) {
+  const { t } = useLanguage();
   const missing = [
     !status.app_url_configured && "APP_URL",
     !status.resend_api_key_configured && "RESEND_API_KEY",
@@ -116,18 +119,18 @@ export function EmailSetupWarning({
           )}
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">
-              {ready ? "Invite email setup is ready" : "Invite email setup needs attention"}
+              {ready ? t("invite.emailSetupReady") : t("invite.emailSetupAttention")}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {ready
-                ? "APP_URL, RESEND_API_KEY, and EMAIL_FROM are configured with a non-development sender."
+                ? t("invite.emailConfigured")
                 : `${
-                    missing.length > 0 ? `Missing: ${missing.join(", ")}. ` : ""
+                    missing.length > 0 ? `${t("invite.missing", { keys: missing.join(", ") })} ` : ""
                   }${
                     status.using_development_sender
-                      ? "Set EMAIL_FROM to a verified Resend sender. "
+                      ? `${t("invite.setVerifiedSender")} `
                       : ""
-                  }Invites are blocked until Resend delivery is configured and accepted.`}
+                  }${t("invite.emailBlocked")}`}
             </p>
             {emailTestStatus && (
               <p
@@ -136,7 +139,10 @@ export function EmailSetupWarning({
                   emailTestStatus.ok ? "text-upflow-success" : "text-upflow-danger",
                 )}
               >
-                Last test {emailTestStatus.checkedAt}: {emailTestStatus.message}
+                {t("invite.lastTest", {
+                  time: emailTestStatus.checkedAt,
+                  message: emailTestStatus.message,
+                })}
               </p>
             )}
           </div>
@@ -148,7 +154,7 @@ export function EmailSetupWarning({
           className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-upflow-warning/30 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-upflow-warning/10 disabled:opacity-60"
         >
           <MailCheck className={cn("h-3.5 w-3.5", testingEmail && "animate-pulse")} />
-          {testingEmail ? "Testing..." : "Send test"}
+          {testingEmail ? t("invite.testing") : t("invite.sendTest")}
         </button>
       </div>
     </div>
@@ -184,6 +190,7 @@ export function TesterInvitePanel({
   onCancel: (invite: PendingInvite) => void;
   onReset: (email?: string) => void;
 }) {
+  const { t, language } = useLanguage();
   const pending = invites.filter((invite) => !invite.accepted_at);
   const accepted = invites.filter((invite) => invite.accepted_at);
   const failed = pending.filter((invite) => invite.send_status === "failed");
@@ -195,13 +202,11 @@ export function TesterInvitePanel({
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
             <h3 className="text-sm font-semibold text-foreground">
-              Tester invite workspace
+              {t("invite.testerWorkspaceTitle")}
             </h3>
           </div>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            Invite outside testers into an isolated workspace with demo clients,
-            tasks, meetings, docs, and activity. They will not see real Admin
-            workspace data unless you invite them separately.
+            {t("invite.testerWorkspaceDescription")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -212,7 +217,7 @@ export function TesterInvitePanel({
               disabled={settingUp}
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-60"
             >
-              {settingUp ? "Preparing..." : "Prepare workspace"}
+              {settingUp ? t("invite.preparingWorkspace") : t("invite.prepareWorkspace")}
             </button>
           )}
           <button
@@ -222,7 +227,7 @@ export function TesterInvitePanel({
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
             <KeyRound className="h-3.5 w-3.5" />
-            Create tester account
+            {t("invite.createTesterAccount")}
           </button>
           <button
             type="button"
@@ -231,7 +236,7 @@ export function TesterInvitePanel({
             className="inline-flex items-center gap-1.5 rounded-md border border-upflow-danger/40 px-3 py-1.5 text-xs font-medium text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            {resetting ? "Resetting..." : "Reset tester"}
+            {resetting ? t("invite.resettingTester") : t("invite.resetTester")}
           </button>
           <button
             type="button"
@@ -240,7 +245,7 @@ export function TesterInvitePanel({
             className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 disabled:opacity-60"
           >
             <UserPlus className="h-3.5 w-3.5" />
-            Email invite
+            {t("invite.emailInvite")}
           </button>
           {workspace && (
             <button
@@ -249,17 +254,17 @@ export function TesterInvitePanel({
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60"
             >
               <Users className="h-3.5 w-3.5" />
-              View tester members
+              {t("invite.viewTesterMembers")}
             </button>
           )}
         </div>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-4">
-        <TesterStat label="Workspace" value={workspace?.name ?? "Not prepared"} />
-        <TesterStat label="Pending" value={String(pending.length)} />
-        <TesterStat label="Accepted" value={String(accepted.length)} />
-        <TesterStat label="Needs resend" value={String(failed.length)} />
+        <TesterStat label={t("sidebar.workspace")} value={workspace?.name ?? t("common.none")} />
+        <TesterStat label={t("invite.pendingInvites")} value={String(pending.length)} />
+        <TesterStat label={t("common.accepted")} value={String(accepted.length)} />
+        <TesterStat label={t("team.resend")} value={String(failed.length)} />
       </div>
 
       {workspace && invites.length > 0 && (
@@ -281,7 +286,12 @@ export function TesterInvitePanel({
                       <span className="capitalize">{invite.role}</span>
                       <InviteStatusBadge invite={invite} />
                       {invite.last_sent_at && (
-                        <span>sent {new Date(invite.last_sent_at).toLocaleString()}</span>
+                        <span>
+                          {t("common.sent")}{" "}
+                          {new Date(invite.last_sent_at).toLocaleString(language, {
+                            timeZone: "America/Sao_Paulo",
+                          })}
+                        </span>
                       )}
                     </p>
                     {failedInvite && invite.send_error && (
@@ -304,7 +314,7 @@ export function TesterInvitePanel({
                             resending === invite.id && "animate-spin",
                           )}
                         />
-                        {resending === invite.id ? "Sending..." : "Resend"}
+                        {resending === invite.id ? t("team.sending") : t("team.resend")}
                       </button>
                       <button
                         type="button"
@@ -313,7 +323,7 @@ export function TesterInvitePanel({
                         className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-upflow-danger/10 hover:text-upflow-danger disabled:opacity-60"
                       >
                         <XCircle className="h-3.5 w-3.5" />
-                        Cancel
+                        {t("team.cancelInvite")}
                       </button>
                     </div>
                   )}
@@ -325,7 +335,7 @@ export function TesterInvitePanel({
                       className="inline-flex items-center gap-1.5 rounded-md border border-upflow-danger/40 px-2.5 py-1.5 text-xs font-medium text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
-                      Reset
+                      {t("invite.resetTester")}
                     </button>
                   )}
                 </li>
@@ -361,11 +371,12 @@ function TesterStat({ label, value }: { label: string; value: string }) {
 }
 
 function InviteStatusBadge({ invite }: { invite: PendingInvite }) {
+  const { t } = useLanguage();
   if (invite.accepted_at) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-upflow-success/15 px-2 py-0.5 text-[11px] font-medium text-upflow-success">
         <CheckCircle2 className="h-3 w-3" />
-        accepted
+        {t("common.accepted")}
       </span>
     );
   }
@@ -373,14 +384,14 @@ function InviteStatusBadge({ invite }: { invite: PendingInvite }) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-upflow-danger/15 px-2 py-0.5 text-[11px] font-medium text-upflow-danger">
         <XCircle className="h-3 w-3" />
-        failed
+        {t("common.failed")}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-medium text-primary">
       <MailCheck className="h-3 w-3" />
-      sent
+      {t("common.sent")}
     </span>
   );
 }

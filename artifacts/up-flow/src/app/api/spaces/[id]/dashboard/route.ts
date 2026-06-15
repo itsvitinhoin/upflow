@@ -293,6 +293,7 @@ async function GET_handler(
       overdue_tasks: overdueTasks.length,
       due_today_tasks: dueTodayTasks.length,
       tracked_seconds_today: trackedSecondsToday,
+      tasks: assignedOpenTasks.slice(0, 8),
       state:
         overdueTasks.length > 0
           ? "late"
@@ -360,13 +361,7 @@ async function GET_handler(
       projects_at_risk: {
         items: projectsAtRisk,
         count: projectsAtRisk.length,
-        rules: [
-          "overdue open tasks",
-          "no owner",
-          "no activity in 7 days",
-          "blocked tasks",
-          "no due-date movement",
-        ],
+        rules: ["overdue open tasks", "no owner", "no activity in 7 days"],
       },
       quick_create: {
         items: ["task", "meeting", "project"],

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Copy, KeyRound, Plus, Trash2, XCircle } from "lucide-react";
 import type { Department } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import {
   DEPARTMENT_COLORS,
   colorDotClass,
@@ -22,6 +23,7 @@ export function CreateTesterAccountDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState(() => generateTesterPassword());
@@ -46,11 +48,11 @@ export function CreateTesterAccountDialog({
     e.preventDefault();
     if (loading) return;
     if (!email.trim()) {
-      setError("Email is required");
+      setError(t("team.emailRequired"));
       return;
     }
     if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError(t("team.passwordMin"));
       return;
     }
     setLoading(true);
@@ -72,34 +74,39 @@ export function CreateTesterAccountDialog({
         workspace?: { name: string };
       };
       if (!r.ok) {
-        setError(json.error || "Could not create tester account");
+        setError(json.error || t("team.couldNotCreateTester"));
         return;
       }
       setCreated({
         email: email.trim(),
         password,
         workspaceName:
-          json.workspace?.name || workspace?.name || "UP Flow Test Workspace",
+          json.workspace?.name || workspace?.name || t("team.defaultTesterWorkspace"),
       });
       setEmail("");
       setName("");
       onCreated();
     } catch {
-      setError("Could not create tester account");
+      setError(t("team.couldNotCreateTester"));
     } finally {
       setLoading(false);
     }
   }
 
   const credentialText = created
-    ? `UP Flow test access\nURL: ${window.location.origin}/login\nWorkspace: ${created.workspaceName}\nEmail: ${created.email}\nPassword: ${created.password}`
+    ? t("team.generatedCredentialText", {
+        url: `${window.location.origin}/login`,
+        workspace: created.workspaceName,
+        email: created.email,
+        password: created.password,
+      })
     : "";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Create tester account"
+      aria-label={t("invite.createTesterAccount")}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
@@ -115,10 +122,12 @@ export function CreateTesterAccountDialog({
             </div>
             <div>
               <h2 className="text-base font-semibold text-foreground">
-                Create tester account
+                {t("invite.createTesterAccount")}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Adds access to {workspace?.name || "the isolated test workspace"}.
+                {t("team.addsAccessTo", {
+                  workspace: workspace?.name || t("team.isolatedTestWorkspace"),
+                })}
               </p>
             </div>
           </div>
@@ -135,10 +144,10 @@ export function CreateTesterAccountDialog({
           <div className="space-y-4">
             <div className="rounded-lg border border-upflow-success/30 bg-upflow-success/10 px-3 py-2">
               <p className="text-sm font-medium text-foreground">
-                Tester account created
+                {t("team.testerAccountCreated")}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Send these credentials manually through WhatsApp, Gmail, or Slack.
+                {t("team.sendCredentialsManually")}
               </p>
             </div>
             <textarea
@@ -154,21 +163,21 @@ export function CreateTesterAccountDialog({
                 className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Copy className="h-4 w-4" />
-                Copy credentials
+                {t("team.copyCredentials")}
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-foreground hover:bg-white/10"
               >
-                Done
+                {t("common.done")}
               </button>
             </div>
           </div>
         ) : (
           <>
             <label className="mb-1.5 block text-xs font-medium text-foreground">
-              Tester email
+              {t("team.testerEmail")}
             </label>
             <input
               type="email"
@@ -180,18 +189,18 @@ export function CreateTesterAccountDialog({
             />
 
             <label className="mb-1.5 mt-4 block text-xs font-medium text-foreground">
-              Name
+              {t("team.name")}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Tester name"
+              placeholder={t("team.testerNamePlaceholder")}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
 
             <label className="mb-1.5 mt-4 block text-xs font-medium text-foreground">
-              Temporary password
+              {t("team.tempPassword")}
             </label>
             <div className="grid gap-2 sm:flex">
               <input
@@ -205,7 +214,7 @@ export function CreateTesterAccountDialog({
                 onClick={() => setPassword(generateTesterPassword())}
                 className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-foreground hover:bg-white/10"
               >
-                Generate
+                {t("common.generate")}
               </button>
             </div>
 
@@ -214,8 +223,7 @@ export function CreateTesterAccountDialog({
                 <p className="text-xs font-medium text-upflow-danger">{error}</p>
                 {error.includes("SUPABASE_SERVICE_ROLE_KEY") && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Add SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy before
-                    using manual account creation.
+                    {t("team.serviceRoleMissing")}
                   </p>
                 )}
               </div>
@@ -227,14 +235,14 @@ export function CreateTesterAccountDialog({
                 onClick={onClose}
                 className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-foreground hover:bg-white/10"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={loading}
                 className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
               >
-                {loading ? "Creating..." : "Create account"}
+                {loading ? t("common.creating") : t("invite.createAccount")}
               </button>
             </div>
           </>
@@ -255,6 +263,7 @@ export function ManageDepartmentsDialog({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const { t } = useLanguage();
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState<DepartmentColor>("blue");
   const [busy, setBusy] = useState(false);
@@ -272,7 +281,7 @@ export function ManageDepartmentsDialog({
       });
       if (!r.ok) {
         const j = (await r.json().catch(() => ({}))) as { error?: string };
-        setError(j.error ?? "Couldn't create department");
+        setError(j.error ?? t("team.couldNotCreateDepartment"));
       } else {
         setNewName("");
         onChanged();
@@ -294,7 +303,7 @@ export function ManageDepartmentsDialog({
     );
     if (!r.ok) {
       const j = (await r.json().catch(() => ({}))) as { error?: string };
-      setError(j.error ?? "Couldn't rename department");
+      setError(j.error ?? t("team.couldNotRenameDepartment"));
     } else {
       setError(null);
     }
@@ -311,7 +320,7 @@ export function ManageDepartmentsDialog({
       },
     );
     if (!r.ok) {
-      setError("Couldn't update department color");
+      setError(t("team.couldNotUpdateDepartmentColor"));
     } else {
       setError(null);
     }
@@ -321,7 +330,7 @@ export function ManageDepartmentsDialog({
   async function remove(dep: Department) {
     if (
       !window.confirm(
-        `Delete "${dep.name}"? Its members will become Unassigned.`,
+        t("team.deleteDepartmentConfirm", { name: dep.name }),
       )
     )
       return;
@@ -330,7 +339,7 @@ export function ManageDepartmentsDialog({
       { method: "DELETE" },
     );
     if (!r.ok) {
-      setError("Couldn't delete department");
+      setError(t("team.couldNotDeleteDepartment"));
     } else {
       setError(null);
     }
@@ -341,7 +350,7 @@ export function ManageDepartmentsDialog({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Manage departments"
+      aria-label={t("team.manageDepartments")}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
@@ -351,21 +360,21 @@ export function ManageDepartmentsDialog({
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-semibold text-foreground">
-            Manage departments
+            {t("team.manageDepartments")}
           </h3>
           <button
             type="button"
             onClick={onClose}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            Close
+            {t("common.close")}
           </button>
         </div>
 
         <div className="mb-4 max-h-64 space-y-2 overflow-y-auto">
           {departments.length === 0 && (
             <p className="py-2 text-xs text-muted-foreground">
-              No departments yet. Create one below.
+              {t("team.noDepartmentsYet")}
             </p>
           )}
           {departments.map((d) => (
@@ -380,11 +389,11 @@ export function ManageDepartmentsDialog({
         </div>
 
         <div className="space-y-2 border-t border-border pt-4">
-          <p className="text-xs font-medium text-foreground">Add department</p>
+          <p className="text-xs font-medium text-foreground">{t("team.addDepartment")}</p>
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
-              placeholder="e.g. Engineering"
+              placeholder={t("team.departmentPlaceholder")}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               className="min-w-[160px] flex-1 rounded-md border border-border bg-card px-2 py-1.5 text-sm"
@@ -397,7 +406,7 @@ export function ManageDepartmentsDialog({
               className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add
+              {t("common.add")}
             </button>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
@@ -418,6 +427,7 @@ function DepartmentRow({
   onRecolor: (color: DepartmentColor) => void;
   onDelete: () => void;
 }) {
+  const { t } = useLanguage();
   const [name, setName] = useState(dep.name);
   useEffect(() => setName(dep.name), [dep.name]);
 
@@ -436,7 +446,7 @@ function DepartmentRow({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
         className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-border focus:border-border"
-        aria-label={`Department name (${dep.name})`}
+        aria-label={t("team.departmentNameLabel", { name: dep.name })}
       />
       <span className="text-xs text-muted-foreground">
         {dep._count.members}
@@ -444,7 +454,7 @@ function DepartmentRow({
       <button
         type="button"
         onClick={onDelete}
-        aria-label={`Delete ${dep.name}`}
+        aria-label={t("team.deleteDepartmentLabel", { name: dep.name })}
         className="p-1 text-muted-foreground hover:text-destructive"
       >
         <Trash2 className="h-3.5 w-3.5" />
@@ -460,13 +470,14 @@ function ColorPicker({
   value: DepartmentColor;
   onChange: (c: DepartmentColor) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="flex items-center gap-1">
       {DEPARTMENT_COLORS.map((c) => (
         <button
           key={c}
           type="button"
-          aria-label={`Color ${c}`}
+          aria-label={t("team.colorLabel", { color: c })}
           aria-pressed={value === c}
           onClick={() => onChange(c)}
           className={cn(

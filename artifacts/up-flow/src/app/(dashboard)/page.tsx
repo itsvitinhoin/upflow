@@ -36,10 +36,12 @@ import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
 import {
   cn,
+  appTimeInputValue,
   formatDate,
   formatTime,
   getInitials,
   isOverdue,
+  mergeAppDateAndTime,
   priorityColor,
 } from "@/lib/utils";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
@@ -91,6 +93,7 @@ interface CommandCenterPayload {
       overdue_tasks: number;
       due_today_tasks: number;
       tracked_seconds_today: number;
+      tasks: Task[];
       state: "late" | "overloaded" | "idle" | "active";
     }>;
     count: number;
@@ -315,6 +318,7 @@ export default function DashboardPage() {
           overdue_tasks: 0,
           due_today_tasks: 0,
           tracked_seconds_today: 0,
+          tasks: [],
           state: member._count.tasks >= 8 ? "overloaded" : member._count.tasks === 0 ? "idle" : "active",
         })),
         count: users.length,
@@ -1418,23 +1422,29 @@ function CommandTile({
   );
 }
 
-function creativeStageLabel(stage: NonNullable<CommandCenterPayload["creative_queue"]>["items"][number]["stage"]) {
+function creativeStageLabel(
+  stage: NonNullable<CommandCenterPayload["creative_queue"]>["items"][number]["stage"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   const labels: Record<typeof stage, string> = {
-    waiting_for_briefing: "Briefing",
-    ready_to_start: "Ready",
-    in_production: "Production",
-    waiting_for_approval: "Approval",
-    revision_requested: "Revision",
+    waiting_for_briefing: t("dashboard.stageBriefing"),
+    ready_to_start: t("dashboard.stageReady"),
+    in_production: t("dashboard.stageProduction"),
+    waiting_for_approval: t("dashboard.stageApproval"),
+    revision_requested: t("dashboard.stageRevision"),
   };
   return labels[stage];
 }
 
-function healthLabel(status: NonNullable<CommandCenterPayload["client_health"]>["items"][number]["health_status"]) {
+function healthLabel(
+  status: NonNullable<CommandCenterPayload["client_health"]>["items"][number]["health_status"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   const labels: Record<typeof status, string> = {
-    healthy: "Healthy",
-    attention_needed: "Needs attention",
-    at_risk: "At risk",
-    not_enough_data: "Not enough data",
+    healthy: t("clients.health.healthy"),
+    attention_needed: t("clients.health.attention"),
+    at_risk: t("clients.health.risk"),
+    not_enough_data: t("clients.health.notEnough"),
   };
   return labels[status];
 }
@@ -1460,23 +1470,24 @@ function CommandCenterDrawer({
   onCreateProject: () => void;
   onCalendarChanged: () => void;
 }) {
+  const { t } = useLanguage();
   const [manageMeetings, setManageMeetings] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<CalendarEvent | null>(null);
   const titleMap: Record<CommandDrawer, string> = {
-    urgent_actions: "My urgent actions",
-    team_workload: "Team workload",
-    time_today: "Time today",
-    meetings_today: "Meetings today",
-    recent_activity: "Recent activity",
-    projects_at_risk: "Projects at risk",
-    client_risk: "Client risk",
-    client_health: "Client health overview",
-    delivery_overview: "Campaign delivery overview",
-    creative_queue: "Creative production queue",
-    department_workload: "Workload by department",
-    agency_risk_signals: "Agency risk signals",
-    revenue_snapshot: "Revenue snapshot",
-    quick_create: "Quick create",
+    urgent_actions: t("dashboard.myUrgentActions"),
+    team_workload: t("dashboard.teamWorkload"),
+    time_today: t("dashboard.timeToday"),
+    meetings_today: t("dashboard.meetingsToday"),
+    recent_activity: t("dashboard.recentActivity"),
+    projects_at_risk: t("dashboard.projectsAtRisk"),
+    client_risk: t("dashboard.clientRisk"),
+    client_health: t("dashboard.clientHealthOverview"),
+    delivery_overview: t("dashboard.deliveryOverview"),
+    creative_queue: t("dashboard.creativeProductionQueue"),
+    department_workload: t("dashboard.workloadByDepartment"),
+    agency_risk_signals: t("dashboard.agencyRiskSignals"),
+    revenue_snapshot: t("dashboard.revenueSnapshot"),
+    quick_create: t("dashboard.quickCreate"),
   };
 
   return (
@@ -1488,7 +1499,7 @@ function CommandCenterDrawer({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Command Center
+              {t("dashboard.commandCenter")}
             </p>
             <h2 className="text-lg font-semibold text-foreground mt-1">{titleMap[kind]}</h2>
           </div>
@@ -1496,7 +1507,7 @@ function CommandCenterDrawer({
             type="button"
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10"
-            aria-label="Close command drawer"
+            aria-label={t("dashboard.closeCommandDrawer")}
           >
             <X className="w-4 h-4" />
           </button>
@@ -1505,7 +1516,7 @@ function CommandCenterDrawer({
         <div className="mt-5 space-y-3">
           {kind === "urgent_actions" &&
             (data.urgent_actions.items.length === 0 ? (
-              <DrawerEmpty title="No urgent actions" text="Due, overdue, and high-priority assigned tasks appear here." />
+              <DrawerEmpty title={t("dashboard.noUrgentActions")} text={t("dashboard.noUrgentActionsHint")} />
             ) : (
               data.urgent_actions.items.map((task) => (
                 <button
@@ -1516,7 +1527,7 @@ function CommandCenterDrawer({
                 >
                   <p className="text-sm font-medium text-foreground">{task.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {task.project?.name ?? "No project"} {task.due_date ? `- ${formatDate(task.due_date)}` : ""}
+                    {task.project?.name ?? t("dashboard.noProject")} {task.due_date ? `- ${formatDate(task.due_date)}` : ""}
                   </p>
                 </button>
               ))
@@ -1537,16 +1548,38 @@ function CommandCenterDrawer({
                 <p className="mt-2 text-xs text-muted-foreground">
                   {item.open_tasks} open - {item.overdue_tasks} overdue - {formatSecondsShort(item.tracked_seconds_today)} today
                 </p>
+                {item.tasks.length > 0 ? (
+                  <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
+                    {item.tasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        onClick={() => onOpenTask(task)}
+                        className="block w-full rounded-lg bg-black/10 px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground"
+                      >
+                        <span className="block truncate font-medium text-foreground">{task.title}</span>
+                        <span className="mt-0.5 block truncate">
+                          {task.project?.name ?? t("dashboard.noProject")}
+                          {task.due_date ? ` - ${t("dashboard.due", { date: formatDate(task.due_date) })}` : ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-lg bg-black/10 px-3 py-2 text-xs text-muted-foreground">
+                    {t("dashboard.noWorkloadTasks")}
+                  </p>
+                )}
               </div>
             ))}
 
           {kind === "time_today" &&
             (data.time_today.entries.length === 0 && !data.time_today.running ? (
-              <DrawerEmpty title="No tracked time today" text="Start a timer to create the first real time entry." />
+              <DrawerEmpty title={t("dashboard.noTrackedTime")} text={t("dashboard.noTrackedTimeHint")} />
             ) : (
               <>
                 <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Total today</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.totalToday")}</p>
                   <p className="mt-1 text-2xl font-bold text-foreground">
                     {formatSecondsShort(data.time_today.total_seconds)}
                   </p>
@@ -1554,10 +1587,11 @@ function CommandCenterDrawer({
                 {data.time_today.entries.map((entry) => (
                   <div key={entry.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
                     <p className="text-sm font-medium text-foreground">
-                      {entry.task?.title ?? entry.project?.name ?? entry.description ?? "Tracked time"}
+                      {entry.task?.title ?? entry.project?.name ?? entry.description ?? t("dashboard.trackedTimeFallback")}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatSecondsShort(entrySeconds(entry))} {entry.status === "running" ? "running" : "logged"}
+                      {formatSecondsShort(entrySeconds(entry))}{" "}
+                      {entry.status === "running" ? t("dashboard.running") : t("dashboard.logged")}
                     </p>
                   </div>
                 ))}
@@ -1572,7 +1606,7 @@ function CommandCenterDrawer({
                   onManageChange={setManageMeetings}
                   onAdd={onCreateMeeting}
                 />
-                <DrawerEmpty title="No meetings today" text="Calendar events created in this workspace appear here." />
+                <DrawerEmpty title={t("dashboard.noMeetings")} text={t("dashboard.noMeetingsHint")} />
                 {manageMeetings && (
                   <button
                     type="button"
@@ -1580,7 +1614,7 @@ function CommandCenterDrawer({
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                   >
                     <Plus className="h-4 w-4" />
-                    Add meeting
+                    {t("dashboard.addMeeting")}
                   </button>
                 )}
               </div>
@@ -1612,8 +1646,8 @@ function CommandCenterDrawer({
                         </button>
                         <button
                           type="button"
-                          onClick={() => void deleteDashboardMeeting(event, onCalendarChanged)}
-                          aria-label={`Delete ${event.title}`}
+                          onClick={() => void deleteDashboardMeeting(event, onCalendarChanged, t)}
+                          aria-label={t("dashboard.deleteMeeting")}
                           className="flex h-8 w-8 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1627,7 +1661,7 @@ function CommandCenterDrawer({
 
           {kind === "recent_activity" &&
             (data.recent_activity.items.length === 0 ? (
-              <DrawerEmpty title="No recent activity" text="Meaningful workspace operations will be listed here." />
+              <DrawerEmpty title={t("dashboard.noRecentActivity")} text={t("dashboard.noRecentActivityHint")} />
             ) : (
               data.recent_activity.items.map((event) => (
                 <div key={event.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
@@ -1641,7 +1675,7 @@ function CommandCenterDrawer({
 
           {kind === "projects_at_risk" &&
             (data.projects_at_risk.items.length === 0 ? (
-              <DrawerEmpty title="No projects at risk" text="Risk rules currently check overdue tasks and lack of recent activity." />
+              <DrawerEmpty title={t("dashboard.noProjectsAtRisk")} text={t("dashboard.noProjectsAtRiskHint")} />
             ) : (
               data.projects_at_risk.items.map(({ project, reasons }) => (
                 <Link
@@ -1657,7 +1691,7 @@ function CommandCenterDrawer({
 
           {kind === "client_risk" &&
             (data.client_risk.items.length === 0 ? (
-              <DrawerEmpty title="No clients at risk" text="Client risk checks linked projects, contacts, overdue work, contract value, and recent activity." />
+              <DrawerEmpty title={t("dashboard.noClientsAtRisk")} text={t("dashboard.noClientsAtRiskHint")} />
             ) : (
               data.client_risk.items.map(({ company, reasons, open_tasks, overdue_tasks }) => (
                 <Link
@@ -1671,11 +1705,11 @@ function CommandCenterDrawer({
                       <p className="mt-1 text-xs text-muted-foreground">{reasons.join(" - ")}</p>
                     </div>
                     <span className="rounded-full bg-upflow-danger/15 px-2 py-1 text-xs text-upflow-danger">
-                      {overdue_tasks} overdue
+                      {t("dashboard.overdueCount", { count: overdue_tasks })}
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {open_tasks} open tasks - {moneyCompact(company.contract_value)}
+                    {t("dashboard.openTasksCount", { count: open_tasks })} - {moneyCompact(company.contract_value)}
                   </p>
                 </Link>
               ))
@@ -1683,14 +1717,14 @@ function CommandCenterDrawer({
 
           {kind === "client_health" &&
             (!data.client_health?.items.length ? (
-              <DrawerEmpty title="Not enough client data yet" text="Client health appears after clients have linked work, contacts, plan data, or activity." />
+              <DrawerEmpty title={t("dashboard.notEnoughClientData")} text={t("dashboard.notEnoughClientDataHint")} />
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <HealthCount label="Healthy" value={data.client_health.counts.healthy} />
-                  <HealthCount label="Needs attention" value={data.client_health.counts.attention_needed} />
-                  <HealthCount label="At risk" value={data.client_health.counts.at_risk} />
-                  <HealthCount label="Not enough data" value={data.client_health.counts.not_enough_data} />
+                  <HealthCount label={t("clients.health.healthy")} value={data.client_health.counts.healthy} />
+                  <HealthCount label={t("clients.health.attention")} value={data.client_health.counts.attention_needed} />
+                  <HealthCount label={t("clients.health.risk")} value={data.client_health.counts.at_risk} />
+                  <HealthCount label={t("clients.health.notEnough")} value={data.client_health.counts.not_enough_data} />
                 </div>
                 {data.client_health.items.map((item) => (
                   <Link
@@ -1702,19 +1736,22 @@ function CommandCenterDrawer({
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{item.company.name}</p>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {item.company.plan_name ?? item.company.service_type ?? "Plan not set"}
+                          {item.company.plan_name ?? item.company.service_type ?? t("dashboard.planNotSet")}
                         </p>
                       </div>
                       <span className="rounded-full bg-white/10 px-2 py-1 text-xs text-foreground">
-                        {healthLabel(item.health_status)}
+                        {healthLabel(item.health_status, t)}
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {item.active_projects} active projects - {item.open_tasks} open tasks
-                      {item.next_deadline ? ` - next ${formatDate(item.next_deadline)}` : " - no deadline"}
+                      {t("dashboard.activeProjectsCount", { count: item.active_projects })} -{" "}
+                      {t("dashboard.openTasksCount", { count: item.open_tasks })}
+                      {item.next_deadline
+                        ? ` - ${t("dashboard.nextDeadline", { date: formatDate(item.next_deadline) })}`
+                        : ` - ${t("dashboard.noDeadline")}`}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {item.reasons.length ? item.reasons.join(" - ") : "No traceable client health issues"}
+                      {item.reasons.length ? item.reasons.join(" - ") : t("dashboard.noTraceableClientHealthIssues")}
                     </p>
                   </Link>
                 ))}
@@ -1723,7 +1760,7 @@ function CommandCenterDrawer({
 
           {kind === "delivery_overview" &&
             (!data.delivery_overview?.items.length ? (
-              <DrawerEmpty title="No active client work yet" text="Apply an agency template or create a client campaign to start tracking delivery." />
+              <DrawerEmpty title={t("dashboard.noActiveClientWork")} text={t("dashboard.noActiveClientWorkHint")} />
             ) : (
               data.delivery_overview.items.map((item) => (
                 <Link
@@ -1735,7 +1772,7 @@ function CommandCenterDrawer({
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-foreground">{item.project.name}</p>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {item.project.company?.name ?? item.project.space?.name ?? "Internal operation"}
+                        {item.project.company?.name ?? item.project.space?.name ?? t("dashboard.internalOperation")}
                       </p>
                     </div>
                     <span className="text-sm font-bold text-foreground">{item.progress}%</span>
@@ -1744,8 +1781,11 @@ function CommandCenterDrawer({
                     <div className="h-full rounded-full bg-gradient-to-r from-primary to-upflow-success" style={{ width: `${item.progress}%` }} />
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    {item.open_tasks} open - {item.overdue_tasks} overdue
-                    {item.next_deadline ? ` - next ${formatDate(item.next_deadline)}` : " - no deadline"}
+                    {t("dashboard.openTasksCount", { count: item.open_tasks })} -{" "}
+                    {t("dashboard.overdueCount", { count: item.overdue_tasks })}
+                    {item.next_deadline
+                      ? ` - ${t("dashboard.nextDeadline", { date: formatDate(item.next_deadline) })}`
+                      : ` - ${t("dashboard.noDeadline")}`}
                   </p>
                 </Link>
               ))
@@ -1753,7 +1793,7 @@ function CommandCenterDrawer({
 
           {kind === "creative_queue" &&
             (!data.creative_queue?.items.length ? (
-              <DrawerEmpty title="No creative queue yet" text="Use Creative, Production, or Marketing task templates to make creative deliverables visible here." />
+              <DrawerEmpty title={t("dashboard.noCreativeQueue")} text={t("dashboard.noCreativeQueueHint")} />
             ) : (
               <div className="space-y-3">
                 <p className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-xs text-muted-foreground">
@@ -1770,11 +1810,12 @@ function CommandCenterDrawer({
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
-                          {task.project?.name ?? "No project"}{task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
+                          {task.project?.name ?? t("dashboard.noProject")}
+                          {task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
                         </p>
                       </div>
                       <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
-                        {creativeStageLabel(stage)}
+                        {creativeStageLabel(stage, t)}
                       </span>
                     </div>
                   </button>
@@ -1784,7 +1825,7 @@ function CommandCenterDrawer({
 
           {kind === "department_workload" &&
             (!data.department_workload?.items.length ? (
-              <DrawerEmpty title="No department workload yet" text="Assign members to departments and tasks to members to populate this view." />
+              <DrawerEmpty title={t("dashboard.noDepartmentWorkload")} text={t("dashboard.noDepartmentWorkloadHint")} />
             ) : (
               data.department_workload.items.map((item) => (
                 <div key={item.department.id} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
@@ -1793,7 +1834,9 @@ function CommandCenterDrawer({
                     <span className="text-lg font-bold text-foreground">{item.active_tasks}</span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {item.assigned_members} members - {item.upcoming_tasks} due soon - {item.overdue_tasks} overdue
+                    {t("dashboard.membersCount", { count: item.assigned_members })} -{" "}
+                    {t("dashboard.dueSoonCount", { count: item.upcoming_tasks })} -{" "}
+                    {t("dashboard.overdueCount", { count: item.overdue_tasks })}
                   </p>
                 </div>
               ))
@@ -1801,7 +1844,7 @@ function CommandCenterDrawer({
 
           {kind === "agency_risk_signals" &&
             (!data.agency_risk_signals?.items.length ? (
-              <DrawerEmpty title="No agency risk signals yet" text="Traceable operational risk appears after tasks, clients, projects, owners, and activity records exist." />
+              <DrawerEmpty title={t("dashboard.noAgencyRiskSignals")} text={t("dashboard.noAgencyRiskSignalsHint")} />
             ) : (
               data.agency_risk_signals.items.map((signal) => (
                 <div key={signal.key} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
@@ -1891,6 +1934,7 @@ function MeetingsManageHeader({
   onManageChange: (next: boolean) => void;
   onAdd: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
@@ -1902,7 +1946,7 @@ function MeetingsManageHeader({
             !manage ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          View
+          {t("dashboard.view")}
         </button>
         <button
           type="button"
@@ -1912,7 +1956,7 @@ function MeetingsManageHeader({
             manage ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          Manage
+          {t("dashboard.manage")}
         </button>
       </div>
       {manage && (
@@ -1922,39 +1966,39 @@ function MeetingsManageHeader({
           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-3.5 w-3.5" />
-          Add meeting
+          {t("dashboard.addMeeting")}
         </button>
       )}
     </div>
   );
 }
 
-async function deleteDashboardMeeting(event: CalendarEvent, onDeleted: () => void) {
-  if (!confirm(`Delete "${event.title}"?`)) return;
+async function deleteDashboardMeeting(
+  event: CalendarEvent,
+  onDeleted: () => void,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (!confirm(t("dashboard.deleteEventConfirm", { title: event.title }))) return;
   try {
     const res = await fetch(`/api/calendar/events/${event.id}`, { method: "DELETE" });
     if (res.status === 403) {
-      toast.error("You do not have permission to manage this event");
+      toast.error(t("dashboard.noEventPermission"));
       return;
     }
-    if (!res.ok) throw new Error("Failed to delete meeting");
-    toast.success("Meeting deleted");
+    if (!res.ok) throw new Error(t("dashboard.meetingDeleteFailed"));
+    toast.success(t("dashboard.meetingDeleted"));
     onDeleted();
   } catch {
-    toast.error("Could not delete meeting");
+    toast.error(t("dashboard.couldNotDeleteMeeting"));
   }
 }
 
 function dashboardTimeInput(value: string) {
-  const date = new Date(value);
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return appTimeInputValue(value);
 }
 
 function mergeDashboardEventDate(event: CalendarEvent, time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  const next = new Date(event.starts_at);
-  next.setHours(hours || 0, minutes || 0, 0, 0);
-  return next;
+  return mergeAppDateAndTime(new Date(event.starts_at), time);
 }
 
 function DashboardMeetingEditor({
@@ -1966,6 +2010,7 @@ function DashboardMeetingEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
   const [title, setTitle] = useState(event.title);
   const [time, setTime] = useState(dashboardTimeInput(event.starts_at));
   const [location, setLocation] = useState(event.location ?? "");
@@ -1974,7 +2019,7 @@ function DashboardMeetingEditor({
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      toast.error("Title is required");
+      toast.error(t("dashboard.titleRequired"));
       return;
     }
     const startsAt = mergeDashboardEventDate(event, time);
@@ -1992,14 +2037,14 @@ function DashboardMeetingEditor({
         }),
       });
       if (res.status === 403) {
-        toast.error("You do not have permission to manage this event");
+        toast.error(t("dashboard.noEventPermission"));
         return;
       }
-      if (!res.ok) throw new Error("Failed to update meeting");
-      toast.success("Meeting updated");
+      if (!res.ok) throw new Error(t("dashboard.meetingUpdateFailed"));
+      toast.success(t("dashboard.meetingUpdated"));
       onSaved();
     } catch {
-      toast.error("Could not update meeting");
+      toast.error(t("dashboard.couldNotUpdateMeeting"));
     } finally {
       setSubmitting(false);
     }
@@ -2014,13 +2059,13 @@ function DashboardMeetingEditor({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-foreground">
-            Manage {event.type === "meeting" ? "meeting" : "event"}
+            {event.type === "meeting" ? t("dashboard.manageMeeting") : t("dashboard.manageEvent")}
           </h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <label className="mb-1.5 block text-xs font-medium text-foreground">Title</label>
+        <label className="mb-1.5 block text-xs font-medium text-foreground">{t("dashboard.titleField")}</label>
         <input
           autoFocus
           value={title}
@@ -2029,7 +2074,7 @@ function DashboardMeetingEditor({
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Time</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t("dashboard.timeField")}</label>
             <input
               type="time"
               value={time}
@@ -2038,7 +2083,7 @@ function DashboardMeetingEditor({
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-foreground">Location</label>
+            <label className="mb-1.5 block text-xs font-medium text-foreground">{t("dashboard.locationField")}</label>
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -2049,10 +2094,10 @@ function DashboardMeetingEditor({
         <div className="mt-6 flex gap-2">
           <button
             type="button"
-            onClick={() => void deleteDashboardMeeting(event, onSaved)}
+            onClick={() => void deleteDashboardMeeting(event, onSaved, t)}
             disabled={submitting}
             className="flex w-10 items-center justify-center rounded-lg border border-upflow-danger/30 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40"
-            aria-label="Delete meeting"
+            aria-label={t("dashboard.deleteMeeting")}
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -2062,14 +2107,14 @@ function DashboardMeetingEditor({
             disabled={submitting}
             className="flex-1 rounded-lg border border-white/10 py-2 text-sm text-foreground hover:bg-white/10 disabled:opacity-40"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="flex-1 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
-            Save
+            {t("common.save")}
           </button>
         </div>
       </form>
@@ -2114,6 +2159,7 @@ function StatCard({
   active: boolean;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
   const wash =
     tone === "stat-1"
       ? "bg-gradient-to-br from-upflow-stat-1-from/35 via-upflow-stat-1-to/60 to-upflow-stat-1-to/40"
@@ -2149,7 +2195,7 @@ function StatCard({
       <p className="relative mt-1 text-xs text-foreground/60">{hint}</p>
       {active && (
         <span className="relative mt-2 inline-block text-[10px] font-medium uppercase tracking-wider text-primary">
-          Filtering ↓
+          {t("dashboard.filtering")}
         </span>
       )}
     </button>
@@ -2175,6 +2221,7 @@ function RightPanel({
   onTimerChanged: () => void;
   onCreateMeeting: () => void;
 }) {
+  const { t } = useLanguage();
   const [timerState, setTimerState] = useState<TimerState>("stopped");
   const [seconds, setSeconds] = useState(0);
   const [activeProjectIdx, setActiveProjectIdx] = useState(0);
@@ -2276,7 +2323,7 @@ function RightPanel({
     return list;
   }, [recent, actionFilter, activeDay]);
 
-  const activeProject = runningEntry?.project?.name || projects[activeProjectIdx]?.name || "No active project";
+  const activeProject = runningEntry?.project?.name || projects[activeProjectIdx]?.name || t("dashboard.noActiveTimer");
   const activeProjectId = projects[activeProjectIdx]?.id;
 
   const handleStart = async () => {
@@ -2286,15 +2333,15 @@ function RightPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(activeProjectId ? { project_id: activeProjectId } : {}),
       });
-      if (!res.ok) throw new Error("Failed to start timer");
+      if (!res.ok) throw new Error(t("dashboard.couldNotStartTimer"));
       setTimerState("running");
-      toast.success("Timer started");
+      toast.success(t("dashboard.timerStarted"));
       onTimerChanged();
     } catch {
-      toast.error("Could not start timer");
+      toast.error(t("dashboard.couldNotStartTimer"));
     }
   };
-  const handlePause = () => toast("Pause is not available for persisted timers yet");
+  const handlePause = () => toast(t("dashboard.pauseUnavailable"));
   const handleStop = async () => {
     if (!runningEntry) return;
     try {
@@ -2303,17 +2350,17 @@ function RightPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: runningEntry.id }),
       });
-      if (!res.ok) throw new Error("Failed to stop timer");
+      if (!res.ok) throw new Error(t("dashboard.couldNotStopTimer"));
       setSplits((prev) => [
         { project: activeProject, duration: `${h}h ${m}m` },
         ...prev,
       ].slice(0, 4));
       setTimerState("stopped");
       setSeconds(0);
-      toast.success("Timer stopped");
+      toast.success(t("dashboard.timerStopped"));
       onTimerChanged();
     } catch {
-      toast.error("Could not stop timer");
+      toast.error(t("dashboard.couldNotStopTimer"));
     }
   };
 
@@ -2329,13 +2376,13 @@ function RightPanel({
 
   const handleSwitchProject = () => {
     if (projects.length <= 1) {
-      toast("No other projects to switch to");
+      toast(t("dashboard.noProject"));
       setTimerMenuOpen(false);
       return;
     }
     setActiveProjectIdx((i) => (i + 1) % projects.length);
     setTimerMenuOpen(false);
-    toast.success(`Switched to ${projects[(activeProjectIdx + 1) % projects.length].name}`);
+    toast.success(t("dashboard.switchedProject", { project: projects[(activeProjectIdx + 1) % projects.length].name }));
   };
 
   return (
@@ -2344,12 +2391,12 @@ function RightPanel({
       <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Time tracking
+            {t("nav.timeTracking")}
           </p>
           <div className="relative" ref={timerMenuRef}>
             <button
               onClick={() => setTimerMenuOpen((v) => !v)}
-              aria-label="Time tracking options"
+              aria-label={t("dashboard.timeTrackingOptions")}
               aria-expanded={timerMenuOpen}
               className="text-muted-foreground hover:text-foreground"
             >
@@ -2361,13 +2408,13 @@ function RightPanel({
                   onClick={handleReset}
                   className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 text-left"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" /> Reset timer
+                  <RotateCcw className="w-3.5 h-3.5" /> {t("dashboard.resetTimer")}
                 </button>
                 <button
                   onClick={handleSwitchProject}
                   className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 text-left border-t border-white/5"
                 >
-                  <Repeat className="w-3.5 h-3.5" /> Switch project
+                  <Repeat className="w-3.5 h-3.5" /> {t("dashboard.switchProject")}
                 </button>
               </div>
             )}
@@ -2381,35 +2428,35 @@ function RightPanel({
           <button
             onClick={handleStart}
             disabled={timerState === "running"}
-            aria-label="Start timer"
+            aria-label={t("dashboard.startTimer")}
             className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Play className="w-3.5 h-3.5" />
-            Start
+            {t("dashboard.start")}
           </button>
           <button
             onClick={handleStop}
             disabled={timerState === "stopped"}
-            aria-label="Stop timer"
+            aria-label={t("dashboard.stopTimer")}
             className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-upflow-danger text-white hover:bg-upflow-danger/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm shadow-upflow-danger/30"
           >
             <Square className="w-3.5 h-3.5" />
-            Stop
+            {t("dashboard.stop")}
           </button>
           <button
             onClick={handlePause}
             disabled={timerState !== "running"}
-            aria-label="Pause timer"
+            aria-label={t("dashboard.pauseTimer")}
             className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-white/5 text-foreground hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Pause className="w-3.5 h-3.5" />
-            Pause
+            {t("dashboard.pause")}
           </button>
         </div>
         {splits.length > 0 && (
           <div className="mt-4 pt-3 border-t border-white/5">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5">
-              Recent splits
+              {t("dashboard.recentSplits")}
             </p>
             <ul className="space-y-1">
               {splits.map((sp, i) => (
@@ -2429,7 +2476,7 @@ function RightPanel({
       <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Today meetings
+            {t("dashboard.todayMeetings")}
           </p>
           <div className="flex items-center gap-2">
             <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
@@ -2441,7 +2488,7 @@ function RightPanel({
                   !manageMeetings ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                View
+                {t("dashboard.view")}
               </button>
               <button
                 type="button"
@@ -2451,7 +2498,7 @@ function RightPanel({
                   manageMeetings ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                Manage
+                {t("dashboard.manage")}
               </button>
             </div>
             <CalendarIcon className="w-4 h-4 text-muted-foreground" />
@@ -2464,7 +2511,7 @@ function RightPanel({
             className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add meeting
+            {t("dashboard.addMeeting")}
           </button>
         )}
 
@@ -2533,8 +2580,8 @@ function RightPanel({
                             </button>
                             <button
                               type="button"
-                              onClick={() => void deleteDashboardMeeting(mt.event, onTimerChanged)}
-                              aria-label={`Delete ${mt.title}`}
+                              onClick={() => void deleteDashboardMeeting(mt.event, onTimerChanged, t)}
+                              aria-label={t("dashboard.deleteMeeting")}
                               className="flex h-6 w-6 items-center justify-center rounded text-upflow-danger hover:bg-upflow-danger/10"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -2552,7 +2599,7 @@ function RightPanel({
           href="/calendar"
           className="inline-block text-xs text-primary hover:text-primary/80 mt-1"
         >
-          View all →
+          {t("dashboard.viewAll")} →
         </Link>
         {editingMeeting && (
           <DashboardMeetingEditor
@@ -2577,10 +2624,10 @@ function RightPanel({
               onClick={() => setActiveDay(null)}
               className="text-[10px] text-primary hover:underline"
             >
-              Clear
+              {t("dashboard.clear")}
             </button>
           ) : (
-            <span className="text-xs text-muted-foreground">Last week</span>
+            <span className="text-xs text-muted-foreground">{t("dashboard.lastWeek")}</span>
           )}
         </div>
         <div className="flex items-end justify-between gap-1.5">
@@ -2596,7 +2643,7 @@ function RightPanel({
                   type="button"
                   onClick={() => setActiveDay((c) => (c === i ? null : i))}
                   aria-pressed={isActive}
-                  title={`${d.hours}h - ${d.tasks} tasks`}
+                  title={t("dashboard.hoursTasks", { hours: d.hours, tasks: d.tasks })}
                   className={cn(
                     "group relative w-full flex flex-col items-center justify-end gap-1 py-2 rounded-full min-h-[96px] transition-all hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50",
                     isActive
@@ -2618,7 +2665,7 @@ function RightPanel({
                     />
                   ))}
                   <span className="pointer-events-none absolute -top-9 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md text-[10px] font-medium glass-strong opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                    {d.hours}h - {d.tasks} tasks
+                    {t("dashboard.hoursTasks", { hours: d.hours, tasks: d.tasks })}
                   </span>
                 </button>
                 <span
@@ -2643,7 +2690,7 @@ function RightPanel({
       <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Last actions
+            {t("dashboard.lastActions")}
           </p>
         </div>
         <div className="flex items-center gap-1 mb-3">
@@ -2659,14 +2706,14 @@ function RightPanel({
                   : "bg-white/5 text-muted-foreground hover:bg-white/10"
               )}
             >
-              {f === "all" ? "All" : f === "completed" ? "Done" : "Active"}
+              {f === "all" ? t("dashboard.all") : f === "completed" ? t("dashboard.done") : t("dashboard.active")}
             </button>
           ))}
         </div>
         <div className="space-y-3">
           {filteredRecent.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2">
-              No matching activity.
+              {t("dashboard.noMatchingActivity")}
             </p>
           ) : (
             filteredRecent.map((r, i) => (
@@ -2691,7 +2738,7 @@ function RightPanel({
                           : "bg-upflow-warning/20 text-upflow-warning"
                       )}
                     >
-                      {r.status === "completed" ? "Completed" : "In progress"}
+                      {r.status === "completed" ? t("dashboard.completedStatus") : t("dashboard.inProgressStatus")}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-snug truncate">
@@ -2706,10 +2753,10 @@ function RightPanel({
           )}
         </div>
         <button
-          onClick={() => toast("All activity view coming soon")}
+          onClick={() => toast(t("dashboard.allActivityComingSoon"))}
           className="text-xs text-primary hover:text-primary/80 mt-3"
         >
-          View all →
+          {t("dashboard.viewAll")} →
         </button>
       </div>
     </aside>

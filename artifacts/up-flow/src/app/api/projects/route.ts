@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
+import { parseAppDate } from "@/lib/utils";
 
 async function getHandler(req: NextRequest) {
   const _r = await requireAuth();
@@ -56,8 +57,8 @@ async function postHandler(req: NextRequest) {
 
   let parsedDueDate: Date | null = null;
   if (due_date) {
-    const d = new Date(due_date);
-    if (isNaN(d.getTime())) {
+    const d = parseAppDate(due_date);
+    if (d === "invalid") {
       return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
     }
     parsedDueDate = d;

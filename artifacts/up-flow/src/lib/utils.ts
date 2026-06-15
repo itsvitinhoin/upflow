@@ -22,6 +22,101 @@ function normalizeDate(date: string | Date): Date {
   return typeof date === "string" ? parseISO(date) : date;
 }
 
+function appDateParts(date: string | Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(normalizeDate(date));
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, Number(part.value)]),
+  );
+
+  return {
+    year: values.year,
+    month: values.month,
+    day: values.day,
+    hour: values.hour,
+    minute: values.minute,
+    second: values.second,
+  };
+}
+
+function timeZoneOffsetMs(date: Date) {
+  const parts = appDateParts(date);
+  const localAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+  return localAsUtc - date.getTime();
+}
+
+export function appDateTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour = 0,
+  minute = 0,
+): Date {
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  const offset = timeZoneOffsetMs(new Date(utcGuess));
+  return new Date(utcGuess - offset);
+}
+
+export function parseAppDateOnly(value: string): Date | "invalid" {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "invalid";
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const localCheck = new Date(year, month - 1, day);
+  if (
+    localCheck.getFullYear() !== year ||
+    localCheck.getMonth() !== month - 1 ||
+    localCheck.getDate() !== day
+  ) {
+    return "invalid";
+  }
+  // Date-only fields are operational deadlines, not exact instants. Store them
+  // at noon in Sao Paulo so UTC conversion cannot display the previous day.
+  return appDateTimeToUtc(year, month, day, 12, 0);
+}
+
+export function parseAppDate(value: string): Date | "invalid" {
+  const dateOnly = parseAppDateOnly(value);
+  if (dateOnly !== "invalid") return dateOnly;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "invalid" : date;
+}
+
+export function appDateKey(date: string | Date): string {
+  const parts = appDateParts(date);
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+export function appTimeInputValue(date: string | Date): string {
+  const parts = appDateParts(date);
+  return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
+}
+
+export function mergeAppDateAndTime(date: Date, time: string): Date {
+  const [hours, minutes] = time.split(":").map(Number);
+  const parts = appDateParts(date);
+  return appDateTimeToUtc(parts.year, parts.month, parts.day, hours || 0, minutes || 0);
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "";
   return new Intl.DateTimeFormat(APP_LOCALE, {
