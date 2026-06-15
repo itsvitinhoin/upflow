@@ -26,7 +26,7 @@ test("workload signals expose task evidence in dashboard drawers", () => {
   const legacyRoute = read("src/app/api/dashboard/route.ts");
   const spaceRoute = read("src/app/api/spaces/[id]/dashboard/route.ts");
   const homeDashboard = read("src/app/(dashboard)/page.tsx");
-  const spaceDashboard = read("src/app/(dashboard)/spaces/[id]/page.tsx");
+  const spaceDashboardDrawer = read("src/components/spaces/space-dashboard-drawer.tsx");
 
   for (const route of [summaryRoute, legacyRoute, spaceRoute]) {
     assert.match(route, /tasks:\s*assignedOpenTasks\.slice\(0, 8\)/);
@@ -34,13 +34,13 @@ test("workload signals expose task evidence in dashboard drawers", () => {
 
   assert.match(homeDashboard, /t\("dashboard\.noWorkloadTasks"\)/);
   assert.match(homeDashboard, /item\.tasks\.map/);
-  assert.match(spaceDashboard, /No open assigned tasks behind this workload signal/);
-  assert.match(spaceDashboard, /item\.tasks\.map/);
+  assert.match(spaceDashboardDrawer, /No open assigned tasks behind this workload signal/);
+  assert.match(spaceDashboardDrawer, /item\.tasks\.map/);
 });
 
 test("dashboard copy avoids unsupported operational claims", () => {
   const translations = read("src/lib/i18n/translations.ts");
-  const spacePage = read("src/app/(dashboard)/spaces/[id]/page.tsx");
+  const spaceDashboardDrawer = read("src/components/spaces/space-dashboard-drawer.tsx");
 
   assert.doesNotMatch(translations, /delivery movement/);
   assert.doesNotMatch(translations, /stale campaigns/);
@@ -48,5 +48,5 @@ test("dashboard copy avoids unsupported operational claims", () => {
   assert.doesNotMatch(translations, /campanhas paradas/);
   assert.match(translations, /Overdue tasks or no activity in 7 days/);
   assert.match(translations, /Clients with overdue work, missing setup, or no recent activity/);
-  assert.match(spacePage, /overdue open tasks, no owner, or no activity record in 7 days/);
+  assert.match(spaceDashboardDrawer, /overdue open tasks, no owner, or no activity record in 7 days/);
 });

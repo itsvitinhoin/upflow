@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { ensureDepartmentSpaces } from "@/lib/department-spaces";
 import { buildPage, parsePagination } from "@/lib/pagination";
+import { readableProjectWhere } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ async function GET_handler(req: NextRequest) {
   const spacesCursor = searchParams.get("spaces_cursor");
   const projectsCursor = searchParams.get("projects_cursor");
   const foldersCursor = searchParams.get("folders_cursor");
+  const visibleProjectWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
 
   const [spaces, projects, folders] = await Promise.all([
     prisma.space.findMany({
@@ -44,12 +46,12 @@ async function GET_handler(req: NextRequest) {
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
       include: {
         owner: { select: { id: true, name: true, email: true } },
-        _count: { select: { projects: true } },
+        _count: { select: { projects: { where: visibleProjectWhere } } },
       },
     }),
     prisma.project.findMany({
       where: {
-        workspace_id: auth.currentWorkspaceId,
+        ...visibleProjectWhere,
         ...(q && { name: { contains: q, mode: "insensitive" as const } }),
       },
       take: limit + 1,
@@ -71,7 +73,7 @@ async function GET_handler(req: NextRequest) {
       ...(foldersCursor ? { skip: 1, cursor: { id: foldersCursor } } : {}),
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
       include: {
-        _count: { select: { projects: true } },
+        _count: { select: { projects: { where: visibleProjectWhere } } },
       },
     }),
   ]);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { readableProjectWhere } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -31,9 +32,9 @@ async function GET_handler(req: NextRequest) {
     return NextResponse.json({ q, tasks: [], projects: [], docs: [] });
   }
 
-  const projectScope = { workspace_id: workspaceId };
-  const taskScope = { project: { workspace_id: workspaceId } };
-  const docScope = { workspace_id: workspaceId };
+  const projectScope = readableProjectWhere(auth, workspaceId);
+  const taskScope = { project: projectScope };
+  const docScope = { workspace_id: workspaceId, project: projectScope };
 
   const [tasks, projects, docs] = await Promise.all([
     prisma.task.findMany({
