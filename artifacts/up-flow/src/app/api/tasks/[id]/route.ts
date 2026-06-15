@@ -60,6 +60,38 @@ async function GET_handler(
         },
         orderBy: { created_at: "asc" },
       },
+      dependencies: {
+        include: {
+          depends_on: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              priority: true,
+              due_date: true,
+              project: { select: { id: true, name: true } },
+              assignee: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+        orderBy: { created_at: "asc" },
+      },
+      dependents: {
+        include: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              priority: true,
+              due_date: true,
+              project: { select: { id: true, name: true } },
+              assignee: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+        orderBy: { created_at: "asc" },
+      },
     },
   });
 

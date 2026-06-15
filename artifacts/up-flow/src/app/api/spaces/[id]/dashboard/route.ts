@@ -10,6 +10,8 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
 
+const DASHBOARD_EVIDENCE_LIMIT = 100;
+
 async function GET_handler(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -55,9 +57,14 @@ async function GET_handler(
     projects,
     tasks,
     openTasks,
+    urgentActionItems,
+    urgentActionCount,
     users,
     projectIds,
-    taskIds,
+    openTaskCountsByAssignee,
+    overdueTaskCountsByAssignee,
+    dueTodayTaskCountsByAssignee,
+    overdueTaskCountsByProject,
   ] = await Promise.all([
     prisma.project.findMany({
       where: spaceProjectWhere,
@@ -83,12 +90,35 @@ async function GET_handler(
     }),
     prisma.task.findMany({
       where: { ...taskProjectScope, status: { not: "done" } },
-      take: 500,
+      take: DASHBOARD_EVIDENCE_LIMIT,
       orderBy: [{ due_date: "asc" }, { priority: "desc" }, { created_at: "desc" }],
       include: {
         assignee: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, name: true } },
         _count: { select: { comments: true, subtasks: true } },
+      },
+    }),
+    prisma.task.findMany({
+      where: {
+        ...taskProjectScope,
+        status: { not: "done" },
+        assignee_id: auth.prismaUser.id,
+        OR: [{ priority: "high" }, { due_date: { lt: tomorrowStart } }],
+      },
+      take: 20,
+      orderBy: [{ due_date: "asc" }, { priority: "desc" }, { created_at: "desc" }],
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        project: { select: { id: true, name: true } },
+        _count: { select: { comments: true, subtasks: true } },
+      },
+    }),
+    prisma.task.count({
+      where: {
+        ...taskProjectScope,
+        status: { not: "done" },
+        assignee_id: auth.prismaUser.id,
+        OR: [{ priority: "high" }, { due_date: { lt: tomorrowStart } }],
       },
     }),
     prisma.user.findMany({
@@ -126,22 +156,47 @@ async function GET_handler(
       where: spaceProjectWhere,
       select: { id: true },
     }),
-    prisma.task.findMany({
-      where: taskProjectScope,
-      select: { id: true },
-      take: 1000,
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: { ...taskProjectScope, status: { not: "done" }, assignee_id: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: {
+        ...taskProjectScope,
+        status: { not: "done" },
+        assignee_id: { not: null },
+        due_date: { lt: todayStart },
+      },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: {
+        ...taskProjectScope,
+        status: { not: "done" },
+        assignee_id: { not: null },
+        due_date: { gte: todayStart, lt: tomorrowStart },
+      },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["project_id"],
+      where: {
+        ...taskProjectScope,
+        status: { not: "done" },
+        due_date: { lt: todayStart },
+      },
+      _count: { _all: true },
     }),
   ]);
 
   const projectIdList = projectIds.map((project) => project.id);
-  const taskIdList = taskIds.map((task) => task.id);
-  const scopedRecordWhere = {
-    OR: [
-      ...(projectIdList.length > 0 ? [{ project_id: { in: projectIdList } }] : []),
-      ...(taskIdList.length > 0 ? [{ task_id: { in: taskIdList } }] : []),
-    ],
+  const scopedCalendarOrTimeWhere = {
+    OR: [{ project: spaceProjectWhere }, { task: { project: spaceProjectWhere } }],
   };
-  const hasScopedRecords = scopedRecordWhere.OR.length > 0;
+  const hasScopedRecords = projectIdList.length > 0;
 
   const [
     calendarEvents,
@@ -156,7 +211,7 @@ async function GET_handler(
           where: {
             workspace_id: space.workspace_id,
             starts_at: { gte: todayStart, lt: tomorrowStart },
-            ...scopedRecordWhere,
+            ...scopedCalendarOrTimeWhere,
           },
           take: 20,
           orderBy: [{ starts_at: "asc" }, { id: "asc" }],
@@ -171,7 +226,7 @@ async function GET_handler(
       ? prisma.activityEvent.findMany({
           where: {
             workspace_id: space.workspace_id,
-            ...scopedRecordWhere,
+            project_id: { in: projectIdList },
           },
           take: 20,
           orderBy: [{ created_at: "desc" }, { id: "asc" }],
@@ -186,7 +241,7 @@ async function GET_handler(
             workspace_id: space.workspace_id,
             user_id: auth.prismaUser.id,
             status: "running",
-            ...scopedRecordWhere,
+            ...scopedCalendarOrTimeWhere,
           },
           orderBy: { started_at: "desc" },
           include: {
@@ -201,7 +256,7 @@ async function GET_handler(
             workspace_id: space.workspace_id,
             user_id: auth.prismaUser.id,
             started_at: { gte: weekStart, lt: nextWeekStart },
-            ...scopedRecordWhere,
+            ...scopedCalendarOrTimeWhere,
           },
           orderBy: [{ started_at: "desc" }, { id: "asc" }],
           include: {
@@ -215,9 +270,9 @@ async function GET_handler(
           where: {
             workspace_id: space.workspace_id,
             started_at: { gte: todayStart, lt: tomorrowStart },
-            ...scopedRecordWhere,
+            ...scopedCalendarOrTimeWhere,
           },
-          take: 500,
+          take: DASHBOARD_EVIDENCE_LIMIT,
           orderBy: [{ started_at: "desc" }, { id: "asc" }],
           include: {
             user: { select: { id: true, name: true, email: true } },
@@ -233,7 +288,8 @@ async function GET_handler(
             project_id: { in: projectIdList },
             created_at: { gte: sevenDaysAgo },
           },
-          take: 500,
+          distinct: ["project_id"],
+          take: Math.max(projectIdList.length, 1),
           orderBy: [{ created_at: "desc" }, { id: "asc" }],
           select: { project_id: true },
         })
@@ -258,13 +314,15 @@ async function GET_handler(
     };
   });
 
-  const urgentActions = openTasks.filter((task) => {
-    const due = task.due_date ? new Date(task.due_date) : null;
-    return (
-      task.assignee_id === auth.prismaUser.id &&
-      (task.priority === "high" || (due !== null && due < tomorrowStart))
-    );
-  });
+  const countByAssignee = new Map(
+    openTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
+  const overdueByAssignee = new Map(
+    overdueTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
+  const dueTodayByAssignee = new Map(
+    dueTodayTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
 
   const todayTimeByUser = new Map<string, number>();
   for (const entry of todayTimeEntries) {
@@ -277,29 +335,23 @@ async function GET_handler(
 
   const workload = flattenedUsers.map((member) => {
     const assignedOpenTasks = openTasks.filter((task) => task.assignee_id === member.id);
-    const overdueTasks = assignedOpenTasks.filter(
-      (task) => task.due_date && new Date(task.due_date) < todayStart,
-    );
-    const dueTodayTasks = assignedOpenTasks.filter(
-      (task) =>
-        task.due_date &&
-        new Date(task.due_date) >= todayStart &&
-        new Date(task.due_date) < tomorrowStart,
-    );
+    const openTaskCount = countByAssignee.get(member.id) ?? 0;
+    const overdueTaskCount = overdueByAssignee.get(member.id) ?? 0;
+    const dueTodayTaskCount = dueTodayByAssignee.get(member.id) ?? 0;
     const trackedSecondsToday = todayTimeByUser.get(member.id) ?? 0;
     return {
       user: member,
-      open_tasks: assignedOpenTasks.length,
-      overdue_tasks: overdueTasks.length,
-      due_today_tasks: dueTodayTasks.length,
+      open_tasks: openTaskCount,
+      overdue_tasks: overdueTaskCount,
+      due_today_tasks: dueTodayTaskCount,
       tracked_seconds_today: trackedSecondsToday,
       tasks: assignedOpenTasks.slice(0, 8),
       state:
-        overdueTasks.length > 0
+        overdueTaskCount > 0
           ? "late"
-          : assignedOpenTasks.length >= 8
+          : openTaskCount >= 8
             ? "overloaded"
-            : assignedOpenTasks.length === 0 && trackedSecondsToday === 0
+            : openTaskCount === 0 && trackedSecondsToday === 0
               ? "idle"
               : "active",
     };
@@ -310,12 +362,9 @@ async function GET_handler(
       .map((event) => event.project_id)
       .filter((id): id is string => Boolean(id)),
   );
-  const overdueByProject = new Map<string, number>();
-  for (const task of openTasks) {
-    if (task.due_date && new Date(task.due_date) < todayStart) {
-      overdueByProject.set(task.project_id, (overdueByProject.get(task.project_id) ?? 0) + 1);
-    }
-  }
+  const overdueByProject = new Map(
+    overdueTaskCountsByProject.map((row) => [row.project_id, row._count._all]),
+  );
   const projectsAtRisk = projects
     .map((project) => {
       const reasons: string[] = [];
@@ -349,7 +398,7 @@ async function GET_handler(
       week_entries: weekTimeEntries,
     },
     command_center: {
-      urgent_actions: { items: urgentActions, count: urgentActions.length },
+      urgent_actions: { items: urgentActionItems, count: urgentActionCount },
       team_workload: { items: workload, count: workload.length },
       time_today: {
         total_seconds: totalSecondsToday,

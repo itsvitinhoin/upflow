@@ -10,6 +10,8 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
 
+const DASHBOARD_EVIDENCE_LIMIT = 100;
+
 async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
@@ -166,7 +168,7 @@ async function GET_handler(req: NextRequest) {
         project: { workspace_id: auth.currentWorkspaceId },
         status: { not: "done" },
       },
-      take: 500,
+      take: DASHBOARD_EVIDENCE_LIMIT,
       orderBy: [{ due_date: "asc" }, { priority: "desc" }, { created_at: "desc" }],
       include: {
         assignee: { select: { id: true, name: true, email: true } },
@@ -179,7 +181,7 @@ async function GET_handler(req: NextRequest) {
         workspace_id: auth.currentWorkspaceId,
         started_at: { gte: todayStart, lt: tomorrowStart },
       },
-      take: 500,
+      take: DASHBOARD_EVIDENCE_LIMIT,
       orderBy: [{ started_at: "desc" }, { id: "asc" }],
       include: {
         user: { select: { id: true, name: true, email: true } },
@@ -193,13 +195,14 @@ async function GET_handler(req: NextRequest) {
         project_id: { not: null },
         created_at: { gte: sevenDaysAgo },
       },
-      take: 500,
+      distinct: ["project_id"],
+      take: DASHBOARD_EVIDENCE_LIMIT,
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       select: { project_id: true },
     }),
     prisma.company.findMany({
       where: { workspace_id: auth.currentWorkspaceId },
-      take: 200,
+      take: DASHBOARD_EVIDENCE_LIMIT,
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       include: {
         owner: { select: { id: true, name: true, email: true } },
@@ -228,7 +231,8 @@ async function GET_handler(req: NextRequest) {
         company_id: { not: null },
         created_at: { gte: sevenDaysAgo },
       },
-      take: 500,
+      distinct: ["company_id"],
+      take: DASHBOARD_EVIDENCE_LIMIT,
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       select: { company_id: true },
     }),
