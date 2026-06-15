@@ -17,7 +17,7 @@ test("app shell exposes an English and Portuguese Brazil language toggle", () =>
   assert.match(provider, /export type Language = "en" \| "pt-BR"/);
   assert.match(provider, /upflow\.language/);
   assert.match(provider, /document\.documentElement\.lang = language/);
-  assert.match(provider, /"language\.portugueseBrazil": "Portugues \(Brasil\)"/);
+  assert.match(provider, /"language\.portugueseBrazil": "Português \(Brasil\)"/);
   assert.match(provider, /"header\.newProject": "Novo projeto"/);
   assert.match(header, /Languages/);
   assert.match(header, /toggleLanguage/);
@@ -47,11 +47,11 @@ test("dashboard and project task surfaces use translation keys", () => {
   const taskPanel = read("src/components/projects/create-task-panel.tsx");
   const taskTemplates = read("src/components/projects/task-template-fields.tsx");
 
-  assert.match(provider, /"dashboard\.commandCenter": "Centro de Operacoes da Agencia"/);
+  assert.match(provider, /"dashboard\.commandCenter": "Centro de Operações da Agência"/);
   assert.match(provider, /"toolbar\.board": "Quadro"/);
   assert.match(provider, /"task\.createTask": "Criar entrega"/);
   assert.match(provider, /"taskTemplate\.creative\.label": "Criativo \/ Design"/);
-  assert.match(provider, /"taskTemplate\.technical_support\.label": "Suporte tecnico"/);
+  assert.match(provider, /"taskTemplate\.technical_support\.label": "Suporte técnico"/);
   assert.match(dashboard, /t\("dashboard\.commandCenter"\)/);
   assert.match(dashboard, /t\("dashboard\.todayFocus"\)/);
   assert.match(projectPage, /t\("projects\.addTask"\)/);
@@ -76,11 +76,11 @@ test("core rollout surfaces are wired to the language provider", () => {
   const notFoundPage = read("src/app/not-found.tsx");
 
   assert.match(provider, /"calendar\.manage": "Gerenciar"/);
-  assert.match(provider, /"clients\.assignedTeam": "Equipe atribuida"/);
+  assert.match(provider, /"clients\.assignedTeam": "Equipe atribuída"/);
   assert.match(provider, /"team\.membersTitle": "Membros da equipe"/);
   assert.match(provider, /"time\.weeklyHours": "Horas da semana"/);
   assert.match(provider, /"invite\.mode": "Modo do convite"/);
-  assert.match(provider, /"error\.pageTitle": "Esta pagina nao carregou"/);
+  assert.match(provider, /"error\.pageTitle": "Esta página não carregou"/);
 
   assert.match(dashboard, /t\("dashboard\.noTrackedTime"\)/);
   assert.match(dashboard, /t\("dashboard\.todayMeetings"\)/);
