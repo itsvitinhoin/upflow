@@ -10,32 +10,12 @@ import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
+import { parseTaskImageUrl } from "@/lib/task-images";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
   if (typeof input !== "string") return "invalid";
   return parseAppDate(input);
-}
-
-function isValidTaskImage(value: string) {
-  if (/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) {
-    return true;
-  }
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
-function parseTaskImage(input: unknown): string | null | "invalid" {
-  if (input === null || input === undefined || input === "") return null;
-  if (typeof input !== "string") return "invalid";
-  const value = input.trim();
-  if (!value) return null;
-  if (value.length > 1_500_000) return "invalid";
-  return isValidTaskImage(value) ? value : "invalid";
 }
 
 async function getHandler(req: NextRequest) {
@@ -150,9 +130,12 @@ async function postHandler(req: NextRequest) {
   if (dueDate === "invalid") {
     return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
   }
-  const coverImageUrl = parseTaskImage(body.cover_image_url);
+  const coverImageUrl = parseTaskImageUrl(body.cover_image_url);
   if (coverImageUrl === "invalid") {
-    return NextResponse.json({ error: "Invalid cover_image_url" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid cover_image_url. Upload images first or use a valid image URL." },
+      { status: 400 },
+    );
   }
 
   if (parent_id) {

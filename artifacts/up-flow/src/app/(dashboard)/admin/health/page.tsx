@@ -60,8 +60,9 @@ export default function AdminHealthPage() {
                 UP Flow admin health
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Operational checks for database, Supabase, Resend, app URL,
-                active workspace, database URLs, and Prisma migrations.
+                Operational checks for database, Supabase, task image storage,
+                Resend, app URL, active workspace, database URLs, and Prisma
+                migrations.
               </p>
             </div>
             <button

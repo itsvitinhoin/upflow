@@ -14,8 +14,11 @@ Confirm these variables exist in the Vercel `Production` environment:
 - `APP_URL`: canonical public app URL, for example `https://upflow-mocha.vercel.app`.
 - `RESEND_API_KEY`: Resend API key for transactional invite/password emails.
 - `EMAIL_FROM`: verified sender, for example `Up Flow <no-reply@yourdomain.com>`.
+- `TASK_ASSETS_BUCKET`: optional Supabase Storage bucket name for task cover images. Defaults to `task-assets`.
 
 Also confirm these values do not contain placeholders such as `[YOUR-PASSWORD]`.
+
+Create a public Supabase Storage bucket named `task-assets` unless `TASK_ASSETS_BUCKET` points to a different public bucket. Task cover image uploads store only the public URL in Postgres.
 
 ## 2. Secret Rotation
 
@@ -56,6 +59,7 @@ After Vercel is ready, validate:
 - Dashboard loads without a generic error boundary.
 - Team page loads members for the active workspace.
 - Create a temporary Space, folder, list, and task.
+- Upload a task cover image and confirm it appears on the board card after reload.
 - Assign a task and confirm notification creation.
 - Create and delete a Calendar event.
 - Create and delete a client note/contact.
@@ -77,5 +81,6 @@ No-go when:
 - Production database is unreachable.
 - Migration history is behind the app bundle.
 - Invite email cannot be delivered by Resend.
+- Task image storage bucket is missing or not readable.
 - Logout/login fails.
 - Workspace isolation or role permissions fail.

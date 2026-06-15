@@ -9,6 +9,7 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
 - Production env vars are configured.
 - Latest Prisma migration is applied.
 - Resend email sender is verified.
+- Supabase Storage has a public task asset bucket named `task-assets`, or `TASK_ASSETS_BUCKET` points to the configured bucket.
 - Test users have access to their email inboxes.
 
 ## Acceptance Flow
@@ -49,6 +50,7 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
     - Expected: validation prevents empty title.
     - Expected: submit disables during creation.
     - Expected: task appears on the board.
+    - Expected: uploaded cover image persists as a URL and appears after reload.
 
 11. Admin assigns another user to the task.
     - Expected: only active workspace members are selectable.

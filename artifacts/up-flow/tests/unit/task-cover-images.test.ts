@@ -14,14 +14,21 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   const migration = read("prisma/migrations/20260526114500_add_task_cover_image/migration.sql");
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
+  const uploadRoute = read("src/app/api/uploads/task-cover/route.ts");
   const board = read("src/components/projects/kanban-board.tsx");
   const sheet = read("src/components/projects/task-detail-sheet.tsx");
   const createPanel = read("src/components/projects/create-task-panel.tsx");
+  const control = read("src/components/projects/task-cover-image-control.tsx");
 
   assert.match(schema, /cover_image_url\s+String\?/);
   assert.match(migration, /ADD COLUMN "cover_image_url" TEXT/);
   assert.match(tasksRoute, /cover_image_url/);
   assert.match(taskRoute, /Invalid cover_image_url/);
+  assert.match(uploadRoute, /TASK_STORAGE_NOT_CONFIGURED/);
+  assert.match(uploadRoute, /TASK_COVER_UPLOAD_FAILED/);
+  assert.match(control, /\/api\/uploads\/task-cover/);
+  assert.doesNotMatch(tasksRoute, /data:image/);
+  assert.doesNotMatch(taskRoute, /data:image/);
   assert.match(board, /task\.cover_image_url/);
   assert.match(board, /aspect-video w-full object-cover/);
   assert.match(sheet, /t\("task\.boardCoverImage"\)/);

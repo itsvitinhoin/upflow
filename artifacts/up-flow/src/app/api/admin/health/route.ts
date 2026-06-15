@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { prisma } from "@/lib/prisma";
+import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type HealthCheck = {
@@ -30,6 +31,7 @@ async function GET_handler() {
     database: await checkDatabase(),
     database_urls: checkDatabaseUrls(),
     supabase: checkSupabase(),
+    storage: await checkStorage(),
     resend: checkResend(),
     app_url: checkAppUrl(),
     active_workspace: checkActiveWorkspace(auth.currentWorkspaceId, auth.currentRole),
@@ -45,6 +47,49 @@ async function GET_handler() {
     checks,
     rollout_steps: buildRolloutSteps(),
   });
+}
+
+async function checkStorage(): Promise<HealthCheck> {
+  const bucket = process.env.TASK_ASSETS_BUCKET || "task-assets";
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
+  ) {
+    return {
+      ok: false,
+      label: "Task image storage not ready",
+      message: "Supabase URL and service role key are required before checking Storage.",
+    };
+  }
+  try {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase.storage.getBucket(bucket);
+    if (error) {
+      return {
+        ok: false,
+        label: "Task image storage bucket missing",
+        message: `Create a public Supabase Storage bucket named "${bucket}" or set TASK_ASSETS_BUCKET to the configured bucket.`,
+      };
+    }
+    if (data && "public" in data && !data.public) {
+      return {
+        ok: false,
+        label: "Task image storage bucket private",
+        message: `Make Supabase Storage bucket "${bucket}" public so task cover images can render in board cards.`,
+      };
+    }
+    return {
+      ok: true,
+      label: "Task image storage ready",
+      message: `Supabase Storage bucket "${bucket}" is reachable for task cover uploads.`,
+    };
+  } catch {
+    return {
+      ok: false,
+      label: "Task image storage unavailable",
+      message: "Could not verify Supabase Storage. Check service role key and bucket permissions.",
+    };
+  }
 }
 
 async function checkDatabase(): Promise<HealthCheck> {
@@ -236,7 +281,7 @@ function buildRolloutSteps(): ReadinessStep[] {
     },
     {
       title: "Verify core flows",
-      detail: "Create a space, folder, list, task, client, meeting, invite, and time entry in production.",
+      detail: "Create a space, folder, list, task with a cover image, client, meeting, invite, and time entry in production.",
     },
     {
       title: "Pilot with real users",

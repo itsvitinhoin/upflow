@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 const CompanySchema = z.object({
   name: z.string().trim().min(1),
@@ -22,7 +23,7 @@ const CompanySchema = z.object({
   notes: z.string().trim().optional().nullable(),
 });
 
-async function GET_handler() {
+async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -30,9 +31,11 @@ async function GET_handler() {
     return NextResponse.json({ items: [], nextCursor: null });
   }
 
-  const items = await prisma.company.findMany({
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 50, maxLimit: 100 });
+  const rows = await prisma.company.findMany({
     where: { workspace_id: auth.currentWorkspaceId },
-    take: 200,
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: [{ created_at: "desc" }, { id: "asc" }],
     include: {
       owner: { select: { id: true, name: true, email: true } },
@@ -85,7 +88,11 @@ async function GET_handler() {
     },
   });
 
-  return NextResponse.json({ items: items.map(withCompanySummary), nextCursor: null });
+  const page = buildPage(rows, limit);
+  return NextResponse.json({
+    items: page.items.map(withCompanySummary),
+    nextCursor: page.nextCursor,
+  });
 }
 
 async function POST_handler(req: NextRequest) {

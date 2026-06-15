@@ -10,10 +10,9 @@ interface TaskCoverImageControlProps {
   disabled?: boolean;
 }
 
-const MAX_IMAGE_BYTES = 1_250_000;
+const MAX_IMAGE_BYTES = 2_000_000;
 
 function isImageUrl(value: string) {
-  if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(value)) return true;
   try {
     const url = new URL(value);
     return url.protocol === "https:" || url.protocol === "http:";
@@ -64,21 +63,30 @@ export default function TaskCoverImageControl({
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("Image is too large. Use an image under 1.25 MB.");
+      toast.error("Image is too large. Use an image under 2 MB.");
       return;
     }
-    const reader = new FileReader();
-    reader.onload = async () => {
-      if (typeof reader.result !== "string") {
-        toast.error("Could not read image");
-        return;
+    setSaving(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/uploads/task-cover", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Could not upload image");
       }
       setUrl("");
-      await save(reader.result);
-    };
-    reader.onerror = () => toast.error("Could not read image");
-    reader.readAsDataURL(file);
-    if (inputRef.current) inputRef.current.value = "";
+      await onChange(data.url);
+      toast.success("Cover image uploaded");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not upload image");
+    } finally {
+      setSaving(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   };
 
   return (
@@ -147,7 +155,7 @@ export default function TaskCoverImageControl({
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Use a URL for production assets or upload a small image for quick creative previews.
+        Upload stores the image in Supabase Storage, or paste an existing image URL.
       </p>
     </div>
   );

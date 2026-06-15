@@ -8,6 +8,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { parseDateParam, secondsBetween } from "@/lib/time-range";
 import { recordActivity } from "@/lib/activity";
 import { validateProjectTask } from "@/lib/time-entries";
+import { buildPage, parsePagination } from "@/lib/pagination";
 
 const ManualEntrySchema = z.object({
   project_id: z.string().uuid().optional().nullable(),
@@ -51,7 +52,8 @@ async function GET_handler(req: NextRequest) {
       ? requestedUserId
       : auth.prismaUser.id;
 
-  const items = await prisma.timeEntry.findMany({
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 100, maxLimit: 200 });
+  const rows = await prisma.timeEntry.findMany({
     where: {
       workspace_id: auth.currentWorkspaceId,
       user_id: userId,
@@ -65,7 +67,8 @@ async function GET_handler(req: NextRequest) {
         : {}),
     },
     orderBy: [{ started_at: "desc" }, { id: "asc" }],
-    take: 500,
+    take: limit + 1,
+    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     include: {
       project: { select: { id: true, name: true } },
       task: { select: { id: true, title: true } },
@@ -73,7 +76,7 @@ async function GET_handler(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ items, nextCursor: null });
+  return NextResponse.json(buildPage(rows, limit));
 }
 
 async function POST_handler(req: NextRequest) {

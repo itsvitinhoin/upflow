@@ -12,6 +12,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
+import { parseTaskImageUrl } from "@/lib/task-images";
 
 const UpdateTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -19,29 +20,10 @@ const UpdateTaskSchema = z.object({
   status: z.enum(["todo", "in_progress", "done"]).optional(),
   priority: z.enum(["low", "medium", "high"]).optional(),
   assignee_id: z.string().uuid().nullable().optional(),
-  cover_image_url: z.string().trim().max(1_500_000).nullable().optional(),
+  cover_image_url: z.string().trim().max(2_000).nullable().optional(),
   due_date: z.string().nullable().optional(),
   position: z.number().int().optional(),
 });
-
-function isValidTaskImage(value: string) {
-  if (/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(value)) {
-    return true;
-  }
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
-
-function parseTaskImage(value: string | null | undefined) {
-  if (value === undefined) return undefined;
-  if (value === null || value.trim() === "") return null;
-  const trimmed = value.trim();
-  return isValidTaskImage(trimmed) ? trimmed : "invalid";
-}
 
 function parsePatchDate(value: string | null | undefined) {
   if (value === undefined) return undefined;
@@ -133,9 +115,12 @@ async function PATCH_handler(
   if (parsedDueDate === "invalid") {
     return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
   }
-  const parsedCoverImage = parseTaskImage(cover_image_url);
+  const parsedCoverImage = cover_image_url === undefined ? undefined : parseTaskImageUrl(cover_image_url);
   if (parsedCoverImage === "invalid") {
-    return NextResponse.json({ error: "Invalid cover_image_url" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid cover_image_url. Upload images first or use a valid image URL." },
+      { status: 400 },
+    );
   }
 
   if (assignee_id !== undefined && !isProjectOwner && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
