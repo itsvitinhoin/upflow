@@ -11,14 +11,16 @@ function read(rel: string) {
 
 test("app shell exposes an English and Portuguese Brazil language toggle", () => {
   const provider = read("src/components/language-provider.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
   const header = read("src/components/layout/header.tsx");
   const providers = read("src/components/providers.tsx");
 
-  assert.match(provider, /export type Language = "en" \| "pt-BR"/);
+  assert.match(provider, /@\/lib\/i18n\/translations/);
+  assert.match(translations, /export type Language = "en" \| "pt-BR"/);
   assert.match(provider, /upflow\.language/);
   assert.match(provider, /document\.documentElement\.lang = language/);
-  assert.match(provider, /"language\.portugueseBrazil": "Português \(Brasil\)"/);
-  assert.match(provider, /"header\.newProject": "Novo projeto"/);
+  assert.match(translations, /"language\.portugueseBrazil": "Português \(Brasil\)"/);
+  assert.match(translations, /"header\.newProject": "Novo projeto"/);
   assert.match(header, /Languages/);
   assert.match(header, /toggleLanguage/);
   assert.match(header, /language === "en" \? "EN" : "PT"/);
@@ -39,7 +41,7 @@ test("sidebar and workspace chrome use translation keys for shared labels", () =
 });
 
 test("dashboard and project task surfaces use translation keys", () => {
-  const provider = read("src/components/language-provider.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
   const dashboard = read("src/app/(dashboard)/page.tsx");
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
@@ -47,11 +49,11 @@ test("dashboard and project task surfaces use translation keys", () => {
   const taskPanel = read("src/components/projects/create-task-panel.tsx");
   const taskTemplates = read("src/components/projects/task-template-fields.tsx");
 
-  assert.match(provider, /"dashboard\.commandCenter": "Centro de Operações da Agência"/);
-  assert.match(provider, /"toolbar\.board": "Quadro"/);
-  assert.match(provider, /"task\.createTask": "Criar entrega"/);
-  assert.match(provider, /"taskTemplate\.creative\.label": "Criativo \/ Design"/);
-  assert.match(provider, /"taskTemplate\.technical_support\.label": "Suporte técnico"/);
+  assert.match(translations, /"dashboard\.commandCenter": "Centro de Operações da Agência"/);
+  assert.match(translations, /"toolbar\.board": "Quadro"/);
+  assert.match(translations, /"task\.createTask": "Criar entrega"/);
+  assert.match(translations, /"taskTemplate\.creative\.label": "Criativo \/ Design"/);
+  assert.match(translations, /"taskTemplate\.technical_support\.label": "Suporte técnico"/);
   assert.match(dashboard, /t\("dashboard\.commandCenter"\)/);
   assert.match(dashboard, /t\("dashboard\.todayFocus"\)/);
   assert.match(projectPage, /t\("projects\.addTask"\)/);
@@ -63,7 +65,7 @@ test("dashboard and project task surfaces use translation keys", () => {
 });
 
 test("core rollout surfaces are wired to the language provider", () => {
-  const provider = read("src/components/language-provider.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
   const dashboard = read("src/app/(dashboard)/page.tsx");
   const calendar = read("src/app/(dashboard)/calendar/page.tsx");
   const clients = read("src/app/(dashboard)/clients/page.tsx");
@@ -75,12 +77,12 @@ test("core rollout surfaces are wired to the language provider", () => {
   const errorPage = read("src/app/error.tsx");
   const notFoundPage = read("src/app/not-found.tsx");
 
-  assert.match(provider, /"calendar\.manage": "Gerenciar"/);
-  assert.match(provider, /"clients\.assignedTeam": "Equipe atribuída"/);
-  assert.match(provider, /"team\.membersTitle": "Membros da equipe"/);
-  assert.match(provider, /"time\.weeklyHours": "Horas da semana"/);
-  assert.match(provider, /"invite\.mode": "Modo do convite"/);
-  assert.match(provider, /"error\.pageTitle": "Esta página não carregou"/);
+  assert.match(translations, /"calendar\.manage": "Gerenciar"/);
+  assert.match(translations, /"clients\.assignedTeam": "Equipe atribuída"/);
+  assert.match(translations, /"team\.membersTitle": "Membros da equipe"/);
+  assert.match(translations, /"time\.weeklyHours": "Horas da semana"/);
+  assert.match(translations, /"invite\.mode": "Modo do convite"/);
+  assert.match(translations, /"error\.pageTitle": "Esta página não carregou"/);
 
   assert.match(dashboard, /t\("dashboard\.noTrackedTime"\)/);
   assert.match(dashboard, /t\("dashboard\.todayMeetings"\)/);

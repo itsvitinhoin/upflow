@@ -17,6 +17,8 @@ test("task dependency APIs are workspace scoped, cycle safe, and activity tracke
   assert.match(collectionRoute, /canAccessWorkspace/);
   assert.match(collectionRoute, /isWorkspaceAdminFor/);
   assert.match(collectionRoute, /createsCycle/);
+  assert.match(collectionRoute, /frontier/);
+  assert.doesNotMatch(collectionRoute, /take:\s*5000/);
   assert.match(collectionRoute, /A task cannot depend on itself/);
   assert.match(collectionRoute, /Dependencies must stay inside the same workspace/);
   assert.match(collectionRoute, /task_dependency_added/);

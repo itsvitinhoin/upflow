@@ -39,14 +39,14 @@ test("workload signals expose task evidence in dashboard drawers", () => {
 });
 
 test("dashboard copy avoids unsupported operational claims", () => {
-  const languageProvider = read("src/components/language-provider.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
   const spacePage = read("src/app/(dashboard)/spaces/[id]/page.tsx");
 
-  assert.doesNotMatch(languageProvider, /delivery movement/);
-  assert.doesNotMatch(languageProvider, /stale campaigns/);
+  assert.doesNotMatch(translations, /delivery movement/);
+  assert.doesNotMatch(translations, /stale campaigns/);
   assert.doesNotMatch(read("src/app/api/dashboard/summary/route.ts"), /stale activity/);
-  assert.doesNotMatch(languageProvider, /campanhas paradas/);
-  assert.match(languageProvider, /Overdue tasks or no activity in 7 days/);
-  assert.match(languageProvider, /Clients with overdue work, missing setup, or no recent activity/);
+  assert.doesNotMatch(translations, /campanhas paradas/);
+  assert.match(translations, /Overdue tasks or no activity in 7 days/);
+  assert.match(translations, /Clients with overdue work, missing setup, or no recent activity/);
   assert.match(spacePage, /overdue open tasks, no owner, or no activity record in 7 days/);
 });

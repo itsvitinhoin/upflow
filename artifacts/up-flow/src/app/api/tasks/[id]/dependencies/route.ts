@@ -29,31 +29,26 @@ const taskSelect = {
 } as const;
 
 async function createsCycle(taskId: string, dependsOnId: string, workspaceId: string) {
-  const links = await prisma.taskDependency.findMany({
-    where: { task: { project: { workspace_id: workspaceId } } },
-    take: 5000,
-    select: { task_id: true, depends_on_id: true },
-  });
-
-  if (links.length >= 5000) {
-    return "too_many_dependencies" as const;
-  }
-
-  const nextByTask = new Map<string, string[]>();
-  for (const link of links) {
-    const next = nextByTask.get(link.task_id) ?? [];
-    next.push(link.depends_on_id);
-    nextByTask.set(link.task_id, next);
-  }
   const visited = new Set<string>();
-  const stack = [dependsOnId];
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    if (current === taskId) return true;
-    if (visited.has(current)) continue;
-    visited.add(current);
-    stack.push(...(nextByTask.get(current) ?? []));
+  let frontier = [dependsOnId];
+
+  while (frontier.length > 0) {
+    if (frontier.includes(taskId)) return true;
+
+    const unseen = frontier.filter((id) => !visited.has(id));
+    if (unseen.length === 0) return false;
+    unseen.forEach((id) => visited.add(id));
+
+    const links = await prisma.taskDependency.findMany({
+      where: {
+        task_id: { in: unseen },
+        task: { project: { workspace_id: workspaceId } },
+      },
+      select: { depends_on_id: true },
+    });
+    frontier = links.map((link) => link.depends_on_id);
   }
+
   return false;
 }
 
@@ -162,12 +157,6 @@ async function POST_handler(
   }
 
   const cycle = await createsCycle(task.id, dependsOnTask.id, task.project.workspace_id);
-  if (cycle === "too_many_dependencies") {
-    return NextResponse.json(
-      { error: "Too many dependency links to safely validate. Please contact an admin." },
-      { status: 409 },
-    );
-  }
   if (cycle) {
     return NextResponse.json(
       { error: "This dependency would create a cycle" },
