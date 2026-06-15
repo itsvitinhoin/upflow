@@ -17,6 +17,7 @@ test("ProjectMember limits project and task visibility when a project has explic
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
   const sidebarRoute = read("src/app/api/sidebar/route.ts");
   const searchRoute = read("src/app/api/search/route.ts");
+  const scopeHelper = read("src/lib/api/scope.ts");
 
   assert.match(helper, /project_members:\s*\{\s*none:\s*\{\s*\}/);
   assert.match(helper, /project_members:\s*\{\s*some:\s*\{\s*user_id:\s*auth\.prismaUser\.id/);
@@ -32,6 +33,12 @@ test("ProjectMember limits project and task visibility when a project has explic
   assert.match(searchRoute, /readableProjectWhere\(auth,\s*workspaceId\)/);
   assert.match(searchRoute, /const taskScope = \{\s*project:\s*projectScope\s*\}/);
   assert.match(searchRoute, /const docScope = \{\s*workspace_id:\s*workspaceId,\s*project:\s*projectScope\s*\}/);
+  assert.match(scopeHelper, /validateReadableProjectScope/);
+  assert.match(scopeHelper, /validateContributableProjectScope/);
+  assert.match(scopeHelper, /validateReadableTaskScope/);
+  assert.match(scopeHelper, /validateContributableTaskScope/);
+  assert.match(scopeHelper, /canReadProject\(auth,\s*project\)/);
+  assert.match(scopeHelper, /canContributeToProject\(auth,\s*project\)/);
 });
 
 test("task assignment honors explicit project membership, not only workspace membership", () => {

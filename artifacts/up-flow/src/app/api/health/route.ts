@@ -30,7 +30,7 @@ async function getHandler() {
   const tracker = pingTracker();
   // Surface a misconfigured tracker (DSN set but SDK never initialized,
   // typically a build/instrumentation regression) as a server-side log.
-  // Does NOT flip overall status — observability outage shouldn't take
+  // Does NOT flip overall status - observability outage shouldn't take
   // the app down.
   if (tracker.configured && !tracker.initialized) {
     logError(
@@ -40,7 +40,7 @@ async function getHandler() {
   }
 
   // Rate-limit connectivity is reported but does NOT flip overall status to
-  // degraded — we fail-open by design, so a Redis blip shouldn't make
+  // degraded - we fail-open by design, so a Redis blip shouldn't make
   // health-checks fail and recycle the container.
   const ok = env.ok && db === "ok";
   return NextResponse.json(

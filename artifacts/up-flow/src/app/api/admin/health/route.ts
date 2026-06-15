@@ -34,6 +34,7 @@ async function GET_handler() {
     storage: await checkStorage(),
     resend: checkResend(),
     app_url: checkAppUrl(),
+    observability: checkObservability(),
     active_workspace: checkActiveWorkspace(auth.currentWorkspaceId, auth.currentRole),
     migration: await checkLatestMigration(),
   };
@@ -209,6 +210,33 @@ function checkAppUrl(): HealthCheck {
     ok: valid,
     label: valid ? "APP_URL configured" : "APP_URL needs attention",
     message,
+  };
+}
+
+function checkObservability(): HealthCheck {
+  const disabled = process.env.OBSERVABILITY_DISABLED === "1";
+  const sentryDsn = process.env.SENTRY_DSN?.trim();
+
+  if (sentryDsn) {
+    return {
+      ok: true,
+      label: "Error monitoring configured",
+      message: "SENTRY_DSN is configured so production errors can be captured.",
+    };
+  }
+
+  if (disabled) {
+    return {
+      ok: true,
+      label: "Error monitoring intentionally disabled",
+      message: "OBSERVABILITY_DISABLED=1 is set. Keep Vercel runtime logs open during the pilot.",
+    };
+  }
+
+  return {
+    ok: false,
+    label: "Error monitoring not configured",
+    message: "Set SENTRY_DSN or OBSERVABILITY_DISABLED=1 before rollout so monitoring status is explicit.",
   };
 }
 

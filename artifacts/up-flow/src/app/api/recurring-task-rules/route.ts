@@ -3,8 +3,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
-import { requireCurrentWorkspace, validateProjectScope, validateTaskScope } from "@/lib/api/scope";
+import {
+  requireCurrentWorkspace,
+  validateContributableProjectScope,
+  validateContributableTaskScope,
+} from "@/lib/api/scope";
 import { recordActivity } from "@/lib/activity";
+import { readableProjectWhere } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const RecurringRuleSchema = z.object({
@@ -28,10 +33,12 @@ async function GET_handler(req: NextRequest) {
   const projectId = searchParams.get("project_id");
   const taskId = searchParams.get("task_id");
   const { limit, cursor } = parsePagination(req, { defaultLimit: 50, maxLimit: 100 });
+  const readableProjects = readableProjectWhere(auth, scope.workspaceId);
 
   const rows = await prisma.recurringTaskRule.findMany({
     where: {
       workspace_id: scope.workspaceId,
+      OR: [{ project_id: null }, { project: readableProjects }],
       ...(projectId ? { project_id: projectId } : {}),
       ...(taskId ? { task_id: taskId } : {}),
     },
@@ -65,12 +72,12 @@ async function POST_handler(req: NextRequest) {
 
   let projectId = parsed.data.project_id ?? null;
   if (projectId) {
-    const project = await validateProjectScope(projectId, scope.workspaceId);
+    const project = await validateContributableProjectScope(projectId, scope.workspaceId, auth);
     if (!project.ok) return project.response;
   }
 
   if (parsed.data.task_id) {
-    const task = await validateTaskScope(parsed.data.task_id, scope.workspaceId);
+    const task = await validateContributableTaskScope(parsed.data.task_id, scope.workspaceId, auth);
     if (!task.ok) return task.response;
     if (projectId && task.task.project_id !== projectId) {
       return NextResponse.json(

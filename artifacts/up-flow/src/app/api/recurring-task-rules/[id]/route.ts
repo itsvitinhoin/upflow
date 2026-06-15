@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
-import { requireCurrentWorkspace, validateProjectScope, validateTaskScope } from "@/lib/api/scope";
+import {
+  requireCurrentWorkspace,
+  validateContributableProjectScope,
+  validateContributableTaskScope,
+} from "@/lib/api/scope";
 import { recordActivity } from "@/lib/activity";
+import { isWorkspaceAdminFor, type AuthUser } from "@/lib/auth-helpers";
+import { canContributeToProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const UpdateRecurringRuleSchema = z.object({
@@ -15,6 +21,20 @@ const UpdateRecurringRuleSchema = z.object({
   task_id: z.string().uuid().nullable().optional(),
   active: z.boolean().optional(),
 });
+
+async function canManageRecurringRule(
+  auth: AuthUser,
+  rule: {
+    workspace_id: string;
+    created_by: string;
+    project: { id: string; workspace_id: string; owner_id: string | null } | null;
+  },
+) {
+  if (isWorkspaceAdminFor(auth, rule.workspace_id)) return true;
+  if (rule.created_by === auth.prismaUser.id) return true;
+  if (rule.project && (await canContributeToProject(auth, rule.project))) return true;
+  return false;
+}
 
 async function PATCH_handler(
   req: NextRequest,
@@ -28,9 +48,15 @@ async function PATCH_handler(
 
   const existing = await prisma.recurringTaskRule.findFirst({
     where: { id: params.id, workspace_id: scope.workspaceId },
+    include: {
+      project: { select: { id: true, workspace_id: true, owner_id: true } },
+    },
   });
   if (!existing) {
     return NextResponse.json({ error: "Recurring task rule not found" }, { status: 404 });
+  }
+  if (!(await canManageRecurringRule(auth, existing))) {
+    return NextResponse.json({ error: "Recurring task rule access required" }, { status: 403 });
   }
 
   const parsed = UpdateRecurringRuleSchema.safeParse(await req.json());
@@ -43,13 +69,13 @@ async function PATCH_handler(
 
   let projectId = parsed.data.project_id === undefined ? existing.project_id : parsed.data.project_id;
   if (projectId) {
-    const project = await validateProjectScope(projectId, scope.workspaceId);
+    const project = await validateContributableProjectScope(projectId, scope.workspaceId, auth);
     if (!project.ok) return project.response;
   }
 
   let taskId = parsed.data.task_id === undefined ? existing.task_id : parsed.data.task_id;
   if (taskId) {
-    const task = await validateTaskScope(taskId, scope.workspaceId);
+    const task = await validateContributableTaskScope(taskId, scope.workspaceId, auth);
     if (!task.ok) return task.response;
     if (projectId && task.task.project_id !== projectId) {
       return NextResponse.json(
@@ -99,10 +125,21 @@ async function DELETE_handler(
 
   const existing = await prisma.recurringTaskRule.findFirst({
     where: { id: params.id, workspace_id: scope.workspaceId },
-    select: { id: true, name: true, project_id: true, task_id: true },
+    select: {
+      id: true,
+      name: true,
+      workspace_id: true,
+      project_id: true,
+      task_id: true,
+      created_by: true,
+      project: { select: { id: true, workspace_id: true, owner_id: true } },
+    },
   });
   if (!existing) {
     return NextResponse.json({ error: "Recurring task rule not found" }, { status: 404 });
+  }
+  if (!(await canManageRecurringRule(auth, existing))) {
+    return NextResponse.json({ error: "Recurring task rule access required" }, { status: 403 });
   }
 
   await prisma.recurringTaskRule.delete({ where: { id: existing.id } });

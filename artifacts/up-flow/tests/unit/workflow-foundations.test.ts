@@ -24,10 +24,14 @@ test("recurring task rules validate workspace project and task scope", () => {
   const collection = read("src/app/api/recurring-task-rules/route.ts");
   const item = read("src/app/api/recurring-task-rules/[id]/route.ts");
 
-  assert.match(collection, /validateProjectScope/);
-  assert.match(collection, /validateTaskScope/);
+  assert.match(collection, /readableProjectWhere/);
+  assert.match(collection, /validateContributableProjectScope/);
+  assert.match(collection, /validateContributableTaskScope/);
   assert.match(collection, /FREQ=/);
   assert.match(collection, /recurring_task_rule_created/);
+  assert.match(item, /canManageRecurringRule/);
+  assert.match(item, /validateContributableProjectScope/);
+  assert.match(item, /validateContributableTaskScope/);
   assert.match(item, /recurring_task_rule_updated/);
   assert.match(item, /recurring_task_rule_deleted/);
 });
@@ -42,6 +46,22 @@ test("automation rules are admin-only configuration and not a silent runner", ()
   assert.match(collection, /automation_rule_created/);
   assert.match(item, /automation_rule_updated/);
   assert.match(item, /automation_rule_deleted/);
+});
+
+test("goals expose workspace-scoped CRUD with owner and admin controls", () => {
+  const collection = read("src/app/api/goals/route.ts");
+  const item = read("src/app/api/goals/[id]/route.ts");
+
+  assert.match(collection, /requireCurrentWorkspace/);
+  assert.match(collection, /parsePagination/);
+  assert.match(collection, /validateGoalOwner/);
+  assert.match(collection, /Goal owner must be an active member/);
+  assert.match(collection, /goal_created/);
+  assert.match(item, /canManageGoal/);
+  assert.match(item, /isWorkspaceAdminFor/);
+  assert.match(item, /requireWorkspaceAdmin/);
+  assert.match(item, /goal_updated/);
+  assert.match(item, /goal_deleted/);
 });
 
 test("dashboard detail endpoints are paginated for drawer-scale loading", () => {

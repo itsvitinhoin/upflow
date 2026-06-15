@@ -13,7 +13,7 @@ import * as Sentry from "@sentry/nextjs";
  * Error capture is funneled through `logError()` (see `log-error.ts`),
  * which forwards here via `sendToTracker()` when initialized. That means
  * every existing `logError(...)` call site automatically reaches Sentry
- * with full stack + context — no per-call refactor required.
+ * with full stack + context - no per-call refactor required.
  */
 
 let initialized = false;
@@ -54,10 +54,10 @@ export function sendToTracker(
 }
 
 /**
- * Public capture API — used by `withErrorReporting` and any code path
+ * Public capture API - used by `withErrorReporting` and any code path
  * that wants to *force* an out-of-band tracker hit (e.g. the React
  * error boundary on mount). For normal server catch blocks, just call
- * `logError(...)` instead — it forwards here automatically.
+ * `logError(...)` instead - it forwards here automatically.
  */
 export function captureError(
   scope: string,
@@ -104,7 +104,7 @@ export function setRequestContext(ctx: {
 
 /**
  * Health probe used by `/api/health`. We don't actually round-trip to
- * Sentry's API here (that would add latency to every health check) —
+ * Sentry's API here (that would add latency to every health check) -
  * we just report whether the SDK is configured and initialized.
  */
 export function pingTracker(): {

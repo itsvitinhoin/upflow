@@ -625,7 +625,7 @@ model Notification {
   // like member_joined populate workspace_id and leave task_id null.
   task_id      String?
   workspace_id String?
-  // Free-form payload — e.g. the joining user's name/email for member_joined.
+  // Free-form payload, e.g. the joining user's name/email for member_joined.
   data         Json?
   read         Boolean          @default(false)
   created_at   DateTime         @default(now())

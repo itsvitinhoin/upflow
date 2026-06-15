@@ -40,7 +40,7 @@ export function isAdminEmail(email: string | null | undefined): boolean {
 
 /**
  * Discriminated result for callers that need to distinguish "no session"
- * (return 401) from "session check / DB lookup failed" (return 503 — the
+ * (return 401) from "session check / DB lookup failed" (return 503 - the
  * user IS logged in, we just couldn't tell). `getAuthUser()` collapses both
  * back to `null` for legacy call sites; new code should prefer
  * `getAuthResult()`.
@@ -52,14 +52,14 @@ export type AuthResult =
 
 export async function getAuthResult(): Promise<AuthResult> {
   // Step 1: ask Supabase who the user is. Network/parse failures here are
-  // treated as "anonymous" — Supabase already returns `{ data: { user: null } }`
+  // treated as "anonymous" - Supabase already returns `{ data: { user: null } }`
   // for an unauthenticated cookie, so a thrown error is the unusual case and
   // matches the old behavior of "no session" for legacy callers.
   let email: string | null = null;
   let supabaseId: string | null = null;
   let metadataName: string | undefined;
 
-  // Dev/CI-only bypass — see `lib/test-auth.ts`. Hard-gated on
+  // Dev/CI-only bypass - see `lib/test-auth.ts`. Hard-gated on
   // NODE_ENV !== "production" AND a TEST_LOGIN_TOKEN env var being set,
   // so this is a no-op in any deployed environment.
   const testEmail = await verifyTestAuthCookie(cookies().get(TEST_AUTH_COOKIE)?.value);
@@ -89,7 +89,7 @@ export async function getAuthResult(): Promise<AuthResult> {
   }
 
   // Step 2: look up (or, on first sign-in, create) the Prisma user.
-  // DB errors here are real outages — surface them to the caller instead of
+  // DB errors here are real outages - surface them to the caller instead of
   // pretending the user is logged out.
   try {
     const wantsAdmin = isAdminEmail(email);
@@ -98,7 +98,7 @@ export async function getAuthResult(): Promise<AuthResult> {
     let prismaUser = await prisma.user.findUnique({ where: { email } });
     if (!prismaUser) {
       // True first sign-in: create the row. Two concurrent first-login
-      // requests can both pass the findUnique above and race here — the
+      // requests can both pass the findUnique above and race here - the
       // loser hits a P2002 unique-constraint violation, in which case we
       // simply re-fetch the row the winner just inserted.
       try {
@@ -188,7 +188,7 @@ export function isWorkspaceAdmin(auth: AuthUser): boolean {
 
 /**
  * Owner/admin role check against a specific target workspace (not the
- * caller's active one). Use this for any write that mutates a resource —
+ * caller's active one). Use this for any write that mutates a resource -
  * the relevant role is the role in the resource's workspace, NOT the
  * cookie-selected active workspace.
  */
@@ -205,7 +205,7 @@ export function canAccessWorkspace(auth: AuthUser, workspaceId: string): boolean
 }
 
 /**
- * For list endpoints — returns a Prisma `where` fragment matching all
+ * For list endpoints - returns a Prisma `where` fragment matching all
  * workspaces the user can read from. Super-admin returns `{}` (no filter).
  */
 export function workspaceListFilter(auth: AuthUser): { workspace_id?: { in: string[] } } {

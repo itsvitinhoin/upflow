@@ -169,6 +169,9 @@ test("admin health exposes actionable production diagnostics without secrets", (
   assert.match(adminHealthRoute, /NEXT_PUBLIC_SUPABASE_URL/);
   assert.match(adminHealthRoute, /RESEND_API_KEY/);
   assert.match(adminHealthRoute, /APP_URL/);
+  assert.match(adminHealthRoute, /checkObservability/);
+  assert.match(adminHealthRoute, /SENTRY_DSN/);
+  assert.match(adminHealthRoute, /OBSERVABILITY_DISABLED=1/);
   assert.match(adminHealthRoute, /"_prisma_migrations"/);
   assert.match(adminHealthRoute, /getLatestBundledMigration/);
   assert.match(adminHealthRoute, /Run npm run db:migrate:deploy before redeploying/);
