@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Folder, FolderPlus, List, ListPlus, RefreshCcw } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import Header from "@/components/layout/header";
 import { FolderDialog, NewListDialog } from "@/components/layout/sidebar/dialogs";
 import type { Folder as FolderT, Project, Space } from "@/lib/types";
@@ -20,6 +21,7 @@ interface FolderContainerData {
 }
 
 export default function FolderContainerPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const id = (params?.id ?? "") as string;
   const [data, setData] = useState<FolderContainerData | null>(null);
@@ -71,22 +73,21 @@ export default function FolderContainerPage() {
   if (error || !data) {
     return (
       <>
-        <Header title="Folder" />
+        <Header title={t("folder.title")} />
         <div className="p-4 sm:p-6">
           <div className="max-w-lg rounded-xl p-4 glass sm:p-6">
             <h2 className="text-lg font-semibold text-foreground">
-              Couldn&apos;t load this Folder
+              {t("folder.loadErrorTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
-              Something went wrong while fetching the Folder. Try again in a
-              moment.
+              {t("folder.loadErrorBody")}
             </p>
             <button
               onClick={loadData}
               className="mt-4 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
             >
               <RefreshCcw className="w-4 h-4" />
-              Retry
+              {t("common.retry")}
             </button>
           </div>
         </div>
@@ -133,14 +134,14 @@ export default function FolderContainerPage() {
                 className="inline-flex items-center gap-2 border border-white/10 hover:bg-white/10 text-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <FolderPlus className="w-4 h-4" />
-                New folder
+                {t("folder.newFolder")}
               </button>
               <button
                 onClick={() => setShowNewList(true)}
                 className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <ListPlus className="w-4 h-4" />
-                New list
+                {t("folder.newList")}
               </button>
             </div>
           </div>
@@ -150,10 +151,10 @@ export default function FolderContainerPage() {
           <section className="glass rounded-xl p-10 text-center">
             <List className="w-10 h-10 mx-auto text-muted-foreground" />
             <h3 className="mt-4 text-base font-semibold text-foreground">
-              This Folder is empty
+              {t("folder.emptyTitle")}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Create a list to start organizing work here.
+              {t("folder.emptyBody")}
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-2">
               <button
@@ -161,14 +162,14 @@ export default function FolderContainerPage() {
                 className="inline-flex items-center gap-2 border border-white/10 hover:bg-white/10 text-foreground text-sm font-medium px-4 py-2 rounded-lg"
               >
                 <FolderPlus className="w-4 h-4" />
-                New folder
+                {t("folder.newFolder")}
               </button>
               <button
                 onClick={() => setShowNewList(true)}
                 className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
               >
                 <ListPlus className="w-4 h-4" />
-                New list
+                {t("folder.newList")}
               </button>
             </div>
           </section>
@@ -177,7 +178,7 @@ export default function FolderContainerPage() {
             {children.length > 0 && (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase">
-                  Folders
+                  {t("folder.folders")}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {children.map((child) => (
@@ -205,7 +206,7 @@ export default function FolderContainerPage() {
             {projects.length > 0 && (
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase">
-                  Lists
+                  {t("folder.lists")}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {projects.map((project) => (

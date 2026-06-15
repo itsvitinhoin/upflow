@@ -43,6 +43,7 @@ test("sidebar and workspace chrome use translation keys for shared labels", () =
 test("dashboard and project task surfaces use translation keys", () => {
   const translations = read("src/lib/i18n/translations.ts");
   const dashboard = read("src/app/(dashboard)/page.tsx");
+  const taskFocusPanels = read("src/components/dashboard/task-focus-panels.tsx");
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
   const taskDialog = read("src/components/projects/new-task-dialog.tsx");
@@ -55,7 +56,7 @@ test("dashboard and project task surfaces use translation keys", () => {
   assert.match(translations, /"taskTemplate\.creative\.label": "Criativo \/ Design"/);
   assert.match(translations, /"taskTemplate\.technical_support\.label": "Suporte técnico"/);
   assert.match(dashboard, /t\("dashboard\.commandCenter"\)/);
-  assert.match(dashboard, /t\("dashboard\.todayFocus"\)/);
+  assert.match(taskFocusPanels, /t\("dashboard\.todayFocus"\)/);
   assert.match(projectPage, /t\("projects\.addTask"\)/);
   assert.match(toolbar, /t\("toolbar\.board"\)/);
   assert.match(toolbar, /t\("toolbar\.searchTasks"\)/);

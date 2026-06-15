@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
@@ -11,6 +10,12 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
+import {
+  canAssignUserToProject,
+  canContributeToProject,
+  canReadProject,
+  readableProjectWhere,
+} from "@/lib/project-access";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -31,10 +36,10 @@ async function getHandler(req: NextRequest) {
   if (projectId) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { workspace_id: true },
+      select: { id: true, workspace_id: true, owner_id: true },
     });
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (!canAccessWorkspace(auth, project.workspace_id)) {
+    if (!(await canReadProject(auth, project))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -50,10 +55,10 @@ async function getHandler(req: NextRequest) {
     if (!auth.currentWorkspaceId) {
       return NextResponse.json({ items: [], nextCursor: null });
     }
-    where.project = { workspace_id: auth.currentWorkspaceId };
+    where.project = readableProjectWhere(auth, auth.currentWorkspaceId);
   }
 
-  const { limit, cursor } = parsePagination(req, { defaultLimit: 500, maxLimit: 1000 });
+  const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
 
   const rows = await prisma.task.findMany({
     where,
@@ -105,22 +110,17 @@ async function postHandler(req: NextRequest) {
 
   const project = await prisma.project.findUnique({
     where: { id: project_id },
-    select: { id: true, workspace_id: true, company_id: true },
+    select: { id: true, workspace_id: true, owner_id: true, company_id: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, project.workspace_id)) {
+  if (!(await canContributeToProject(auth, project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (assignee_id) {
-    // Assignee must be a member of the project's workspace.
-    const ok = await prisma.workspaceMember.findFirst({
-      where: { workspace_id: project.workspace_id, user_id: assignee_id, status: "active" },
-      select: { id: true },
-    });
-    if (!ok) {
+    if (!(await canAssignUserToProject(project, assignee_id))) {
       return NextResponse.json(
-        { error: "Assignee is not an active member of this workspace" },
+        { error: "Assignee is not an active member with access to this project" },
         { status: 400 },
       );
     }

@@ -3,7 +3,6 @@ import type { TaskPriority, TaskStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
-  canAccessWorkspace,
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
@@ -13,6 +12,11 @@ import { broadcastNotification } from "@/lib/supabase-server";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
+import {
+  canAssignUserToProject,
+  canContributeToProject,
+  canReadProject,
+} from "@/lib/project-access";
 
 const UpdateTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -44,7 +48,7 @@ async function GET_handler(
     where: { id: params.id },
     include: {
       assignee: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true, workspace_id: true } },
+      project: { select: { id: true, name: true, workspace_id: true, owner_id: true } },
       subtasks: {
         include: { assignee: { select: { id: true, name: true, email: true } } },
         orderBy: { created_at: "asc" },
@@ -96,7 +100,7 @@ async function GET_handler(
   });
 
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, task.project.workspace_id)) {
+  if (!(await canReadProject(auth, task.project)) && task.assignee_id !== auth.prismaUser.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -115,10 +119,10 @@ async function PATCH_handler(
 
   const oldTask = await prisma.task.findUnique({
     where: { id: params.id },
-    include: { project: { select: { workspace_id: true, owner_id: true } } },
+    include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
   });
   if (!oldTask) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, oldTask.project.workspace_id)) {
+  if (!(await canContributeToProject(auth, oldTask.project)) && oldTask.assignee_id !== prismaUser.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -160,13 +164,9 @@ async function PATCH_handler(
   }
 
   if (assignee_id) {
-    const ok = await prisma.workspaceMember.findFirst({
-      where: { workspace_id: oldTask.project.workspace_id, user_id: assignee_id, status: "active" },
-      select: { id: true },
-    });
-    if (!ok) {
+    if (!(await canAssignUserToProject(oldTask.project, assignee_id))) {
       return NextResponse.json(
-        { error: "Assignee is not an active member of this workspace" },
+        { error: "Assignee is not an active member with access to this project" },
         { status: 400 },
       );
     }
@@ -272,10 +272,10 @@ async function DELETE_handler(
 
   const task = await prisma.task.findUnique({
     where: { id: params.id },
-    include: { project: { select: { workspace_id: true, owner_id: true } } },
+    include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, task.project.workspace_id)) {
+  if (!(await canContributeToProject(auth, task.project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

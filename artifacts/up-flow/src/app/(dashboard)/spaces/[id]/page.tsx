@@ -14,7 +14,6 @@ import {
   Folder,
   FolderKanban,
   FolderPlus,
-  List,
   ListPlus,
   Plus,
   RefreshCcw,
@@ -25,11 +24,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
+import { useLanguage } from "@/components/language-provider";
 import { FolderDialog, NewListDialog } from "@/components/layout/sidebar/dialogs";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
-import type { Folder as FolderT, Task } from "@/lib/types";
+import { BrowseTab, ContainerSkeleton, DashboardSkeleton } from "@/components/spaces/space-browser";
+import type { Task } from "@/lib/types";
 import {
   cn,
   formatDate,
@@ -56,9 +57,10 @@ import {
   type TaskStatus,
   type TaskTimelineItem,
 } from "@/components/spaces/space-dashboard-utils";
-import type { ContainerList, SpaceContainerData, SpaceDashboardData, SpaceTab } from "@/components/spaces/space-page-types";
+import type { SpaceContainerData, SpaceDashboardData, SpaceTab } from "@/components/spaces/space-page-types";
 
 export default function SpaceContainerPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const id = (params?.id ?? "") as string;
   const [activeTab, setActiveTab] = useState<SpaceTab>("dashboard");
@@ -135,7 +137,7 @@ export default function SpaceContainerPage() {
 
   const openTaskCreate = () => {
     if (!firstProjectId) {
-      toast.error("Create a list in this Space before adding tasks");
+      toast.error(t("space.createListBeforeTasks"));
       return;
     }
     setShowNewTask(true);
@@ -143,7 +145,7 @@ export default function SpaceContainerPage() {
 
   const openMeetingCreate = () => {
     if (!firstProjectId) {
-      toast.error("Create a list in this Space before adding meetings");
+      toast.error(t("space.createListBeforeMeetings"));
       return;
     }
     setShowSchedule(true);
@@ -160,7 +162,7 @@ export default function SpaceContainerPage() {
       if (!res.ok) {
         throw new Error(await readSpaceApiError(res, "Could not update this task status."));
       }
-      toast.success(`Task moved to ${status.replace("_", " ")}`);
+      toast.success(t("space.taskMoved").replace("{status}", status.replace("_", " ")));
       loadDashboard();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update task");
@@ -174,17 +176,17 @@ export default function SpaceContainerPage() {
   }
 
   if (loading) {
-    return <ContainerSkeleton title="Space" />;
+    return <ContainerSkeleton title={t("space.title")} />;
   }
 
   if (error || !data) {
     return (
       <>
-        <Header title="Space" />
+        <Header title={t("space.title")} />
         <div className="p-4 sm:p-6">
           <div className="max-w-lg rounded-xl p-4 glass sm:p-6">
             <h2 className="text-lg font-semibold text-foreground">
-              Couldn&apos;t load this Space
+              {t("space.loadErrorTitle")}
             </h2>
             <p className="text-sm text-muted-foreground mt-2">
               {error || "Could not load this Space. Check your workspace access and try again."}
@@ -197,7 +199,7 @@ export default function SpaceContainerPage() {
               className="mt-4 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
             >
               <RefreshCcw className="w-4 h-4" />
-              Retry
+              {t("common.retry")}
             </button>
           </div>
         </div>
@@ -243,11 +245,14 @@ export default function SpaceContainerPage() {
                       departmentTheme.badge,
                     )}
                   >
-                    Department dashboard
+                    {t("space.departmentDashboard")}
                   </span>
                   {departmentPreset && (
                     <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                      {departmentPreset.default_task_template_id.replace("_", " ")} template
+                      {t("space.templateLabel").replace(
+                        "{template}",
+                        departmentPreset.default_task_template_id.replace("_", " "),
+                      )}
                     </span>
                   )}
                 </div>
@@ -265,29 +270,32 @@ export default function SpaceContainerPage() {
                 className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <FolderPlus className="w-4 h-4" />
-                New folder
+                {t("folder.newFolder")}
               </button>
               <button
                 onClick={() => setShowNewList(true)}
                 className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
               >
                 <ListPlus className="w-4 h-4" />
-                New list
+                {t("folder.newList")}
               </button>
             </div>
           </div>
           <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex rounded-lg border border-white/10 bg-black/20 p-1">
             <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>
-              Dashboard
+              {t("space.dashboardTab")}
             </TabButton>
             <TabButton active={activeTab === "browse"} onClick={() => setActiveTab("browse")}>
-              Browse
+              {t("space.browseTab")}
             </TabButton>
             </div>
             {departmentPreset && (
               <p className="text-xs text-muted-foreground">
-                Starter lists: {departmentPreset.starter_lists.slice(0, 4).join(" · ")}
+                {t("space.starterLists").replace(
+                  "{lists}",
+                  departmentPreset.starter_lists.slice(0, 4).join(" · "),
+                )}
               </p>
             )}
           </div>
@@ -412,6 +420,7 @@ function SpaceDashboard({
   onCreateProject: () => void;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
 }) {
+  const { t } = useLanguage();
   const stats = useMemo(() => {
     const tasks = data?.tasks.items ?? [];
     const done = tasks.filter((task) => task.status === "done").length;
@@ -432,17 +441,17 @@ function SpaceDashboard({
     return (
       <section className="max-w-lg rounded-xl p-4 glass sm:p-6">
         <h3 className="text-base font-semibold text-foreground">
-          Couldn&apos;t load dashboard
+          {t("space.dashboardLoadErrorTitle")}
         </h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Space records are unavailable right now.
+          {t("space.dashboardLoadErrorBody")}
         </p>
         <button
           onClick={onRetry}
           className="mt-4 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
         >
           <RefreshCcw className="w-4 h-4" />
-          Retry
+          {t("common.retry")}
         </button>
       </section>
     );
@@ -709,80 +718,6 @@ function SpaceDashboard({
           </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function BrowseTab({
-  empty,
-  rootFolders,
-  projects,
-  onNewFolder,
-  onNewList,
-}: {
-  empty: boolean;
-  rootFolders: FolderT[];
-  projects: ContainerList[];
-  onNewFolder: () => void;
-  onNewList: () => void;
-}) {
-  if (empty) {
-    return (
-      <section className="glass rounded-xl p-10 text-center">
-        <Folder className="w-10 h-10 mx-auto text-muted-foreground" />
-        <h3 className="mt-4 text-base font-semibold text-foreground">
-          This Space is empty
-        </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Create a folder or list to start organizing work here.
-        </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={onNewFolder}
-            className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg"
-          >
-            <FolderPlus className="w-4 h-4" />
-            New folder
-          </button>
-          <button
-            onClick={onNewList}
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
-          >
-            <ListPlus className="w-4 h-4" />
-            New list
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {rootFolders.length > 0 && (
-        <ContainerSection title="Folders">
-          {rootFolders.map((folder) => (
-            <ContainerTile
-              key={folder.id}
-              href={`/folders/${folder.id}`}
-              icon={<Folder className="w-5 h-5" />}
-              name={folder.name}
-            />
-          ))}
-        </ContainerSection>
-      )}
-
-      {projects.length > 0 && (
-        <ContainerSection title="Lists">
-          {projects.map((project) => (
-            <ContainerTile
-              key={project.id}
-              href={`/projects/${project.id}`}
-              icon={<List className="w-5 h-5" />}
-              name={project.name}
-            />
-          ))}
-        </ContainerSection>
-      )}
     </div>
   );
 }
@@ -1429,90 +1364,6 @@ function Metric({ label, value }: { label: string; value: string | number }) {
       <p className="text-[10px] uppercase text-muted-foreground">{label}</p>
       <p className="mt-1 font-semibold text-foreground">{value}</p>
     </div>
-  );
-}
-
-function ContainerSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-muted-foreground uppercase">
-        {title}
-      </h3>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
-    </section>
-  );
-}
-
-function ContainerTile({
-  href,
-  icon,
-  name,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  name: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3",
-        "hover:bg-white/5 hover:border-white/10 transition-colors",
-      )}
-    >
-      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 text-muted-foreground group-hover:text-foreground">
-        {icon}
-      </span>
-      <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
-        {name}
-      </span>
-      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-    </Link>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6" role="status" aria-busy="true">
-      <span className="sr-only">Loading dashboard...</span>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} className="h-36 rounded-xl bg-white/5 animate-pulse" />
-        ))}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 rounded-xl bg-white/5 animate-pulse" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ContainerSkeleton({ title }: { title: string }) {
-  return (
-    <>
-      <Header title={title} />
-      <div className="space-y-6 p-4 sm:p-6" role="status" aria-busy="true">
-        <span className="sr-only">Loading...</span>
-        <div className="glass rounded-xl p-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-white/5 animate-pulse" />
-            <div className="flex-1 space-y-2">
-              <div className="h-6 w-48 bg-white/5 rounded animate-pulse" />
-              <div className="h-3 w-36 bg-white/5 rounded animate-pulse" />
-            </div>
-          </div>
-        </div>
-        <DashboardSkeleton />
-      </div>
-    </>
   );
 }
 

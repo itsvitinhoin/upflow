@@ -6,6 +6,7 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
+import { readableProjectWhere } from "@/lib/project-access";
 
 async function getHandler(req: NextRequest) {
   const _r = await requireAuth();
@@ -18,7 +19,7 @@ async function getHandler(req: NextRequest) {
   const { limit, cursor } = parsePagination(req, { defaultLimit: 200, maxLimit: 500 });
 
   const rows = await prisma.project.findMany({
-    where: { workspace_id: auth.currentWorkspaceId },
+    where: readableProjectWhere(auth, auth.currentWorkspaceId),
     take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: [{ created_at: "desc" }, { id: "asc" }],

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import * as Sentry from "@sentry/nextjs";
+import { useLanguage } from "@/components/language-provider";
 
 /**
  * Segment-level error boundary for the dashboard group. Because it lives
@@ -19,6 +20,8 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useLanguage();
+
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
@@ -31,16 +34,16 @@ export default function DashboardError({
             <AlertTriangle className="h-5 w-5" aria-hidden />
           </div>
           <h1 className="text-lg font-semibold text-foreground">
-            Something went wrong
+            {t("error.pageTitle")}
           </h1>
         </div>
         <p className="mb-6 text-sm text-muted-foreground">
-          We hit an unexpected error loading this page. Our team has been
-          notified — you can try again or head back to your dashboard.
+          {t("error.pageBody")}
         </p>
         {error.digest ? (
           <p className="mb-6 break-all text-xs text-muted-foreground/70">
-            Reference: <span className="font-mono">{error.digest}</span>
+            {t("error.reference")}:{" "}
+            <span className="font-mono">{error.digest}</span>
           </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
@@ -50,13 +53,13 @@ export default function DashboardError({
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <RefreshCw className="h-4 w-4" aria-hidden />
-            Try again
+            {t("error.retryPage")}
           </button>
           <Link
             href="/"
             className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
-            Back to dashboard
+            {t("error.backDashboard")}
           </Link>
         </div>
       </div>

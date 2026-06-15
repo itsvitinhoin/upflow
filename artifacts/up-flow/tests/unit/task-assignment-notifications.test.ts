@@ -25,15 +25,15 @@ test("task assignee pickers are scoped to active workspace members", () => {
 test("task assignment validates active members and creates assignment notifications", () => {
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
+  const projectAccess = read("src/lib/project-access.ts");
 
-  assert.match(tasksRoute, /status:\s*"active"/);
-  assert.match(taskRoute, /status:\s*"active"/);
+  assert.match(projectAccess, /status:\s*"active"/);
   assert.match(tasksRoute, /type:\s*"assigned"/);
   assert.match(taskRoute, /type:\s*"assigned"/);
   assert.match(tasksRoute, /broadcastNotification\(assignee_id\)/);
   assert.match(taskRoute, /broadcastNotification\(assignee_id\)/);
-  assert.match(tasksRoute, /Assignee is not an active member of this workspace/);
-  assert.match(taskRoute, /Assignee is not an active member of this workspace/);
+  assert.match(tasksRoute, /Assignee is not an active member with access to this project/);
+  assert.match(taskRoute, /Assignee is not an active member with access to this project/);
 });
 
 test("task creation dialog prevents duplicate submits and explains project context", () => {

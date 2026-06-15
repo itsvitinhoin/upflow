@@ -8,6 +8,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
+import { canReadProject } from "@/lib/project-access";
 import { z } from "zod";
 
 const UpdateProjectSchema = z.object({
@@ -44,7 +45,7 @@ async function GET_handler(
   });
 
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, project.workspace_id)) {
+  if (!(await canReadProject(auth, project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return NextResponse.json(project);
