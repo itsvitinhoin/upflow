@@ -28,7 +28,7 @@ export function isTrackerConfigured(): boolean {
 }
 
 export function isTrackerInitialized(): boolean {
-  return initialized;
+  return initialized || hasActiveSentryClient();
 }
 
 /**
@@ -40,7 +40,7 @@ export function sendToTracker(
   error: unknown,
   context?: Record<string, unknown>,
 ): string | null {
-  if (!initialized) return null;
+  if (!isTrackerInitialized()) return null;
   try {
     const eventId = Sentry.captureException(error, {
       tags: { scope },
@@ -71,7 +71,7 @@ export function captureError(
   logError(scope, error, context);
   // Return the event id from the most-recent send if available. Sentry's
   // last-event id is the right one because logError just called sendToTracker.
-  if (!initialized) return null;
+  if (!isTrackerInitialized()) return null;
   try {
     return Sentry.lastEventId() ?? null;
   } catch {
@@ -88,7 +88,7 @@ export function setRequestContext(ctx: {
   workspaceId?: string;
   route?: string;
 }): void {
-  if (!initialized) return;
+  if (!isTrackerInitialized()) return;
   try {
     Sentry.getCurrentScope().setUser({ id: ctx.userId ?? undefined });
     if (ctx.workspaceId) {
@@ -114,9 +114,18 @@ export function pingTracker(): {
 } {
   return {
     configured: isTrackerConfigured(),
-    initialized,
+    initialized: isTrackerInitialized(),
     release: process.env.SENTRY_RELEASE ?? null,
   };
+}
+
+function hasActiveSentryClient(): boolean {
+  try {
+    const sentry = Sentry as unknown as { getClient?: () => unknown };
+    return typeof sentry.getClient === "function" && Boolean(sentry.getClient());
+  } catch {
+    return false;
+  }
 }
 
 /**
