@@ -19,11 +19,11 @@ export async function register() {
   if (!dsn) return;
 
   const Sentry = await import("@sentry/nextjs");
-  const { markInitialized } = await import("@/lib/error-tracker");
+  const { getTrackerRelease, markInitialized } = await import("@/lib/error-tracker");
 
   const common = {
     dsn,
-    release: process.env.SENTRY_RELEASE,
+    release: getTrackerRelease() ?? undefined,
     environment: process.env.NODE_ENV,
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
     // PII off by default; we attach user.id explicitly via setRequestContext().

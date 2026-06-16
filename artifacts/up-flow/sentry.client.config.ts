@@ -7,11 +7,14 @@ import * as Sentry from "@sentry/nextjs";
 import { markInitialized } from "@/lib/error-tracker";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+const release =
+  process.env.NEXT_PUBLIC_SENTRY_RELEASE ??
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
 
 if (dsn) {
   Sentry.init({
     dsn,
-    release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
+    release,
     environment: process.env.NODE_ENV,
     tracesSampleRate: Number(
       process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE ?? "0.1",

@@ -31,6 +31,15 @@ export function isTrackerInitialized(): boolean {
   return initialized || hasActiveSentryClient();
 }
 
+export function getTrackerRelease(): string | null {
+  return (
+    process.env.SENTRY_RELEASE ??
+    process.env.NEXT_PUBLIC_SENTRY_RELEASE ??
+    process.env.VERCEL_GIT_COMMIT_SHA ??
+    null
+  );
+}
+
 /**
  * Used by `logError()` to forward every server-side error to Sentry.
  * Returns silently when the SDK isn't initialized.
@@ -115,7 +124,7 @@ export function pingTracker(): {
   return {
     configured: isTrackerConfigured(),
     initialized: isTrackerInitialized(),
-    release: process.env.SENTRY_RELEASE ?? null,
+    release: getTrackerRelease(),
   };
 }
 
