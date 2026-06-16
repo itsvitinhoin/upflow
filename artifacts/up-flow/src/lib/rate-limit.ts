@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import net from "node:net";
+import tls from "node:tls";
 import { logError } from "@/lib/log-error";
 
 /**
@@ -63,6 +65,18 @@ function upstashConfig(): { url: string; token: string } | null {
   return { url, token };
 }
 
+function redisUrlConfig(): string | null {
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "redis:" && parsed.protocol !== "rediss:") return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 let warnedMissingStore = false;
 function warnOnce(reason: string, err?: unknown): void {
   // Always log the first occurrence so on-call notices degraded protection;
@@ -112,6 +126,119 @@ async function upstashPipeline(
   } finally {
     clearTimeout(timer);
   }
+}
+
+function respCommand(args: (string | number)[]): Buffer {
+  const parts: Buffer[] = [Buffer.from(`*${args.length}\r\n`)];
+  for (const arg of args) {
+    const value = String(arg);
+    const data = Buffer.from(value);
+    parts.push(Buffer.from(`$${data.byteLength}\r\n`), data, Buffer.from("\r\n"));
+  }
+  return Buffer.concat(parts);
+}
+
+function parseRespReply(
+  buffer: Buffer,
+  offset: number,
+): { value: unknown; nextOffset: number } | null {
+  if (offset >= buffer.length) return null;
+  const prefix = String.fromCharCode(buffer[offset]!);
+  const lineEnd = buffer.indexOf("\r\n", offset);
+  if (lineEnd === -1) return null;
+  const line = buffer.subarray(offset + 1, lineEnd).toString();
+  const next = lineEnd + 2;
+
+  if (prefix === "+") return { value: line, nextOffset: next };
+  if (prefix === "-") throw new Error(`redis: ${line}`);
+  if (prefix === ":") return { value: Number(line), nextOffset: next };
+
+  if (prefix === "$") {
+    const length = Number(line);
+    if (length === -1) return { value: null, nextOffset: next };
+    const dataEnd = next + length;
+    if (buffer.length < dataEnd + 2) return null;
+    return {
+      value: buffer.subarray(next, dataEnd).toString(),
+      nextOffset: dataEnd + 2,
+    };
+  }
+
+  if (prefix === "*") {
+    const count = Number(line);
+    if (count === -1) return { value: null, nextOffset: next };
+    const values: unknown[] = [];
+    let childOffset = next;
+    for (let i = 0; i < count; i += 1) {
+      const child = parseRespReply(buffer, childOffset);
+      if (!child) return null;
+      values.push(child.value);
+      childOffset = child.nextOffset;
+    }
+    return { value: values, nextOffset: childOffset };
+  }
+
+  throw new Error(`redis: unsupported RESP prefix ${prefix}`);
+}
+
+async function redisUrlPipeline(
+  redisUrl: string,
+  commands: (string | number)[][],
+  timeoutMs = 500,
+): Promise<unknown[]> {
+  const parsed = new URL(redisUrl);
+  const useTls = parsed.protocol === "rediss:";
+  const port = Number(parsed.port || (useTls ? 6380 : 6379));
+  const host = parsed.hostname;
+  const authCommands: (string | number)[][] = [];
+  const username = decodeURIComponent(parsed.username || "");
+  const password = decodeURIComponent(parsed.password || "");
+  if (username && password) authCommands.push(["AUTH", username, password]);
+  else if (password) authCommands.push(["AUTH", password]);
+
+  const expectedReplies = authCommands.length + commands.length;
+  const payload = Buffer.concat([...authCommands, ...commands].map(respCommand));
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let buffer = Buffer.alloc(0);
+    const replies: unknown[] = [];
+    const socket = useTls
+      ? tls.connect({ host, port, servername: host })
+      : net.connect({ host, port });
+
+    const timer = setTimeout(() => {
+      finish(new Error("redis: request timed out"));
+    }, timeoutMs);
+
+    function finish(err?: Error) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.destroy();
+      if (err) reject(err);
+      else resolve(replies.slice(authCommands.length));
+    }
+
+    socket.once("error", (err) => finish(err));
+    socket.once("connect", () => socket.write(payload));
+    socket.on("data", (chunk) => {
+      try {
+        buffer = Buffer.concat([buffer, chunk]);
+        let offset = 0;
+        while (replies.length < expectedReplies) {
+          const parsedReply = parseRespReply(buffer, offset);
+          if (!parsedReply) break;
+          replies.push(parsedReply.value);
+          offset = parsedReply.nextOffset;
+        }
+        if (offset > 0) buffer = buffer.subarray(offset);
+        if (replies.length >= expectedReplies) finish();
+      } catch (err) {
+        finish(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  });
 }
 
 function memoryCheck(
@@ -174,8 +301,9 @@ export async function checkRateLimit(
   const bucketKey = `${bucket}:${ipHash}`;
 
   const cfg = upstashConfig();
-  if (!cfg) {
-    warnOnce("UPSTASH_REDIS_REST_URL / TOKEN not configured");
+  const redisUrl = redisUrlConfig();
+  if (!cfg && !redisUrl) {
+    warnOnce("UPSTASH_REDIS_REST_URL / TOKEN or REDIS_URL not configured");
     return memoryCheck(bucketKey, opts, { bucket, ipHash });
   }
 
@@ -185,12 +313,15 @@ export async function checkRateLimit(
   const redisKey = `rl:${bucket}:${ipHash}:${windowStart}`;
 
   try {
-    const [countRaw] = await upstashPipeline(cfg, [
+    const commands: (string | number)[][] = [
       ["INCR", redisKey],
       ["EXPIRE", redisKey, ttlSec, "NX"],
-    ]);
+    ];
+    const [countRaw] = cfg
+      ? await upstashPipeline(cfg, commands)
+      : await redisUrlPipeline(redisUrl!, commands);
     const count = typeof countRaw === "number" ? countRaw : Number(countRaw);
-    if (!Number.isFinite(count)) throw new Error("upstash: non-numeric INCR result");
+    if (!Number.isFinite(count)) throw new Error("redis: non-numeric INCR result");
 
     const resetAt = windowStart + opts.windowMs;
     if (count > opts.max) {
@@ -258,11 +389,14 @@ export async function pingRateLimiter(): Promise<{
   error?: string;
 }> {
   const cfg = upstashConfig();
-  if (!cfg) {
+  const redisUrl = redisUrlConfig();
+  if (!cfg && !redisUrl) {
     return { configured: false, ok: true, backend: "memory" };
   }
   try {
-    const [pong] = await upstashPipeline(cfg, [["PING"]], 500);
+    const [pong] = cfg
+      ? await upstashPipeline(cfg, [["PING"]], 500)
+      : await redisUrlPipeline(redisUrl!, [["PING"]], 500);
     if (pong !== "PONG") throw new Error(`unexpected ping result: ${String(pong)}`);
     return { configured: true, ok: true, backend: "redis" };
   } catch (err) {

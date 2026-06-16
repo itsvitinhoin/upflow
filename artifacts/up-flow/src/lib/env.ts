@@ -17,6 +17,7 @@ const OPTIONAL = [
   "APP_URL",
   // Shared rate-limit store. When unset, rate-limit.ts falls back to an
   // in-process Map and logs a degraded-protection warning at startup.
+  "REDIS_URL",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
   // Error tracking. When unset, error-tracker.ts is a no-op so local dev
