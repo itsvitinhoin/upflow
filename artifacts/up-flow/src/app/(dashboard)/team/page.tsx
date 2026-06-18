@@ -964,7 +964,7 @@ export default function TeamPage() {
           submitLabel={t("invite.submitDefault")}
           successLabel={t("invite.successDefault")}
           defaultRole="member"
-          defaultMode="personal_workspace"
+          defaultMode="workspace_access"
           hideRole
           onClose={() => {
             setInviteOpen(false);

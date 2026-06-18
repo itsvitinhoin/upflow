@@ -6,7 +6,7 @@ export async function reconcileAcceptedWorkspaceInvites(workspaceId: string) {
     where: {
       workspace_id: workspaceId,
       accepted_at: { not: null },
-      tester_invite: true,
+      OR: [{ tester_invite: true }, { invite_mode: "workspace_access" }],
     },
     select: {
       id: true,

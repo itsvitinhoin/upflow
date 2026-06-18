@@ -23,7 +23,7 @@ export default function InviteDialog({
   hideRole = false,
   workspaceId,
   testerMode = false,
-  defaultMode = "personal_workspace",
+  defaultMode = "workspace_access",
   hideMode = false,
   onSuccess,
 }: {

@@ -147,7 +147,8 @@ test("invite modes support personal workspaces and current workspace access", ()
   assert.match(route, /mode\?:\s*InviteMode/);
   assert.match(route, /const inviteMode:\s*InviteMode = testerInvite/);
   assert.match(route, /invite_mode:\s*inviteMode/);
-  assert.match(route, /body\.mode === "workspace_access"/);
+  assert.match(route, /body\.mode === "personal_workspace"/);
+  assert.match(route, /:\s*"workspace_access"/);
   assert.match(acceptRoute, /ensureOwnedWorkspace/);
   assert.match(acceptRoute, /source_workspace_id/);
   assert.match(acceptRoute, /target_workspace_id/);
@@ -156,6 +157,7 @@ test("invite modes support personal workspaces and current workspace access", ()
   assert.match(inviteRegisterRoute, /source_workspace_id/);
   assert.match(inviteRegisterRoute, /invite\.invite_mode === "workspace_access"/);
   assert.match(inviteReconciliation, /tester_invite:\s*true/);
+  assert.match(inviteReconciliation, /invite_mode:\s*"workspace_access"/);
   assert.match(acceptPage, /t\("invite\.personalWorkspaceExplanation"/);
   assert.match(acceptPage, /t\("invite\.workspaceAccessExplanation"/);
 });

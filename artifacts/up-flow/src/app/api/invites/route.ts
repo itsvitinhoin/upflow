@@ -128,9 +128,9 @@ async function POST_handler(req: NextRequest) {
   const testerInvite = body.tester_invite === true;
   const inviteMode: InviteMode = testerInvite
     ? "workspace_access"
-    : body.mode === "workspace_access"
-      ? "workspace_access"
-      : "personal_workspace";
+    : body.mode === "personal_workspace"
+      ? "personal_workspace"
+      : "workspace_access";
   const role: "admin" | "member" =
     inviteMode === "workspace_access" && body.role === "admin"
       ? "admin"
