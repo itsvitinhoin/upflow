@@ -127,16 +127,16 @@ export function TeamTimeline({
     focusHour !== null && Math.abs(h - focusHour) <= 2;
 
   return (
-    <section className="glass relative overflow-hidden rounded-2xl p-4 sm:p-5">
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-400 via-primary to-upflow-success" />
+    <section className="command-section-panel relative overflow-hidden rounded-[1.4rem] p-4 sm:p-5">
+      <div className="pointer-events-none absolute left-0 top-0 h-full w-px bg-gradient-to-b from-primary via-violet-400 to-upflow-success opacity-80 shadow-[0_0_28px_rgba(99,102,241,0.75)]" />
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300">
+            <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-[0_0_24px_rgba(99,102,241,0.28)]">
               <Users2 className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="text-base font-semibold text-foreground">
                 Team timeline
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -169,10 +169,10 @@ export function TeamTimeline({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-muted-foreground">
+          <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground">
             {rows.length} people
           </span>
-          <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300">
+          <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.14)]">
             {scheduledBlocks} blocks
           </span>
           <div className="relative" ref={optionsRef}>
@@ -240,14 +240,14 @@ export function TeamTimeline({
                 h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`
               }`}
               className={cn(
-                "min-w-[44px] flex-1 rounded-lg px-2 py-1.5 text-center text-xs font-medium transition-all hover:text-foreground",
+                "min-w-[48px] flex-1 rounded-xl px-2 py-2 text-center text-xs font-medium transition-all hover:text-foreground",
                 isFocus
-                  ? "bg-primary text-primary-foreground ring-2 ring-primary/60"
+                  ? "bg-primary text-primary-foreground shadow-[0_0_24px_rgba(99,102,241,0.45)] ring-2 ring-primary/60"
                   : isCurrent
-                    ? "bg-primary/80 text-primary-foreground"
+                    ? "bg-primary/80 text-primary-foreground shadow-[0_0_20px_rgba(99,102,241,0.32)]"
                     : inWindow
                       ? "bg-primary/20 text-foreground"
-                      : "bg-white/5 text-muted-foreground hover:bg-white/10",
+                      : "bg-white/[0.06] text-muted-foreground hover:bg-white/10",
               )}
             >
               {h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`}
@@ -275,12 +275,12 @@ export function TeamTimeline({
                 key={u.id}
                 onClick={() => toast(`Open ${u.name}'s schedule`)}
                 className={cn(
-                  "-mx-1 flex w-full items-center gap-3 rounded-lg p-1 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                  "-mx-1 flex w-full items-center gap-3 rounded-xl p-1 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                   !rowMatches && "opacity-30",
                 )}
               >
                 <div className="flex w-[104px] flex-shrink-0 items-center gap-2 sm:w-[120px]">
-                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary shadow-[0_0_18px_rgba(99,102,241,0.18)]">
                     {getInitials(u.name)}
                   </div>
                   <span className="truncate text-left text-xs text-foreground">
@@ -289,7 +289,7 @@ export function TeamTimeline({
                 </div>
                 <div
                   className={cn(
-                    "relative flex-1 overflow-hidden rounded-lg bg-white/5",
+                    "relative flex-1 overflow-hidden rounded-xl border border-white/5 bg-white/[0.06]",
                     compact ? "h-6" : "h-9",
                   )}
                 >
@@ -323,7 +323,7 @@ export function TeamTimeline({
                         key={i}
                         title={`${u.name} - ${b.label} - ${fmtH(b.start)} to ${fmtH(b.end)}`}
                         className={cn(
-                          "absolute bottom-1 top-1 flex items-center truncate rounded-md border-l-2 px-2 text-[10px] font-medium text-foreground/80 transition-opacity",
+                          "absolute bottom-1 top-1 flex items-center truncate rounded-md border-l-2 px-2 text-[10px] font-medium text-foreground/90 shadow-[0_0_18px_rgba(59,130,246,0.18)] transition-opacity",
                           color,
                           (dimByLabel || dimByHour) && "opacity-30",
                         )}

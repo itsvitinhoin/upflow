@@ -32,11 +32,11 @@ export function TodayFocusPanel({
   const hasFocusItems = tasks.length > 0 || visibleMeetings.length > 0;
 
   return (
-    <section className="glass overflow-hidden rounded-2xl">
-      <div className="flex items-start justify-between gap-3 border-b border-white/5 bg-white/[0.02] px-5 py-4">
+    <section className="command-section-panel overflow-hidden rounded-[1.4rem]">
+      <div className="flex items-start justify-between gap-3 border-b border-white/5 bg-white/[0.03] px-5 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-upflow-danger/15 text-upflow-danger">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-upflow-danger/15 text-upflow-danger shadow-[0_0_20px_rgba(251,113,133,0.18)]">
               <AlertCircle className="h-4 w-4" />
             </span>
             <h3 className="text-sm font-semibold text-foreground">{t("dashboard.todayFocus")}</h3>
@@ -69,7 +69,7 @@ export function TodayFocusPanel({
             <button
               type="button"
               onClick={onCreateTask}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              className="upflow-gradient-button mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
               {t("dashboard.newTask")}
@@ -96,7 +96,7 @@ export function TodayFocusPanel({
                     key={meeting.id}
                     type="button"
                     onClick={onOpenMeetings}
-                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-left hover:border-sky-300/50"
+                    className="flex w-full items-center justify-between gap-3 rounded-xl border border-sky-400/25 bg-sky-400/10 px-3 py-2 text-left shadow-[0_0_18px_rgba(56,189,248,0.08)] hover:border-sky-300/50"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-medium text-foreground">

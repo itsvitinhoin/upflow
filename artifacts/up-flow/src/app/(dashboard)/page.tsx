@@ -322,15 +322,15 @@ export default function DashboardPage() {
   return (
     <>
       <Header title={t("dashboard.title")} />
-      <main className="mx-auto w-full max-w-[1480px] space-y-5 overflow-x-hidden p-4 sm:p-6">
-          <section className="upflow-panel rounded-2xl p-5 sm:p-6">
+      <main className="command-dashboard-shell mx-auto w-full max-w-[1540px] space-y-5 overflow-x-hidden p-4 sm:p-6">
+          <section className="command-hero rounded-[1.4rem] p-5 sm:p-6 lg:p-7">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/60 to-transparent" />
             <div className="relative flex flex-col gap-6 xl:flex-row xl:items-stretch xl:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
+              <div className="min-w-0 xl:max-w-[760px]">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary drop-shadow-[0_0_14px_rgba(59,130,246,0.55)]">
                   {t("dashboard.commandCenter")}
                 </p>
-                <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+                <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-foreground sm:text-4xl lg:text-5xl">
                   {greeting
                     ? t("dashboard.good", {
                         greeting: t(`dashboard.greeting.${greeting}`),
@@ -338,7 +338,7 @@ export default function DashboardPage() {
                       })
                     : t("dashboard.hi", { name: firstName })}
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
                   {t("dashboard.summary")}
                 </p>
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -347,7 +347,7 @@ export default function DashboardPage() {
                   <SignalBadge tone="info" label={liveTimerLabel} />
                 </div>
               </div>
-              <div className="flex min-w-0 flex-col gap-4 xl:w-[360px]">
+              <div className="flex min-w-0 flex-col gap-4 xl:w-[410px] xl:items-end">
                 <QuickCreateMenu
                   onCreateTask={() => setShowNewTask(true)}
                   onCreateProject={() => setShowNewProject(true)}
@@ -355,7 +355,7 @@ export default function DashboardPage() {
                   onCreateCompany={() => setShowCompany(true)}
                   onInvite={() => setShowInvite(true)}
                 />
-                <div className="upflow-card rounded-xl p-4">
+                <div className="command-pulse-card w-full rounded-2xl p-5">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                       {t("dashboard.operationalPulse")}
@@ -384,7 +384,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="relative mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="relative mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <SummaryPill
                 label={t("dashboard.tasks")}
                 value={tasks.length}
@@ -405,6 +405,13 @@ export default function DashboardPage() {
                 hint={t("dashboard.workspaceTrail")}
                 tone="info"
                 onClick={() => setCommandDrawer("recent_activity")}
+              />
+              <SummaryPill
+                label={t("dashboard.teamWorkload")}
+                value={users.length}
+                hint={t("dashboard.membersWithSignals", { count: commandCenterData.team_workload.count })}
+                tone="violet"
+                onClick={() => setCommandDrawer("team_workload")}
               />
             </div>
           </section>
@@ -491,7 +498,7 @@ export default function DashboardPage() {
               updating={updating}
             />
 
-            <section className="upflow-panel rounded-2xl p-5">
+            <section className="command-section-panel rounded-[1.4rem] p-5">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-upflow-warning via-primary to-upflow-success" />
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -502,7 +509,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={() => setShowNewTask(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(59,130,246,0.22)] transition-all hover:-translate-y-0.5"
+                  className="upflow-gradient-button inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-white transition-all hover:-translate-y-0.5"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   {t("dashboard.newTask")}
@@ -546,14 +553,14 @@ export default function DashboardPage() {
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <button
                   onClick={() => setCommandDrawer("team_workload")}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                  className="command-metric-card rounded-xl border border-white/10 px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                 >
                   <span className="block font-semibold text-foreground">{t("dashboard.teamWorkload")}</span>
                   {t("dashboard.membersWithSignals", { count: commandCenterData.team_workload.count })}
                 </button>
                 <button
                   onClick={() => setCommandDrawer("recent_activity")}
-                  className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                  className="command-metric-card rounded-xl border border-white/10 px-3 py-3 text-left text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
                 >
                   <span className="block font-semibold text-foreground">{t("dashboard.recentActivity")}</span>
                   {t("dashboard.traceableRecords", { count: commandCenterData.recent_activity.count })}
@@ -800,7 +807,7 @@ function SignalBadge({ tone, label }: { tone: DashboardTone; label: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+        "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_18px_rgba(59,130,246,0.08)]",
         styles.surface,
         styles.border,
         styles.text,
@@ -816,7 +823,7 @@ function SignalBadge({ tone, label }: { tone: DashboardTone; label: string }) {
 function PulseLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
       <span className="min-w-0 truncate text-right text-sm font-semibold text-foreground">
         {value}
       </span>
@@ -843,14 +850,14 @@ function SummaryPill({
       type="button"
       onClick={onClick}
       className={cn(
-        "group flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left upflow-card upflow-card-hover upflow-focus-glow",
+        "command-metric-card group flex min-h-[112px] items-center justify-between gap-4 rounded-2xl px-5 py-4 text-left upflow-focus-glow",
         styles.border,
       )}
     >
       <span className="flex min-w-0 items-center gap-3">
-        <span className={cn("h-9 w-1 rounded-full", styles.bar)} />
+        <span className={cn("h-12 w-1 rounded-full shadow-[0_0_18px_currentColor]", styles.bar)} />
         <span className="min-w-0">
-        <span className="block text-xs font-semibold uppercase text-muted-foreground">
+        <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
           {label}
         </span>
         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
@@ -858,7 +865,7 @@ function SummaryPill({
         </span>
         </span>
       </span>
-      <span className={cn("shrink-0 text-xl font-bold", styles.text)}>{value}</span>
+      <span className={cn("shrink-0 text-3xl font-bold tracking-tight drop-shadow-[0_0_14px_currentColor]", styles.text)}>{value}</span>
     </button>
   );
 }
@@ -882,7 +889,7 @@ function StatusCountButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-left upflow-card upflow-card-hover upflow-focus-glow",
+        "command-metric-card flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-left upflow-focus-glow",
         styles.border,
       )}
     >
@@ -924,27 +931,27 @@ function CommandTile({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "group relative rounded-xl p-4 text-left upflow-card upflow-card-hover upflow-focus-glow",
+        "command-metric-card group relative min-h-[142px] rounded-2xl p-4 text-left upflow-focus-glow sm:p-5",
         styles.border,
-        active && "border-primary/70 shadow-[0_0_34px_rgba(139,92,246,0.20)]",
+        active && "border-primary/70 shadow-[0_0_44px_rgba(139,92,246,0.26)]",
       )}
     >
       <span
         className={cn(
-          "absolute inset-x-0 top-0 h-0.5 opacity-80 transition-opacity group-hover:opacity-100",
+          "absolute inset-x-0 top-0 h-0.5 opacity-90 shadow-[0_0_18px_currentColor] transition-opacity group-hover:opacity-100",
           styles.bar,
         )}
       />
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-semibold uppercase text-muted-foreground">
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {title}
         </span>
-        <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl", styles.icon)}>
+        <span className={cn("flex h-10 w-10 items-center justify-center rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.12)]", styles.icon)}>
           {icon}
         </span>
       </div>
       <div className="mt-4 flex items-end justify-between gap-3">
-        <div className="text-3xl font-bold tracking-tight text-foreground">{value}</div>
+        <div className={cn("text-3xl font-bold tracking-tight drop-shadow-[0_0_14px_currentColor]", styles.text)}>{value}</div>
         <ArrowRight className={cn("mb-1 h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100", styles.text)} />
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
