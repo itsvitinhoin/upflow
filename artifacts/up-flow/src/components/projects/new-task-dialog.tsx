@@ -5,7 +5,12 @@ import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, TaskAssignee } from "@/lib/types";
-import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
+import {
+  buildTaskBrief,
+  DEFAULT_TASK_TEMPLATE_ID,
+  getTaskTitleFromTemplateValues,
+  type TaskTemplateId,
+} from "@/lib/task-templates";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
 import { useLanguage } from "@/components/language-provider";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
@@ -96,9 +101,9 @@ export default function NewTaskDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    const cleanTitle = title.trim();
+    const cleanTitle = title.trim() || getTaskTitleFromTemplateValues(templateValues);
     if (!cleanTitle) {
-      toast.error("Add a clear task title before creating it.");
+      toast.error("Add a deliverable title or fill Objective before creating it.");
       return;
     }
     if (!selectedProject) {
@@ -184,11 +189,14 @@ export default function NewTaskDialog({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Example: Approve Meta Ads creative set"
+              placeholder="Example: Approve Meta Ads creative set, or fill Objective below"
               aria-required="true"
               autoFocus
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              If you start from the structured brief, Objective or Deliverable can be used as the task title.
+            </p>
           </div>
 
           {!projectId && (

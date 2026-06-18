@@ -39,7 +39,14 @@ test("task assignment validates active members and creates assignment notificati
 test("task creation dialog prevents duplicate submits and explains project context", () => {
   const newTaskDialog = read("src/components/projects/new-task-dialog.tsx");
   const createTaskPanel = read("src/components/projects/create-task-panel.tsx");
+  const taskTemplates = read("src/lib/task-templates.ts");
 
+  assert.match(taskTemplates, /getTaskTitleFromTemplateValues/);
+  assert.match(taskTemplates, /TASK_TITLE_FIELD_PRIORITY/);
+  assert.match(newTaskDialog, /getTaskTitleFromTemplateValues\(templateValues\)/);
+  assert.match(createTaskPanel, /getTaskTitleFromTemplateValues\(templateValues\)/);
+  assert.match(newTaskDialog, /Add a deliverable title or fill Objective before creating it/);
+  assert.match(createTaskPanel, /Add a deliverable title or fill Objective before creating it/);
   assert.match(newTaskDialog, /if \(loading\) return/);
   assert.match(newTaskDialog, /projectSelectionLoading/);
   assert.doesNotMatch(newTaskDialog, /disabled=\{loading \|\| projectsLoading \|\| !title\.trim\(\) \|\| !selectedProject\}/);

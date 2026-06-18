@@ -9,7 +9,12 @@ import CustomFieldInput from "@/components/projects/custom-field-input";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
-import { buildTaskBrief, DEFAULT_TASK_TEMPLATE_ID, type TaskTemplateId } from "@/lib/task-templates";
+import {
+  buildTaskBrief,
+  DEFAULT_TASK_TEMPLATE_ID,
+  getTaskTitleFromTemplateValues,
+  type TaskTemplateId,
+} from "@/lib/task-templates";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
 
 interface Props {
@@ -90,8 +95,9 @@ export default function CreateTaskPanel({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-    if (!title.trim()) {
-      toast.error(t("task.titleRequired"));
+    const cleanTitle = title.trim() || getTaskTitleFromTemplateValues(templateValues);
+    if (!cleanTitle) {
+      toast.error("Add a deliverable title or fill Objective before creating it.");
       return;
     }
     setSubmitting(true);
@@ -104,7 +110,7 @@ export default function CreateTaskPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim(),
+          title: cleanTitle,
           description: buildTaskBrief({
             templateId: taskTemplateId,
             values: templateValues,
@@ -177,12 +183,15 @@ export default function CreateTaskPanel({
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={t("task.taskName")}
+                placeholder={`${t("task.taskName")} or use Objective below`}
                 autoFocus
                 aria-required="true"
                 className="flex-1 bg-transparent text-xl font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none py-1"
               />
             </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Add a direct title here, or fill the Objective/Deliverable field below and UP Flow will use it as the title.
+            </p>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

@@ -171,6 +171,31 @@ export function getTaskTemplate(id: string | undefined | null) {
   return TASK_TEMPLATES.find((template) => template.id === id) ?? TASK_TEMPLATES[0];
 }
 
+const TASK_TITLE_FIELD_PRIORITY = [
+  "objective",
+  "deliverable",
+  "asset_type",
+  "target_account",
+  "product",
+  "lead_company",
+  "client",
+  "request_type",
+  "issue_type",
+  "offer",
+  "campaign",
+  "task",
+  "title",
+] as const;
+
+export function getTaskTitleFromTemplateValues(values: Record<string, string>) {
+  for (const key of TASK_TITLE_FIELD_PRIORITY) {
+    const value = values[key]?.trim();
+    if (value) return value;
+  }
+
+  return Object.values(values).find((value) => value.trim().length > 0)?.trim() ?? "";
+}
+
 export function buildTaskBrief(input: {
   templateId: TaskTemplateId;
   values: Record<string, string>;
