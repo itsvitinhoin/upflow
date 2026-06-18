@@ -36,6 +36,23 @@ test("task assignment validates active members and creates assignment notificati
   assert.match(taskRoute, /Assignee is not an active member with access to this project/);
 });
 
+test("task assignment notifications navigate to the exact assigned task", () => {
+  const notificationLinks = read("src/lib/notification-links.ts");
+  const header = read("src/components/layout/header.tsx");
+  const inbox = read("src/app/(dashboard)/inbox/page.tsx");
+  const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
+
+  assert.match(notificationLinks, /new URLSearchParams\(\{\s*task:\s*notification\.task\.id\s*\}\)/);
+  assert.match(notificationLinks, /\/projects\/\$\{notification\.task\.project\.id\}\?\$\{params\.toString\(\)\}/);
+  assert.match(header, /getNotificationHref\(notification\)/);
+  assert.match(header, /router\.push\(href\)/);
+  assert.match(header, /type="button"/);
+  assert.match(inbox, /getNotificationHref\(n\)/);
+  assert.match(projectPage, /useSearchParams/);
+  assert.match(projectPage, /searchParams\?\.get\("task"\)/);
+  assert.match(projectPage, /setSelectedTask\(task\)/);
+});
+
 test("task creation dialog prevents duplicate submits and explains project context", () => {
   const newTaskDialog = read("src/components/projects/new-task-dialog.tsx");
   const createTaskPanel = read("src/components/projects/create-task-panel.tsx");

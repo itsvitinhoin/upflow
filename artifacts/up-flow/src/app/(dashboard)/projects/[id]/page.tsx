@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
@@ -37,8 +37,10 @@ const DEFAULT_TOOLBAR: ToolbarState = {
 export default function ProjectPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
   const id = (params?.id ?? "") as string;
+  const focusedTaskId = searchParams?.get("task") ?? "";
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<TaskAssignee[]>([]);
@@ -88,6 +90,12 @@ export default function ProjectPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!focusedTaskId || loading) return;
+    const task = tasks.find((item) => item.id === focusedTaskId);
+    if (task) setSelectedTask(task);
+  }, [focusedTaskId, loading, tasks]);
 
   const canManageFields = useMemo(() => {
     if (!me) return false;
@@ -237,9 +245,13 @@ export default function ProjectPage() {
         <TaskDetailSheet
           task={selectedTask}
           users={users}
-          onClose={() => setSelectedTask(null)}
+          onClose={() => {
+            setSelectedTask(null);
+            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+          }}
           onUpdate={() => {
             setSelectedTask(null);
+            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
             loadData();
           }}
         />

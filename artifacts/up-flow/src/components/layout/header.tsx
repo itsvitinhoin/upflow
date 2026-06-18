@@ -9,6 +9,7 @@ import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getCachedJson } from "@/lib/client-cache";
+import { getNotificationHref } from "@/lib/notification-links";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
 
@@ -187,6 +188,33 @@ export default function Header({ title }: HeaderProps) {
     });
   };
 
+  const handleOpenNotification = async (notification: Notification) => {
+    const href = getNotificationHref(notification);
+    if (!notification.read) {
+      setUnreadCount((count) => Math.max(0, count - 1));
+      setNotifications((prev) => {
+        const next = prev.map((n) =>
+          n.id === notification.id ? { ...n, read: true } : n,
+        );
+        notificationCache = { items: next, loadedAt: Date.now() };
+        return next;
+      });
+      fetch(`/api/notifications/${notification.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ read: true }),
+      }).catch(() => {
+        fetchNotifications(true);
+        refreshUnreadCount(true);
+      });
+    }
+
+    if (href) {
+      setPanelOpen(false);
+      router.push(href);
+    }
+  };
+
   const handleSearch = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
@@ -272,10 +300,12 @@ export default function Header({ title }: HeaderProps) {
                     </div>
                   ) : (
                     notifications.map((n) => (
-                      <div
+                      <button
+                        type="button"
                         key={n.id}
+                        onClick={() => handleOpenNotification(n)}
                         className={cn(
-                          "flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors",
+                          "flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors",
                           !n.read && "bg-primary/5"
                         )}
                       >
@@ -295,7 +325,7 @@ export default function Header({ title }: HeaderProps) {
                         {!n.read && (
                           <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
                         )}
-                      </div>
+                      </button>
                     ))
                   )}
                 </div>

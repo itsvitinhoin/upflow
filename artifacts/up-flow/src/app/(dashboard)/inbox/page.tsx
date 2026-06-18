@@ -15,6 +15,7 @@ import {
   AtSign,
 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import { getNotificationHref } from "@/lib/notification-links";
 import type { Notification } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -238,17 +239,13 @@ export default function InboxPage() {
           ) : (
             <ul className="divide-y divide-white/5">
               {visible.map((n) => {
-                const taskHref = n.task?.project?.id
-                  ? `/projects/${n.task.project.id}`
-                  : n.type === "member_joined"
-                    ? "/team"
-                    : null;
+                const notificationHref = getNotificationHref(n);
                 const Row = (
                   <div
                     className={cn(
                       "flex items-start gap-3 px-5 py-4 transition-colors",
                       !n.read && "bg-primary/5",
-                      taskHref && "hover:bg-white/5 cursor-pointer"
+                      notificationHref && "hover:bg-white/5 cursor-pointer"
                     )}
                   >
                     <div className="mt-0.5 flex-shrink-0">{iconFor(n.type)}</div>
@@ -292,8 +289,8 @@ export default function InboxPage() {
                 );
                 return (
                   <li key={n.id}>
-                    {taskHref ? (
-                      <Link href={taskHref} onClick={() => !n.read && markRead(n.id)}>
+                    {notificationHref ? (
+                      <Link href={notificationHref} onClick={() => !n.read && markRead(n.id)}>
                         {Row}
                       </Link>
                     ) : (
