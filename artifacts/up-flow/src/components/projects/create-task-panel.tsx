@@ -89,6 +89,7 @@ export default function CreateTaskPanel({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     if (!title.trim()) {
       toast.error(t("task.titleRequired"));
       return;
@@ -139,6 +140,7 @@ export default function CreateTaskPanel({
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <form
         onSubmit={submit}
+        noValidate
         className="fixed right-0 top-0 z-50 flex h-dvh w-full flex-col border-l border-border bg-background shadow-2xl sm:max-w-[520px]"
       >
         <div className="flex items-center gap-3 px-5 py-3 border-b border-border">
@@ -177,7 +179,7 @@ export default function CreateTaskPanel({
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t("task.taskName")}
                 autoFocus
-                required
+                aria-required="true"
                 className="flex-1 bg-transparent text-xl font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none py-1"
               />
             </div>
@@ -294,7 +296,7 @@ export default function CreateTaskPanel({
           </button>
           <button
             type="submit"
-            disabled={submitting || !title.trim()}
+            disabled={submitting}
             className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-4 py-1.5 rounded-md transition-colors"
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}

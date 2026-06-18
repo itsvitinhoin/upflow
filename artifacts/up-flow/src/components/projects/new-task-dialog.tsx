@@ -43,6 +43,8 @@ export default function NewTaskDialog({
   const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [loading, setLoading] = useState(false);
   const selectedProjectName = projects.find((project) => project.id === selectedProject)?.name;
+  const projectIsPreset = Boolean(projectId);
+  const projectSelectionLoading = !projectIsPreset && projectsLoading;
 
   useEffect(() => {
     if (!open) return;
@@ -173,7 +175,7 @@ export default function NewTaskDialog({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
               Deliverable / action title <span className="text-destructive">*</span>
@@ -183,7 +185,7 @@ export default function NewTaskDialog({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Example: Approve Meta Ads creative set"
-              required
+              aria-required="true"
               autoFocus
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
@@ -197,7 +199,7 @@ export default function NewTaskDialog({
               <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
-                required
+                aria-required="true"
                 disabled={loading || projectsLoading}
                 className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
@@ -292,7 +294,7 @@ export default function NewTaskDialog({
             </button>
             <button
               type="submit"
-              disabled={loading || projectsLoading || !title.trim() || !selectedProject}
+              disabled={loading || projectSelectionLoading}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
