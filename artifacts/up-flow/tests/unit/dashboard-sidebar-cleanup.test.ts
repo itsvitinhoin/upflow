@@ -54,3 +54,16 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
 });
+
+test("sidebar search queries the server and includes parent context for folder matches", () => {
+  const panel = read("src/components/layout/sidebar/panel.tsx");
+  const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
+  const sidebarRoute = read("src/app/api/sidebar/route.ts");
+
+  assert.match(panel, /loadPanel\(\{ force: isSearching, query: sidebarQuery\.trim\(\) \}\)/);
+  assert.match(panelData, /\/api\/sidebar\?q=\$\{encodeURIComponent\(normalizedQuery\)\}&limit=500/);
+  assert.match(sidebarRoute, /const folderById = new Map\(matchingFolders\.map/);
+  assert.match(sidebarRoute, /addFolderContext\(project\.folder_id\)/);
+  assert.match(sidebarRoute, /pendingFolderIds\.size > 0/);
+  assert.match(sidebarRoute, /for \(const folder of folderById\.values\(\)\) spaceIds\.add\(folder\.space_id\)/);
+});

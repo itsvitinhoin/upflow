@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 
@@ -18,7 +18,15 @@ interface PanelPayload {
 let panelCache: { data: PanelPayload; loadedAt: number } | null = null;
 let panelRequest: Promise<PanelPayload> | null = null;
 
-function fetchPanelData(force = false): Promise<PanelPayload> {
+function fetchPanelData(force = false, query = ""): Promise<PanelPayload> {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery) {
+    return fetch(`/api/sidebar?q=${encodeURIComponent(normalizedQuery)}&limit=500`).then((r) => {
+      if (!r.ok) throw new Error(`Sidebar search failed: ${r.status}`);
+      return r.json() as Promise<PanelPayload>;
+    });
+  }
+
   if (
     !force &&
     panelCache &&
@@ -50,6 +58,7 @@ function fetchPanelData(force = false): Promise<PanelPayload> {
 // the action menu so panel.tsx can stay focused on layout.
 export function usePanelData(pathname: string) {
   void pathname;
+  const loadRequestId = useRef(0);
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [folders, setFolders] = useState<FolderT[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -91,20 +100,25 @@ export function usePanelData(pathname: string) {
     }
   }, [collapsed]);
 
-  const loadPanel = useCallback((options?: { force?: boolean }) => {
-    if (!panelCache) setLoadingPanel(true);
-    fetchPanelData(options?.force === true)
+  const loadPanel = useCallback((options?: { force?: boolean; query?: string }) => {
+    const query = options?.query?.trim() ?? "";
+    const requestId = ++loadRequestId.current;
+    if (query || !panelCache) setLoadingPanel(true);
+    fetchPanelData(options?.force === true, query)
       .then((data) => {
+        if (requestId !== loadRequestId.current) return;
         const nextSpaces = data.spaces.items ?? [];
         const nextProjects = data.projects.items ?? [];
         const nextFolders = data.folders.items ?? [];
         setSpaces(nextSpaces);
         setProjects(nextProjects);
         setFolders(nextFolders);
-        try {
-          localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(data));
-        } catch {
-          // Snapshot persistence is best-effort only.
+        if (!query) {
+          try {
+            localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(data));
+          } catch {
+            // Snapshot persistence is best-effort only.
+          }
         }
         setCollapsed((current) => {
           const next = { ...current };
@@ -120,7 +134,9 @@ export function usePanelData(pathname: string) {
         });
       })
       .catch((err) => logError("sidebar:loadPanel", err))
-      .finally(() => setLoadingPanel(false));
+      .finally(() => {
+        if (requestId === loadRequestId.current) setLoadingPanel(false);
+      });
   }, []);
 
   // Initial fetch only. Active row state is derived from `pathname`; the tree

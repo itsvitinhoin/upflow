@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { PanelLeftClose, Search, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
@@ -75,6 +75,14 @@ export default function Panel({
   const [sidebarQuery, setSidebarQuery] = useState("");
   const normalizedQuery = sidebarQuery.trim().toLowerCase();
   const isSearching = normalizedQuery.length > 0;
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      loadPanel({ force: isSearching, query: sidebarQuery.trim() });
+    }, isSearching ? 250 : 0);
+
+    return () => window.clearTimeout(handle);
+  }, [isSearching, loadPanel, sidebarQuery]);
 
   const visibleTree = useMemo(() => {
     if (!isSearching) {
