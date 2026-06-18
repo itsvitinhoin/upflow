@@ -46,3 +46,5 @@ prisma/dev.db-journal
 test-results/
 playwright-report/
 playwright/.cache/
+.env*.local
+.env.local.backup-*

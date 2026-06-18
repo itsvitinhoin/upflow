@@ -323,11 +323,11 @@ export default function DashboardPage() {
     <>
       <Header title={t("dashboard.title")} />
       <main className="mx-auto w-full max-w-[1480px] space-y-5 overflow-x-hidden p-4 sm:p-6">
-          <section className="relative overflow-hidden rounded-[1.25rem] border border-white/10 bg-[linear-gradient(135deg,rgba(124,102,255,0.18),rgba(31,162,124,0.08)_42%,rgba(255,177,92,0.10))] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:p-6">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+          <section className="upflow-panel rounded-2xl p-5 sm:p-6">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/60 to-transparent" />
             <div className="relative flex flex-col gap-6 xl:flex-row xl:items-stretch xl:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-sky-300">
                   {t("dashboard.commandCenter")}
                 </p>
                 <h2 className="mt-3 max-w-3xl text-3xl font-bold leading-tight text-foreground sm:text-4xl">
@@ -355,12 +355,12 @@ export default function DashboardPage() {
                   onCreateCompany={() => setShowCompany(true)}
                   onInvite={() => setShowInvite(true)}
                 />
-                <div className="rounded-2xl border border-white/10 bg-black/15 p-4">
+                <div className="upflow-card rounded-xl p-4">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                       {t("dashboard.operationalPulse")}
                     </p>
-                    <Activity className="h-4 w-4 text-upflow-success" />
+                    <Activity className="h-4 w-4 text-upflow-success drop-shadow-[0_0_10px_rgba(52,211,153,0.55)]" />
                   </div>
                   <div className="mt-4 grid gap-3 text-sm">
                     <PulseLine
@@ -491,7 +491,7 @@ export default function DashboardPage() {
               updating={updating}
             />
 
-            <section className="glass relative overflow-hidden rounded-2xl p-5">
+            <section className="upflow-panel rounded-2xl p-5">
               <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-upflow-warning via-primary to-upflow-success" />
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -502,7 +502,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={() => setShowNewTask(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-xs font-semibold text-white shadow-[0_10px_28px_rgba(59,130,246,0.22)] transition-all hover:-translate-y-0.5"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   {t("dashboard.newTask")}
@@ -705,7 +705,7 @@ function QuickCreateMenu({
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-colors hover:bg-primary/90 sm:w-auto"
+        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-sm font-semibold text-white shadow-[0_14px_36px_rgba(59,130,246,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(139,92,246,0.34)] sm:w-auto"
       >
         <Plus className="h-4 w-4" />
         Quick create
@@ -713,7 +713,7 @@ function QuickCreateMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-popover p-1 shadow-2xl"
+          className="absolute right-0 z-30 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-popover/95 p-1 shadow-[0_22px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
         >
           {items.map(({ label, icon: Icon, action }) => (
             <button
@@ -721,7 +721,7 @@ function QuickCreateMenu({
               type="button"
               role="menuitem"
               onClick={() => choose(action)}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-popover-foreground transition-colors hover:bg-white/10"
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-popover-foreground transition-all hover:bg-sky-400/10 hover:text-white"
             >
               <Icon className="h-4 w-4 text-primary" />
               {label}
@@ -800,10 +800,11 @@ function SignalBadge({ tone, label }: { tone: DashboardTone; label: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold",
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
         styles.surface,
         styles.border,
         styles.text,
+        tone === "danger" && "upflow-pulse-badge",
       )}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", styles.dot)} />
@@ -842,7 +843,7 @@ function SummaryPill({
       type="button"
       onClick={onClick}
       className={cn(
-        "group flex items-center justify-between gap-3 rounded-xl border bg-black/10 px-4 py-3 text-left transition-all hover:-translate-y-0.5 hover:bg-white/[0.05]",
+        "group flex items-center justify-between gap-3 rounded-xl px-4 py-3 text-left upflow-card upflow-card-hover upflow-focus-glow",
         styles.border,
       )}
     >
@@ -881,7 +882,7 @@ function StatusCountButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex items-center justify-between gap-3 rounded-xl border bg-white/[0.03] px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:bg-white/[0.06]",
+        "flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-left upflow-card upflow-card-hover upflow-focus-glow",
         styles.border,
       )}
     >
@@ -923,9 +924,9 @@ function CommandTile({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-card/75 p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:-translate-y-0.5 hover:bg-white/[0.05] focus:outline-none focus:ring-2 focus:ring-primary/60",
+        "group relative rounded-xl p-4 text-left upflow-card upflow-card-hover upflow-focus-glow",
         styles.border,
-        active && "border-primary/70 bg-primary/10",
+        active && "border-primary/70 shadow-[0_0_34px_rgba(139,92,246,0.20)]",
       )}
     >
       <span

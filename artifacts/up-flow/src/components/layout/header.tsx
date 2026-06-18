@@ -234,7 +234,7 @@ export default function Header({ title }: HeaderProps) {
           aria-label={`Search ${title}`}
         >
           <div className="relative w-full">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               ref={searchRef}
               type="search"
@@ -243,9 +243,9 @@ export default function Header({ title }: HeaderProps) {
               placeholder={t("header.searchPlaceholder", {
                 title: title.toLowerCase(),
               })}
-              className="h-10 w-full rounded-full border border-white/10 bg-white/5 pl-11 pr-4 text-sm backdrop-blur-md transition placeholder:text-muted-foreground focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/60 sm:h-11 md:pr-16"
+              className="upflow-focus-glow h-10 w-full rounded-full border border-white/10 bg-[#0b1020]/75 pl-11 pr-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md transition placeholder:text-muted-foreground hover:border-white/20 focus:border-sky-400/60 sm:h-11 md:pr-16"
             />
-            <kbd className="hidden md:flex absolute right-3 top-1/2 -translate-y-1/2 items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground bg-white/5 border border-white/10 rounded">
+            <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
               ⌘K
             </kbd>
           </div>
@@ -261,7 +261,7 @@ export default function Header({ title }: HeaderProps) {
                 ? t("language.portugueseBrazil")
                 : t("language.english")
             }`}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground sm:h-11 sm:px-3"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground sm:h-11 sm:px-3"
           >
             <Languages className="h-4 w-4" />
             <span>{language === "en" ? "EN" : "PT"}</span>
@@ -270,11 +270,11 @@ export default function Header({ title }: HeaderProps) {
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label={t("header.notifications")}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground backdrop-blur-md transition-colors hover:border-primary/40 hover:text-foreground sm:h-11 sm:w-11"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-upflow-danger ring-2 ring-background" />
+                <span className="upflow-pulse-badge absolute right-2 top-2 h-2 w-2 rounded-full bg-upflow-danger ring-2 ring-background" />
               )}
             </button>
 
@@ -336,7 +336,7 @@ export default function Header({ title }: HeaderProps) {
           <button
             onClick={() => setShowNewProject(true)}
             aria-label={t("header.newProject")}
-            className="flex h-10 items-center gap-2 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 sm:h-11 sm:px-5"
+            className="flex h-10 items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 px-3 text-sm font-semibold text-white shadow-[0_12px_34px_rgba(59,130,246,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_42px_rgba(139,92,246,0.32)] sm:h-11 sm:px-5"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">{t("header.newProject")}</span>

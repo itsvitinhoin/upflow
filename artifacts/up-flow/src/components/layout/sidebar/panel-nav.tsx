@@ -36,12 +36,15 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary/60",
+                "relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/60",
                 active
-                  ? "bg-white/10 text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                  ? "bg-gradient-to-r from-blue-500/18 to-violet-500/10 text-foreground shadow-[0_0_22px_rgba(59,130,246,0.14)]"
+                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_18px_rgba(139,92,246,0.08)]",
               )}
             >
+              {active && (
+                <span className="absolute left-0 h-5 w-0.5 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(59,130,246,0.8)]" />
+              )}
               <Icon className="w-3.5 h-3.5" />
               {label}
             </Link>
@@ -64,7 +67,7 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
             onClick={onCollapseAll}
             aria-label={t("sidebar.collapseAll")}
             title={t("sidebar.collapseAll")}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground hover:shadow-[0_0_16px_rgba(59,130,246,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <ChevronsUp className="w-4 h-4" />
           </button>
@@ -73,7 +76,7 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
             onClick={onCreateSpace}
             aria-label={t("sidebar.newSpace")}
             title={t("sidebar.newSpace")}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground hover:shadow-[0_0_16px_rgba(59,130,246,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <Plus className="w-4 h-4" />
           </button>

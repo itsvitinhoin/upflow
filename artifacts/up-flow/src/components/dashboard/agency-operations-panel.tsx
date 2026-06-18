@@ -70,7 +70,7 @@ export default function AgencyOperationsPanel({
 
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
-      <div className="glass relative overflow-hidden rounded-2xl p-5">
+      <div className="upflow-panel rounded-2xl p-5">
         <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-upflow-success via-primary to-upflow-warning" />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -87,7 +87,7 @@ export default function AgencyOperationsPanel({
           <button
             type="button"
             onClick={() => onOpenDrawer("agency_risk_signals")}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:bg-primary/10"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:-translate-y-0.5 hover:border-sky-400/50 hover:bg-sky-400/10"
           >
             <AlertCircle className="h-3.5 w-3.5" />
             {t("dashboard.traceRisks")}
@@ -120,7 +120,7 @@ export default function AgencyOperationsPanel({
         </div>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+          <div className="upflow-card rounded-xl p-4">
             <div className="flex items-center justify-between gap-3">
               <h4 className="text-sm font-semibold text-foreground">{t("dashboard.closestDeliveryDeadlines")}</h4>
               <button
@@ -141,7 +141,7 @@ export default function AgencyOperationsPanel({
                   <Link
                     key={item.project.id}
                     href={`/projects/${item.project.id}`}
-                    className="block rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.06]"
+                    className="block rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 transition-all hover:-translate-y-0.5 hover:border-sky-400/30 hover:bg-white/[0.06]"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="min-w-0 truncate text-sm font-medium text-foreground">{item.project.name}</p>
@@ -157,7 +157,7 @@ export default function AgencyOperationsPanel({
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-black/10 p-4">
+          <div className="upflow-card rounded-xl p-4">
             <div className="flex items-center justify-between gap-3">
               <h4 className="text-sm font-semibold text-foreground">{t("dashboard.creativeProductionQueue")}</h4>
               <button
@@ -179,7 +179,7 @@ export default function AgencyOperationsPanel({
                     key={task.id}
                     type="button"
                     onClick={() => onOpenTask(task)}
-                    className="w-full rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-left hover:bg-white/[0.06]"
+                    className="w-full rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-left transition-all hover:-translate-y-0.5 hover:border-sky-400/30 hover:bg-white/[0.06]"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="min-w-0 truncate text-sm font-medium text-foreground">{task.title}</p>
@@ -198,7 +198,7 @@ export default function AgencyOperationsPanel({
         </div>
       </div>
 
-      <aside className="glass rounded-2xl p-5">
+      <aside className="upflow-panel rounded-2xl p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-foreground">{t("dashboard.agencyRiskSignals")}</h3>
@@ -219,7 +219,7 @@ export default function AgencyOperationsPanel({
                 key={signal.key}
                 type="button"
                 onClick={() => onOpenDrawer("agency_risk_signals")}
-                className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-left hover:bg-white/[0.06]"
+                className="w-full rounded-xl border border-white/5 bg-white/[0.03] px-3 py-3 text-left transition-all hover:-translate-y-0.5 hover:border-upflow-warning/35 hover:bg-white/[0.06]"
               >
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium text-foreground">{signal.label}</span>
@@ -233,7 +233,7 @@ export default function AgencyOperationsPanel({
         <button
           type="button"
           onClick={() => onOpenDrawer("department_workload")}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-foreground hover:border-primary/50 hover:bg-primary/10"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-foreground transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:bg-primary/10"
         >
           <Users2 className="h-3.5 w-3.5" />
           {t("dashboard.workloadByDepartment")}
@@ -258,7 +258,7 @@ function AgencyMiniCard({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-primary/10"
+      className="rounded-xl px-4 py-3 text-left upflow-card upflow-card-hover upflow-focus-glow"
     >
       <p className="text-xs font-semibold uppercase text-muted-foreground">{title}</p>
       <p className="mt-2 text-xl font-bold text-foreground">{value}</p>

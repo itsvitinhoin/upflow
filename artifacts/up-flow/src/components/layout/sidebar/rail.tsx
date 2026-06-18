@@ -60,11 +60,11 @@ export function Rail({
 }: RailProps) {
   const { t } = useLanguage();
   return (
-    <div className="flex flex-col items-center w-full h-full glass-rail py-4">
+    <div className="flex h-full w-full flex-col items-center py-4 glass-rail">
       <Link
         href="/"
         onClick={onNavigate}
-        className="flex items-center justify-center w-9 h-9 rounded-xl mb-6 overflow-hidden bg-background/10 shadow-lg shadow-primary/20"
+        className="mb-6 flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-background/10 shadow-[0_0_24px_rgba(59,130,246,0.18)] ring-1 ring-white/10 transition-transform hover:scale-105"
         aria-label="Up Flow"
       >
         <Image
@@ -89,15 +89,18 @@ export function Rail({
               title={translatedLabel}
               aria-label={translatedLabel}
               className={cn(
-                "relative flex flex-col items-center justify-center w-9 h-9 rounded-lg transition-colors group",
+                "group relative flex h-9 w-9 flex-col items-center justify-center rounded-lg transition-all",
                 active
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-gradient-to-br from-blue-500/20 to-violet-500/20 text-foreground shadow-[0_0_24px_rgba(59,130,246,0.20)] ring-1 ring-blue-400/25"
+                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_20px_rgba(139,92,246,0.12)]"
               )}
             >
+              {active && (
+                <span className="absolute left-0 h-5 w-0.5 rounded-full bg-sky-400 shadow-[0_0_14px_rgba(59,130,246,0.85)]" />
+              )}
               <Icon className="w-[18px] h-[18px]" />
               {active && (
-                <span className="absolute -bottom-1.5 w-1 h-1 rounded-full bg-primary" />
+                <span className="absolute -bottom-1.5 h-1 w-1 rounded-full bg-primary shadow-[0_0_10px_rgba(139,92,246,0.75)]" />
               )}
             </Link>
           );
@@ -109,10 +112,10 @@ export function Rail({
           aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
           aria-pressed={panelOpen}
           className={cn(
-            "group relative mt-1 flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
+            "group relative mt-1 flex h-9 w-9 items-center justify-center rounded-lg transition-all",
             panelOpen
-              ? "text-primary bg-primary/15"
-              : "text-foreground bg-primary/20 hover:bg-primary/30"
+              ? "bg-primary/15 text-primary shadow-[0_0_22px_rgba(139,92,246,0.18)] ring-1 ring-primary/25"
+              : "bg-primary/20 text-foreground shadow-[0_0_22px_rgba(59,130,246,0.14)] hover:bg-primary/30"
           )}
         >
           {panelOpen ? (
@@ -127,7 +130,7 @@ export function Rail({
         <button
           aria-label={t("sidebar.help")}
           title={t("sidebar.help")}
-          className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
@@ -135,7 +138,7 @@ export function Rail({
           onClick={onSignOut}
           aria-label={`${t("sidebar.signOut")} (${user.name || user.email || "User"})`}
           title={`${t("sidebar.signOut")} - ${user.name || user.email || "User"}`}
-          className="mt-2 flex items-center justify-center w-8 h-8 rounded-full bg-primary text-white text-[10px] font-bold hover:opacity-90 transition-opacity"
+          className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[10px] font-bold text-white shadow-[0_0_24px_rgba(139,92,246,0.26)] transition-opacity hover:opacity-90"
         >
           {getInitials(user.name || user.email || "U")}
         </button>

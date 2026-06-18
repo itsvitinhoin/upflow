@@ -218,7 +218,7 @@ export default function Panel({
 
   return (
     <>
-      <div className="flex flex-col h-full w-full glass-rail border-l border-white/5">
+      <div className="flex h-full w-full flex-col border-l border-white/5 glass-rail">
         <WorkspaceSwitcher
           initialData={{
             workspaces,
@@ -232,7 +232,7 @@ export default function Panel({
               type="button"
               onClick={onRequestClose}
               aria-label={t("sidebar.hide")}
-              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 text-[11px] font-medium text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground"
             >
               <PanelLeftClose className="h-3.5 w-3.5" />
               {t("sidebar.hide")}
@@ -253,7 +253,7 @@ export default function Panel({
         />
 
         <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1">
-          <div className="sticky top-0 z-10 bg-background/80 pb-2 pt-1 backdrop-blur">
+          <div className="sticky top-0 z-10 bg-background/70 pb-2 pt-1 backdrop-blur-md">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -261,7 +261,7 @@ export default function Panel({
                 value={sidebarQuery}
                 onChange={(event) => setSidebarQuery(event.target.value)}
                 placeholder={t("sidebar.searchSpaces")}
-                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 pl-8 pr-8 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+                className="h-8 w-full rounded-lg border border-white/10 bg-[#0b1020]/70 pl-8 pr-8 text-xs text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] outline-none transition placeholder:text-muted-foreground hover:border-white/20 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20"
               />
               {sidebarQuery && (
                 <button
