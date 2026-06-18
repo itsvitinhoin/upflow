@@ -89,16 +89,16 @@ export function Rail({
               title={translatedLabel}
               aria-label={translatedLabel}
               className={cn(
-                "group relative flex h-9 w-9 flex-col items-center justify-center rounded-lg transition-all",
+                "group relative flex h-9 w-9 flex-col items-center justify-center rounded-xl transition-all",
                 active
-                  ? "bg-gradient-to-br from-blue-500/20 to-violet-500/20 text-foreground shadow-[0_0_24px_rgba(59,130,246,0.20)] ring-1 ring-blue-400/25"
-                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_20px_rgba(139,92,246,0.12)]"
+                  ? "bg-gradient-to-br from-blue-600/55 to-violet-600/35 text-white shadow-[0_0_28px_rgba(37,99,235,0.34)] ring-1 ring-blue-300/30"
+                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]"
               )}
             >
               {active && (
                 <span className="absolute left-0 h-5 w-0.5 rounded-full bg-sky-400 shadow-[0_0_14px_rgba(59,130,246,0.85)]" />
               )}
-              <Icon className="w-[18px] h-[18px]" />
+              <Icon className={cn("w-[18px] h-[18px]", active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.85)]")} />
               {active && (
                 <span className="absolute -bottom-1.5 h-1 w-1 rounded-full bg-primary shadow-[0_0_10px_rgba(139,92,246,0.75)]" />
               )}
@@ -112,7 +112,7 @@ export function Rail({
           aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
           aria-pressed={panelOpen}
           className={cn(
-            "group relative mt-1 flex h-9 w-9 items-center justify-center rounded-lg transition-all",
+            "group relative mt-1 flex h-9 w-9 items-center justify-center rounded-xl transition-all",
             panelOpen
               ? "bg-primary/15 text-primary shadow-[0_0_22px_rgba(139,92,246,0.18)] ring-1 ring-primary/25"
               : "bg-primary/20 text-foreground shadow-[0_0_22px_rgba(59,130,246,0.14)] hover:bg-primary/30"

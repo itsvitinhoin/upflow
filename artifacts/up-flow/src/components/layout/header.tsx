@@ -243,10 +243,10 @@ export default function Header({ title }: HeaderProps) {
               placeholder={t("header.searchPlaceholder", {
                 title: title.toLowerCase(),
               })}
-              className="upflow-focus-glow h-10 w-full rounded-full border border-white/10 bg-[#0b1020]/75 pl-11 pr-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-md transition placeholder:text-muted-foreground hover:border-white/20 focus:border-sky-400/60 sm:h-11 md:pr-16"
+              className="upflow-focus-glow h-10 w-full rounded-full border border-blue-300/10 bg-[#050a18]/80 pl-11 pr-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] backdrop-blur-md transition placeholder:text-muted-foreground hover:border-blue-300/25 hover:bg-[#070d1f]/90 focus:border-sky-400/70 sm:h-11 md:pr-16"
             />
-            <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
-              ⌘K
+            <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-blue-300/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
+              Ctrl K
             </kbd>
           </div>
         </form>
@@ -261,7 +261,7 @@ export default function Header({ title }: HeaderProps) {
                 ? t("language.portugueseBrazil")
                 : t("language.english")
             }`}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground sm:h-11 sm:px-3"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-blue-300/10 bg-[#071024]/80 px-2.5 text-xs font-semibold text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
           >
             <Languages className="h-4 w-4" />
             <span>{language === "en" ? "EN" : "PT"}</span>
@@ -270,7 +270,7 @@ export default function Header({ title }: HeaderProps) {
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label={t("header.notifications")}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground sm:h-11 sm:w-11"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-300/10 bg-[#071024]/80 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (
@@ -336,7 +336,7 @@ export default function Header({ title }: HeaderProps) {
           <button
             onClick={() => setShowNewProject(true)}
             aria-label={t("header.newProject")}
-            className="flex h-10 items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-violet-600 px-3 text-sm font-semibold text-white shadow-[0_12px_34px_rgba(59,130,246,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_42px_rgba(139,92,246,0.32)] sm:h-11 sm:px-5"
+            className="upflow-gradient-button flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 sm:h-11 sm:px-5"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">{t("header.newProject")}</span>

@@ -127,11 +127,11 @@ export default function ProjectPage() {
   return (
     <>
       <Header title={project.name} />
-      <div className="mx-auto max-w-[1400px] overflow-x-hidden p-4 sm:p-6">
-        <div className="mb-4">
+      <div className="mx-auto max-w-[1500px] overflow-x-hidden p-4 sm:p-6">
+        <div className="mb-5 rounded-2xl border border-blue-300/10 bg-[#050a18]/35 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.18)] sm:p-6">
           <Link
             href="/projects"
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-3"
+            className="mb-5 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" /> {t("projects.backToProjects")}
           </Link>
@@ -139,10 +139,10 @@ export default function ProjectPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
               <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-3">
-                <h2 className="min-w-0 break-words text-2xl font-bold text-foreground">{project.name}</h2>
+                <h2 className="min-w-0 break-words text-3xl font-bold tracking-tight text-foreground">{project.name}</h2>
                 <span
                   className={cn(
-                    "text-xs px-2.5 py-1 rounded-full font-medium",
+                    "rounded-full px-3 py-1 text-xs font-semibold shadow-[0_0_18px_rgba(16,185,129,0.18)]",
                     statusColor(project.status),
                   )}
                 >
@@ -169,13 +169,13 @@ export default function ProjectPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/docs?project=${id}`}
-                className="flex items-center gap-2 border border-border bg-card hover:bg-muted text-foreground text-sm font-medium px-3 py-2 rounded-lg transition-colors"
+                className="flex items-center gap-2 rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-sky-400/40 hover:bg-sky-400/10"
               >
                 <FileText className="w-4 h-4" /> {t("projects.docs")}
               </Link>
               <button
                 onClick={() => setCreateOpen("todo")}
-                className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                className="upflow-gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
               >
                 <Plus className="w-4 h-4" /> {t("projects.addTask")}
               </button>

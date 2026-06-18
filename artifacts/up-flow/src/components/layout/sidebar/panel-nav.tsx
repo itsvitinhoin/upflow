@@ -36,16 +36,16 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-medium outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/60",
+                "relative flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/60",
                 active
-                  ? "bg-gradient-to-r from-blue-500/18 to-violet-500/10 text-foreground shadow-[0_0_22px_rgba(59,130,246,0.14)]"
-                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_18px_rgba(139,92,246,0.08)]",
+                  ? "bg-gradient-to-r from-blue-600/55 to-violet-600/32 text-white shadow-[0_0_30px_rgba(37,99,235,0.28),inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-blue-300/20"
+                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.12)]",
               )}
             >
               {active && (
-                <span className="absolute left-0 h-5 w-0.5 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(59,130,246,0.8)]" />
+                <span className="absolute left-0 h-6 w-0.5 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(59,130,246,0.9)]" />
               )}
-              <Icon className="w-3.5 h-3.5" />
+              <Icon className={cn("w-3.5 h-3.5", active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.8)]")} />
               {label}
             </Link>
           );

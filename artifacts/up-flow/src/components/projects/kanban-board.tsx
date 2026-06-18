@@ -169,7 +169,7 @@ export default function KanbanBoard({
   return (
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex h-[calc(100dvh-300px)] min-h-[420px] max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-4 sm:h-[calc(100dvh-280px)]">
+        <div className="flex h-[calc(100dvh-300px)] min-h-[440px] max-w-full gap-4 overflow-x-auto overscroll-x-contain pb-5 sm:h-[calc(100dvh-280px)]">
           {COLUMNS.map(({ key, label, color, hex }) => (
             <Droppable key={key} droppableId={key}>
               {(provided, snapshot) => (
@@ -177,31 +177,31 @@ export default function KanbanBoard({
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "flex h-full w-[min(82vw,300px)] flex-shrink-0 flex-col overflow-hidden rounded-lg bg-muted/40 transition-colors sm:w-[300px]",
-                    snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30",
+                    "upflow-kanban-column flex h-full w-[min(88vw,380px)] flex-shrink-0 flex-col overflow-hidden rounded-2xl transition-all sm:w-[360px] xl:w-[380px]",
+                    snapshot.isDraggingOver && "border-sky-400/50 shadow-[0_0_36px_rgba(59,130,246,0.22)] ring-1 ring-sky-400/30",
                   )}
                 >
                   <div
-                    className="flex items-center gap-2 px-3 py-2 rounded-t-lg border-t-2"
+                    className="flex items-center gap-2 border-t-2 px-4 py-3"
                     style={{ borderColor: hex }}
                   >
-                    <div className={cn("w-2 h-2 rounded-full", color)} />
+                    <div className={cn("h-2.5 w-2.5 rounded-full shadow-[0_0_14px_currentColor]", color)} />
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
                       {columnLabel(key, label, t)}
                     </span>
-                    <span className="text-[11px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded">
+                    <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                       {columns[key].length}
                     </span>
                     <button
                       onClick={() => onAddTask(key)}
-                      className="ml-auto text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
+                      className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground"
                       title={t("projects.addTask")}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  <div className="px-2 pb-2 space-y-1.5 flex-1 overflow-y-auto">
+                  <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
                     {columns[key].map((task, index) => {
                       const valueMap = new Map(
                         (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
@@ -223,17 +223,17 @@ export default function KanbanBoard({
                                 setSelectedTask(task);
                               }}
                               className={cn(
-                                "relative bg-card border border-border rounded-md p-2.5 cursor-pointer hover:border-primary/40 hover:shadow-md transition-all group",
-                                snapshot.isDragging && "shadow-xl rotate-1 opacity-90",
+                                "upflow-task-card group relative cursor-pointer rounded-xl p-3 transition-all hover:-translate-y-0.5",
+                                snapshot.isDragging && "rotate-1 opacity-95 shadow-[0_24px_60px_rgba(59,130,246,0.24)]",
                               )}
                             >
-                              <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 bg-card border border-border rounded-md shadow-sm">
+                              <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#071024]/95 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedTask(task);
                                   }}
-                                  className="p-1 text-muted-foreground hover:text-foreground rounded"
+                                    className="rounded p-1 text-muted-foreground hover:text-foreground"
                                   title={t("common.open")}
                                 >
                                   <MoreHorizontal className="w-3 h-3" />
@@ -243,14 +243,14 @@ export default function KanbanBoard({
                                     e.stopPropagation();
                                     deleteTask(task.id);
                                   }}
-                                  className="p-1 text-muted-foreground hover:text-destructive rounded"
+                                    className="rounded p-1 text-muted-foreground hover:text-destructive"
                                   title={t("common.delete")}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
                               </div>
                               {task.cover_image_url && (
-                                <div className="-mx-2.5 -mt-2.5 mb-2 overflow-hidden rounded-t-md border-b border-border bg-muted/30">
+                                <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-xl border-b border-white/10 bg-muted/30">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={task.cover_image_url}
@@ -263,7 +263,7 @@ export default function KanbanBoard({
                               <div className="flex items-start gap-1.5">
                                 <span
                                   className={cn(
-                                    "mt-1 w-2 h-2 rounded-full flex-shrink-0",
+                                    "mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full shadow-[0_0_12px_currentColor]",
                                     task.priority === "high"
                                       ? "bg-upflow-danger"
                                       : task.priority === "medium"
@@ -272,7 +272,7 @@ export default function KanbanBoard({
                                   )}
                                   title={`${t("toolbar.priority")}: ${priorityLabel(task.priority, t)}`}
                                 />
-                                <p className="min-w-0 flex-1 break-words text-sm leading-snug text-foreground">
+                                <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">
                                   {task.title}
                                 </p>
                                 {isOverdue(task.due_date) && task.status !== "done" && (
@@ -321,7 +321,7 @@ export default function KanbanBoard({
                                 {task.assignee && (
                                   <div
                                     title={task.assignee.name}
-                                    className="ml-auto w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0"
+                                    className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-500 text-[10px] font-bold text-white shadow-[0_0_18px_rgba(59,130,246,0.35)]"
                                   >
                                     {getInitials(task.assignee.name)}
                                   </div>
@@ -336,7 +336,7 @@ export default function KanbanBoard({
                     {provided.placeholder}
                     <button
                       onClick={() => onAddTask(key)}
-                      className="w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md px-2 py-1.5 transition-colors"
+                      className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2 text-xs text-muted-foreground transition-all hover:border-sky-400/35 hover:bg-sky-400/10 hover:text-foreground"
                     >
                       <Plus className="w-3 h-3" /> {t("projects.addTask")}
                     </button>

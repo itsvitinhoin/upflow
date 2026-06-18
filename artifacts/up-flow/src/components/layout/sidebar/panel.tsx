@@ -218,7 +218,7 @@ export default function Panel({
 
   return (
     <>
-      <div className="flex h-full w-full flex-col border-l border-white/5 glass-rail">
+      <div className="flex h-full w-full flex-col border-r border-blue-300/10 glass-rail">
         <WorkspaceSwitcher
           initialData={{
             workspaces,
@@ -253,7 +253,7 @@ export default function Panel({
         />
 
         <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-1">
-          <div className="sticky top-0 z-10 bg-background/70 pb-2 pt-1 backdrop-blur-md">
+          <div className="sticky top-0 z-10 bg-[#050816]/90 pb-2 pt-1 backdrop-blur-md">
             <label className="relative block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -261,7 +261,7 @@ export default function Panel({
                 value={sidebarQuery}
                 onChange={(event) => setSidebarQuery(event.target.value)}
                 placeholder={t("sidebar.searchSpaces")}
-                className="h-8 w-full rounded-lg border border-white/10 bg-[#0b1020]/70 pl-8 pr-8 text-xs text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] outline-none transition placeholder:text-muted-foreground hover:border-white/20 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20"
+                className="h-9 w-full rounded-xl border border-blue-300/10 bg-[#071024]/80 pl-8 pr-8 text-xs text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_22px_rgba(37,99,235,0.06)] outline-none transition placeholder:text-muted-foreground hover:border-blue-300/25 focus:border-sky-400/55 focus:ring-2 focus:ring-sky-400/20"
               />
               {sidebarQuery && (
                 <button
