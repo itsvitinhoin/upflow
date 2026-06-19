@@ -673,6 +673,7 @@ function QuickCreateMenu({
   onCreateCompany: () => void;
   onInvite: () => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -698,11 +699,11 @@ function QuickCreateMenu({
   };
 
   const items = [
-    { label: "Task", icon: CheckSquare, action: onCreateTask },
-    { label: "Project", icon: FolderPlus, action: onCreateProject },
-    { label: "Meeting", icon: Video, action: onCreateMeeting },
-    { label: "Company", icon: Building2, action: onCreateCompany },
-    { label: "Invite", icon: UserPlus, action: onInvite },
+    { label: t("dashboard.createTask"), icon: CheckSquare, action: onCreateTask },
+    { label: t("dashboard.createProject"), icon: FolderPlus, action: onCreateProject },
+    { label: t("dashboard.createMeeting"), icon: Video, action: onCreateMeeting },
+    { label: t("dashboard.createCompany"), icon: Building2, action: onCreateCompany },
+    { label: t("dashboard.createInvite"), icon: UserPlus, action: onInvite },
   ];
 
   return (
@@ -714,9 +715,9 @@ function QuickCreateMenu({
         aria-expanded={open}
         className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-sm font-semibold text-white shadow-[0_14px_36px_rgba(59,130,246,0.28)] transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_46px_rgba(139,92,246,0.34)] sm:w-auto"
       >
-        <Plus className="h-4 w-4" />
-        Quick create
-      </button>
+          <Plus className="h-4 w-4" />
+          {t("dashboard.quickCreate")}
+        </button>
       {open && (
         <div
           role="menu"

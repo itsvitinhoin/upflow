@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { Calendar as CalendarIcon, CheckSquare, FolderPlus, X } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import type { Task } from "@/lib/types";
 import {
-  drawerTitle,
   entrySeconds,
   formatDateTime,
   formatSecondsShort,
   humanize,
-  statusTitle,
   type DrawerKind,
   type TaskStatus,
 } from "@/components/spaces/space-dashboard-utils";
@@ -40,23 +39,43 @@ export function SpaceDashboardDrawer({
   onCreateProject: () => void;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
 }) {
+  const { t } = useLanguage();
   const status = kind.startsWith("status:") ? (kind.split(":")[1] as TaskStatus) : null;
   const statusTasks = status
     ? data.tasks.items.filter((task) => task.status === status)
     : [];
-  const title = status ? statusTitle(status) : drawerTitle(kind);
+  const statusLabels: Record<TaskStatus, string> = {
+    todo: t("spaceDashboard.statusTodo"),
+    in_progress: t("spaceDashboard.statusInProgress"),
+    done: t("spaceDashboard.statusDone"),
+  };
+  const statusTitles: Record<TaskStatus, string> = {
+    todo: t("spaceDashboard.upcomingActions"),
+    in_progress: t("spaceDashboard.inProgressActions"),
+    done: t("spaceDashboard.completedActions"),
+  };
+  const drawerTitles: Partial<Record<DrawerKind, string>> = {
+    urgent_actions: t("spaceDashboard.myUrgentActions"),
+    team_workload: t("spaceDashboard.teamWorkload"),
+    time_today: t("spaceDashboard.timeToday"),
+    meetings_today: t("spaceDashboard.meetingsToday"),
+    recent_activity: t("spaceDashboard.recentActivity"),
+    projects_at_risk: t("spaceDashboard.projectsAtRisk"),
+    quick_create: t("spaceDashboard.quickCreate"),
+  };
+  const title = status ? statusTitles[status] : drawerTitles[kind] ?? t("spaceDashboard.spaceRecords");
 
   return (
     <div className="fixed inset-0 z-50">
       <button
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-        aria-label="Close drawer"
+        aria-label={t("spaceDashboard.closeDrawer")}
       />
       <aside className="glass-strong absolute right-0 top-0 flex h-dvh w-full max-w-xl flex-col border-l border-white/10 shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div>
-            <p className="text-xs uppercase text-muted-foreground">Space dashboard</p>
+            <p className="text-xs uppercase text-muted-foreground">{t("spaceDashboard.dashboardSuffix")}</p>
             <h3 className="text-lg font-semibold text-foreground">{title}</h3>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -67,8 +86,8 @@ export function SpaceDashboardDrawer({
         <div className="flex-1 space-y-3 overflow-y-auto p-4">
           {kind === "urgent_actions" && (
             <RecordList
-              emptyTitle="No urgent actions"
-              emptyText="Due, overdue, and high-priority assigned tasks appear here."
+              emptyTitle={t("spaceDashboard.noUrgentActions")}
+              emptyText={t("spaceDashboard.noUrgentActionsHint")}
             >
               {data.command_center.urgent_actions.items.map((task) => (
                 <TaskRecord
@@ -83,8 +102,10 @@ export function SpaceDashboardDrawer({
 
           {status && (
             <RecordList
-              emptyTitle={`No ${status.replace("_", " ")} tasks`}
-              emptyText="Tasks with this status will appear here."
+              emptyTitle={t("spaceDashboard.noStatusTasks", {
+                status: statusLabels[status].toLowerCase(),
+              })}
+              emptyText={t("spaceDashboard.tasksWithStatusAppear")}
             >
               {statusTasks.map((task) => (
                 <TaskRecord
@@ -98,7 +119,10 @@ export function SpaceDashboardDrawer({
           )}
 
           {kind === "team_workload" && (
-            <RecordList emptyTitle="No team workload" emptyText="Assigned Space tasks appear here.">
+            <RecordList
+              emptyTitle={t("spaceDashboard.noTeamWorkload")}
+              emptyText={t("spaceDashboard.assignedSpaceTasksAppear")}
+            >
               {data.command_center.team_workload.items.map((item) => (
                 <div key={item.user.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex items-center justify-between gap-3">
@@ -111,9 +135,9 @@ export function SpaceDashboardDrawer({
                     </span>
                   </div>
                   <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-                    <Metric label="Open" value={item.open_tasks} />
-                    <Metric label="Overdue" value={item.overdue_tasks} />
-                    <Metric label="Today" value={formatSecondsShort(item.tracked_seconds_today)} />
+                    <Metric label={t("spaceDashboard.openMetric")} value={item.open_tasks} />
+                    <Metric label={t("spaceDashboard.overdueMetric")} value={item.overdue_tasks} />
+                    <Metric label={t("spaceDashboard.todayMetric")} value={formatSecondsShort(item.tracked_seconds_today)} />
                   </div>
                   {item.tasks.length > 0 ? (
                     <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
@@ -128,7 +152,7 @@ export function SpaceDashboardDrawer({
                     </div>
                   ) : (
                     <p className="mt-3 rounded-lg bg-black/10 px-3 py-2 text-xs text-muted-foreground">
-                      No open assigned tasks behind this workload signal.
+                      {t("spaceDashboard.noOpenAssignedTasks")}
                     </p>
                   )}
                 </div>
@@ -137,16 +161,19 @@ export function SpaceDashboardDrawer({
           )}
 
           {kind === "time_today" && (
-            <RecordList emptyTitle="No time tracked today" emptyText="Space-linked time entries appear here.">
+            <RecordList
+              emptyTitle={t("spaceDashboard.noTimeToday")}
+              emptyText={t("spaceDashboard.spaceTimeEntriesAppear")}
+            >
               {data.command_center.time_today.entries.map((entry) => (
                 <div key={entry.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {entry.description || entry.task?.title || entry.project?.name || "Time entry"}
+                        {entry.description || entry.task?.title || entry.project?.name || t("spaceDashboard.timeEntry")}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {entry.project?.name || "No project"} - {formatDateTime(entry.started_at)}
+                        {entry.project?.name || t("spaceDashboard.noProject")} - {formatDateTime(entry.started_at)}
                       </p>
                     </div>
                     <span className="text-sm font-semibold text-foreground">
@@ -159,7 +186,10 @@ export function SpaceDashboardDrawer({
           )}
 
           {kind === "meetings_today" && (
-            <RecordList emptyTitle="No meetings today" emptyText="Space-linked calendar events appear here.">
+            <RecordList
+              emptyTitle={t("spaceDashboard.noMeetingsToday")}
+              emptyText={t("spaceDashboard.spaceCalendarEventsAppear")}
+            >
               {data.command_center.meetings_today.items.map((event) => (
                 <div key={event.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-sm font-medium text-foreground">{event.title}</p>
@@ -173,12 +203,15 @@ export function SpaceDashboardDrawer({
           )}
 
           {kind === "recent_activity" && (
-            <RecordList emptyTitle="No recent activity" emptyText="Space activity appears here.">
+            <RecordList
+              emptyTitle={t("spaceDashboard.noRecentActivity")}
+              emptyText={t("spaceDashboard.spaceActivityAppears")}
+            >
               {data.command_center.recent_activity.items.map((event) => (
                 <div key={event.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-sm font-medium text-foreground">{humanize(event.type)}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {event.actor?.name || "System"} - {formatDateTime(event.created_at)}
+                    {event.actor?.name || t("spaceDashboard.system")} - {formatDateTime(event.created_at)}
                   </p>
                 </div>
               ))}
@@ -187,8 +220,8 @@ export function SpaceDashboardDrawer({
 
           {kind === "projects_at_risk" && (
             <RecordList
-              emptyTitle="No projects at risk"
-              emptyText="Projects appear here only when they have overdue open tasks, no owner, or no activity record in 7 days."
+              emptyTitle={t("spaceDashboard.noProjectsAtRisk")}
+              emptyText={t("spaceDashboard.projectsAtRiskHint")}
             >
               {data.command_center.projects_at_risk.items.map(({ project, reasons }) => (
                 <Link
@@ -206,13 +239,13 @@ export function SpaceDashboardDrawer({
           {kind === "quick_create" && (
             <div className="grid gap-2">
               <QuickCreateButton icon={<CheckSquare className="h-4 w-4" />} onClick={onCreateTask}>
-                New task
+                {t("spaceDashboard.newTask")}
               </QuickCreateButton>
               <QuickCreateButton icon={<CalendarIcon className="h-4 w-4" />} onClick={onCreateMeeting}>
-                New meeting
+                {t("spaceDashboard.newMeeting")}
               </QuickCreateButton>
               <QuickCreateButton icon={<FolderPlus className="h-4 w-4" />} onClick={onCreateProject}>
-                New project
+                {t("spaceDashboard.newProject")}
               </QuickCreateButton>
             </div>
           )}

@@ -466,10 +466,11 @@ function SpaceDashboard({
   const overloadedCount = command.team_workload.items.filter(
     (item) => item.state === "late" || item.state === "overloaded",
   ).length;
-  const dashboardStatus =
-    command.projects_at_risk.count > 0 || command.urgent_actions.count > 0
-      ? "Needs attention"
-      : "On track";
+  const hasDashboardAttention =
+    command.projects_at_risk.count > 0 || command.urgent_actions.count > 0;
+  const dashboardStatus = hasDashboardAttention
+    ? t("spaceDashboard.needsAttention")
+    : t("spaceDashboard.onTrack");
 
   return (
     <div className="space-y-6">
@@ -478,12 +479,13 @@ function SpaceDashboard({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                {data.department_preset?.name ?? "Space"} dashboard
+                {data.department_preset?.name ?? t("space.title")}{" "}
+                {t("spaceDashboard.dashboardSuffix")}
               </span>
               <span
                 className={cn(
                   "rounded-full px-3 py-1 text-xs font-medium",
-                  dashboardStatus === "On track"
+                  !hasDashboardAttention
                     ? "bg-upflow-success/15 text-upflow-success"
                     : "bg-upflow-warning/15 text-upflow-warning",
                 )}
@@ -492,27 +494,30 @@ function SpaceDashboard({
               </span>
             </div>
             <h3 className="mt-4 text-2xl font-bold text-foreground sm:text-3xl">
-              {data.space.name} command dashboard
+              {t("spaceDashboard.commandDashboard", { space: data.space.name })}
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               {data.department_preset?.description ??
-                "Live Space metrics for tasks, meetings, tracked time, risk, and activity."}
+                t("spaceDashboard.liveMetrics")}
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <HeroMetric
-                label="Completion"
+                label={t("spaceDashboard.completion")}
                 value={`${stats.progress}%`}
-                detail={`${stats.done} of ${stats.total} tasks`}
+                detail={t("spaceDashboard.tasksComplete", {
+                  done: stats.done,
+                  total: stats.total,
+                })}
               />
               <HeroMetric
-                label="Open work"
+                label={t("spaceDashboard.openWork")}
                 value={stats.todo + stats.inProgress}
-                detail={`${stats.inProgress} in progress`}
+                detail={t("spaceDashboard.inProgressDetail", { count: stats.inProgress })}
               />
               <HeroMetric
-                label="Team flags"
+                label={t("spaceDashboard.teamFlags")}
                 value={overloadedCount}
-                detail="Overdue or 8+ open tasks"
+                detail={t("spaceDashboard.teamFlagsDetail")}
               />
             </div>
           </div>
@@ -521,10 +526,10 @@ function SpaceDashboard({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
-                  Today&apos;s pulse
+                  {t("spaceDashboard.todaysPulse")}
                 </p>
                 <p className="mt-1 text-sm text-foreground">
-                  Focus on what can move this Space forward now.
+                  {t("spaceDashboard.pulseHint")}
                 </p>
               </div>
               <button
@@ -532,24 +537,24 @@ function SpaceDashboard({
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" />
-                New task
+                {t("spaceDashboard.newTask")}
               </button>
             </div>
             <div className="mt-4 grid gap-2">
               <PulseRow
-                label="Urgent actions"
+                label={t("spaceDashboard.urgentActions")}
                 value={command.urgent_actions.count}
                 tone="danger"
                 onClick={() => onOpenDrawer("urgent_actions")}
               />
               <PulseRow
-                label="Meetings today"
+                label={t("spaceDashboard.meetingsToday")}
                 value={command.meetings_today.count}
                 tone="primary"
                 onClick={() => onOpenDrawer("meetings_today")}
               />
               <PulseRow
-                label="Time tracked"
+                label={t("spaceDashboard.timeTracked")}
                 value={formatSecondsShort(command.time_today.total_seconds)}
                 tone="success"
                 onClick={() => onOpenDrawer("time_today")}
@@ -561,64 +566,66 @@ function SpaceDashboard({
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <CommandTile
-          title="My urgent actions"
+          title={t("spaceDashboard.myUrgentActions")}
           value={command.urgent_actions.count}
-          hint={labels?.urgent ?? "Due, overdue, or high priority"}
+          hint={labels?.urgent ?? t("spaceDashboard.dueOverdueHighPriority")}
           icon={<AlertCircle className="w-4 h-4" />}
           tone="danger"
           onClick={() => onOpenDrawer("urgent_actions")}
         />
         <CommandTile
-          title="Team workload"
+          title={t("spaceDashboard.teamWorkload")}
           value={command.team_workload.count}
-          hint={labels?.workload ?? "Space workload by member"}
+          hint={labels?.workload ?? t("spaceDashboard.workloadByMember")}
           icon={<Users2 className="w-4 h-4" />}
           tone="primary"
           onClick={() => onOpenDrawer("team_workload")}
         />
         <CommandTile
-          title="Time today"
+          title={t("spaceDashboard.timeToday")}
           value={formatSecondsShort(command.time_today.total_seconds)}
           hint={
             command.time_today.running
-              ? "Timer is running"
-              : (labels?.time ?? "Tracked in this Space")
+              ? t("spaceDashboard.timerRunning")
+              : (labels?.time ?? t("spaceDashboard.trackedInSpace"))
           }
           icon={<Timer className="w-4 h-4" />}
           tone="success"
           onClick={() => onOpenDrawer("time_today")}
         />
         <CommandTile
-          title="Meetings today"
+          title={t("spaceDashboard.meetingsToday")}
           value={command.meetings_today.count}
-          hint={labels?.meetings ?? "Linked to this Space"}
+          hint={labels?.meetings ?? t("spaceDashboard.linkedToSpace")}
           icon={<CalendarIcon className="w-4 h-4" />}
           tone="blue"
           onClick={() => onOpenDrawer("meetings_today")}
         />
         <CommandTile
-          title="Recent activity"
+          title={t("spaceDashboard.recentActivity")}
           value={command.recent_activity.count}
-          hint={labels?.activity ?? "Space activity trail"}
+          hint={labels?.activity ?? t("spaceDashboard.activityTrail")}
           icon={<Activity className="w-4 h-4" />}
           tone="violet"
           onClick={() => onOpenDrawer("recent_activity")}
         />
         <CommandTile
-          title="Projects at risk"
+          title={t("spaceDashboard.projectsAtRisk")}
           value={command.projects_at_risk.count}
-          hint={labels?.risk ?? "Overdue tasks or no activity"}
+          hint={labels?.risk ?? t("spaceDashboard.overdueOrStale")}
           icon={<TrendingDown className="w-4 h-4" />}
           tone="warning"
           onClick={() => onOpenDrawer("projects_at_risk")}
         />
         <CommandTile
-          title="Quick create"
+          title={t("spaceDashboard.quickCreate")}
           value={command.quick_create.items.length}
           hint={
             data.department_preset
-              ? `${data.department_preset.name} task, meeting, project`
-              : "Task, meeting, project"
+              ? t("spaceDashboard.departmentTaskMeetingProject", {
+                  department: data.department_preset.name,
+                })
+              : t("spaceDashboard.taskMeetingProject")
           }
           icon={<Command className="w-4 h-4" />}
           tone="teal"
@@ -628,25 +635,25 @@ function SpaceDashboard({
 
       <section className="grid gap-3 grid-cols-1 sm:grid-cols-3">
         <StatusCard
-          label="Upcoming Actions"
+          label={t("spaceDashboard.upcomingActions")}
           value={stats.todo}
-          hint="Tasks waiting to start"
+          hint={t("spaceDashboard.waitingToStart")}
           icon={<FolderKanban className="w-5 h-5" />}
           tone="warning"
           onClick={() => onOpenDrawer("status:todo")}
         />
         <StatusCard
-          label="In Progress Actions"
+          label={t("spaceDashboard.inProgressActions")}
           value={stats.inProgress}
-          hint="Currently being worked on"
+          hint={t("spaceDashboard.currentlyBeingWorked")}
           icon={<AlertCircle className="w-5 h-5" />}
           tone="primary"
           onClick={() => onOpenDrawer("status:in_progress")}
         />
         <StatusCard
-          label="Completed Actions"
+          label={t("spaceDashboard.completedActions")}
           value={stats.done}
-          hint={`${stats.progress}% of total`}
+          hint={t("spaceDashboard.percentOfTotal", { percent: stats.progress })}
           icon={<CheckCircle2 className="w-5 h-5" />}
           tone="success"
           onClick={() => onOpenDrawer("status:done")}
@@ -656,10 +663,13 @@ function SpaceDashboard({
       <section className="glass rounded-xl p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">Space progress</p>
+            <p className="text-sm text-muted-foreground">{t("spaceDashboard.spaceProgress")}</p>
             <h3 className="mt-1 text-2xl font-bold text-foreground">{stats.progress}%</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              {stats.done} of {stats.total} tasks complete
+              {t("spaceDashboard.tasksComplete", {
+                done: stats.done,
+                total: stats.total,
+              })}
             </p>
           </div>
           <button
@@ -667,7 +677,7 @@ function SpaceDashboard({
             className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
           >
             <Plus className="w-4 h-4" />
-            New task
+            {t("spaceDashboard.newTask")}
           </button>
         </div>
         <div className="mt-4 h-2 rounded-full bg-white/5 overflow-hidden">
@@ -683,14 +693,14 @@ function SpaceDashboard({
       <section className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <div className="glass rounded-xl overflow-hidden">
           <SectionHeader
-            title="Urgent actions"
-            actionLabel="View all"
+            title={t("spaceDashboard.urgentActions")}
+            actionLabel={t("spaceDashboard.viewAll")}
             onAction={() => onOpenDrawer("urgent_actions")}
           />
           <RecordList
-            emptyTitle="No urgent actions"
+            emptyTitle={t("spaceDashboard.noUrgentActions")}
             emptyText={
-              labels?.empty ?? "Due, overdue, and high-priority assigned tasks appear here."
+              labels?.empty ?? t("spaceDashboard.noUrgentActionsHint")
             }
           >
             {command.urgent_actions.items.slice(0, 5).map((task) => (
@@ -705,19 +715,19 @@ function SpaceDashboard({
         </div>
         <div className="glass rounded-xl overflow-hidden">
           <SectionHeader
-            title="Quick create"
-            actionLabel="Open"
+            title={t("spaceDashboard.quickCreate")}
+            actionLabel={t("spaceDashboard.open")}
             onAction={() => onOpenDrawer("quick_create")}
           />
           <div className="p-4 grid gap-2">
             <QuickCreateButton icon={<CheckSquare className="w-4 h-4" />} onClick={onCreateTask}>
-              New task
+              {t("spaceDashboard.newTask")}
             </QuickCreateButton>
             <QuickCreateButton icon={<CalendarIcon className="w-4 h-4" />} onClick={onCreateMeeting}>
-              New meeting
+              {t("spaceDashboard.newMeeting")}
             </QuickCreateButton>
             <QuickCreateButton icon={<FolderPlus className="w-4 h-4" />} onClick={onCreateProject}>
-              New project
+              {t("spaceDashboard.newProject")}
             </QuickCreateButton>
           </div>
         </div>

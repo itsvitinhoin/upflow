@@ -3,15 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import type { Task } from "@/lib/types";
 import { cn, formatDate, formatLongDate, formatTime } from "@/lib/utils";
 import {
   clampTaskTimelineBlock,
   isSameLocalDay,
-  statusLabel,
   taskDueHour,
   taskTimelineClass,
   type TaskTimelineItem,
+  type TaskStatus,
 } from "@/components/spaces/space-dashboard-utils";
 
 export function SpaceTaskTimeline({
@@ -21,10 +22,16 @@ export function SpaceTaskTimeline({
   tasks: Task[];
   onCreateTask: () => void;
 }) {
+  const { t } = useLanguage();
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
   const totalHours = 11;
   const [currentHour, setCurrentHour] = useState<number | null>(null);
   const [todayLabel, setTodayLabel] = useState("");
+  const statusLabels: Record<TaskStatus, string> = {
+    todo: t("spaceDashboard.statusTodo"),
+    in_progress: t("spaceDashboard.statusInProgress"),
+    done: t("spaceDashboard.statusDone"),
+  };
 
   useEffect(() => {
     const now = new Date();
@@ -64,17 +71,19 @@ export function SpaceTaskTimeline({
     <section className="glass rounded-xl p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Task timeline</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t("spaceDashboard.taskTimeline")}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             <span suppressHydrationWarning>{todayLabel || "\u00A0"}</span>
             {timelineItems.length > 0 && (
               <>
                 {" - "}
-                <span>{dueTodayCount} due today</span>
+                <span>{t("spaceDashboard.dueToday", { count: dueTodayCount })}</span>
                 {overdueCount > 0 && (
                   <>
                     {" - "}
-                    <span className="text-upflow-danger">{overdueCount} overdue</span>
+                    <span className="text-upflow-danger">
+                      {t("spaceDashboard.overdueCount", { count: overdueCount })}
+                    </span>
                   </>
                 )}
               </>
@@ -86,7 +95,7 @@ export function SpaceTaskTimeline({
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          New task
+          {t("spaceDashboard.newTask")}
         </button>
       </div>
 
@@ -115,10 +124,10 @@ export function SpaceTaskTimeline({
             {timelineItems.length === 0 ? (
               <div className="rounded-lg border border-dashed border-white/10 p-6 text-center">
                 <p className="text-sm font-medium text-foreground">
-                  No tasks scheduled today
+                  {t("spaceDashboard.noTasksScheduledToday")}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Tasks with due dates in this Space will appear here.
+                  {t("spaceDashboard.tasksWithDueDatesAppear")}
                 </p>
               </div>
             ) : (
@@ -149,8 +158,8 @@ export function SpaceTaskTimeline({
                           {task.title}
                         </p>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {task.project?.name || "List"} -{" "}
-                          {overdue ? "Overdue" : formatDate(task.due_date)}
+                          {task.project?.name || t("spaceDashboard.list")} -{" "}
+                          {overdue ? t("spaceDashboard.overdue") : formatDate(task.due_date)}
                         </p>
                       </div>
                     </div>
@@ -167,7 +176,7 @@ export function SpaceTaskTimeline({
                         ))}
                       </div>
                       <div
-                        title={`${task.title} - ${overdue ? "Overdue" : formatTime(due)}`}
+                        title={`${task.title} - ${overdue ? t("spaceDashboard.overdue") : formatTime(due)}`}
                         className={cn(
                           "absolute bottom-1 top-1 flex items-center rounded-md border-l-2 px-2 text-[10px] font-medium transition-opacity",
                           taskTimelineClass(task, overdue),
@@ -179,7 +188,7 @@ export function SpaceTaskTimeline({
                         }}
                       >
                         <span className="truncate">
-                          {overdue ? "Overdue" : statusLabel(task.status)}
+                          {overdue ? t("spaceDashboard.overdue") : statusLabels[task.status]}
                         </span>
                       </div>
                     </div>

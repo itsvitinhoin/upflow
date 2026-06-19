@@ -13,6 +13,7 @@ import {
   Users2,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLanguage } from "@/components/language-provider";
 import type { ActivityEvent, Project, Task, TeamMember } from "@/lib/types";
 import { cn, formatDate, priorityColor } from "@/lib/utils";
 import type { SpaceDashboardData } from "@/components/spaces/space-page-types";
@@ -97,6 +98,7 @@ export function CommercialOperationsHub({
   onCreateTask,
   onTaskStatusChange,
 }: CommercialOperationsHubProps) {
+  const { t } = useLanguage();
   const tasks = data.tasks.items;
   const projects = data.projects.items;
   const command = data.command_center;
@@ -112,10 +114,10 @@ export function CommercialOperationsHub({
   const avgDealSize = projects.length ? pipelineValue / projects.length : 0;
   const winRate = tasks.length ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
   const completionRate = tasks.length ? Math.round((doneTasks.length / tasks.length) * 100) : 0;
-  const status =
-    command.projects_at_risk.count > 0 || command.urgent_actions.count > 0
-      ? "Needs attention"
-      : "Operational";
+  const hasAttention = command.projects_at_risk.count > 0 || command.urgent_actions.count > 0;
+  const status = hasAttention
+    ? t("commercialDashboard.needsAttention")
+    : t("commercialDashboard.operational");
   const stages = buildStages(projects, tasks);
   const topProjects = [...projects]
     .sort((a, b) => {
@@ -149,12 +151,12 @@ export function CommercialOperationsHub({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-200">
-                Commercial dashboard
+                {t("commercialDashboard.badge")}
               </span>
               <span
                 className={cn(
                   "rounded-full border px-3 py-1 text-[11px] font-semibold",
-                  status === "Operational"
+                  !hasAttention
                     ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
                     : "border-amber-400/25 bg-amber-500/10 text-amber-200",
                 )}
@@ -163,23 +165,22 @@ export function CommercialOperationsHub({
               </span>
             </div>
             <h3 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-              Commercial Operations Hub 🚀
+              {t("commercialDashboard.title")}
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Real-time Comercial Space view of linked clients, active projects, assigned
-              work, meetings, tracked time, and operational priorities.
+              {t("commercialDashboard.subtitle")}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <CommercialToolbarButton icon={<Calendar className="h-4 w-4" />}>
-              Last 7 days
+              {t("commercialDashboard.last7Days")}
             </CommercialToolbarButton>
             <CommercialToolbarButton
               icon={<Filter className="h-4 w-4" />}
               onClick={() => onOpenDrawer("projects_at_risk")}
             >
-              Filters
+              {t("commercialDashboard.filters")}
             </CommercialToolbarButton>
             <button
               type="button"
@@ -187,51 +188,51 @@ export function CommercialOperationsHub({
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.35)] transition hover:scale-[1.01] hover:shadow-[0_14px_36px_rgba(79,70,229,0.48)]"
             >
               <Plus className="h-4 w-4" />
-              New task
+              {t("commercialDashboard.newTask")}
             </button>
           </div>
         </div>
 
         <div className="relative mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[repeat(5,minmax(0,1fr))]">
           <CommercialMetricCard
-            title="Pipeline value"
-            value={pipelineValue > 0 ? formatMoney(pipelineValue) : "Not set"}
-            detail="Linked client contract value"
+            title={t("commercialDashboard.pipelineValue")}
+            value={pipelineValue > 0 ? formatMoney(pipelineValue) : t("commercialDashboard.notSet")}
+            detail={t("commercialDashboard.contractValueDetail")}
             tone="violet"
             icon={<DollarSign className="h-4 w-4" />}
             sparkSeed={Math.max(1, pipelineValue)}
           />
           <CommercialMetricCard
-            title="Active projects"
+            title={t("commercialDashboard.activeProjects")}
             value={projects.length}
-            detail="Projects in Comercial"
+            detail={t("commercialDashboard.projectsInComercial")}
             tone="blue"
             icon={<Target className="h-4 w-4" />}
             sparkSeed={projects.length}
             onClick={() => onOpenDrawer("projects_at_risk")}
           />
           <CommercialMetricCard
-            title="Completed work"
+            title={t("commercialDashboard.completedWork")}
             value={doneTasks.length}
-            detail="Done tasks in Comercial"
+            detail={t("commercialDashboard.doneTasksInComercial")}
             tone="green"
             icon={<Trophy className="h-4 w-4" />}
             sparkSeed={doneTasks.length}
             onClick={() => onOpenDrawer("status:done")}
           />
           <CommercialMetricCard
-            title="Completion rate"
+            title={t("commercialDashboard.completionRate")}
             value={`${completionRate}%`}
-            detail={`${doneTasks.length} of ${tasks.length} tasks done`}
+            detail={t("commercialDashboard.tasksDone", { done: doneTasks.length, total: tasks.length })}
             tone="amber"
             icon={<CheckCircle2 className="h-4 w-4" />}
             sparkSeed={completionRate}
             onClick={() => onOpenDrawer("status:done")}
           />
           <CommercialMetricCard
-            title="Avg project value"
-            value={avgDealSize > 0 ? formatMoney(avgDealSize) : "Not set"}
-            detail="Value divided by projects"
+            title={t("commercialDashboard.avgProjectValue")}
+            value={avgDealSize > 0 ? formatMoney(avgDealSize) : t("commercialDashboard.notSet")}
+            detail={t("commercialDashboard.valueDividedByProjects")}
             tone="cyan"
             icon={<Activity className="h-4 w-4" />}
             sparkSeed={Math.max(1, avgDealSize)}
@@ -241,7 +242,11 @@ export function CommercialOperationsHub({
 
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.9fr)]">
-          <Panel title="Pipeline stage" action="View source" onAction={() => onOpenDrawer("status:todo")}>
+          <Panel
+            title={t("commercialDashboard.pipelineStage")}
+            action={t("commercialDashboard.viewSource")}
+            onAction={() => onOpenDrawer("status:todo")}
+          >
             <div className="grid gap-5 md:grid-cols-[0.9fr_1fr]">
               <div className="space-y-2">
                 {stages.map((stage, index) => {
@@ -269,9 +274,9 @@ export function CommercialOperationsHub({
               </div>
               <div className="overflow-hidden rounded-xl border border-white/10">
                 <div className="grid grid-cols-[1fr_64px_86px] border-b border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  <span>Stage</span>
-                  <span className="text-right">Items</span>
-                  <span className="text-right">Value</span>
+                  <span>{t("commercialDashboard.stage")}</span>
+                  <span className="text-right">{t("commercialDashboard.items")}</span>
+                  <span className="text-right">{t("commercialDashboard.value")}</span>
                 </div>
                 {stages.map((stage) => (
                   <div
@@ -289,16 +294,20 @@ export function CommercialOperationsHub({
             </div>
           </Panel>
 
-          <Panel title="Commercial value sources" action="View projects" onAction={() => onOpenDrawer("projects_at_risk")}>
+          <Panel
+            title={t("commercialDashboard.valueSources")}
+            action={t("commercialDashboard.viewProjects")}
+            onAction={() => onOpenDrawer("projects_at_risk")}
+          >
             <div className="flex h-full min-h-[220px] flex-col justify-between">
               <div className="rounded-xl border border-white/10 bg-black/20 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                      Contract value
+                      {t("commercialDashboard.contractValue")}
                     </p>
                     <p className="mt-2 text-3xl font-bold text-white">
-                      {pipelineValue > 0 ? formatMoney(pipelineValue) : "Not set"}
+                      {pipelineValue > 0 ? formatMoney(pipelineValue) : t("commercialDashboard.notSet")}
                     </p>
                   </div>
                   <DollarSign className="h-8 w-8 text-violet-300" />
@@ -306,35 +315,34 @@ export function CommercialOperationsHub({
                 <SparkLine tone="violet" seed={Math.max(1, pipelineValue)} height={76} />
               </div>
               <p className="mt-3 text-xs leading-5 text-slate-500">
-                This panel only uses real linked company contract values. Add contract values
-                on client records to activate revenue-style Comercial reporting.
+                {t("commercialDashboard.valueSourcesHint")}
               </p>
             </div>
           </Panel>
         </div>
 
-        <Panel title="Today's pulse" icon={<Activity className="h-4 w-4 text-violet-300" />}>
+        <Panel title={t("commercialDashboard.todaysPulse")} icon={<Activity className="h-4 w-4 text-violet-300" />}>
           <div className="space-y-2">
             <PulseButton
-              label="Urgent actions"
+              label={t("commercialDashboard.urgentActions")}
               value={command.urgent_actions.count}
               tone="rose"
               onClick={() => onOpenDrawer("urgent_actions")}
             />
             <PulseButton
-              label="Meetings today"
+              label={t("commercialDashboard.meetingsToday")}
               value={command.meetings_today.count}
               tone="blue"
               onClick={() => onOpenDrawer("meetings_today")}
             />
             <PulseButton
-              label="Tasks due today"
+              label={t("commercialDashboard.tasksDueToday")}
               value={todayTasks.length}
               tone="amber"
               onClick={() => onOpenDrawer("status:todo")}
             />
             <PulseButton
-              label="Time tracked"
+              label={t("commercialDashboard.timeTracked")}
               value={formatSecondsShort(command.time_today.total_seconds)}
               tone="green"
               onClick={() => onOpenDrawer("time_today")}
@@ -345,7 +353,7 @@ export function CommercialOperationsHub({
             onClick={() => onOpenDrawer("urgent_actions")}
             className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-violet-200 hover:text-white"
           >
-            View my day
+            {t("commercialDashboard.viewMyDay")}
             <ArrowRight className="h-4 w-4" />
           </button>
         </Panel>
@@ -353,54 +361,72 @@ export function CommercialOperationsHub({
 
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_410px]">
         <div className="grid gap-3 lg:grid-cols-2">
-          <Panel title="Recent activity" action="View all" onAction={() => onOpenDrawer("recent_activity")}>
-            <ActivityList items={command.recent_activity.items.slice(0, 5)} />
+          <Panel title={t("commercialDashboard.recentActivity")} action={t("commercialDashboard.viewAll")} onAction={() => onOpenDrawer("recent_activity")}>
+            <ActivityList
+              items={command.recent_activity.items.slice(0, 5)}
+              emptyText={t("commercialDashboard.noActivity")}
+              systemLabel={t("commercialDashboard.system")}
+            />
           </Panel>
-          <Panel title="Upcoming tasks" action="View all" onAction={() => onOpenDrawer("urgent_actions")}>
+          <Panel title={t("commercialDashboard.upcomingTasks")} action={t("commercialDashboard.viewAll")} onAction={() => onOpenDrawer("urgent_actions")}>
             <TaskList
               tasks={upcomingTasks}
               updatingTask={updatingTask}
               onTaskStatusChange={onTaskStatusChange}
+              emptyText={t("commercialDashboard.noUpcomingTasks")}
+              markDoneLabel={(task) => t("commercialDashboard.markDone", { task })}
+              projectLabel={t("commercialDashboard.project")}
+              noDueDateLabel={t("commercialDashboard.noDueDate")}
             />
           </Panel>
         </div>
 
         <div className="grid gap-3">
-          <Panel title="Top Comercial projects" action="View all" onAction={() => onOpenDrawer("projects_at_risk")}>
-            <TopProjects projects={topProjects} maxValue={Math.max(...topProjects.map(projectValue), 1)} />
+          <Panel title={t("commercialDashboard.topProjects")} action={t("commercialDashboard.viewAll")} onAction={() => onOpenDrawer("projects_at_risk")}>
+            <TopProjects
+              projects={topProjects}
+              maxValue={Math.max(...topProjects.map(projectValue), 1)}
+              emptyText={t("commercialDashboard.noProjects")}
+              tasksLabel={(count) => t("commercialDashboard.tasks", { count })}
+              noValueLabel={t("commercialDashboard.noValue")}
+            />
           </Panel>
-          <Panel title="Team performance" action="View workload" onAction={() => onOpenDrawer("team_workload")}>
-            <TeamPerformance items={workload} />
+          <Panel title={t("commercialDashboard.teamPerformance")} action={t("commercialDashboard.viewWorkload")} onAction={() => onOpenDrawer("team_workload")}>
+            <TeamPerformance
+              items={workload}
+              emptyText={t("commercialDashboard.noWorkload")}
+              lateLabel={(count) => t("commercialDashboard.late", { count })}
+            />
           </Panel>
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
         <MiniStatusCard
-          label="Open work"
+          label={t("commercialDashboard.openWork")}
           value={openTasks.length}
-          detail={`${inProgressTasks.length} in progress`}
+          detail={t("commercialDashboard.inProgressCount", { count: inProgressTasks.length })}
           tone="blue"
           onClick={() => onOpenDrawer("status:in_progress")}
         />
         <MiniStatusCard
-          label="Overdue"
+          label={t("commercialDashboard.overdue")}
           value={overdueTasks.length}
-          detail="Open tasks past due"
+          detail={t("commercialDashboard.openTasksPastDue")}
           tone="rose"
           onClick={() => onOpenDrawer("urgent_actions")}
         />
         <MiniStatusCard
-          label="High priority"
+          label={t("commercialDashboard.highPriority")}
           value={highPriorityOpen.length}
-          detail="Requires attention"
+          detail={t("commercialDashboard.requiresAttention")}
           tone="amber"
           onClick={() => onOpenDrawer("urgent_actions")}
         />
         <MiniStatusCard
-          label="Todo"
+          label={t("commercialDashboard.todo")}
           value={todoTasks.length}
-          detail="Tasks waiting to start"
+          detail={t("commercialDashboard.tasksWaitingToStart")}
           tone="violet"
           onClick={() => onOpenDrawer("status:todo")}
         />
@@ -583,9 +609,17 @@ function PulseButton({
   );
 }
 
-function ActivityList({ items }: { items: ActivityEvent[] }) {
+function ActivityList({
+  items,
+  emptyText,
+  systemLabel,
+}: {
+  items: ActivityEvent[];
+  emptyText: string;
+  systemLabel: string;
+}) {
   if (items.length === 0) {
-    return <EmptyPanelText>No Comercial activity yet.</EmptyPanelText>;
+    return <EmptyPanelText>{emptyText}</EmptyPanelText>;
   }
   return (
     <div className="space-y-3">
@@ -594,7 +628,7 @@ function ActivityList({ items }: { items: ActivityEvent[] }) {
           <AvatarLabel label={item.actor?.name ?? "UP"} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-slate-200">
-              {item.actor?.name ?? "System"} {humanize(item.type)}
+              {item.actor?.name ?? systemLabel} {humanize(item.type)}
             </p>
             <p className="mt-1 truncate text-xs text-slate-500">
               {humanize(item.entity_type)} - {formatRelative(item.created_at)}
@@ -610,13 +644,21 @@ function TaskList({
   tasks,
   updatingTask,
   onTaskStatusChange,
+  emptyText,
+  markDoneLabel,
+  projectLabel,
+  noDueDateLabel,
 }: {
   tasks: Task[];
   updatingTask: boolean;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
+  emptyText: string;
+  markDoneLabel: (task: string) => string;
+  projectLabel: string;
+  noDueDateLabel: string;
 }) {
   if (tasks.length === 0) {
-    return <EmptyPanelText>No upcoming Comercial tasks.</EmptyPanelText>;
+    return <EmptyPanelText>{emptyText}</EmptyPanelText>;
   }
   return (
     <div className="space-y-2">
@@ -630,15 +672,15 @@ function TaskList({
             disabled={updatingTask || task.status === "done"}
             onClick={() => onTaskStatusChange(task, "done")}
             className="flex h-5 w-5 items-center justify-center rounded-md border border-white/20 text-slate-500 hover:border-emerald-400 hover:text-emerald-300 disabled:opacity-50"
-            aria-label={`Mark ${task.title} as done`}
+            aria-label={markDoneLabel(task.title)}
           >
             {task.status === "done" ? <CheckCircle2 className="h-4 w-4" /> : null}
           </button>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-slate-200">{task.title}</p>
             <p className="mt-1 truncate text-xs text-slate-500">
-              {task.project?.name ?? "Project"} -{" "}
-              {task.due_date ? formatDate(task.due_date) : "No due date"}
+              {task.project?.name ?? projectLabel} -{" "}
+              {task.due_date ? formatDate(task.due_date) : noDueDateLabel}
             </p>
           </div>
           <span
@@ -656,9 +698,21 @@ function TaskList({
   );
 }
 
-function TopProjects({ projects, maxValue }: { projects: Project[]; maxValue: number }) {
+function TopProjects({
+  projects,
+  maxValue,
+  emptyText,
+  tasksLabel,
+  noValueLabel,
+}: {
+  projects: Project[];
+  maxValue: number;
+  emptyText: string;
+  tasksLabel: (count: number) => string;
+  noValueLabel: string;
+}) {
   if (projects.length === 0) {
-    return <EmptyPanelText>No Comercial projects yet.</EmptyPanelText>;
+    return <EmptyPanelText>{emptyText}</EmptyPanelText>;
   }
   return (
     <div className="space-y-3">
@@ -671,7 +725,7 @@ function TopProjects({ projects, maxValue }: { projects: Project[]; maxValue: nu
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-200">{project.name}</p>
               <p className="truncate text-xs text-slate-500">
-                {project.company?.name ?? `${project._count?.tasks ?? 0} tasks`}
+                {project.company?.name ?? tasksLabel(project._count?.tasks ?? 0)}
               </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
                 <div
@@ -682,7 +736,7 @@ function TopProjects({ projects, maxValue }: { projects: Project[]; maxValue: nu
             </div>
             <div className="text-right">
               <p className="text-sm font-bold text-slate-200">
-                {value > 0 ? formatMoney(value) : "No value"}
+                {value > 0 ? formatMoney(value) : noValueLabel}
               </p>
               <p className="text-xs text-slate-500">{project.status}</p>
             </div>
@@ -695,6 +749,8 @@ function TopProjects({ projects, maxValue }: { projects: Project[]; maxValue: nu
 
 function TeamPerformance({
   items,
+  emptyText,
+  lateLabel,
 }: {
   items: Array<{
     user: TeamMember;
@@ -703,9 +759,11 @@ function TeamPerformance({
     due_today_tasks: number;
     tracked_seconds_today: number;
   }>;
+  emptyText: string;
+  lateLabel: (count: number) => string;
 }) {
   if (items.length === 0) {
-    return <EmptyPanelText>No team workload data yet.</EmptyPanelText>;
+    return <EmptyPanelText>{emptyText}</EmptyPanelText>;
   }
   const maxOpenTasks = Math.max(...items.map((item) => item.open_tasks), 1);
   return (
@@ -721,7 +779,7 @@ function TeamPerformance({
                 <p className="truncate text-sm font-medium text-slate-200">{item.user.name}</p>
                 {item.overdue_tasks > 0 && (
                   <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-200">
-                    {item.overdue_tasks} late
+                    {lateLabel(item.overdue_tasks)}
                   </span>
                 )}
               </div>

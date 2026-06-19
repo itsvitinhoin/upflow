@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLanguage } from "@/components/language-provider";
 import type { Task } from "@/lib/types";
 import { cn, formatDate, priorityColor } from "@/lib/utils";
 import {
-  statusLabel,
   toneClasses,
   type DashboardTone,
   type TaskStatus,
@@ -21,6 +21,13 @@ export function TaskRecord({
   updating: boolean;
   onStatusChange: (task: Task, status: TaskStatus) => void;
 }) {
+  const { t } = useLanguage();
+  const statusLabels: Record<TaskStatus, string> = {
+    todo: t("spaceDashboard.statusTodo"),
+    in_progress: t("spaceDashboard.statusInProgress"),
+    done: t("spaceDashboard.statusDone"),
+  };
+
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
       <div className="flex items-start justify-between gap-3">
@@ -29,8 +36,8 @@ export function TaskRecord({
             {task.title}
           </p>
           <p className="mt-1 truncate text-xs text-muted-foreground">
-            {task.project?.name || "Project"} -{" "}
-            {task.due_date ? formatDate(task.due_date) : "No due date"}
+            {task.project?.name || t("spaceDashboard.project")} -{" "}
+            {task.due_date ? formatDate(task.due_date) : t("spaceDashboard.noDueDate")}
           </p>
         </Link>
         <span className={cn("text-xs font-medium", priorityColor(task.priority))}>
@@ -50,7 +57,7 @@ export function TaskRecord({
                 : "text-muted-foreground hover:bg-white/10 hover:text-foreground",
             )}
           >
-            {statusLabel(status)}
+            {statusLabels[status]}
           </button>
         ))}
       </div>
