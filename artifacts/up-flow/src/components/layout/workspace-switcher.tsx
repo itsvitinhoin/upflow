@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Check, Plus } from "lucide-react";
+import { Check, ChevronDown, Plus, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { logError } from "@/lib/log-error";
 import { getCachedJson, primeCachedJson } from "@/lib/client-cache";
@@ -57,6 +57,8 @@ export default function WorkspaceSwitcher({
   const current = data?.workspaces.find(
     (w) => w.id === data.current_workspace_id,
   );
+  const initial =
+    (current?.name ?? "U").trim().charAt(0).toUpperCase() || "U";
 
   async function switchTo(id: string) {
     if (!data || id === data.current_workspace_id) {
@@ -103,32 +105,66 @@ export default function WorkspaceSwitcher({
 
   if (!data) {
     return (
-      <div className="mx-3 mb-2 mt-3 rounded-2xl border border-blue-300/10 bg-[#071024]/70 px-3 py-3 text-xs text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_28px_rgba(37,99,235,0.08)]">
-        {t("workspace.loading")}
+      <div className="mx-3 mb-3 mt-3 overflow-hidden rounded-[18px] border border-blue-300/15 bg-[#071024]/80 p-3 text-xs text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_34px_rgba(37,99,235,0.12)]">
+        <div className="h-3 w-20 rounded-full bg-white/10" />
+        <div className="mt-3 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-blue-500/15" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="h-3 w-24 rounded-full bg-white/10" />
+            <div className="h-2 w-16 rounded-full bg-white/5" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div ref={wrapRef} className="relative mx-3 mb-2 mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={busy}
-        className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-blue-300/10 bg-[#071024]/75 px-3 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_28px_rgba(37,99,235,0.08)] transition-all hover:border-blue-300/25 hover:bg-[#0a1430]/90 hover:shadow-[0_0_26px_rgba(59,130,246,0.14)]"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-[9px] uppercase tracking-[0.18em] text-blue-200/55">
+    <div ref={wrapRef} className="relative mx-3 mb-3 mt-3">
+      <div className="group relative overflow-hidden rounded-[20px] border border-blue-300/15 bg-[#071024]/80 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_42px_rgba(0,0,0,0.24),0_0_34px_rgba(37,99,235,0.12)] backdrop-blur-xl transition-all hover:border-blue-300/30 hover:bg-[#0a1430]/90 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_18px_48px_rgba(0,0,0,0.28),0_0_42px_rgba(59,130,246,0.18)]">
+        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_8%,rgba(59,130,246,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(139,92,246,0.18),transparent_28%)]" />
+        <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/35 to-transparent" />
+        <div className="relative flex items-start justify-between gap-2 px-2 pt-1">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-blue-100/55">
             {t("sidebar.workspace")}
           </p>
-          <p className="mt-1 truncate text-sm font-semibold text-foreground">
-            {current?.name ?? "—"}
-          </p>
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            disabled={busy}
+            aria-label={t("workspace.options")}
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-blue-100/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-blue-300/35 hover:bg-blue-400/10 hover:text-blue-50"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:text-blue-100" />
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          disabled={busy}
+          className="relative mt-1 flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-400/35"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-500 text-sm font-bold text-white shadow-[0_0_24px_rgba(59,130,246,0.42)] ring-1 ring-white/15">
+            {initial}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-semibold text-white">
+              {current?.name ?? "-"}
+            </span>
+            <span className="mt-0.5 block truncate text-[11px] capitalize text-blue-100/52">
+              {data.current_role ?? current?.role ?? "member"}
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-blue-100/55 transition-transform",
+              open && "rotate-180 text-blue-100",
+            )}
+          />
+        </button>
+      </div>
+
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl border border-blue-300/15 bg-[#070b18]/95 shadow-[0_20px_60px_rgba(0,0,0,0.45),0_0_36px_rgba(37,99,235,0.12)] backdrop-blur-xl">
+        <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-[18px] border border-blue-300/20 bg-[#070b18]/95 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_42px_rgba(37,99,235,0.18)] backdrop-blur-xl">
           <ul className="max-h-64 overflow-y-auto py-1">
             {data.workspaces.map((w) => (
               <li key={w.id}>
@@ -136,17 +172,23 @@ export default function WorkspaceSwitcher({
                   type="button"
                   onClick={() => switchTo(w.id)}
                   className={cn(
-                    "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-sm transition hover:bg-white/[0.06]",
-                    w.id === data.current_workspace_id && "bg-blue-500/10 text-blue-100",
+                    "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-sm transition hover:bg-white/[0.06]",
+                    w.id === data.current_workspace_id &&
+                      "bg-blue-500/12 text-blue-100",
                   )}
                 >
-                  <span className="truncate text-foreground">{w.name}</span>
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-[11px] font-bold text-blue-100 ring-1 ring-blue-300/15">
+                      {w.name.trim().charAt(0).toUpperCase() || "U"}
+                    </span>
+                    <span className="truncate text-foreground">{w.name}</span>
+                  </span>
                   <span className="flex items-center gap-2">
                     <span className="text-[10px] uppercase text-muted-foreground">
                       {w.role}
                     </span>
                     {w.id === data.current_workspace_id && (
-                      <Check className="w-3.5 h-3.5 text-foreground" />
+                      <Check className="h-3.5 w-3.5 text-blue-100" />
                     )}
                   </span>
                 </button>
@@ -159,7 +201,10 @@ export default function WorkspaceSwitcher({
               onClick={createNew}
               className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
             >
-              <Plus className="w-3.5 h-3.5" /> {t("workspace.new")}
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
+                <Plus className="h-3.5 w-3.5" />
+              </span>
+              {t("workspace.new")}
             </button>
           </div>
         </div>
