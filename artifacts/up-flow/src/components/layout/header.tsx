@@ -10,6 +10,7 @@ import { useLanguage } from "@/components/language-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getCachedJson } from "@/lib/client-cache";
 import { getNotificationHref } from "@/lib/notification-links";
+import { memberJoinedNotificationLabel } from "@/lib/notification-copy";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
 
@@ -72,12 +73,9 @@ function notificationIcon(type: string) {
   return <Clock className="w-3.5 h-3.5 text-upflow-warning" />;
 }
 
-function notificationLabel(n: Notification) {
+function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "en") {
   if (n.type === "member_joined") {
-    const data = (n.data ?? {}) as { new_member_name?: string; new_member_email?: string };
-    const who = data.new_member_name || data.new_member_email || "Someone";
-    const where = n.workspace?.name ? ` joined ${n.workspace.name}` : " joined the workspace";
-    return `${who}${where}`;
+    return memberJoinedNotificationLabel(n, language);
   }
   const taskTitle = n.task?.title || "a task";
   if (n.type === "assigned") return `Assigned to "${taskTitle}"`;
@@ -314,7 +312,7 @@ export default function Header({ title }: HeaderProps) {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs text-foreground leading-snug">
-                            {notificationLabel(n)}
+                            {notificationLabel(n, language)}
                           </p>
                           {n.task?.project?.name && (
                             <p className="text-xs text-muted-foreground mt-0.5">

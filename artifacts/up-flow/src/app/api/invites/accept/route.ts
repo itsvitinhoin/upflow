@@ -8,6 +8,10 @@ import { getEmailOrigin } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
+function normalizeInviteMemberRole(role: string | null | undefined): "admin" | "member" {
+  return role === "admin" ? "admin" : "member";
+}
+
 // Look up an invite by token (used by the accept page to render workspace info).
 async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -89,6 +93,7 @@ async function POST_handler(req: NextRequest) {
 
       const joinsWorkspace =
         fresh.tester_invite || fresh.invite_mode === "workspace_access";
+      const acceptedRole = normalizeInviteMemberRole(fresh.role);
       if (joinsWorkspace) {
         await tx.workspaceMember.upsert({
           where: {
@@ -100,9 +105,9 @@ async function POST_handler(req: NextRequest) {
           create: {
             workspace_id: fresh.workspace_id,
             user_id: auth.prismaUser.id,
-            role: fresh.role,
+            role: acceptedRole,
           },
-          update: { role: fresh.role, status: "active" },
+          update: { role: acceptedRole, status: "active" },
         });
       }
 
@@ -143,6 +148,7 @@ async function POST_handler(req: NextRequest) {
         select: { role: true },
       }),
     ]);
+    const joinedRole = normalizeInviteMemberRole(acceptedInvite?.role);
 
     // In-app notification rows for every admin (excluding the joining user
     // themselves, in case they were already a member promoted via invite).
@@ -159,7 +165,7 @@ async function POST_handler(req: NextRequest) {
             new_member_id: auth.prismaUser.id,
             new_member_email: auth.prismaUser.email,
             new_member_name: auth.prismaUser.name || auth.prismaUser.email,
-            role: acceptedInvite?.role ?? "member",
+            role: joinedRole,
           },
         })),
       });
@@ -167,9 +173,7 @@ async function POST_handler(req: NextRequest) {
     // Notification email is best-effort; if APP_URL is missing in prod the
     // outer catch will log this and the accept still succeeds.
     const origin = getEmailOrigin(req);
-    const role = (acceptedInvite?.role === "admin" ? "admin" : "member") as
-      | "admin"
-      | "member";
+    const role = joinedRole;
     const recipients = admins
       .map((m) => m.user.email)
       .filter((e): e is string => Boolean(e) && e.toLowerCase() !== auth.prismaUser.email.toLowerCase());

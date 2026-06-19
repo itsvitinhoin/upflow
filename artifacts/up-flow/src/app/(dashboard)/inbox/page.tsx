@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import { useLanguage } from "@/components/language-provider";
 import { logError } from "@/lib/log-error";
 import {
   Inbox as InboxIcon,
@@ -15,6 +16,7 @@ import {
   AtSign,
 } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import { memberJoinedNotificationLabel } from "@/lib/notification-copy";
 import { getNotificationHref } from "@/lib/notification-links";
 import type { Notification } from "@/lib/types";
 import { toast } from "sonner";
@@ -47,17 +49,9 @@ function iconFor(type: string) {
   return <Clock className="w-4 h-4 text-upflow-warning" />;
 }
 
-function labelFor(n: Notification) {
+function labelFor(n: Notification, language: "en" | "pt" | "pt-BR" = "en") {
   if (n.type === "member_joined") {
-    const data = (n.data ?? {}) as {
-      new_member_name?: string;
-      new_member_email?: string;
-    };
-    const who = data.new_member_name || data.new_member_email || "Someone";
-    const where = n.workspace?.name
-      ? ` joined ${n.workspace.name}`
-      : " joined the workspace";
-    return `${who}${where}`;
+    return memberJoinedNotificationLabel(n, language);
   }
   const taskTitle = n.task?.title || "a task";
   if (n.type === "assigned") return `You were assigned to "${taskTitle}"`;
@@ -96,6 +90,7 @@ function timeAgo(iso: string) {
 }
 
 export default function InboxPage() {
+  const { language } = useLanguage();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
@@ -251,7 +246,7 @@ export default function InboxPage() {
                     <div className="mt-0.5 flex-shrink-0">{iconFor(n.type)}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground leading-snug">
-                        {labelFor(n)}
+                        {labelFor(n, language)}
                       </p>
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                         {n.task?.project?.name ? (
