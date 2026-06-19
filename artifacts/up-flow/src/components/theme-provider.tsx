@@ -21,11 +21,36 @@ const ThemeContext = React.createContext<ThemeContextType>({
   setTheme: () => null,
 });
 
+const THEME_STORAGE_KEY = "upflow.theme";
+
+function normalizeTheme(value: string | null): Theme | null {
+  if (value === "dark" || value === "light" || value === "system") return value;
+  return null;
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = "light",
 }: ThemeProviderProps) {
   const [theme, setTheme] = React.useState<Theme>(defaultTheme);
+
+  React.useEffect(() => {
+    try {
+      const stored = normalizeTheme(localStorage.getItem(THEME_STORAGE_KEY));
+      if (stored) setTheme(stored);
+    } catch {
+      // Ignore storage failures so private browsing or blocked storage does not break rendering.
+    }
+  }, []);
+
+  const updateTheme = React.useCallback((nextTheme: Theme) => {
+    setTheme(nextTheme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    } catch {
+      // Theme changes should still work for the current session when storage is unavailable.
+    }
+  }, []);
 
   React.useEffect(() => {
     const root = document.documentElement;
@@ -41,7 +66,7 @@ export function ThemeProvider({
   }, [theme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme: updateTheme }}>
       {children}
     </ThemeContext.Provider>
   );

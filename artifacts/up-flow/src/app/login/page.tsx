@@ -117,19 +117,19 @@ function FeatureItem({
   description: string;
 }) {
   return (
-    <div className="min-w-0 border-white/10 last:border-0 sm:border-r sm:pr-6">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-blue-400/20 bg-blue-500/10 text-blue-200 shadow-[0_0_28px_rgba(59,130,246,0.28)]">
+    <div className="min-w-0 border-slate-200 last:border-0 sm:border-r sm:pr-6 dark:border-white/10">
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-600 shadow-[0_12px_34px_rgba(37,99,235,0.14)] dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200 dark:shadow-[0_0_28px_rgba(59,130,246,0.28)]">
         {icon}
       </div>
-      <p className="text-sm font-semibold text-white">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-400">{description}</p>
+      <p className="text-sm font-semibold text-slate-950 dark:text-white">{title}</p>
+      <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">{description}</p>
     </div>
   );
 }
 
 function LoginControlBar() {
   const { theme, setTheme } = useTheme();
-  const { language, toggleLanguage } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const isDark = theme !== "light";
   const copy = loginCopy[language];
 
@@ -139,39 +139,58 @@ function LoginControlBar() {
         type="button"
         onClick={() => setTheme(isDark ? "light" : "dark")}
         aria-label={isDark ? copy.themeLight : copy.themeDark}
-        className="inline-flex h-11 items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 text-slate-300 shadow-[0_0_26px_rgba(15,23,42,0.5)] backdrop-blur transition hover:border-blue-400/40 hover:text-white"
+        className="inline-flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-slate-600 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-400/40 hover:text-slate-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:shadow-[0_0_26px_rgba(15,23,42,0.5)] dark:hover:text-white"
       >
         <span
           className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-            !isDark ? "bg-white text-slate-950" : "text-slate-400"
+            !isDark ? "bg-slate-950 text-white" : "text-slate-400"
           }`}
         >
           <Sun className="h-4 w-4" />
         </span>
         <span
           className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-            isDark ? "bg-white text-slate-950" : "text-slate-400"
+            isDark ? "bg-white text-slate-950" : "text-slate-500"
           }`}
         >
           <Moon className="h-4 w-4" />
         </span>
       </button>
-      <button
-        type="button"
-        onClick={toggleLanguage}
-        className="inline-flex h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-white transition hover:border-violet-400/40 hover:bg-white/[0.08]"
-      >
-        {language === "pt-BR" ? "PT-BR" : "EN"}
-      </button>
+      <div className="inline-flex h-11 items-center rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold text-slate-600 shadow-[0_12px_34px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+        <button
+          type="button"
+          onClick={() => setLanguage("en")}
+          aria-pressed={language === "en"}
+          className={`h-8 rounded-full px-3 transition ${
+            language === "en"
+              ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+              : "hover:text-slate-950 dark:hover:text-white"
+          }`}
+        >
+          EN
+        </button>
+        <button
+          type="button"
+          onClick={() => setLanguage("pt-BR")}
+          aria-pressed={language === "pt-BR"}
+          className={`h-8 rounded-full px-3 transition ${
+            language === "pt-BR"
+              ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950"
+              : "hover:text-slate-950 dark:hover:text-white"
+          }`}
+        >
+          PT
+        </button>
+      </div>
     </div>
   );
 }
 
 function BrandPanel({ copy }: { copy: LoginCopy }) {
   return (
-    <section className="relative hidden min-h-dvh overflow-hidden border-r border-white/10 bg-[#050916] p-10 lg:flex lg:flex-col lg:justify-between xl:p-14">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(59,130,246,0.42),transparent_34%),radial-gradient(circle_at_55%_34%,rgba(37,99,235,0.18),transparent_30%),linear-gradient(140deg,rgba(15,23,42,0.25),rgba(2,6,23,0.94))]" />
-      <div className="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-blue-600/20 blur-3xl" />
+    <section className="relative hidden min-h-dvh overflow-hidden border-r border-slate-200 bg-white p-10 lg:flex lg:flex-col lg:justify-between xl:p-14 dark:border-white/10 dark:bg-[#050916]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_0%,rgba(59,130,246,0.18),transparent_34%),radial-gradient(circle_at_55%_34%,rgba(37,99,235,0.10),transparent_30%),linear-gradient(140deg,rgba(248,250,252,0.72),rgba(226,232,240,0.64))] dark:bg-[radial-gradient(circle_at_12%_0%,rgba(59,130,246,0.42),transparent_34%),radial-gradient(circle_at_55%_34%,rgba(37,99,235,0.18),transparent_30%),linear-gradient(140deg,rgba(15,23,42,0.25),rgba(2,6,23,0.94))]" />
+      <div className="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl dark:bg-blue-600/20" />
       <div className="relative z-10">
         <Image
           src={logoSrc}
@@ -185,9 +204,9 @@ function BrandPanel({ copy }: { copy: LoginCopy }) {
 
       <div className="relative z-10 flex justify-center">
         <div className="relative h-[360px] w-[420px] max-w-full">
-          <div className="absolute left-[40%] top-20 h-56 w-44 rotate-[8deg] rounded-[2rem] border border-blue-300/20 bg-blue-500/[0.08] shadow-[0_0_60px_rgba(59,130,246,0.18)] backdrop-blur-xl" />
-          <div className="absolute left-[28%] top-10 h-64 w-52 rotate-[5deg] rounded-[2rem] border border-blue-300/30 bg-blue-500/[0.10] shadow-[0_0_70px_rgba(37,99,235,0.22)] backdrop-blur-xl" />
-          <div className="absolute left-10 top-0 flex h-72 w-60 -rotate-[4deg] items-center justify-center rounded-[2rem] border border-blue-300/50 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-slate-950/80 shadow-[0_30px_90px_rgba(37,99,235,0.35),0_0_0_1px_rgba(255,255,255,0.08)_inset] backdrop-blur-xl">
+          <div className="absolute left-[40%] top-20 h-56 w-44 rotate-[8deg] rounded-[2rem] border border-blue-300/40 bg-blue-100/60 shadow-[0_0_60px_rgba(59,130,246,0.18)] backdrop-blur-xl dark:border-blue-300/20 dark:bg-blue-500/[0.08]" />
+          <div className="absolute left-[28%] top-10 h-64 w-52 rotate-[5deg] rounded-[2rem] border border-blue-300/50 bg-blue-100/70 shadow-[0_0_70px_rgba(37,99,235,0.22)] backdrop-blur-xl dark:border-blue-300/30 dark:bg-blue-500/[0.10]" />
+          <div className="absolute left-10 top-0 flex h-72 w-60 -rotate-[4deg] items-center justify-center rounded-[2rem] border border-blue-300/70 bg-gradient-to-br from-blue-100 via-white to-slate-100 shadow-[0_30px_90px_rgba(37,99,235,0.24),0_0_0_1px_rgba(255,255,255,0.45)_inset] backdrop-blur-xl dark:border-blue-300/50 dark:bg-gradient-to-br dark:from-blue-500/20 dark:via-blue-500/10 dark:to-slate-950/80 dark:shadow-[0_30px_90px_rgba(37,99,235,0.35),0_0_0_1px_rgba(255,255,255,0.08)_inset]">
             <Image
               src={logoSrc}
               alt=""
@@ -204,7 +223,7 @@ function BrandPanel({ copy }: { copy: LoginCopy }) {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-300">
           {copy.brandEyebrow}
         </p>
-        <h1 className="mt-6 text-5xl font-bold leading-tight tracking-tight text-white xl:text-6xl">
+        <h1 className="mt-6 text-5xl font-bold leading-tight tracking-tight text-slate-950 xl:text-6xl dark:text-white">
           {copy.brandTitleLine1}
           <br />
           {copy.brandTitleLine2}{" "}
@@ -212,7 +231,7 @@ function BrandPanel({ copy }: { copy: LoginCopy }) {
             {copy.brandTitleAccent}
           </span>
         </h1>
-        <p className="mt-6 max-w-md text-lg leading-8 text-slate-300">
+        <p className="mt-6 max-w-md text-lg leading-8 text-slate-600 dark:text-slate-300">
           {copy.brandDescription}
         </p>
       </div>
@@ -252,11 +271,11 @@ function AuthField({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-4">
-        <label className="text-sm font-medium text-white">{label}</label>
+        <label className="text-sm font-medium text-slate-950 dark:text-white">{label}</label>
         {action}
       </div>
-      <div className="group flex min-h-[68px] items-center gap-4 rounded-2xl border border-white/12 bg-white/[0.035] px-5 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] transition focus-within:border-blue-400/70 focus-within:bg-white/[0.055] focus-within:shadow-[0_0_34px_rgba(59,130,246,0.18)]">
-        <div className="text-slate-400 transition group-focus-within:text-blue-300">
+      <div className="group flex min-h-[68px] items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 shadow-[0_16px_48px_rgba(15,23,42,0.06)] transition focus-within:border-blue-500 focus-within:shadow-[0_0_34px_rgba(59,130,246,0.18)] dark:border-white/12 dark:bg-white/[0.035] dark:shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] dark:focus-within:border-blue-400/70 dark:focus-within:bg-white/[0.055]">
+        <div className="text-slate-500 transition group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-300">
           {icon}
         </div>
         {children}
@@ -310,8 +329,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#030712] text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_10%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_88%_82%,rgba(139,92,246,0.12),transparent_34%)]" />
+    <main className="relative min-h-dvh overflow-hidden bg-slate-50 text-slate-950 dark:bg-[#030712] dark:text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_75%_10%,rgba(37,99,235,0.10),transparent_34%),radial-gradient(circle_at_88%_82%,rgba(139,92,246,0.10),transparent_34%)] dark:bg-[radial-gradient(circle_at_75%_10%,rgba(37,99,235,0.16),transparent_34%),radial-gradient(circle_at_88%_82%,rgba(139,92,246,0.12),transparent_34%)]" />
       <LoginControlBar />
 
       <div className="relative z-10 grid min-h-dvh lg:grid-cols-[minmax(0,0.96fr)_minmax(480px,1fr)]">
@@ -328,8 +347,8 @@ export default function LoginPage() {
                 priority
                 className="mx-auto h-20 w-20 object-contain drop-shadow-[0_0_34px_rgba(59,130,246,0.65)]"
               />
-              <h2 className="mt-6 text-4xl font-bold tracking-tight text-white">Up Flow</h2>
-              <p className="mt-3 text-lg text-slate-400">{copy.welcomeTitle}</p>
+              <h2 className="mt-6 text-4xl font-bold tracking-tight text-slate-950 dark:text-white">Up Flow</h2>
+              <p className="mt-3 text-lg text-slate-600 dark:text-slate-400">{copy.welcomeTitle}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-7">
@@ -341,7 +360,7 @@ export default function LoginPage() {
                   required
                   placeholder={copy.emailPlaceholder}
                   autoComplete="email"
-                  className="h-full min-w-0 flex-1 bg-transparent text-lg text-white outline-none placeholder:text-slate-500"
+                  className="h-full min-w-0 flex-1 bg-transparent text-lg text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
                 />
               </AuthField>
 
@@ -351,7 +370,7 @@ export default function LoginPage() {
                 action={
                   <Link
                     href="/auth/forgot"
-                    className="text-sm font-medium text-blue-400 transition hover:text-blue-200"
+                    className="text-sm font-medium text-blue-600 transition hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-200"
                   >
                     {copy.forgotPassword}
                   </Link>
@@ -364,7 +383,7 @@ export default function LoginPage() {
                   required
                   placeholder="************"
                   autoComplete="current-password"
-                  className="h-full min-w-0 flex-1 bg-transparent text-lg text-white outline-none placeholder:text-slate-500"
+                  className="h-full min-w-0 flex-1 bg-transparent text-lg text-slate-950 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-slate-500"
                 />
               </AuthField>
 
@@ -387,8 +406,8 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-12 rounded-2xl border border-white/10 bg-white/[0.025] p-5 text-center text-slate-400">
-              <div className="mb-2 flex justify-center text-emerald-300">
+            <div className="mt-12 rounded-2xl border border-slate-200 bg-white p-5 text-center text-slate-600 shadow-[0_18px_54px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.025] dark:text-slate-400">
+              <div className="mb-2 flex justify-center text-emerald-500 dark:text-emerald-300">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               {copy.needAccess}
