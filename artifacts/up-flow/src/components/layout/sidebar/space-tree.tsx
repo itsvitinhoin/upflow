@@ -77,19 +77,24 @@ export function SpaceNode({
   const visibleLooseLists = isSearching ? looseLists : looseLists.slice(0, remainingListSlots);
   const hiddenChildCount = directChildCount - visibleFolders.length - visibleLooseLists.length;
   return (
-    <div className="rounded-lg">
+    <div className="rounded-2xl">
       <div
         className={cn(
-          "group relative flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5",
-          isActive && "bg-primary/15",
+          "group relative flex items-center gap-1 overflow-hidden rounded-2xl border px-1.5 py-1.5 transition-all",
+          isActive
+            ? "border-blue-300/30 bg-gradient-to-r from-blue-600/28 via-violet-600/20 to-blue-500/10 shadow-[0_0_30px_rgba(37,99,235,0.24),inset_0_1px_0_rgba(255,255,255,0.12)]"
+            : "border-transparent bg-white/[0.025] hover:border-blue-300/15 hover:bg-white/[0.055] hover:shadow-[0_0_24px_rgba(59,130,246,0.10)]",
         )}
       >
+        {isActive && (
+          <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_50%,rgba(96,165,250,0.22),transparent_42%)]" />
+        )}
         <button
           onClick={() => toggleCollapse(sp.id)}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
           aria-expanded={!isCollapsed}
           title={isCollapsed ? "Expand space" : "Collapse space"}
-          className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="relative z-10 flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-lg text-blue-100/65 transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           {isCollapsed ? (
             <ChevronRight className="w-3.5 h-3.5" />
@@ -97,12 +102,21 @@ export function SpaceNode({
             <ChevronDown className="w-3.5 h-3.5" />
           )}
         </button>
-        <span className="text-base leading-none">{sp.icon || "🗂️"}</span>
+        <span
+          className={cn(
+            "relative z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl text-base leading-none ring-1",
+            isActive
+              ? "bg-blue-500/20 ring-blue-300/25 shadow-[0_0_18px_rgba(59,130,246,0.22)]"
+              : "bg-white/[0.04] ring-white/10",
+          )}
+        >
+          {sp.icon || "UP"}
+        </span>
         <Link
           href={`/spaces/${sp.id}`}
           onClick={onNavigate}
           className={cn(
-            "flex-1 rounded-md px-1.5 py-1.5 text-left text-xs font-semibold truncate outline-none transition-colors",
+            "relative z-10 min-w-0 flex-1 rounded-xl px-1.5 py-1.5 text-left text-xs font-semibold truncate outline-none transition-colors",
             isActive
               ? "text-foreground"
               : "text-foreground/90 hover:text-foreground focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60",
@@ -110,6 +124,18 @@ export function SpaceNode({
         >
           {sp.name}
         </Link>
+        {directChildCount > 0 && (
+          <span
+            className={cn(
+              "relative z-10 ml-1 flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+              isActive
+                ? "bg-blue-400/16 text-blue-100 ring-1 ring-blue-300/25"
+                : "bg-white/[0.06] text-muted-foreground",
+            )}
+          >
+            {directChildCount}
+          </span>
+        )}
         <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
           <button
             onClick={() =>
@@ -118,14 +144,14 @@ export function SpaceNode({
             aria-label={`Actions for ${sp.name}`}
             aria-expanded={menuOpen}
             data-menu-trigger
-            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="relative z-10 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <MoreHorizontal className="w-3.5 h-3.5" />
           </button>
           {menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full mt-1 w-44 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+              className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
             >
               <button
                 role="menuitem"
@@ -170,18 +196,13 @@ export function SpaceNode({
             </div>
           )}
         </div>
-        {isCollapsed && directChildCount > 0 && (
-          <span className="ml-1 whitespace-nowrap text-[10px] text-muted-foreground">
-            {spaceFolders.length} folders · {looseLists.length} lists
-          </span>
-        )}
       </div>
 
       {!isCollapsed && (
-        <div className="ml-5 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
+        <div className="ml-6 mt-1.5 space-y-1 border-l border-blue-300/10 pl-3">
           {spaceFolders.length === 0 && looseLists.length === 0 && (
             <p className={cn(
-              "px-2 py-1.5 text-[11px] text-muted-foreground/70 italic",
+              "rounded-xl border border-white/5 bg-white/[0.025] px-2 py-1.5 text-[11px] text-muted-foreground/70 italic",
               !isActive && !isSearching && "hidden",
             )}>
               No folders or lists yet
@@ -223,7 +244,7 @@ export function SpaceNode({
             <Link
               href={`/spaces/${sp.id}?tab=browse`}
               onClick={onNavigate}
-              className="block rounded-md px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+              className="block rounded-xl border border-blue-300/10 bg-blue-500/[0.06] px-2 py-1.5 text-[11px] font-medium text-blue-200 hover:bg-blue-500/10"
             >
               View all in space ({hiddenChildCount} more)
             </Link>
@@ -287,19 +308,24 @@ export function FolderNode({
   const visibleItems = isSearching ? items : items.slice(0, remainingItemSlots);
   const hiddenChildCount = directChildCount - visibleChildFolders.length - visibleItems.length;
   return (
-    <div className="rounded-md">
+    <div className="rounded-xl">
       <div
         className={cn(
-          "group relative flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5",
-          isActive && "bg-primary/15",
+          "group relative flex items-center gap-1 overflow-hidden rounded-xl border px-1.5 py-1 transition-all",
+          isActive
+            ? "border-blue-300/25 bg-blue-500/12 text-foreground shadow-[0_0_20px_rgba(59,130,246,0.16)]"
+            : "border-transparent hover:border-blue-300/12 hover:bg-white/[0.045]",
         )}
       >
+        {isActive && (
+          <span className="pointer-events-none absolute inset-y-1 left-0 w-0.5 rounded-full bg-blue-300 shadow-[0_0_12px_rgba(96,165,250,0.8)]" />
+        )}
         <button
           onClick={() => toggleCollapse(f.id)}
           aria-label={fCollapsed ? "Expand" : "Collapse"}
           aria-expanded={!fCollapsed}
           title={fCollapsed ? "Expand folder" : "Collapse folder"}
-          className="flex h-6 w-5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="relative z-10 flex h-6 w-5 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           {fCollapsed ? (
             <ChevronRight className="w-3 h-3" />
@@ -311,29 +337,39 @@ export function FolderNode({
           href={`/folders/${f.id}`}
           onClick={onNavigate}
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs font-medium outline-none transition-colors",
+            "relative z-10 flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1.5 py-1.5 text-left text-xs font-medium outline-none transition-colors",
             isActive
               ? "text-foreground"
               : "text-foreground/85 hover:text-foreground focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60",
           )}
         >
-          <Folder className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
+          <Folder
+            className={cn(
+              "h-3.5 w-3.5 flex-shrink-0",
+              isActive ? "text-blue-200" : "text-muted-foreground",
+            )}
+          />
           <span className="truncate">{f.name}</span>
         </Link>
+        {fCollapsed && directChildCount > 0 && (
+          <span className="relative z-10 ml-1 whitespace-nowrap rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {directChildCount}
+          </span>
+        )}
         <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
           <button
             onClick={() => setMenuOpenId((id) => (id === f.id ? null : f.id))}
             aria-label={`Actions for ${f.name}`}
             aria-expanded={fMenuOpen}
             data-menu-trigger
-            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            className="relative z-10 flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
           >
             <MoreHorizontal className="w-3 h-3" />
           </button>
           {fMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full mt-1 w-40 glass-strong rounded-lg z-30 overflow-hidden text-xs"
+              className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
             >
               <button
                 role="menuitem"
@@ -378,18 +414,13 @@ export function FolderNode({
             </div>
           )}
         </div>
-        {fCollapsed && directChildCount > 0 && (
-          <span className="ml-1 whitespace-nowrap text-[10px] text-muted-foreground">
-            {childFolders.length} folders · {items.length} lists
-          </span>
-        )}
       </div>
       {!fCollapsed && (
-        <div className="ml-4 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
+        <div className="ml-5 mt-1 space-y-1 border-l border-blue-300/10 pl-3">
           {childFolders.length === 0 && items.length === 0 ? (
             <p
               className={cn(
-                "px-2 py-1 text-[11px] text-muted-foreground/70 italic",
+                "rounded-xl border border-white/5 bg-white/[0.025] px-2 py-1 text-[11px] text-muted-foreground/70 italic",
                 !isActive && !isSearching && "hidden",
               )}
             >
@@ -433,7 +464,7 @@ export function FolderNode({
                 <Link
                   href={`/folders/${f.id}`}
                   onClick={onNavigate}
-                  className="block rounded-md px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+                  className="block rounded-xl border border-blue-300/10 bg-blue-500/[0.06] px-2 py-1.5 text-[11px] font-medium text-blue-200 hover:bg-blue-500/10"
                 >
                   View all in folder ({hiddenChildCount} more)
                 </Link>
@@ -472,14 +503,14 @@ export function UnassignedNode({
   const visibleItems = isSearching ? items : items.slice(0, MAX_VISIBLE_CHILDREN);
   const hiddenCount = items.length - visibleItems.length;
   return (
-    <div className="rounded-lg pt-2 mt-2 border-t border-white/5">
-      <div className="flex items-center gap-1 rounded-md px-1 py-0.5 transition-colors hover:bg-white/5">
+    <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.025] p-1.5">
+      <div className="flex items-center gap-1 rounded-xl px-1 py-1 transition-colors hover:bg-white/[0.045]">
         <button
           onClick={() => toggleCollapse(id)}
           aria-label={isCollapsed ? "Expand" : "Collapse"}
           aria-expanded={!isCollapsed}
           title={isCollapsed ? "Expand unassigned lists" : "Collapse unassigned lists"}
-          className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           {isCollapsed ? (
             <ChevronRight className="w-3.5 h-3.5" />
@@ -487,21 +518,21 @@ export function UnassignedNode({
             <ChevronDown className="w-3.5 h-3.5" />
           )}
         </button>
-        <Folder className="w-3.5 h-3.5 text-muted-foreground" />
+        <Folder className="h-3.5 w-3.5 text-muted-foreground" />
         <button
           onClick={() => toggleCollapse(id)}
-          className="min-w-0 flex-1 rounded-md px-1.5 py-1.5 text-left text-xs font-semibold text-muted-foreground truncate transition-colors hover:text-foreground focus:outline-none focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="min-w-0 flex-1 rounded-lg px-1.5 py-1.5 text-left text-xs font-semibold text-muted-foreground truncate transition-colors hover:text-foreground focus:outline-none focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60"
         >
           Unassigned
         </button>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
+        <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[10px] text-muted-foreground tabular-nums">
           {items.length}
         </span>
       </div>
       {!isCollapsed && (
-        <div className="ml-5 pl-2 border-l border-white/5 space-y-0.5 mt-0.5">
+        <div className="ml-6 mt-1 space-y-1 border-l border-blue-300/10 pl-3">
           {items.length === 0 ? (
-            <p className="px-2 py-1.5 text-[11px] text-muted-foreground/70 italic">
+            <p className="rounded-xl border border-white/5 bg-white/[0.025] px-2 py-1.5 text-[11px] text-muted-foreground/70 italic">
               Nothing here
             </p>
           ) : (
@@ -520,7 +551,7 @@ export function UnassignedNode({
             <Link
               href="/projects"
               onClick={onNavigate}
-              className="block rounded-md px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10"
+              className="block rounded-xl border border-blue-300/10 bg-blue-500/[0.06] px-2 py-1.5 text-[11px] font-medium text-blue-200 hover:bg-blue-500/10"
             >
               View all lists ({hiddenCount} more)
             </Link>

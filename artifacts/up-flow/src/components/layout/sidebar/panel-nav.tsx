@@ -17,8 +17,8 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
   const { t } = useLanguage();
   return (
     <>
-      <div className="px-4 pt-4 pb-1">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="px-4 pb-1 pt-4">
+        <p className="text-[9px] uppercase tracking-[0.2em] text-blue-200/45">
           {t("sidebar.navigation")}
         </p>
       </div>
@@ -36,30 +36,30 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "relative flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/60",
+                "relative flex items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-xs font-semibold outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/60",
                 active
                   ? "bg-gradient-to-r from-blue-600/55 to-violet-600/32 text-white shadow-[0_0_30px_rgba(37,99,235,0.28),inset_0_1px_0_rgba(255,255,255,0.14)] ring-1 ring-blue-300/20"
                   : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.12)]",
               )}
             >
               {active && (
-                <span className="absolute left-0 h-6 w-0.5 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(59,130,246,0.9)]" />
+                <>
+                  <span className="absolute inset-0 bg-[radial-gradient(circle_at_15%_50%,rgba(96,165,250,0.24),transparent_42%)]" />
+                  <span className="absolute left-0 h-6 w-0.5 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(59,130,246,0.9)]" />
+                </>
               )}
-              <Icon className={cn("w-3.5 h-3.5", active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.8)]")} />
-              {label}
+              <Icon className={cn("relative h-3.5 w-3.5", active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.8)]")} />
+              <span className="relative truncate">{label}</span>
             </Link>
           );
         })}
       </nav>
-      <div className="mx-3 border-t border-white/5" />
+      <div className="mx-3 border-t border-blue-300/10" />
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            {t("sidebar.workspace")}
-          </p>
-          <h3 className="text-sm font-semibold text-foreground">
+          <p className="text-[9px] uppercase tracking-[0.2em] text-blue-200/45">
             {t("sidebar.spaces")}
-          </h3>
+          </p>
         </div>
         <div className="flex items-center gap-1">
           <button

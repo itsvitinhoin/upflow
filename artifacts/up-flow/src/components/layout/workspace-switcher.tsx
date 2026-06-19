@@ -103,32 +103,32 @@ export default function WorkspaceSwitcher({
 
   if (!data) {
     return (
-      <div className="mx-3 mt-3 mb-1 px-2.5 py-2 rounded-lg bg-white/5 text-xs text-muted-foreground">
+      <div className="mx-3 mb-2 mt-3 rounded-2xl border border-blue-300/10 bg-[#071024]/70 px-3 py-3 text-xs text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_28px_rgba(37,99,235,0.08)]">
         {t("workspace.loading")}
       </div>
     );
   }
 
   return (
-    <div ref={wrapRef} className="relative mx-3 mt-3 mb-1">
+    <div ref={wrapRef} className="relative mx-3 mb-2 mt-3">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
-        className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+        className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-blue-300/10 bg-[#071024]/75 px-3 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_28px_rgba(37,99,235,0.08)] transition-all hover:border-blue-300/25 hover:bg-[#0a1430]/90 hover:shadow-[0_0_26px_rgba(59,130,246,0.14)]"
       >
-        <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] uppercase tracking-[0.18em] text-blue-200/55">
             {t("sidebar.workspace")}
           </p>
-          <p className="text-sm font-medium text-foreground truncate">
+          <p className="mt-1 truncate text-sm font-semibold text-foreground">
             {current?.name ?? "—"}
           </p>
         </div>
-        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:text-blue-100" />
       </button>
       {open && (
-        <div className="absolute z-50 left-0 right-0 mt-1 rounded-lg border border-white/10 bg-popover shadow-lg overflow-hidden">
+        <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-2xl border border-blue-300/15 bg-[#070b18]/95 shadow-[0_20px_60px_rgba(0,0,0,0.45),0_0_36px_rgba(37,99,235,0.12)] backdrop-blur-xl">
           <ul className="max-h-64 overflow-y-auto py-1">
             {data.workspaces.map((w) => (
               <li key={w.id}>
@@ -136,8 +136,8 @@ export default function WorkspaceSwitcher({
                   type="button"
                   onClick={() => switchTo(w.id)}
                   className={cn(
-                    "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm hover:bg-white/5",
-                    w.id === data.current_workspace_id && "bg-white/5",
+                    "flex w-full items-center justify-between gap-2 px-3 py-2.5 text-sm transition hover:bg-white/[0.06]",
+                    w.id === data.current_workspace_id && "bg-blue-500/10 text-blue-100",
                   )}
                 >
                   <span className="truncate text-foreground">{w.name}</span>
@@ -157,7 +157,7 @@ export default function WorkspaceSwitcher({
             <button
               type="button"
               onClick={createNew}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-white/5 text-muted-foreground hover:text-foreground"
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
             >
               <Plus className="w-3.5 h-3.5" /> {t("workspace.new")}
             </button>
