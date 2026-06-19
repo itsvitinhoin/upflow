@@ -30,6 +30,14 @@ export interface Project {
   owner: ProjectOwner;
   space?: { id: string; name: string; icon: string | null } | null;
   folder?: { id: string; name: string; icon: string | null } | null;
+  company?: {
+    id: string;
+    name: string;
+    contract_value: number | null;
+    commission: number | null;
+    plan_name: string | null;
+    service_type: string | null;
+  } | null;
   _count: { tasks: number };
 }
 

@@ -74,6 +74,16 @@ async function GET_handler(
         owner: { select: { id: true, name: true, email: true } },
         space: { select: { id: true, name: true, icon: true } },
         folder: { select: { id: true, name: true, icon: true } },
+        company: {
+          select: {
+            id: true,
+            name: true,
+            contract_value: true,
+            commission: true,
+            plan_name: true,
+            service_type: true,
+          },
+        },
         _count: { select: { tasks: true } },
       },
     }),

@@ -27,6 +27,7 @@ import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialo
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
 import { BrowseTab, ContainerSkeleton, DashboardSkeleton } from "@/components/spaces/space-browser";
+import { CommercialOperationsHub } from "@/components/spaces/commercial-operations-hub";
 import { SpaceDashboardDrawer } from "@/components/spaces/space-dashboard-drawer";
 import {
   CommandTile,
@@ -445,6 +446,18 @@ function SpaceDashboard({
           {t("common.retry")}
         </button>
       </section>
+    );
+  }
+
+  if (data.department_preset?.department_key === "comercial") {
+    return (
+      <CommercialOperationsHub
+        data={data}
+        updatingTask={updatingTask}
+        onOpenDrawer={onOpenDrawer}
+        onCreateTask={onCreateTask}
+        onTaskStatusChange={onTaskStatusChange}
+      />
     );
   }
 
