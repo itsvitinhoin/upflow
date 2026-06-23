@@ -80,7 +80,7 @@ export function SpaceNode({
     <div className="rounded-2xl">
       <div
         className={cn(
-          "group relative flex items-center gap-1 overflow-hidden rounded-2xl border px-1.5 py-1.5 transition-all",
+          "group relative flex items-center gap-1 overflow-visible rounded-2xl border px-1.5 py-1.5 transition-all",
           isActive
             ? "border-blue-300/30 bg-gradient-to-r from-blue-600/28 via-violet-600/20 to-blue-500/10 shadow-[0_0_30px_rgba(37,99,235,0.24),inset_0_1px_0_rgba(255,255,255,0.12)]"
             : "border-transparent bg-white/[0.025] hover:border-blue-300/15 hover:bg-white/[0.055] hover:shadow-[0_0_24px_rgba(59,130,246,0.10)]",
@@ -136,12 +136,21 @@ export function SpaceNode({
             {directChildCount}
           </span>
         )}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div
+          className="relative z-20 flex flex-shrink-0 items-center"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
-            onClick={() =>
-              setMenuOpenId((id) => (id === sp.id ? null : sp.id))
-            }
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setMenuOpenId((id) => (id === sp.id ? null : sp.id));
+            }}
             aria-label={`Actions for ${sp.name}`}
+            aria-haspopup="menu"
             aria-expanded={menuOpen}
             data-menu-trigger
             className="relative z-10 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
@@ -151,7 +160,7 @@ export function SpaceNode({
           {menuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+              className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
             >
               <button
                 role="menuitem"
@@ -311,7 +320,7 @@ export function FolderNode({
     <div className="rounded-xl">
       <div
         className={cn(
-          "group relative flex items-center gap-1 overflow-hidden rounded-xl border px-1.5 py-1 transition-all",
+          "group relative flex items-center gap-1 overflow-visible rounded-xl border px-1.5 py-1 transition-all",
           isActive
             ? "border-blue-300/25 bg-blue-500/12 text-foreground shadow-[0_0_20px_rgba(59,130,246,0.16)]"
             : "border-transparent hover:border-blue-300/12 hover:bg-white/[0.045]",
@@ -356,10 +365,21 @@ export function FolderNode({
             {directChildCount}
           </span>
         )}
-        <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
+        <div
+          className="relative z-20 flex flex-shrink-0 items-center"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
           <button
-            onClick={() => setMenuOpenId((id) => (id === f.id ? null : f.id))}
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setMenuOpenId((id) => (id === f.id ? null : f.id));
+            }}
             aria-label={`Actions for ${f.name}`}
+            aria-haspopup="menu"
             aria-expanded={fMenuOpen}
             data-menu-trigger
             className="relative z-10 flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
@@ -369,7 +389,7 @@ export function FolderNode({
           {fMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+              className="absolute right-0 top-full z-50 mt-1 w-40 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
             >
               <button
                 role="menuitem"
