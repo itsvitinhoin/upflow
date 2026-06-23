@@ -11,8 +11,10 @@ import {
   Kanban,
   Building2,
   HelpCircle,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings2,
   type LucideIcon,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
@@ -127,6 +129,27 @@ export function Rail({
       </nav>
 
       <div className="flex flex-col items-center gap-2 w-full px-1 pb-1">
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          aria-label={t("sidebar.settings")}
+          title={t("sidebar.settings")}
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
+            isActiveHref(pathname, "/settings") &&
+              "bg-gradient-to-br from-blue-600/45 to-violet-600/28 text-white shadow-[0_0_24px_rgba(37,99,235,0.28)] ring-1 ring-blue-300/25",
+          )}
+        >
+          <Settings2 className="w-[18px] h-[18px]" />
+        </Link>
+        <button
+          onClick={onSignOut}
+          aria-label={t("sidebar.signOut")}
+          title={t("sidebar.signOut")}
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-rose-500/10 hover:text-rose-100 hover:shadow-[0_0_22px_rgba(244,63,94,0.14)]"
+        >
+          <LogOut className="w-[18px] h-[18px]" />
+        </button>
         <button
           aria-label={t("sidebar.help")}
           title={t("sidebar.help")}
@@ -134,14 +157,15 @@ export function Rail({
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>
-        <button
-          onClick={onSignOut}
-          aria-label={`${t("sidebar.signOut")} (${user.name || user.email || "User"})`}
-          title={`${t("sidebar.signOut")} - ${user.name || user.email || "User"}`}
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          aria-label={user.name || user.email || "User"}
+          title={user.name || user.email || "User"}
           className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[10px] font-bold text-white shadow-[0_0_24px_rgba(139,92,246,0.26)] transition-opacity hover:opacity-90"
         >
           {getInitials(user.name || user.email || "U")}
-        </button>
+        </Link>
       </div>
     </div>
   );

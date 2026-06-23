@@ -234,19 +234,40 @@ export default function Panel({
             current_role: currentRole,
           }}
         />
-        {onRequestClose && (
-          <div className="flex justify-end px-3 pb-2">
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 pb-2">
+          <Link
+            href="/settings"
+            onClick={onNavigate}
+            className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-blue-300/12 bg-white/[0.04] px-2 text-[11px] font-semibold text-blue-100/85 transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          >
+            <Settings2 className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{t("sidebar.settings")}</span>
+          </Link>
+          <button
+            type="button"
+            onClick={onSignOut}
+            disabled={signingOut}
+            className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-rose-300/15 bg-rose-500/[0.07] px-2 text-[11px] font-semibold text-rose-100/85 transition-all hover:border-rose-300/35 hover:bg-rose-500/12 hover:text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.14)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">
+              {signingOut ? t("common.loading") : t("sidebar.signOut")}
+            </span>
+          </button>
+          {onRequestClose ? (
             <button
               type="button"
               onClick={onRequestClose}
               aria-label={t("sidebar.hide")}
-              className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2 text-[11px] font-medium text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground"
+              title={t("sidebar.hide")}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground"
             >
               <PanelLeftClose className="h-3.5 w-3.5" />
-              {t("sidebar.hide")}
             </button>
-          </div>
-        )}
+          ) : (
+            <span aria-hidden="true" />
+          )}
+        </div>
         <PanelNav
           pathname={pathname}
           onNavigate={onNavigate}
@@ -355,29 +376,6 @@ export default function Panel({
               )}
             </>
           )}
-        </div>
-        <div className="border-t border-blue-300/10 bg-[#050816]/95 p-3">
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/settings"
-              onClick={onNavigate}
-              className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-xl border border-blue-300/12 bg-white/[0.04] px-3 text-xs font-semibold text-blue-100/85 transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-            >
-              <Settings2 className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="truncate">{t("sidebar.settings")}</span>
-            </Link>
-            <button
-              type="button"
-              onClick={onSignOut}
-              disabled={signingOut}
-              className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-xl border border-rose-300/15 bg-rose-500/[0.07] px-3 text-xs font-semibold text-rose-100/85 transition-all hover:border-rose-300/35 hover:bg-rose-500/12 hover:text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.14)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
-              <span className="truncate">
-                {signingOut ? t("common.loading") : t("sidebar.signOut")}
-              </span>
-            </button>
-          </div>
         </div>
         </div>
       </div>
