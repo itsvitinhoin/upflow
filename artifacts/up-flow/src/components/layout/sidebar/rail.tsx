@@ -62,24 +62,26 @@ export function Rail({
 }: RailProps) {
   const { t } = useLanguage();
   return (
-    <div className="flex h-full w-full flex-col items-center py-4 glass-rail">
-      <Link
-        href="/"
-        onClick={onNavigate}
-        className="mb-6 flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-background/10 shadow-[0_0_24px_rgba(59,130,246,0.18)] ring-1 ring-white/10 transition-transform hover:scale-105"
-        aria-label="Up Flow"
-      >
-        <Image
-          src="/assets/UP_LOGO_1778594851568.png"
-          alt="Up Flow"
-          width={36}
-          height={36}
-          className="w-full h-full object-contain"
-          priority
-        />
-      </Link>
+    <div className="flex h-full w-full flex-col items-center glass-rail">
+      <div className="flex h-20 w-full shrink-0 items-center justify-center border-b border-blue-300/10">
+        <Link
+          href="/"
+          onClick={onNavigate}
+          className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-background/10 shadow-[0_0_24px_rgba(59,130,246,0.18)] ring-1 ring-white/10 transition-transform hover:scale-105"
+          aria-label="Up Flow"
+        >
+          <Image
+            src="/assets/UP_LOGO_1778594851568.png"
+            alt="Up Flow"
+            width={36}
+            height={36}
+            className="w-full h-full object-contain"
+            priority
+          />
+        </Link>
+      </div>
 
-      <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1">
+      <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1 py-4">
         {primaryNav.map(({ href, label, labelKey, icon: Icon }) => {
           const active = isActiveHref(pathname, href);
           const translatedLabel = t(labelKey) || label;

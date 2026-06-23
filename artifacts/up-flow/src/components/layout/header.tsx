@@ -225,7 +225,7 @@ export default function Header({ title }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex flex-col gap-3 px-4 py-3 glass-header sm:flex-row sm:items-center sm:gap-4 sm:px-6">
+      <header className="sticky top-0 z-30 flex min-h-20 flex-col gap-3 px-4 py-3 glass-header sm:flex-row sm:items-center sm:gap-4 sm:px-6">
         <form
           onSubmit={handleSearch}
           className="w-full min-w-0 pl-11 sm:flex-1 md:pl-0"
