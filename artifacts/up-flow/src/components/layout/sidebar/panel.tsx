@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { PanelLeftClose, Plus, Search, Sparkles, X } from "lucide-react";
+import { LogOut, PanelLeftClose, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
@@ -32,6 +33,8 @@ interface PanelProps {
   currentRole: "owner" | "admin" | "member" | null;
   onNavigate?: () => void;
   onRequestClose?: () => void;
+  onSignOut: () => void;
+  signingOut?: boolean;
 }
 
 type CreateFolderTarget =
@@ -45,6 +48,8 @@ export default function Panel({
   currentRole,
   onNavigate,
   onRequestClose,
+  onSignOut,
+  signingOut = false,
 }: PanelProps) {
   const { t } = useLanguage();
   const {
@@ -350,6 +355,29 @@ export default function Panel({
               )}
             </>
           )}
+        </div>
+        <div className="border-t border-blue-300/10 bg-[#050816]/95 p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/settings"
+              onClick={onNavigate}
+              className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-xl border border-blue-300/12 bg-white/[0.04] px-3 text-xs font-semibold text-blue-100/85 transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <Settings2 className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="truncate">{t("sidebar.settings")}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={onSignOut}
+              disabled={signingOut}
+              className="inline-flex h-9 min-w-0 items-center justify-center gap-2 rounded-xl border border-rose-300/15 bg-rose-500/[0.07] px-3 text-xs font-semibold text-rose-100/85 transition-all hover:border-rose-300/35 hover:bg-rose-500/12 hover:text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.14)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="truncate">
+                {signingOut ? t("common.loading") : t("sidebar.signOut")}
+              </span>
+            </button>
+          </div>
         </div>
         </div>
       </div>

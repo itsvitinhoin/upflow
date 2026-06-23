@@ -114,6 +114,8 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
               currentWorkspaceId={user.currentWorkspaceId ?? ""}
               currentRole={user.currentRole ?? null}
               onRequestClose={() => setPanelOpen(false)}
+              onSignOut={handleSignOut}
+              signingOut={signingOut}
             />
           </div>
         </div>
@@ -144,6 +146,8 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
                 currentWorkspaceId={user.currentWorkspaceId ?? ""}
                 currentRole={user.currentRole ?? null}
                 onNavigate={() => setMobileOpen(false)}
+                onSignOut={handleSignOut}
+                signingOut={signingOut}
               />
             </div>
           </aside>
