@@ -98,16 +98,16 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
 
   return (
     <>
-      <aside className="hidden h-dvh flex-shrink-0 md:flex">
-        <div className="w-[56px] flex">{renderRail()}</div>
+      <aside className="hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden md:flex">
+        <div className="flex min-h-0 w-[56px]">{renderRail()}</div>
         <div
           className={cn(
-            "grid overflow-hidden transition-[width,opacity] duration-200 ease-out",
+            "grid min-h-0 overflow-hidden transition-[width,opacity] duration-200 ease-out",
             panelOpen ? "w-[272px] opacity-100" : "w-0 opacity-0",
           )}
           aria-hidden={!panelOpen}
         >
-          <div className="w-[272px] flex">
+          <div className="flex min-h-0 w-[272px]">
             <Panel
               pathname={pathname}
               workspaces={workspaces}
@@ -137,9 +137,9 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
             className="md:hidden fixed inset-0 bg-black/60 z-40"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="fixed left-0 top-0 z-50 flex h-dvh w-[min(100vw,328px)] border-r border-sidebar-border shadow-2xl md:hidden">
-            <div className="w-[56px] flex">{renderRail(() => setMobileOpen(false))}</div>
-            <div className="min-w-0 flex-1">
+          <aside className="fixed left-0 top-0 z-50 flex h-dvh min-h-0 w-[min(100vw,328px)] overflow-hidden border-r border-sidebar-border shadow-2xl md:hidden">
+            <div className="flex min-h-0 w-[56px]">{renderRail(() => setMobileOpen(false))}</div>
+            <div className="min-h-0 min-w-0 flex-1">
               <Panel
                 pathname={pathname}
                 workspaces={workspaces}
