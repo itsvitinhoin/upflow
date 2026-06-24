@@ -28,14 +28,19 @@ async function POST_handler(req: NextRequest) {
     name?: string;
     phone?: string;
     workspace_id?: string;
-    role?: "admin" | "member";
+    role?: "admin" | "member" | "guest";
     tester_account?: boolean;
   };
   const email = body.email?.trim().toLowerCase();
   const password = body.password;
   const rawName = body.name?.trim();
   const phone = normalizePhone(body.phone);
-  const role = body.role === "admin" && !body.tester_account ? "admin" : "member";
+  const role =
+    body.role === "admin" && !body.tester_account
+      ? "admin"
+      : body.role === "guest" && !body.tester_account
+        ? "guest"
+        : "member";
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });

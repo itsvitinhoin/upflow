@@ -10,6 +10,7 @@ type InviteErrorCode =
   | "EMAIL_NOT_CONFIGURED"
   | "EMAIL_SEND_FAILED";
 type InviteMode = "personal_workspace" | "workspace_access";
+type WorkspaceInviteRole = "admin" | "member" | "guest";
 
 export default function InviteDialog({
   open,
@@ -33,7 +34,7 @@ export default function InviteDialog({
   description?: string;
   submitLabel?: string;
   successLabel?: string;
-  defaultRole?: "admin" | "member";
+  defaultRole?: WorkspaceInviteRole;
   lockRole?: boolean;
   hideRole?: boolean;
   workspaceId?: string;
@@ -44,7 +45,7 @@ export default function InviteDialog({
 }) {
   const { t } = useLanguage();
   const [emails, setEmails] = useState("");
-  const [role, setRole] = useState<"admin" | "member">(defaultRole);
+  const [role, setRole] = useState<WorkspaceInviteRole>(defaultRole);
   const [inviteMode, setInviteMode] = useState<InviteMode>(defaultMode);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<{
@@ -198,12 +199,13 @@ export default function InviteDialog({
             <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("invite.role")}</label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as "admin" | "member")}
+              onChange={(e) => setRole(e.target.value as WorkspaceInviteRole)}
               disabled={lockRole}
               className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="member">{t("common.member")}</option>
               <option value="admin">{t("common.admin")}</option>
+              <option value="guest">{t("common.guest")}</option>
             </select>
           </>
         )}

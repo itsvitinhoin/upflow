@@ -95,7 +95,7 @@ async function POST_handler(req: NextRequest) {
 
   const body = (await req.json().catch(() => ({}))) as {
     emails?: string[];
-    role?: "admin" | "member";
+    role?: "admin" | "member" | "guest";
     workspace_id?: string;
     tester_invite?: boolean;
     mode?: InviteMode;
@@ -131,10 +131,12 @@ async function POST_handler(req: NextRequest) {
     : body.mode === "personal_workspace"
       ? "personal_workspace"
       : "workspace_access";
-  const role: "admin" | "member" =
+  const role: "admin" | "member" | "guest" =
     inviteMode === "workspace_access" && body.role === "admin"
       ? "admin"
-      : "member";
+      : inviteMode === "workspace_access" && body.role === "guest"
+        ? "guest"
+        : "member";
 
   if (!targetWorkspaceId || !isWorkspaceAdminFor(auth, targetWorkspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -267,7 +269,7 @@ async function POST_handler(req: NextRequest) {
       inviterName,
       inviterEmail,
       acceptUrl: invite.accept_url,
-      role: invite.role === "admin" ? "admin" : "member",
+      role: invite.role === "admin" ? "admin" : invite.role === "guest" ? "guest" : "member",
     });
     const result = await sendEmail({
       to: invite.email,

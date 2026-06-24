@@ -8,8 +8,10 @@ import { getEmailOrigin } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
-function normalizeInviteMemberRole(role: string | null | undefined): "admin" | "member" {
-  return role === "admin" ? "admin" : "member";
+function normalizeInviteMemberRole(role: string | null | undefined): "admin" | "member" | "guest" {
+  if (role === "admin") return "admin";
+  if (role === "guest") return "guest";
+  return "member";
 }
 
 // Look up an invite by token (used by the accept page to render workspace info).

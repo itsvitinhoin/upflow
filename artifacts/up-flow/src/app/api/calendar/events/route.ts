@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace } from "@/lib/auth-helpers";
+import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
@@ -67,6 +67,9 @@ async function POST_handler(req: NextRequest) {
   const auth = _r.auth;
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
+  }
+  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const parsed = EventSchema.safeParse(await req.json());

@@ -220,7 +220,7 @@ async function PATCH_handler(
     where: { id: params.id, workspace_id: auth.currentWorkspaceId },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (company.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, company.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, company.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

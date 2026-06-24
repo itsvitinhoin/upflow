@@ -9,7 +9,7 @@ function read(rel: string) {
   return readFileSync(join(ROOT, rel), "utf8");
 }
 
-test("ProjectMember limits project and task visibility when a project has explicit members", () => {
+test("workspace members can read projects while only admins can contribute", () => {
   const helper = read("src/lib/project-access.ts");
   const projectsRoute = read("src/app/api/projects/route.ts");
   const projectRoute = read("src/app/api/projects/[id]/route.ts");
@@ -19,8 +19,10 @@ test("ProjectMember limits project and task visibility when a project has explic
   const searchRoute = read("src/app/api/search/route.ts");
   const scopeHelper = read("src/lib/api/scope.ts");
 
-  assert.match(helper, /project_members:\s*\{\s*none:\s*\{\s*\}/);
-  assert.match(helper, /project_members:\s*\{\s*some:\s*\{\s*user_id:\s*auth\.prismaUser\.id/);
+  assert.match(helper, /return \{ workspace_id: workspaceId \}/);
+  assert.match(helper, /return canAccessWorkspace\(auth,\s*project\.workspace_id\)/);
+  assert.match(helper, /return isWorkspaceAdminFor\(auth,\s*project\.workspace_id\)/);
+  assert.doesNotMatch(helper, /project_members:\s*\{\s*none:\s*\{\s*\}/);
   assert.match(helper, /project_id_user_id/);
   assert.match(helper, /hasExplicitMembers/);
   assert.match(projectsRoute, /readableProjectWhere\(auth,\s*auth\.currentWorkspaceId\)/);
@@ -48,6 +50,7 @@ test("task assignment honors explicit project membership, not only workspace mem
 
   assert.match(helper, /canAssignUserToProject/);
   assert.match(helper, /workspaceMember\.findFirst/);
+  assert.match(helper, /role:\s*\{\s*not:\s*"guest"\s*\}/);
   assert.match(helper, /project\.owner_id === userId/);
   assert.match(tasksRoute, /canAssignUserToProject\(project,\s*assignee_id\)/);
   assert.match(taskRoute, /canAssignUserToProject\(oldTask\.project,\s*assignee_id\)/);

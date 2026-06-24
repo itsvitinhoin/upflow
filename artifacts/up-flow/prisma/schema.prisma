@@ -17,6 +17,7 @@ enum WorkspaceRole {
   owner
   admin
   member
+  guest
 }
 
 enum WorkspaceMemberStatus {

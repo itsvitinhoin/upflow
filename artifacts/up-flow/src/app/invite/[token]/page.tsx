@@ -7,7 +7,7 @@ import { useLanguage } from "@/components/language-provider";
 
 interface InviteInfo {
   email: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
   tester_invite?: boolean;
   invite_mode?: "personal_workspace" | "workspace_access";
   last_sent_at?: string | null;

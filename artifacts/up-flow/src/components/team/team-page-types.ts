@@ -3,7 +3,7 @@ import type { Department, TeamMember } from "@/lib/types";
 export interface PendingInvite {
   id: string;
   email: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "guest";
   token: string;
   tester_invite?: boolean;
   invite_mode?: "personal_workspace" | "workspace_access";
@@ -27,7 +27,7 @@ export interface EmailStatus {
 
 export interface TeamOverview {
   workspace: { id: string; name: string; slug: string } | null;
-  current_role: "owner" | "admin" | "member" | null;
+  current_role: "owner" | "admin" | "member" | "guest" | null;
   is_super_admin: boolean;
   members: TeamMember[];
   departments: Department[];

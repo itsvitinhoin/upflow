@@ -20,7 +20,7 @@ interface WorkspaceLite {
   id: string;
   name: string;
   slug: string;
-  role: "owner" | "admin" | "member";
+  role: "owner" | "admin" | "member" | "guest";
 }
 
 interface ListResponse {

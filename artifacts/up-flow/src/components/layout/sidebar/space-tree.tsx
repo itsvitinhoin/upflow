@@ -25,6 +25,7 @@ export interface NodeHandlers {
   setMenuOpenId: (updater: (id: string | null) => string | null) => void;
   pathname: string;
   onNavigate?: () => void;
+  canManageWorkspace: boolean;
   loadPanel: () => void;
   setMoveTarget: (p: Project) => void;
   setRenameTarget: (s: Space) => void;
@@ -62,6 +63,7 @@ export function SpaceNode({
   setMenuOpenId,
   pathname,
   onNavigate,
+  canManageWorkspace,
   loadPanel,
   setMoveTarget,
   setRenameTarget,
@@ -141,6 +143,7 @@ export function SpaceNode({
             {directChildCount}
           </span>
         )}
+        {canManageWorkspace && (
         <div
           className="relative z-20 flex flex-shrink-0 items-center"
           onMouseDown={(e) => e.stopPropagation()}
@@ -220,6 +223,7 @@ export function SpaceNode({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {!isCollapsed && (
@@ -243,6 +247,7 @@ export function SpaceNode({
               setMenuOpenId={setMenuOpenId}
               pathname={pathname}
               onNavigate={onNavigate}
+              canManageWorkspace={canManageWorkspace}
               loadPanel={loadPanel}
               setMoveTarget={setMoveTarget}
               childFoldersByParent={childFoldersByParent}
@@ -290,6 +295,7 @@ interface FolderNodeProps {
   setMenuOpenId: (updater: (id: string | null) => string | null) => void;
   pathname: string;
   onNavigate?: () => void;
+  canManageWorkspace: boolean;
   loadPanel: () => void;
   setMoveTarget: (p: Project) => void;
   isSearching: boolean;
@@ -312,6 +318,7 @@ export function FolderNode({
   setMenuOpenId,
   pathname,
   onNavigate,
+  canManageWorkspace,
   loadPanel,
   setMoveTarget,
   childFoldersByParent,
@@ -380,6 +387,7 @@ export function FolderNode({
             {directChildCount}
           </span>
         )}
+        {canManageWorkspace && (
         <div
           className="relative z-20 flex flex-shrink-0 items-center"
           onMouseDown={(e) => e.stopPropagation()}
@@ -449,6 +457,7 @@ export function FolderNode({
             </div>
           )}
         </div>
+        )}
       </div>
       {!fCollapsed && (
         <div className="ml-5 mt-1 space-y-1 border-l border-blue-300/10 pl-3">
@@ -477,6 +486,7 @@ export function FolderNode({
                   setMenuOpenId={setMenuOpenId}
                   pathname={pathname}
                   onNavigate={onNavigate}
+                  canManageWorkspace={canManageWorkspace}
                   loadPanel={loadPanel}
                   setMoveTarget={setMoveTarget}
                   setCreateFolderTarget={setCreateFolderTarget}

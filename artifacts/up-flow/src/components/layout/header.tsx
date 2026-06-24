@@ -106,6 +106,10 @@ export default function Header({ title }: HeaderProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const canCreateProject =
+    user?.isSuperAdmin ||
+    user?.currentRole === "owner" ||
+    user?.currentRole === "admin";
 
   const fetchNotifications = useCallback(async (force = false) => {
     const items = await fetchNotificationItems(force);
@@ -331,14 +335,16 @@ export default function Header({ title }: HeaderProps) {
             )}
           </div>
 
-          <button
-            onClick={() => setShowNewProject(true)}
-            aria-label={t("header.newProject")}
-            className="upflow-gradient-button flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 sm:h-11 sm:px-5"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">{t("header.newProject")}</span>
-          </button>
+          {canCreateProject && (
+            <button
+              onClick={() => setShowNewProject(true)}
+              aria-label={t("header.newProject")}
+              className="upflow-gradient-button flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 sm:h-11 sm:px-5"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">{t("header.newProject")}</span>
+            </button>
+          )}
         </div>
       </header>
 

@@ -45,7 +45,7 @@ async function PATCH_handler(
   if (!canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (existing.author_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, existing.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -86,7 +86,7 @@ async function DELETE_handler(
   if (!canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (existing.author_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, existing.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

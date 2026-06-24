@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace } from "@/lib/auth-helpers";
+import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { buildPage, parsePagination } from "@/lib/pagination";
@@ -70,6 +70,9 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
   if (!canAccessWorkspace(auth, taskRecord.project.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!isWorkspaceAdminFor(auth, taskRecord.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

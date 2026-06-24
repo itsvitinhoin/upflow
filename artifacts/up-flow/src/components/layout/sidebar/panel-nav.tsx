@@ -11,9 +11,10 @@ interface PanelNavProps {
   onNavigate?: () => void;
   onCreateSpace: () => void;
   onCollapseAll: () => void;
+  canManageWorkspace: boolean;
 }
 
-export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }: PanelNavProps) {
+export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll, canManageWorkspace }: PanelNavProps) {
   const { t } = useLanguage();
   return (
     <>
@@ -71,15 +72,17 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll }:
           >
             <ChevronsUp className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={onCreateSpace}
-            aria-label={t("sidebar.newSpace")}
-            title={t("sidebar.newSpace")}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground hover:shadow-[0_0_16px_rgba(59,130,246,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          {canManageWorkspace && (
+            <button
+              type="button"
+              onClick={onCreateSpace}
+              aria-label={t("sidebar.newSpace")}
+              title={t("sidebar.newSpace")}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground hover:shadow-[0_0_16px_rgba(59,130,246,0.12)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </>

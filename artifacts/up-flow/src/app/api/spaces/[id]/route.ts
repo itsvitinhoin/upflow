@@ -67,8 +67,7 @@ async function PATCH_handler(
   if (!canAccessWorkspace(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  // Owner of the space OR an admin of the space's workspace can edit.
-  if (space.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, space.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -106,7 +105,7 @@ async function DELETE_handler(
   if (!canAccessWorkspace(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (space.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, space.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -90,7 +90,7 @@ async function PATCH_handler(
   if (!canAccessWorkspace(auth, folder.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (folder.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, folder.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, folder.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -190,7 +190,7 @@ async function DELETE_handler(
   if (!canAccessWorkspace(auth, folder.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (folder.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, folder.workspace_id)) {
+  if (!isWorkspaceAdminFor(auth, folder.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

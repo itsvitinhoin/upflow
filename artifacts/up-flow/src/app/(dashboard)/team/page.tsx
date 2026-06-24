@@ -46,7 +46,7 @@ export default function TeamPage() {
   const [primaryWorkspace, setPrimaryWorkspace] = useState<TeamOverview["workspace"]>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] =
-    useState<"owner" | "admin" | "member" | null>(null);
+    useState<"owner" | "admin" | "member" | "guest" | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [pending, setPending] = useState<PendingInvite[]>([]);
   const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
@@ -285,7 +285,7 @@ export default function TeamPage() {
   async function updateMember(
     userId: string,
     patch: {
-      role?: "owner" | "admin" | "member";
+      role?: "owner" | "admin" | "member" | "guest";
       status?: "active" | "inactive";
       department_id?: string | null;
     },
@@ -793,12 +793,13 @@ export default function TeamPage() {
                                 value={user.workspace_role ?? user.role}
                                 onChange={(e) =>
                                   updateMember(user.id, {
-                                    role: e.target.value as "owner" | "admin" | "member",
+                                    role: e.target.value as "owner" | "admin" | "member" | "guest",
                                   })
                                 }
                                 className="text-xs rounded-md border border-border bg-card px-2 py-1"
                               >
                                 <option value="member">{t("common.member")}</option>
+                                <option value="guest">{t("common.guest")}</option>
                                 <option value="admin">{t("common.admin")}</option>
                                 <option value="owner">{t("common.owner")}</option>
                               </select>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace } from "@/lib/auth-helpers";
+import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import { buildFolderTree } from "@/lib/folder-tree";
@@ -46,6 +46,9 @@ async function POST_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
+  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = (await req.json()) as {
     name?: string;
@@ -62,6 +65,9 @@ async function POST_handler(req: NextRequest) {
   const space = await prisma.space.findUnique({ where: { id: space_id } });
   if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
   if (!canAccessWorkspace(auth, space.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!isWorkspaceAdminFor(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

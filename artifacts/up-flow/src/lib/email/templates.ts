@@ -89,6 +89,10 @@ export interface RenderedEmail {
   text: string;
 }
 
+function workspaceRoleArticle(role: "admin" | "member" | "guest"): string {
+  return role === "admin" ? "an admin" : `a ${role}`;
+}
+
 // --- Workspace invite -----------------------------------------------------
 
 export function inviteEmail(opts: {
@@ -96,14 +100,14 @@ export function inviteEmail(opts: {
   inviterName: string;
   inviterEmail: string;
   acceptUrl: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "guest";
 }): RenderedEmail {
   const subject = `You're invited to ${opts.workspaceName} on ${BRAND.name}`;
   const body = `
     <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:${BRAND.text};">You've been invited to ${escapeHtml(opts.workspaceName)}</h1>
     <p style="margin:0 0 12px;color:${BRAND.text};">
       <strong>${escapeHtml(opts.inviterName)}</strong> (${escapeHtml(opts.inviterEmail)}) invited you to join
-      <strong>${escapeHtml(opts.workspaceName)}</strong> as a${opts.role === "admin" ? "n admin" : " member"}.
+      <strong>${escapeHtml(opts.workspaceName)}</strong> as ${workspaceRoleArticle(opts.role)}.
     </p>
     <p style="margin:0 0 8px;color:${BRAND.muted};">Click below to accept and set up your account.</p>
     ${button(opts.acceptUrl, "Accept invite")}
@@ -115,7 +119,7 @@ export function inviteEmail(opts: {
   const text = [
     `You've been invited to ${opts.workspaceName} on ${BRAND.name}`,
     ``,
-    `${opts.inviterName} (${opts.inviterEmail}) invited you to join ${opts.workspaceName} as a${opts.role === "admin" ? "n admin" : " member"}.`,
+    `${opts.inviterName} (${opts.inviterEmail}) invited you to join ${opts.workspaceName} as ${workspaceRoleArticle(opts.role)}.`,
     ``,
     `Accept the invite:`,
     opts.acceptUrl,
@@ -176,7 +180,7 @@ export function inviteAcceptedEmail(opts: {
   workspaceName: string;
   newMemberEmail: string;
   newMemberName: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "guest";
   workspaceUrl: string;
 }): RenderedEmail {
   const subject = `${opts.newMemberName} joined ${opts.workspaceName}`;
@@ -185,7 +189,7 @@ export function inviteAcceptedEmail(opts: {
     <p style="margin:0 0 12px;color:${BRAND.text};">
       <strong>${escapeHtml(opts.newMemberName)}</strong>
       (${escapeHtml(opts.newMemberEmail)}) accepted their invite and joined
-      <strong>${escapeHtml(opts.workspaceName)}</strong> as a${opts.role === "admin" ? "n admin" : " member"}.
+      <strong>${escapeHtml(opts.workspaceName)}</strong> as ${workspaceRoleArticle(opts.role)}.
     </p>
     ${button(opts.workspaceUrl, "Open workspace")}
     <p style="margin:24px 0 0;color:${BRAND.muted};font-size:13px;">
@@ -193,7 +197,7 @@ export function inviteAcceptedEmail(opts: {
     </p>
   `;
   const text = [
-    `${opts.newMemberName} (${opts.newMemberEmail}) joined ${opts.workspaceName} as a${opts.role === "admin" ? "n admin" : " member"}.`,
+    `${opts.newMemberName} (${opts.newMemberEmail}) joined ${opts.workspaceName} as ${workspaceRoleArticle(opts.role)}.`,
     ``,
     `Open the workspace: ${opts.workspaceUrl}`,
   ].join("\n");

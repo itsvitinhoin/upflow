@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { canAccessWorkspace } from "@/lib/auth-helpers";
+import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -55,6 +55,9 @@ async function POST_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
+  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await req.json() as { title?: string; project_id?: string };
   const { title, project_id } = body;
@@ -68,6 +71,9 @@ async function POST_handler(req: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
     if (!canAccessWorkspace(auth, target.workspace_id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (!isWorkspaceAdminFor(auth, target.workspace_id)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     workspaceId = target.workspace_id;

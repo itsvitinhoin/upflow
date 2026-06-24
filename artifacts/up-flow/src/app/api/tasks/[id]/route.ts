@@ -122,13 +122,15 @@ async function PATCH_handler(
     include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
   });
   if (!oldTask) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canContributeToProject(auth, oldTask.project)) && oldTask.assignee_id !== prismaUser.id) {
+  if (!(await canContributeToProject(auth, oldTask.project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const isProjectOwner = oldTask.project.owner_id === prismaUser.id;
   const isAssignee = oldTask.assignee_id === prismaUser.id;
-  if (!isProjectOwner && !isAssignee && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
+  void isProjectOwner;
+  void isAssignee;
+  if (!isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -159,8 +161,8 @@ async function PATCH_handler(
     );
   }
 
-  if (assignee_id !== undefined && !isProjectOwner && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
-    return NextResponse.json({ error: "Only project owners or workspace admins can reassign tasks" }, { status: 403 });
+  if (assignee_id !== undefined && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
+    return NextResponse.json({ error: "Only workspace admins can reassign tasks" }, { status: 403 });
   }
 
   if (assignee_id) {
@@ -279,10 +281,8 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (
-    task.project.owner_id !== prismaUser.id &&
-    !isWorkspaceAdminFor(auth, task.project.workspace_id)
-  ) {
+  void prismaUser;
+  if (!isWorkspaceAdminFor(auth, task.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

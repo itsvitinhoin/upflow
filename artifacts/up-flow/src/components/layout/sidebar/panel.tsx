@@ -28,10 +28,10 @@ interface PanelProps {
     id: string;
     name: string;
     slug: string;
-    role: "owner" | "admin" | "member";
+    role: "owner" | "admin" | "member" | "guest";
   }>;
   currentWorkspaceId: string;
-  currentRole: "owner" | "admin" | "member" | null;
+  currentRole: "owner" | "admin" | "member" | "guest" | null;
   isSuperAdmin?: boolean;
   onNavigate?: () => void;
   onRequestClose?: () => void;
@@ -84,6 +84,8 @@ export default function Panel({
   const [sidebarQuery, setSidebarQuery] = useState("");
   const normalizedQuery = sidebarQuery.trim().toLowerCase();
   const isSearching = normalizedQuery.length > 0;
+  const canManageWorkspace =
+    isSuperAdmin || currentRole === "owner" || currentRole === "admin";
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -213,6 +215,7 @@ export default function Panel({
     setMenuOpenId,
     pathname,
     onNavigate,
+    canManageWorkspace,
     loadPanel,
     setMoveTarget,
     setRenameTarget,
@@ -282,6 +285,7 @@ export default function Panel({
               pathname={pathname}
               onNavigate={onNavigate}
               onCreateSpace={() => setShowCreate(true)}
+              canManageWorkspace={canManageWorkspace}
               onCollapseAll={() =>
                 collapseAll([
                   ...spaces.map((space) => space.id),
@@ -365,7 +369,7 @@ export default function Panel({
                     </div>
                   )}
 
-                  {!isSearching && (spaces.length > 0 || unassignedItems.length > 0) && (
+                  {!isSearching && canManageWorkspace && (spaces.length > 0 || unassignedItems.length > 0) && (
                     <button
                       type="button"
                       onClick={() => setShowCreate(true)}

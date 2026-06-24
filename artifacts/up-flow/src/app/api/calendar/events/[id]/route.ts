@@ -37,7 +37,8 @@ function canManageEvent(
   auth: AuthUser,
   event: { workspace_id: string; created_by: string },
 ) {
-  return event.created_by === auth.prismaUser.id || isWorkspaceAdminFor(auth, event.workspace_id);
+  void event.created_by;
+  return isWorkspaceAdminFor(auth, event.workspace_id);
 }
 
 async function GET_handler(

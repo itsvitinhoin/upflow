@@ -5,7 +5,7 @@ export interface AppUser {
   image?: string | null;
   role: "admin" | "member";
   currentWorkspaceId?: string;
-  currentRole?: "owner" | "admin" | "member" | null;
+  currentRole?: "owner" | "admin" | "member" | "guest" | null;
   isSuperAdmin?: boolean;
 }
 
@@ -175,7 +175,7 @@ export interface MemberJoinedData {
   new_member_id?: string;
   new_member_email?: string;
   new_member_name?: string;
-  role?: "admin" | "member";
+  role?: "admin" | "member" | "guest";
 }
 
 export interface StatusChangedData {
@@ -228,10 +228,10 @@ export interface TeamMember {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "guest";
   avatar_url: string | null;
   created_at: string;
-  workspace_role?: "owner" | "admin" | "member" | null;
+  workspace_role?: "owner" | "admin" | "member" | "guest" | null;
   workspace_status?: "active" | "inactive" | null;
   department_id?: string | null;
   _count: { tasks: number; projects: number };

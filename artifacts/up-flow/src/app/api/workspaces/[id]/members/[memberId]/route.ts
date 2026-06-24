@@ -7,7 +7,7 @@ import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const UpdateMemberSchema = z.object({
-  role: z.enum(["owner", "admin", "member"]).optional(),
+  role: z.enum(["owner", "admin", "member", "guest"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
   department_id: z.string().uuid().nullable().optional(),
 });

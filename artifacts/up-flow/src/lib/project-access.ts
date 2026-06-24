@@ -16,18 +16,8 @@ export function readableProjectWhere(
   auth: AuthUser,
   workspaceId: string,
 ): Prisma.ProjectWhereInput {
-  if (isWorkspaceAdminFor(auth, workspaceId)) {
-    return { workspace_id: workspaceId };
-  }
-
-  return {
-    workspace_id: workspaceId,
-    OR: [
-      { owner_id: auth.prismaUser.id },
-      { project_members: { none: {} } },
-      { project_members: { some: { user_id: auth.prismaUser.id } } },
-    ],
-  };
+  if (!canAccessWorkspace(auth, workspaceId)) return { id: "__forbidden__" };
+  return { workspace_id: workspaceId };
 }
 
 async function hasExplicitMembers(projectId: string): Promise<boolean> {
@@ -50,22 +40,14 @@ export async function canReadProject(
   auth: AuthUser,
   project: ProjectAccessTarget,
 ): Promise<boolean> {
-  if (!canAccessWorkspace(auth, project.workspace_id)) return false;
-  if (isWorkspaceAdminFor(auth, project.workspace_id)) return true;
-  if (project.owner_id === auth.prismaUser.id) return true;
-  if (await isProjectMember(project.id, auth.prismaUser.id)) return true;
-  return !(await hasExplicitMembers(project.id));
+  return canAccessWorkspace(auth, project.workspace_id);
 }
 
 export async function canContributeToProject(
   auth: AuthUser,
   project: ProjectAccessTarget,
 ): Promise<boolean> {
-  if (!canAccessWorkspace(auth, project.workspace_id)) return false;
-  if (isWorkspaceAdminFor(auth, project.workspace_id)) return true;
-  if (project.owner_id === auth.prismaUser.id) return true;
-  if (await isProjectMember(project.id, auth.prismaUser.id)) return true;
-  return !(await hasExplicitMembers(project.id));
+  return isWorkspaceAdminFor(auth, project.workspace_id);
 }
 
 export async function canAssignUserToProject(
@@ -77,6 +59,7 @@ export async function canAssignUserToProject(
       workspace_id: project.workspace_id,
       user_id: userId,
       status: "active",
+      role: { not: "guest" },
     },
     select: { id: true },
   });
