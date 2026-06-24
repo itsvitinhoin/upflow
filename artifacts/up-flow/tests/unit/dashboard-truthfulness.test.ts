@@ -34,7 +34,7 @@ test("workload signals expose task evidence in dashboard drawers", () => {
 
   assert.match(homeDashboard, /t\("dashboard\.noWorkloadTasks"\)/);
   assert.match(homeDashboard, /item\.tasks\.map/);
-  assert.match(spaceDashboardDrawer, /No open assigned tasks behind this workload signal/);
+  assert.match(spaceDashboardDrawer, /t\("spaceDashboard\.noOpenAssignedTasks"\)/);
   assert.match(spaceDashboardDrawer, /item\.tasks\.map/);
 });
 
@@ -48,5 +48,7 @@ test("dashboard copy avoids unsupported operational claims", () => {
   assert.doesNotMatch(translations, /campanhas paradas/);
   assert.match(translations, /Overdue tasks or no activity in 7 days/);
   assert.match(translations, /Clients with overdue work, missing setup, or no recent activity/);
-  assert.match(spaceDashboardDrawer, /overdue open tasks, no owner, or no activity record in 7 days/);
+  assert.match(translations, /No open assigned tasks behind this workload signal/);
+  assert.match(translations, /overdue open tasks, no owner, or no activity record in 7 days/);
+  assert.match(spaceDashboardDrawer, /t\("spaceDashboard\.projectsAtRiskHint"\)/);
 });

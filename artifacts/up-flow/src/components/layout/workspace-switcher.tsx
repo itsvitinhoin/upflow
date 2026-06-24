@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Plus, SlidersHorizontal } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { logError } from "@/lib/log-error";
 import { getCachedJson, primeCachedJson } from "@/lib/client-cache";
@@ -31,6 +37,8 @@ export default function WorkspaceSwitcher({
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<ListResponse | null>(initialData ?? null);
   const [busy, setBusy] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -54,11 +62,19 @@ export default function WorkspaceSwitcher({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) setDeleteMode(false);
+  }, [open]);
+
   const current = data?.workspaces.find(
     (w) => w.id === data.current_workspace_id,
   );
   const initial =
     (current?.name ?? "U").trim().charAt(0).toUpperCase() || "U";
+
+  function canDeleteWorkspace(workspace: WorkspaceLite) {
+    return Boolean(data?.is_super_admin || workspace.role === "owner");
+  }
 
   async function switchTo(id: string) {
     if (!data || id === data.current_workspace_id) {
@@ -101,6 +117,54 @@ export default function WorkspaceSwitcher({
       body: JSON.stringify({ workspace_id: ws.id }),
     });
     window.location.reload();
+  }
+
+  async function deleteWorkspace(workspace: WorkspaceLite) {
+    if (!data || deletingId) return;
+    if (!canDeleteWorkspace(workspace)) {
+      toast.error("Only workspace owners can delete workspaces.");
+      return;
+    }
+    if (data.workspaces.length <= 1 && !data.is_super_admin) {
+      toast.error("Create another workspace before deleting your only workspace.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete workspace "${workspace.name}"?\n\nThis permanently removes its spaces, folders, lists, tasks, calendar events, clients, and activity history. This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(workspace.id);
+    try {
+      const response = await fetch(`/api/workspaces/${workspace.id}`, {
+        method: "DELETE",
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not delete workspace.");
+      }
+
+      toast.success("Workspace deleted.");
+      if (workspace.id === data.current_workspace_id) {
+        window.location.href = "/";
+        return;
+      }
+
+      const nextData = {
+        ...data,
+        workspaces: data.workspaces.filter((w) => w.id !== workspace.id),
+      };
+      setData(nextData);
+      primeCachedJson("workspaces", nextData);
+    } catch (err) {
+      logError("workspace-switcher:delete", err);
+      toast.error(err instanceof Error ? err.message : "Could not delete workspace.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   if (!data) {
@@ -166,36 +230,84 @@ export default function WorkspaceSwitcher({
       {open && (
         <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-[18px] border border-blue-300/20 bg-[#070b18]/95 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_42px_rgba(37,99,235,0.18)] backdrop-blur-xl">
           <ul className="max-h-64 overflow-y-auto py-1">
-            {data.workspaces.map((w) => (
-              <li key={w.id}>
-                <button
-                  type="button"
-                  onClick={() => switchTo(w.id)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-sm transition hover:bg-white/[0.06]",
-                    w.id === data.current_workspace_id &&
-                      "bg-blue-500/12 text-blue-100",
-                  )}
-                >
-                  <span className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-[11px] font-bold text-blue-100 ring-1 ring-blue-300/15">
-                      {w.name.trim().charAt(0).toUpperCase() || "U"}
-                    </span>
-                    <span className="truncate text-foreground">{w.name}</span>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase text-muted-foreground">
-                      {w.role}
-                    </span>
-                    {w.id === data.current_workspace_id && (
-                      <Check className="h-3.5 w-3.5 text-blue-100" />
+            {data.workspaces.map((w) => {
+              const active = w.id === data.current_workspace_id;
+              const isDeleting = deletingId === w.id;
+              const deleteAllowed = canDeleteWorkspace(w);
+
+              return (
+                <li key={w.id} className="px-1">
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 rounded-xl transition hover:bg-white/[0.06]",
+                      active && "bg-blue-500/12 text-blue-100",
                     )}
-                  </span>
-                </button>
-              </li>
-            ))}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => switchTo(w.id)}
+                      disabled={busy || isDeleting}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-3 px-2 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-[11px] font-bold text-blue-100 ring-1 ring-blue-300/15">
+                          {w.name.trim().charAt(0).toUpperCase() || "U"}
+                        </span>
+                        <span className="truncate text-foreground">
+                          {w.name}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="text-[10px] uppercase text-muted-foreground">
+                          {w.role}
+                        </span>
+                        {active && (
+                          <Check className="h-3.5 w-3.5 text-blue-100" />
+                        )}
+                      </span>
+                    </button>
+                    {deleteMode && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void deleteWorkspace(w);
+                        }}
+                        disabled={isDeleting || !deleteAllowed}
+                        title={
+                          deleteAllowed
+                            ? `Delete ${w.name}`
+                            : "Only owners can delete workspaces"
+                        }
+                        aria-label={
+                          deleteAllowed
+                            ? `Delete workspace ${w.name}`
+                            : `Cannot delete workspace ${w.name}`
+                        }
+                        className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/25 text-red-200 transition hover:bg-red-500/15 hover:text-red-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-muted-foreground"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
           <div className="border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => setDeleteMode((value) => !value)}
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground",
+                deleteMode && "bg-red-500/10 text-red-100",
+              )}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-200 ring-1 ring-red-300/15">
+                <Trash2 className="h-3.5 w-3.5" />
+              </span>
+              {deleteMode ? "Done deleting" : "Delete workspace"}
+            </button>
             <button
               type="button"
               onClick={createNew}
