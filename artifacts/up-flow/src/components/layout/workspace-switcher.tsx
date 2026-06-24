@@ -37,7 +37,6 @@ export default function WorkspaceSwitcher({
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<ListResponse | null>(initialData ?? null);
   const [busy, setBusy] = useState(false);
-  const [deleteMode, setDeleteMode] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -60,10 +59,6 @@ export default function WorkspaceSwitcher({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) setDeleteMode(false);
   }, [open]);
 
   const current = data?.workspaces.find(
@@ -266,24 +261,16 @@ export default function WorkspaceSwitcher({
                         )}
                       </span>
                     </button>
-                    {deleteMode && (
+                    {deleteAllowed && (
                       <button
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
                           void deleteWorkspace(w);
                         }}
-                        disabled={isDeleting || !deleteAllowed}
-                        title={
-                          deleteAllowed
-                            ? `Delete ${w.name}`
-                            : "Only owners can delete workspaces"
-                        }
-                        aria-label={
-                          deleteAllowed
-                            ? `Delete workspace ${w.name}`
-                            : `Cannot delete workspace ${w.name}`
-                        }
+                        disabled={isDeleting}
+                        title={`Delete ${w.name}`}
+                        aria-label={`Delete workspace ${w.name}`}
                         className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/25 text-red-200 transition hover:bg-red-500/15 hover:text-red-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-muted-foreground"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -295,19 +282,6 @@ export default function WorkspaceSwitcher({
             })}
           </ul>
           <div className="border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => setDeleteMode((value) => !value)}
-              className={cn(
-                "flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground",
-                deleteMode && "bg-red-500/10 text-red-100",
-              )}
-            >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-500/10 text-red-200 ring-1 ring-red-300/15">
-                <Trash2 className="h-3.5 w-3.5" />
-              </span>
-              {deleteMode ? "Done deleting" : "Delete workspace"}
-            </button>
             <button
               type="button"
               onClick={createNew}
