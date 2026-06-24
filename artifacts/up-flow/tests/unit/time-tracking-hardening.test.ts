@@ -20,9 +20,11 @@ test("time tracking prevents duplicate running timers and keeps running endpoint
 
   assert.match(runningRoute, /entry\s*\?\s*\{\s*\.\.\.entry,\s*entry\s*\}/s);
   assert.match(startRoute, /function findRunningEntry/);
+  assert.match(startRoute, /isWorkspaceAdminFor\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(startRoute, /PrismaClientKnownRequestError/);
   assert.match(startRoute, /err\.code\s*===\s*"P2002"/);
   assert.match(entriesRoute, /if\s*\(!stoppedAt\)\s*\{/);
+  assert.match(entriesRoute, /isWorkspaceAdminFor\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(entriesRoute, /status:\s*"running"/);
   assert.match(entriesRoute, /return NextResponse\.json\(existing,\s*\{\s*status:\s*200\s*\}\)/);
   assert.match(entriesRoute, /PrismaClientKnownRequestError/);

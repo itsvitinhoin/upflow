@@ -34,12 +34,8 @@ async function PATCH_handler(
 
   const note = await getScopedNote(params.id, params.noteId, auth.currentWorkspaceId);
   if (!note) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const canManage =
-    note.author_id === auth.prismaUser.id ||
-    note.company.owner_id === auth.prismaUser.id ||
-    isWorkspaceAdminFor(auth, note.workspace_id);
-  if (!canManage) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isWorkspaceAdminFor(auth, note.workspace_id)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
   }
 
   const parsed = UpdateNoteSchema.safeParse(await req.json());
@@ -80,12 +76,8 @@ async function DELETE_handler(
 
   const note = await getScopedNote(params.id, params.noteId, auth.currentWorkspaceId);
   if (!note) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const canManage =
-    note.author_id === auth.prismaUser.id ||
-    note.company.owner_id === auth.prismaUser.id ||
-    isWorkspaceAdminFor(auth, note.workspace_id);
-  if (!canManage) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isWorkspaceAdminFor(auth, note.workspace_id)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
   }
 
   await prisma.companyNote.delete({ where: { id: note.id } });

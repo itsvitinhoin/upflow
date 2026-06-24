@@ -13,6 +13,9 @@ test("workspace sharing supports guest invites and team role management", () => 
   const acceptRoute = read("src/app/api/invites/accept/route.ts");
   const inviteDialog = read("src/components/dashboard/invite-dialog.tsx");
   const teamPage = read("src/app/(dashboard)/team/page.tsx");
+  const permissionMatrix = read("src/lib/permission-matrix.ts");
+  const permissionPage = read("src/app/(dashboard)/settings/permissions/page.tsx");
+  const settingsPage = read("src/app/(dashboard)/settings/page.tsx");
 
   assert.match(schema, /enum WorkspaceRole[\s\S]*guest/);
   assert.match(migration, /ADD VALUE IF NOT EXISTS 'guest'/);
@@ -20,6 +23,10 @@ test("workspace sharing supports guest invites and team role management", () => 
   assert.match(acceptRoute, /role === "guest"/);
   assert.match(inviteDialog, /<option value="guest">/);
   assert.match(teamPage, /<option value="guest">/);
+  assert.match(permissionMatrix, /export type PermissionRole = "owner" \| "admin" \| "member" \| "guest"/);
+  assert.match(permissionMatrix, /levels:\s*\{\s*owner:\s*"manage",\s*admin:\s*"manage",\s*member:\s*"view",\s*guest:\s*"view"\s*\}/);
+  assert.match(permissionPage, /permissionMatrixSections/);
+  assert.match(settingsPage, /\/settings\/permissions/);
 });
 
 test("members and guests can read workspace records but cannot mutate them", () => {
@@ -32,6 +39,12 @@ test("members and guests can read workspace records but cannot mutate them", () 
   const docsRoute = read("src/app/api/docs/route.ts");
   const calendarRoute = read("src/app/api/calendar/events/route.ts");
   const companiesRoute = read("src/app/api/companies/route.ts");
+  const companyNotesRoute = read("src/app/api/companies/[id]/notes/route.ts");
+  const companyContactsRoute = read("src/app/api/companies/[id]/contacts/route.ts");
+  const templatesRoute = read("src/app/api/templates/route.ts");
+  const applyTemplateRoute = read("src/app/api/templates/[id]/apply/route.ts");
+  const goalsRoute = read("src/app/api/goals/route.ts");
+  const uploadRoute = read("src/app/api/uploads/task-cover/route.ts");
   const sidebarPanel = read("src/components/layout/sidebar/panel.tsx");
   const header = read("src/components/layout/header.tsx");
 
@@ -45,9 +58,15 @@ test("members and guests can read workspace records but cannot mutate them", () 
     docsRoute,
     calendarRoute,
     companiesRoute,
+    companyNotesRoute,
+    companyContactsRoute,
+    templatesRoute,
+    applyTemplateRoute,
+    uploadRoute,
   ]) {
     assert.match(route, /isWorkspaceAdminFor/);
   }
+  assert.match(goalsRoute, /requireWorkspaceAdmin/);
   assert.match(tasksRoute, /canContributeToProject\(auth,\s*project\)/);
   assert.match(sidebarPanel, /canManageWorkspace/);
   assert.match(header, /canCreateProject/);

@@ -24,6 +24,7 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   assert.match(migration, /ADD COLUMN "cover_image_url" TEXT/);
   assert.match(tasksRoute, /cover_image_url/);
   assert.match(taskRoute, /Invalid cover_image_url/);
+  assert.match(uploadRoute, /isWorkspaceAdminFor\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(uploadRoute, /TASK_STORAGE_NOT_CONFIGURED/);
   assert.match(uploadRoute, /TASK_COVER_UPLOAD_FAILED/);
   assert.match(control, /\/api\/uploads\/task-cover/);

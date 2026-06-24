@@ -37,8 +37,8 @@ async function PATCH_handler(
 
   const contact = await getScopedContact(params.id, params.contactId, auth.currentWorkspaceId);
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (contact.company.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, contact.workspace_id)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isWorkspaceAdminFor(auth, contact.workspace_id)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
   }
 
   const parsed = UpdateContactSchema.safeParse(await req.json());
@@ -78,8 +78,8 @@ async function DELETE_handler(
 
   const contact = await getScopedContact(params.id, params.contactId, auth.currentWorkspaceId);
   if (!contact) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (contact.company.owner_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, contact.workspace_id)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!isWorkspaceAdminFor(auth, contact.workspace_id)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
   }
 
   await prisma.companyContact.delete({ where: { id: contact.id } });

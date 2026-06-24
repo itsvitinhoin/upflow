@@ -48,18 +48,18 @@ test("automation rules are admin-only configuration and not a silent runner", ()
   assert.match(item, /automation_rule_deleted/);
 });
 
-test("goals expose workspace-scoped CRUD with owner and admin controls", () => {
+test("goals expose workspace-scoped CRUD with admin-only write controls", () => {
   const collection = read("src/app/api/goals/route.ts");
   const item = read("src/app/api/goals/[id]/route.ts");
 
   assert.match(collection, /requireCurrentWorkspace/);
   assert.match(collection, /parsePagination/);
   assert.match(collection, /validateGoalOwner/);
+  assert.match(collection, /requireWorkspaceAdmin/);
   assert.match(collection, /Goal owner must be an active member/);
   assert.match(collection, /goal_created/);
-  assert.match(item, /canManageGoal/);
-  assert.match(item, /isWorkspaceAdminFor/);
   assert.match(item, /requireWorkspaceAdmin/);
+  assert.doesNotMatch(item, /canManageGoal/);
   assert.match(item, /goal_updated/);
   assert.match(item, /goal_deleted/);
 });

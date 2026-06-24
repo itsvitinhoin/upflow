@@ -74,6 +74,8 @@ async function POST_handler(req: NextRequest) {
   const auth = _r.auth;
   const scope = await requireCurrentWorkspace(auth);
   if (!scope.ok) return scope.response;
+  const admin = requireWorkspaceAdmin(auth, scope.workspaceId);
+  if (!admin.ok) return admin.response;
 
   const parsed = GoalSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -84,11 +86,6 @@ async function POST_handler(req: NextRequest) {
   }
 
   const requestedOwnerId = parsed.data.owner_id ?? auth.prismaUser.id;
-  if (requestedOwnerId !== auth.prismaUser.id) {
-    const admin = requireWorkspaceAdmin(auth, scope.workspaceId);
-    if (!admin.ok) return admin.response;
-  }
-
   const owner = await validateGoalOwner(requestedOwnerId, scope.workspaceId);
   if (!owner.ok) return owner.response;
 

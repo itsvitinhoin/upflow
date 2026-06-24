@@ -18,6 +18,9 @@ async function POST_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
+  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
+  }
 
   const parsed = StopSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
@@ -38,9 +41,6 @@ async function POST_handler(req: NextRequest) {
   if (!entry) return NextResponse.json({ error: "No running timer" }, { status: 404 });
   if (entry.workspace_id !== auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-  if (entry.user_id !== auth.prismaUser.id && !isWorkspaceAdminFor(auth, entry.workspace_id)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (entry.status === "stopped") return NextResponse.json(entry);
 

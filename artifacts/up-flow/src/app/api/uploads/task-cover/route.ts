@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -30,6 +31,9 @@ async function POST_handler(req: NextRequest) {
 
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
+  }
+  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
   }
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||

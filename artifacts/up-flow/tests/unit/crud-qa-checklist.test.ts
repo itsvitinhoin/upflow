@@ -61,6 +61,6 @@ test("client notes and contacts expose scoped edit/delete API routes", () => {
     assert.match(content, /export const PATCH/);
     assert.match(content, /export const DELETE/);
     assert.match(content, /workspace_id/);
-    assert.match(content, /Forbidden/);
+    assert.match(content, /Workspace admin access required/);
   }
 });

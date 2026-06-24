@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
-import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireCurrentWorkspace, requireWorkspaceAdmin } from "@/lib/api/scope";
 import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -18,14 +17,6 @@ const UpdateGoalSchema = z.object({
   due_date: z.string().datetime().optional().nullable(),
   owner_id: z.string().uuid().optional().nullable(),
 });
-
-function canManageGoal(
-  authUserId: string,
-  isAdmin: boolean,
-  goal: { owner_id: string | null },
-) {
-  return isAdmin || goal.owner_id === authUserId;
-}
 
 async function validateGoalOwner(ownerId: string | null | undefined, workspaceId: string) {
   if (!ownerId) return { ok: true as const, ownerId: null };
@@ -60,13 +51,8 @@ async function PATCH_handler(
   });
   if (!existing) return NextResponse.json({ error: "Goal not found" }, { status: 404 });
 
-  const isAdmin = isWorkspaceAdminFor(auth, scope.workspaceId);
-  if (!canManageGoal(auth.prismaUser.id, isAdmin, existing)) {
-    return NextResponse.json(
-      { error: "Goal owner or workspace admin access required" },
-      { status: 403 },
-    );
-  }
+  const admin = requireWorkspaceAdmin(auth, scope.workspaceId);
+  if (!admin.ok) return admin.response;
 
   const parsed = UpdateGoalSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -78,8 +64,6 @@ async function PATCH_handler(
 
   let ownerId = existing.owner_id;
   if (parsed.data.owner_id !== undefined) {
-    const admin = requireWorkspaceAdmin(auth, scope.workspaceId);
-    if (!admin.ok) return admin.response;
     const owner = await validateGoalOwner(parsed.data.owner_id, scope.workspaceId);
     if (!owner.ok) return owner.response;
     ownerId = owner.ownerId;
@@ -130,13 +114,8 @@ async function DELETE_handler(
   });
   if (!existing) return NextResponse.json({ error: "Goal not found" }, { status: 404 });
 
-  const isAdmin = isWorkspaceAdminFor(auth, scope.workspaceId);
-  if (!canManageGoal(auth.prismaUser.id, isAdmin, existing)) {
-    return NextResponse.json(
-      { error: "Goal owner or workspace admin access required" },
-      { status: 403 },
-    );
-  }
+  const admin = requireWorkspaceAdmin(auth, scope.workspaceId);
+  if (!admin.ok) return admin.response;
 
   await prisma.goal.delete({ where: { id: existing.id } });
   await recordActivity({

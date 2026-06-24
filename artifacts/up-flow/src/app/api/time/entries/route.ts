@@ -86,6 +86,9 @@ async function POST_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
+  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
+  }
 
   const parsed = ManualEntrySchema.safeParse(await req.json());
   if (!parsed.success) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -27,6 +28,9 @@ async function POST_handler(
     where: { id: params.id, workspace_id: auth.currentWorkspaceId },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!isWorkspaceAdminFor(auth, company.workspace_id)) {
+    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
+  }
 
   const parsed = ContactSchema.safeParse(await req.json());
   if (!parsed.success) {
