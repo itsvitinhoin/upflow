@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { LogOut, PanelLeftClose, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
+import InviteDialog from "@/components/dashboard/invite-dialog";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
 import { useLanguage } from "@/components/language-provider";
 import {
@@ -70,6 +71,7 @@ export default function Panel({
 
   const [showCreate, setShowCreate] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Space | null>(null);
+  const [shareTarget, setShareTarget] = useState<Space | null>(null);
   const [moveTarget, setMoveTarget] = useState<Project | null>(null);
   const [createFolderTarget, setCreateFolderTarget] =
     useState<CreateFolderTarget | null>(null);
@@ -214,6 +216,7 @@ export default function Panel({
     loadPanel,
     setMoveTarget,
     setRenameTarget,
+    setShareTarget,
     setCreateFolderTarget,
     setRenameFolderTarget,
     setCreateListFor,
@@ -411,6 +414,26 @@ export default function Panel({
             upsertSpace(space);
             loadPanel({ force: true });
           }}
+        />
+      )}
+
+      {shareTarget && (
+        <InviteDialog
+          open
+          onClose={() => setShareTarget(null)}
+          title={t("space.shareSpaceTitle", { space: shareTarget.name })}
+          description={t("space.shareSpaceDescription", {
+            space: shareTarget.name,
+            workspace:
+              workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name ||
+              t("invite.currentWorkspace"),
+          })}
+          submitLabel={t("invite.submitDefault")}
+          successLabel={t("invite.successDefault")}
+          workspaceId={shareTarget.workspace_id || currentWorkspaceId}
+          defaultRole="member"
+          defaultMode="workspace_access"
+          hideMode
         />
       )}
 

@@ -273,7 +273,7 @@ export default function SpaceContainerPage() {
                   className="inline-flex items-center gap-2 border border-blue-300/20 bg-blue-500/10 text-blue-100 hover:border-blue-300/40 hover:bg-blue-500/15 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                 >
                   <UserPlus className="w-4 h-4" />
-                  {t("space.shareWorkspace")}
+                  {t("space.shareSpace")}
                 </button>
               )}
               <button
@@ -417,8 +417,8 @@ export default function SpaceContainerPage() {
       <InviteDialog
         open={showInvite}
         onClose={() => setShowInvite(false)}
-        title={t("space.shareWorkspaceTitle", { workspace: workspaceName })}
-        description={t("space.shareWorkspaceDescription", {
+        title={t("space.shareSpaceTitle", { space: space.name })}
+        description={t("space.shareSpaceDescription", {
           space: space.name,
           workspace: workspaceName,
         })}

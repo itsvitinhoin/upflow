@@ -145,6 +145,14 @@ test("workspace and space screens expose role-based sharing", () => {
     join(__dirname, "..", "..", "src", "components", "layout", "workspace-switcher.tsx"),
     "utf8",
   );
+  const sidebarPanel = readFileSync(
+    join(__dirname, "..", "..", "src", "components", "layout", "sidebar", "panel.tsx"),
+    "utf8",
+  );
+  const spaceTree = readFileSync(
+    join(__dirname, "..", "..", "src", "components", "layout", "sidebar", "space-tree.tsx"),
+    "utf8",
+  );
   const spacePage = readFileSync(
     join(__dirname, "..", "..", "src", "app", "(dashboard)", "spaces", "[id]", "page.tsx"),
     "utf8",
@@ -153,7 +161,12 @@ test("workspace and space screens expose role-based sharing", () => {
   assert.match(workspaceSwitcher, /InviteDialog/);
   assert.match(workspaceSwitcher, /t\("workspace\.share"\)/);
   assert.match(workspaceSwitcher, /defaultMode="workspace_access"/);
-  assert.match(spacePage, /t\("space\.shareWorkspace"\)/);
+  assert.match(spaceTree, /t\("space\.shareSpace"\)/);
+  assert.match(spaceTree, /setShareTarget\(sp\)/);
+  assert.match(sidebarPanel, /shareTarget/);
+  assert.match(sidebarPanel, /workspaceId=\{shareTarget\.workspace_id \|\| currentWorkspaceId\}/);
+  assert.match(sidebarPanel, /defaultMode="workspace_access"/);
+  assert.match(spacePage, /t\("space\.shareSpace"\)/);
   assert.match(spacePage, /t\("space\.accessDescription"/);
   assert.match(spacePage, /workspaceId=\{space\.workspace_id\}/);
   assert.match(spacePage, /defaultMode="workspace_access"/);

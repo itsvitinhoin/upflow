@@ -8,10 +8,12 @@ import {
   Plus,
   MoreHorizontal,
   Pencil,
+  UserPlus,
   Trash2,
 } from "lucide-react";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import { ProjectRow } from "@/components/layout/sidebar/project-row";
+import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
 
 const MAX_VISIBLE_CHILDREN = 8;
@@ -33,6 +35,7 @@ export interface NodeHandlers {
   setCreateListFor: (
     v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
   ) => void;
+  setShareTarget: (s: Space) => void;
   handleDeleteSpace: (s: Space) => void;
   handleDeleteFolder: (f: FolderT) => void;
 }
@@ -65,9 +68,11 @@ export function SpaceNode({
   setCreateFolderTarget,
   setRenameFolderTarget,
   setCreateListFor,
+  setShareTarget,
   handleDeleteSpace,
   handleDeleteFolder,
 }: SpaceNodeProps) {
+  const { t } = useLanguage();
   const isCollapsed = !!collapsed[sp.id];
   const menuOpen = menuOpenId === sp.id;
   const isActive = pathname === `/spaces/${sp.id}`;
@@ -191,6 +196,16 @@ export function SpaceNode({
                 className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5 border-t border-white/5"
               >
                 <Pencil className="w-3 h-3" /> Rename
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpenId(() => null);
+                  setShareTarget(sp);
+                }}
+                className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5 border-t border-white/5"
+              >
+                <UserPlus className="w-3 h-3" /> {t("space.shareSpace")}
               </button>
               <button
                 role="menuitem"
