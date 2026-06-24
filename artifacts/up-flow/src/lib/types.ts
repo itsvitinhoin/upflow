@@ -45,9 +45,11 @@ export interface Space {
   id: string;
   name: string;
   icon: string | null;
+  workspace_id: string;
   owner_id: string;
   position: number;
   created_at: string;
+  workspace?: { id: string; name: string } | null;
   _count?: { projects: number };
 }
 

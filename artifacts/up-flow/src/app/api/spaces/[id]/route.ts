@@ -22,6 +22,7 @@ async function GET_handler(
   const space = await prisma.space.findFirst({
     where: { id: params.id, workspace_id: auth.currentWorkspaceId },
     include: {
+      workspace: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true, email: true } },
       _count: { select: { projects: true } },
     },

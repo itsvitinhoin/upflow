@@ -17,11 +17,14 @@ import {
   RefreshCcw,
   Timer,
   TrendingDown,
+  UserPlus,
   Users2,
 } from "lucide-react";
 import { toast } from "sonner";
+import InviteDialog from "@/components/dashboard/invite-dialog";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
 import { FolderDialog, NewListDialog } from "@/components/layout/sidebar/dialogs";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
@@ -53,6 +56,7 @@ import type { SpaceContainerData, SpaceDashboardData, SpaceTab } from "@/compone
 
 export default function SpaceContainerPage() {
   const { t } = useLanguage();
+  const user = useAppUser();
   const params = useParams();
   const id = (params?.id ?? "") as string;
   const [activeTab, setActiveTab] = useState<SpaceTab>("dashboard");
@@ -68,6 +72,7 @@ export default function SpaceContainerPage() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [showNewTask, setShowNewTask] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
   const [updatingTask, setUpdatingTask] = useState(false);
 
@@ -204,6 +209,11 @@ export default function SpaceContainerPage() {
   const empty = rootFolders.length === 0 && projects.length === 0;
   const departmentPreset = dashboard?.department_preset ?? null;
   const departmentTheme = getDepartmentDashboardTheme(departmentPreset?.department_key);
+  const workspaceName = space.workspace?.name ?? t("invite.currentWorkspace");
+  const canShareWorkspace =
+    user?.isSuperAdmin ||
+    user?.currentRole === "owner" ||
+    user?.currentRole === "admin";
 
   return (
     <>
@@ -257,6 +267,15 @@ export default function SpaceContainerPage() {
               </div>
             </div>
             <div className="relative flex flex-wrap items-center gap-2">
+              {canShareWorkspace && (
+                <button
+                  onClick={() => setShowInvite(true)}
+                  className="inline-flex items-center gap-2 border border-blue-300/20 bg-blue-500/10 text-blue-100 hover:border-blue-300/40 hover:bg-blue-500/15 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  {t("space.shareWorkspace")}
+                </button>
+              )}
               <button
                 onClick={() => setShowNewFolder(true)}
                 className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
@@ -290,6 +309,28 @@ export default function SpaceContainerPage() {
                 )}
               </p>
             )}
+          </div>
+          <div className="relative mt-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/65">
+                  {t("space.accessTitle")}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("space.accessDescription", { workspace: workspaceName })}
+                </p>
+              </div>
+              {canShareWorkspace && (
+                <button
+                  type="button"
+                  onClick={() => setShowInvite(true)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-blue-300/20 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-white"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  {t("space.manageAccess")}
+                </button>
+              )}
+            </div>
           </div>
         </section>
 
@@ -371,6 +412,22 @@ export default function SpaceContainerPage() {
           setShowSchedule(false);
           loadDashboard();
         }}
+      />
+
+      <InviteDialog
+        open={showInvite}
+        onClose={() => setShowInvite(false)}
+        title={t("space.shareWorkspaceTitle", { workspace: workspaceName })}
+        description={t("space.shareWorkspaceDescription", {
+          space: space.name,
+          workspace: workspaceName,
+        })}
+        submitLabel={t("invite.submitDefault")}
+        successLabel={t("invite.successDefault")}
+        workspaceId={space.workspace_id}
+        defaultRole="member"
+        defaultMode="workspace_access"
+        hideMode
       />
 
       {drawer && dashboard && (

@@ -113,6 +113,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
               workspaces={workspaces}
               currentWorkspaceId={user.currentWorkspaceId ?? ""}
               currentRole={user.currentRole ?? null}
+              isSuperAdmin={user.isSuperAdmin === true}
               onRequestClose={() => setPanelOpen(false)}
               onSignOut={handleSignOut}
               signingOut={signingOut}
@@ -145,6 +146,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
                 workspaces={workspaces}
                 currentWorkspaceId={user.currentWorkspaceId ?? ""}
                 currentRole={user.currentRole ?? null}
+                isSuperAdmin={user.isSuperAdmin === true}
                 onNavigate={() => setMobileOpen(false)}
                 onSignOut={handleSignOut}
                 signingOut={signingOut}

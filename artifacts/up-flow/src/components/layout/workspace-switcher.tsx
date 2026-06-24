@@ -7,8 +7,10 @@ import {
   Plus,
   SlidersHorizontal,
   Trash2,
+  UserPlus,
 } from "lucide-react";
 import { toast } from "sonner";
+import InviteDialog from "@/components/dashboard/invite-dialog";
 import { logError } from "@/lib/log-error";
 import { getCachedJson, primeCachedJson } from "@/lib/client-cache";
 import { cn } from "@/lib/utils";
@@ -38,6 +40,7 @@ export default function WorkspaceSwitcher({
   const [data, setData] = useState<ListResponse | null>(initialData ?? null);
   const [busy, setBusy] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -66,6 +69,10 @@ export default function WorkspaceSwitcher({
   );
   const initial =
     (current?.name ?? "U").trim().charAt(0).toUpperCase() || "U";
+  const canShareCurrent =
+    data?.is_super_admin ||
+    data?.current_role === "owner" ||
+    data?.current_role === "admin";
 
   function canDeleteWorkspace(workspace: WorkspaceLite) {
     return Boolean(data?.is_super_admin || workspace.role === "owner");
@@ -282,6 +289,21 @@ export default function WorkspaceSwitcher({
             })}
           </ul>
           <div className="border-t border-white/10">
+            {canShareCurrent && current && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  setInviteOpen(true);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-blue-100 transition hover:bg-blue-500/10 hover:text-white"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 text-blue-100 ring-1 ring-blue-300/15">
+                  <UserPlus className="h-3.5 w-3.5" />
+                </span>
+                {t("workspace.share")}
+              </button>
+            )}
             <button
               type="button"
               onClick={createNew}
@@ -294,6 +316,21 @@ export default function WorkspaceSwitcher({
             </button>
           </div>
         </div>
+      )}
+
+      {current && (
+        <InviteDialog
+          open={inviteOpen}
+          onClose={() => setInviteOpen(false)}
+          title={t("workspace.shareTitle")}
+          description={t("workspace.shareDescription", { workspace: current.name })}
+          submitLabel={t("invite.submitDefault")}
+          successLabel={t("invite.successDefault")}
+          workspaceId={current.id}
+          defaultRole="member"
+          defaultMode="workspace_access"
+          hideMode
+        />
       )}
     </div>
   );

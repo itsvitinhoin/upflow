@@ -140,6 +140,25 @@ test("team page makes real workspace user invites the primary flow", () => {
   assert.match(teamPage, /t\("team\.sandboxTools"\)/);
 });
 
+test("workspace and space screens expose role-based sharing", () => {
+  const workspaceSwitcher = readFileSync(
+    join(__dirname, "..", "..", "src", "components", "layout", "workspace-switcher.tsx"),
+    "utf8",
+  );
+  const spacePage = readFileSync(
+    join(__dirname, "..", "..", "src", "app", "(dashboard)", "spaces", "[id]", "page.tsx"),
+    "utf8",
+  );
+
+  assert.match(workspaceSwitcher, /InviteDialog/);
+  assert.match(workspaceSwitcher, /t\("workspace\.share"\)/);
+  assert.match(workspaceSwitcher, /defaultMode="workspace_access"/);
+  assert.match(spacePage, /t\("space\.shareWorkspace"\)/);
+  assert.match(spacePage, /t\("space\.accessDescription"/);
+  assert.match(spacePage, /workspaceId=\{space\.workspace_id\}/);
+  assert.match(spacePage, /defaultMode="workspace_access"/);
+});
+
 test("invite modes support personal workspaces and current workspace access", () => {
   assert.match(workspaceLib, /ensureOwnedWorkspace/);
   assert.doesNotMatch(workspaceLib, /where:\s*\{\s*slug:\s*"acme"\s*\}/);
