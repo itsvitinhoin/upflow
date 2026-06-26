@@ -255,5 +255,41 @@ async function PATCH_handler(
   return NextResponse.json(updated);
 }
 
+async function DELETE_handler(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
+  void req;
+  if (!auth.currentWorkspaceId) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const company = await prisma.company.findFirst({
+    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    select: { id: true, workspace_id: true, name: true },
+  });
+  if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!isWorkspaceAdminFor(auth, company.workspace_id)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await recordActivity({
+    workspace_id: company.workspace_id,
+    actor_id: auth.prismaUser.id,
+    type: "company_deleted",
+    entity_type: "company",
+    entity_id: company.id,
+    company_id: company.id,
+    metadata: { name: company.name },
+  });
+  await prisma.company.delete({ where: { id: company.id } });
+
+  return NextResponse.json({ success: true });
+}
+
 export const GET = withErrorReporting("api:companies/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:companies/id:PATCH", PATCH_handler);
+export const DELETE = withErrorReporting("api:companies/id:DELETE", DELETE_handler);

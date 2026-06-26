@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   AlertCircle,
   Box,
@@ -15,11 +16,11 @@ import {
   DollarSign,
   HeartPulse,
   Info,
-  MoreHorizontal,
   PackageCheck,
   Plus,
   RefreshCcw,
   Timer,
+  Trash2,
   Users,
 } from "lucide-react";
 import Header from "@/components/layout/header";
@@ -55,6 +56,25 @@ export default function ClientsPage() {
   useEffect(() => {
     loadCompanies();
   }, [loadCompanies]);
+
+  const deleteCompany = async (company: Company) => {
+    if (!window.confirm(`Delete client "${company.name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/companies/${company.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Could not delete client");
+      }
+      toast.success("Client deleted");
+      await loadCompanies();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete client");
+    }
+  };
 
   return (
     <>
@@ -128,25 +148,22 @@ export default function ClientsPage() {
         ) : (
           <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
             {companies.map((company) => (
-              <Link
+              <div
                 key={company.id}
-                href={`/clients/${company.id}`}
-                className="group relative min-w-0 overflow-hidden rounded-xl border border-blue-500/30 bg-[#07101f]/95 p-4 shadow-[0_0_0_1px_rgba(59,130,246,0.06),0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-400/55 hover:bg-[#091426] hover:shadow-[0_0_0_1px_rgba(59,130,246,0.14),0_20px_56px_rgba(0,0,0,0.32)]"
+                className="group relative min-w-0 overflow-hidden rounded-xl border border-blue-500/30 bg-[#07101f]/95 shadow-[0_0_0_1px_rgba(59,130,246,0.06),0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-400/55 hover:bg-[#091426] hover:shadow-[0_0_0_1px_rgba(59,130,246,0.14),0_20px_56px_rgba(0,0,0,0.32)]"
               >
                 <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(37,99,235,0.18),transparent_32%),radial-gradient(circle_at_100%_0%,rgba(14,165,233,0.11),transparent_24%)]" />
 
-                <div className="relative flex min-w-0 items-start gap-3">
+                <Link href={`/clients/${company.id}`} className="relative block p-4">
+                <div className="flex min-w-0 items-start gap-3">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-blue-300/35 bg-gradient-to-br from-blue-600/80 via-indigo-700/70 to-blue-950 text-2xl font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_24px_rgba(37,99,235,0.22)]">
                     {company.name.trim().charAt(0).toUpperCase() || "C"}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 pr-24">
                     <div className="flex min-w-0 items-center gap-2">
                       <h3 className="truncate text-lg font-bold text-white">
                         {company.name}
                       </h3>
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-blue-100/65 ring-1 ring-white/10">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </span>
                     </div>
                     <p className="mt-1 truncate text-sm text-blue-100/58">
                       {company.industry || company.commercial_status || company.status}
@@ -285,6 +302,19 @@ export default function ClientsPage() {
                   </div>
                 )}
               </Link>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteCompany(company);
+                  }}
+                  className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 opacity-85 transition hover:border-rose-300/60 hover:bg-rose-500/15 hover:opacity-100"
+                  title="Delete client"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </div>
             ))}
           </section>
         )}

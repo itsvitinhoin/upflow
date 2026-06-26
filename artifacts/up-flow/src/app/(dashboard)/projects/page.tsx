@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { logError } from "@/lib/log-error";
 import { toast } from "sonner";
-import { FolderOpen, Plus, Calendar, CheckSquare, Folder } from "lucide-react";
+import { FolderOpen, Plus, Calendar, CheckSquare, Folder, Trash2 } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import { cn, formatDate, getInitials, statusColor, statusLabel } from "@/lib/utils";
@@ -62,6 +62,25 @@ export default function ProjectsPage() {
     }
   };
 
+  const deleteProject = async (project: Project) => {
+    if (!window.confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Could not delete project");
+      }
+      toast.success("Project deleted");
+      loadProjects();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete project");
+    }
+  };
+
   const filtered = projects.filter(
     (p) => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -111,7 +130,7 @@ export default function ProjectsPage() {
                 className="group relative bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all"
               >
                 <Link href={`/projects/${project.id}`} className="block">
-                  <div className="mb-3 flex min-w-0 items-start justify-between gap-2 pr-8">
+                  <div className="mb-3 flex min-w-0 items-start justify-between gap-2 pr-28">
                     <h3 className="min-w-0 truncate font-semibold text-foreground transition-colors group-hover:text-primary">
                       {project.name}
                     </h3>
@@ -156,18 +175,32 @@ export default function ProjectsPage() {
                     </div>
                   </div>
                 </Link>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setMoveProjectId(project.id);
-                  }}
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs text-muted-foreground hover:text-foreground bg-background/80 border border-border rounded-md px-2 py-1 flex items-center gap-1 transition-opacity"
-                  title="Move to space"
-                >
-                  <Folder className="w-3 h-3" /> Move
-                </button>
+                <div className="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setMoveProjectId(project.id);
+                    }}
+                    className="flex items-center gap-1 rounded-md border border-border bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                    title="Move to space"
+                  >
+                    <Folder className="w-3 h-3" /> Move
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      deleteProject(project);
+                    }}
+                    className="flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 hover:border-rose-300/60 hover:bg-rose-500/15"
+                    title="Delete project"
+                  >
+                    <Trash2 className="w-3 h-3" /> Delete
+                  </button>
+                </div>
               </div>
             ))}
           </div>
