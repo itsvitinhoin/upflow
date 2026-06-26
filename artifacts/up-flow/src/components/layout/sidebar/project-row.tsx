@@ -7,11 +7,13 @@ import { toast } from "sonner";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
+import { logError } from "@/lib/log-error";
 
 interface ProjectRowProps {
   project: Project;
   onMove: () => void;
   onNavigate?: () => void;
+  onDeleted: () => void;
   isActive: boolean;
   canManageWorkspace: boolean;
 }
@@ -20,6 +22,7 @@ export function ProjectRow({
   project,
   onMove,
   onNavigate,
+  onDeleted,
   isActive,
   canManageWorkspace,
 }: ProjectRowProps) {
@@ -46,6 +49,23 @@ export function ProjectRow({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+
+  const handleDelete = async () => {
+    setOpen(false);
+    if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Could not delete project");
+      }
+      toast.success("Project deleted");
+      onDeleted();
+    } catch (err) {
+      logError("sidebar:project-row:delete", err, { id: project.id });
+      toast.error(err instanceof Error ? err.message : "Could not delete project");
+    }
+  };
 
   return (
     <div
@@ -103,10 +123,7 @@ export function ProjectRow({
             </button>
             <button
               role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                toast.error(t("projects.workspaceDeleteBlocked"));
-              }}
+              onClick={handleDelete}
               className="w-full flex items-center gap-2 text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 border-t border-white/5"
             >
               <Trash2 className="w-3 h-3" /> {t("common.delete")}
