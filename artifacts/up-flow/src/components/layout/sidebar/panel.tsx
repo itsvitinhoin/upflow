@@ -184,7 +184,8 @@ export default function Panel({
         toast.success("Space deleted");
         loadPanel({ force: true });
       } else {
-        toast.error("Could not delete space");
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(body?.error ?? "Could not delete space");
       }
     } catch (err) {
       logError("sidebar:delete-space", err, { id: sp.id });
@@ -200,7 +201,8 @@ export default function Panel({
         toast.success("Folder deleted");
         loadPanel({ force: true });
       } else {
-        toast.error("Could not delete folder");
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(body?.error ?? "Could not delete folder");
       }
     } catch (err) {
       logError("sidebar:delete-folder", err, { id: f.id });
@@ -354,6 +356,7 @@ export default function Panel({
                       loadPanel={loadPanel}
                       setMoveTarget={setMoveTarget}
                       isSearching={isSearching}
+                      canManageWorkspace={canManageWorkspace}
                     />
                   )}
 

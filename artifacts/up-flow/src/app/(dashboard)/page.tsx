@@ -276,12 +276,15 @@ export default function DashboardPage() {
     setUpdating(true);
     try {
       const res = await fetch(`/api/tasks/${task.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("dashboard.couldNotDeleteTask"));
+      }
       toast.success(t("dashboard.taskDeleted"));
       setActiveTask(null);
       loadData();
-    } catch {
-      toast.error(t("dashboard.couldNotDeleteTask"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("dashboard.couldNotDeleteTask"));
     } finally {
       setUpdating(false);
     }

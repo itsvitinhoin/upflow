@@ -14,6 +14,7 @@ interface ProjectRowProps {
   onNavigate?: () => void;
   onDeleted: () => void;
   isActive: boolean;
+  canManageWorkspace: boolean;
 }
 
 export function ProjectRow({
@@ -22,6 +23,7 @@ export function ProjectRow({
   onNavigate,
   onDeleted,
   isActive,
+  canManageWorkspace,
 }: ProjectRowProps) {
   const [open, setOpen] = useState(false);
 
@@ -55,7 +57,8 @@ export function ProjectRow({
         toast.success("Project deleted");
         onDeleted();
       } else {
-        toast.error("Could not delete project");
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        toast.error(body?.error ?? "Could not delete project");
       }
     } catch (err) {
       logError("sidebar:project-row:delete", err, { id: project.id });
@@ -91,6 +94,7 @@ export function ProjectRow({
         />
         <span className="truncate">{project.name}</span>
       </Link>
+      {canManageWorkspace && (
       <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
         <button
           onClick={() => setOpen((v) => !v)}
@@ -126,6 +130,7 @@ export function ProjectRow({
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

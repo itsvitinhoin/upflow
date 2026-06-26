@@ -100,9 +100,17 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
 
   const deleteTask = async () => {
     if (!confirm(t("task.deleteConfirm"))) return;
-    await fetch(`/api/tasks/${currentTask.id}`, { method: "DELETE" });
-    onUpdate();
-    toast.success(t("dashboard.taskDeleted"));
+    try {
+      const res = await fetch(`/api/tasks/${currentTask.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("task.failedDelete"));
+      }
+      onUpdate();
+      toast.success(t("dashboard.taskDeleted"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("task.failedDelete"));
+    }
   };
 
   const addComment = async (e: React.FormEvent) => {

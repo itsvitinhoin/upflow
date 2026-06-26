@@ -109,11 +109,14 @@ export default function KanbanBoard({
     if (!confirm(t("task.deleteConfirm"))) return;
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("task.failedDelete"));
+      }
       onUpdate();
       toast.success(t("dashboard.taskDeleted"));
-    } catch {
-      toast.error(t("task.failedDelete"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("task.failedDelete"));
     }
   };
 

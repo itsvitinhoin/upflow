@@ -286,7 +286,6 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.task.delete({ where: { id: params.id } });
   await recordActivity({
     workspace_id: task.project.workspace_id,
     actor_id: prismaUser.id,
@@ -297,6 +296,7 @@ async function DELETE_handler(
     task_id: task.id,
     metadata: { title: task.title },
   });
+  await prisma.task.delete({ where: { id: params.id } });
   return NextResponse.json({ success: true });
 }
 export const GET = withErrorReporting("api:tasks/id:GET", GET_handler);

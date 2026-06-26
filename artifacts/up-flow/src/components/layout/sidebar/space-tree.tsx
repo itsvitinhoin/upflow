@@ -267,6 +267,7 @@ export function SpaceNode({
               onNavigate={onNavigate}
               onDeleted={loadPanel}
               isActive={pathname === `/projects/${p.id}`}
+              canManageWorkspace={canManageWorkspace}
             />
           ))}
           {hiddenChildCount > 0 && (
@@ -503,6 +504,7 @@ export function FolderNode({
                 onNavigate={onNavigate}
                 onDeleted={loadPanel}
                 isActive={pathname === `/projects/${p.id}`}
+                canManageWorkspace={canManageWorkspace}
               />
               ))}
               {hiddenChildCount > 0 && (
@@ -531,6 +533,7 @@ interface UnassignedNodeProps {
   loadPanel: () => void;
   setMoveTarget: (p: Project) => void;
   isSearching: boolean;
+  canManageWorkspace: boolean;
 }
 
 export function UnassignedNode({
@@ -542,6 +545,7 @@ export function UnassignedNode({
   loadPanel,
   setMoveTarget,
   isSearching,
+  canManageWorkspace,
 }: UnassignedNodeProps) {
   const id = "__unassigned__";
   const isCollapsed = !!collapsed[id];
@@ -589,6 +593,7 @@ export function UnassignedNode({
                 onNavigate={onNavigate}
                 onDeleted={loadPanel}
                 isActive={pathname === `/projects/${p.id}`}
+                canManageWorkspace={canManageWorkspace}
               />
             ))
           )}
