@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { notFound, useParams } from "next/navigation";
+import { notFound, useParams, useSearchParams } from "next/navigation";
 import {
   Activity,
   AlertCircle,
@@ -58,7 +58,10 @@ export default function SpaceContainerPage() {
   const { t } = useLanguage();
   const user = useAppUser();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = (params?.id ?? "") as string;
+  const tabParam = searchParams?.get("tab") ?? "";
+  const focusedListId = searchParams?.get("list") ?? "";
   const [activeTab, setActiveTab] = useState<SpaceTab>("dashboard");
   const [data, setData] = useState<SpaceContainerData | null>(null);
   const [dashboard, setDashboard] = useState<SpaceDashboardData | null>(null);
@@ -124,11 +127,14 @@ export default function SpaceContainerPage() {
 
   useEffect(() => {
     if (!id) return;
-    setActiveTab("dashboard");
     loadContainer();
     loadDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    setActiveTab(tabParam === "browse" || focusedListId ? "browse" : "dashboard");
+  }, [focusedListId, id, tabParam]);
 
   const firstProjectId = dashboard?.projects.items[0]?.id ?? null;
 
@@ -352,6 +358,7 @@ export default function SpaceContainerPage() {
             empty={empty}
             rootFolders={rootFolders}
             projects={projects}
+            focusedProjectId={focusedListId}
             onNewFolder={() => setShowNewFolder(true)}
             onNewList={() => setShowNewList(true)}
           />

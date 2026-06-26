@@ -263,6 +263,7 @@ export function SpaceNode({
             <ProjectRow
               key={p.id}
               project={p}
+              href={`/spaces/${sp.id}?tab=browse&list=${p.id}`}
               onMove={() => setMoveTarget(p)}
               onNavigate={onNavigate}
               onDeleted={loadPanel}
@@ -500,6 +501,7 @@ export function FolderNode({
               <ProjectRow
                 key={p.id}
                 project={p}
+                href={`/folders/${f.id}?list=${p.id}`}
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
                 onDeleted={loadPanel}

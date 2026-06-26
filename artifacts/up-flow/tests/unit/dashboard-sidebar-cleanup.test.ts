@@ -67,3 +67,16 @@ test("sidebar search queries the server and includes parent context for folder m
   assert.match(sidebarRoute, /pendingFolderIds\.size > 0/);
   assert.match(sidebarRoute, /for \(const folder of folderById\.values\(\)\) spaceIds\.add\(folder\.space_id\)/);
 });
+
+test("workspace sidebar list clicks stay in the workspace or folder context", () => {
+  const projectRow = read("src/components/layout/sidebar/project-row.tsx");
+  const spaceTree = read("src/components/layout/sidebar/space-tree.tsx");
+  const spacePage = read("src/app/(dashboard)/spaces/[id]/page.tsx");
+  const folderPage = read("src/app/(dashboard)/folders/[id]/page.tsx");
+
+  assert.match(projectRow, /href=\{href \?\? `\/projects\/\$\{project\.id\}`\}/);
+  assert.match(spaceTree, /href=\{`\/spaces\/\$\{sp\.id\}\?tab=browse&list=\$\{p\.id\}`\}/);
+  assert.match(spaceTree, /href=\{`\/folders\/\$\{f\.id\}\?list=\$\{p\.id\}`\}/);
+  assert.match(spacePage, /tabParam === "browse" \|\| focusedListId \? "browse" : "dashboard"/);
+  assert.match(folderPage, /focusedListId === project\.id/);
+});

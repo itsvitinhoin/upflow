@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { notFound, useParams } from "next/navigation";
+import { notFound, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Folder, FolderPlus, List, ListPlus, RefreshCcw } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -23,7 +23,9 @@ interface FolderContainerData {
 export default function FolderContainerPage() {
   const { t } = useLanguage();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = (params?.id ?? "") as string;
+  const focusedListId = searchParams?.get("list") ?? "";
   const [data, setData] = useState<FolderContainerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -216,6 +218,8 @@ export default function FolderContainerPage() {
                   className={cn(
                     "group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3",
                     "hover:bg-white/5 hover:border-white/10 transition-colors",
+                    focusedListId === project.id &&
+                      "border-blue-300/35 bg-blue-500/10 shadow-[0_0_22px_rgba(59,130,246,0.16)]",
                   )}
                 >
                   <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-white/5 text-muted-foreground group-hover:text-foreground">

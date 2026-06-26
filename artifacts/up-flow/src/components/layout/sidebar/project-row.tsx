@@ -11,6 +11,7 @@ import { logError } from "@/lib/log-error";
 
 interface ProjectRowProps {
   project: Project;
+  href?: string;
   onMove: () => void;
   onNavigate?: () => void;
   onDeleted: () => void;
@@ -20,6 +21,7 @@ interface ProjectRowProps {
 
 export function ProjectRow({
   project,
+  href,
   onMove,
   onNavigate,
   onDeleted,
@@ -76,7 +78,7 @@ export function ProjectRow({
       )}
     >
       <Link
-        href={`/projects/${project.id}`}
+        href={href ?? `/projects/${project.id}`}
         onClick={onNavigate}
         className={cn(
           "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-xs truncate outline-none transition-colors",

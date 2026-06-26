@@ -12,12 +12,14 @@ export function BrowseTab({
   empty,
   rootFolders,
   projects,
+  focusedProjectId,
   onNewFolder,
   onNewList,
 }: {
   empty: boolean;
   rootFolders: FolderT[];
   projects: ContainerList[];
+  focusedProjectId?: string;
   onNewFolder: () => void;
   onNewList: () => void;
 }) {
@@ -76,6 +78,7 @@ export function BrowseTab({
               href={`/projects/${project.id}`}
               icon={<List className="h-5 w-5" />}
               name={project.name}
+              active={focusedProjectId === project.id}
             />
           ))}
         </ContainerSection>
@@ -148,10 +151,12 @@ function ContainerTile({
   href,
   icon,
   name,
+  active = false,
 }: {
   href: string;
   icon: React.ReactNode;
   name: string;
+  active?: boolean;
 }) {
   return (
     <Link
@@ -159,6 +164,8 @@ function ContainerTile({
       className={cn(
         "group flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] px-4 py-3",
         "transition-colors hover:border-white/10 hover:bg-white/5",
+        active &&
+          "border-blue-300/35 bg-blue-500/10 shadow-[0_0_22px_rgba(59,130,246,0.16)]",
       )}
     >
       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/5 text-muted-foreground group-hover:text-foreground">
