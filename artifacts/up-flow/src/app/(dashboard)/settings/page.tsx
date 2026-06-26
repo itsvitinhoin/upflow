@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, KeyRound, ShieldCheck, SlidersHorizontal, UserRound } from "lucide-react";
+import { Activity, KeyRound, RefreshCcw, ShieldCheck, SlidersHorizontal, UserRound } from "lucide-react";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
 
@@ -32,6 +32,13 @@ const settingsCards = [
     href: "/settings/permissions",
     actionKey: "settings.openPermissions",
   },
+  {
+    icon: RefreshCcw,
+    titleKey: "settings.qaResetTitle",
+    descriptionKey: "settings.qaResetDescription",
+    href: "/settings/qa-reset",
+    actionKey: "settings.openQaReset",
+  },
 ];
 
 export default function SettingsPage() {
@@ -54,7 +61,7 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {settingsCards.map((card) => {
             const Icon = card.icon;
             const content = (
