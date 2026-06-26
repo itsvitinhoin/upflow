@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Folder, MoreHorizontal } from "lucide-react";
+import { Folder, MoreHorizontal, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 interface ProjectRowProps {
   project: Project;
@@ -21,6 +23,7 @@ export function ProjectRow({
   isActive,
   canManageWorkspace,
 }: ProjectRowProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -97,6 +100,16 @@ export function ProjectRow({
               className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
             >
               <Folder className="w-3 h-3" /> Move to space...
+            </button>
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                toast.error(t("projects.workspaceDeleteBlocked"));
+              }}
+              className="w-full flex items-center gap-2 text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 border-t border-white/5"
+            >
+              <Trash2 className="w-3 h-3" /> {t("common.delete")}
             </button>
           </div>
         )}
