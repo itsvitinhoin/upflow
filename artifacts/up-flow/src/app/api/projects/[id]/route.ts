@@ -161,17 +161,138 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await recordActivity({
-    workspace_id: project.workspace_id,
-    actor_id: auth.prismaUser.id,
-    type: "project_deleted",
-    entity_type: "project",
-    entity_id: project.id,
-    project_id: project.id,
-    metadata: { name: project.name },
+  const result = await prisma.$transaction(async (tx) => {
+    const [tasks, docs] = await Promise.all([
+      tx.task.findMany({
+        where: { project_id: project.id },
+        select: { id: true },
+      }),
+      tx.doc.findMany({
+        where: { project_id: project.id },
+        select: { id: true },
+      }),
+    ]);
+    const taskIds = tasks.map((task) => task.id);
+    const docIds = docs.map((doc) => doc.id);
+    const approvalEntityIds = [project.id, ...taskIds, ...docIds];
+
+    const approvalRequests = await tx.approvalRequest.findMany({
+      where: {
+        workspace_id: project.workspace_id,
+        entity_id: { in: approvalEntityIds },
+        entity_type: { in: ["project", "task", "doc", "report", "campaign", "deliverable"] },
+      },
+      select: { id: true },
+    });
+    const approvalIds = approvalRequests.map((approval) => approval.id);
+
+    const deleted = {
+      approval_events: approvalIds.length
+        ? (await tx.approvalEvent.deleteMany({
+            where: { approval_id: { in: approvalIds } },
+          })).count
+        : 0,
+      approval_requests: approvalIds.length
+        ? (await tx.approvalRequest.deleteMany({
+            where: { id: { in: approvalIds } },
+          })).count
+        : 0,
+      notifications: taskIds.length
+        ? (await tx.notification.deleteMany({
+            where: { task_id: { in: taskIds } },
+          })).count
+        : 0,
+      time_entries: (await tx.timeEntry.deleteMany({
+        where: {
+          OR: [
+            { project_id: project.id },
+            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
+          ],
+        },
+      })).count,
+      calendar_events: (await tx.calendarEvent.deleteMany({
+        where: {
+          OR: [
+            { project_id: project.id },
+            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
+          ],
+        },
+      })).count,
+      recurring_rules: (await tx.recurringTaskRule.deleteMany({
+        where: {
+          OR: [
+            { project_id: project.id },
+            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
+          ],
+        },
+      })).count,
+      task_dependencies: taskIds.length
+        ? (await tx.taskDependency.deleteMany({
+            where: {
+              OR: [
+                { task_id: { in: taskIds } },
+                { depends_on_id: { in: taskIds } },
+              ],
+            },
+          })).count
+        : 0,
+      comments: taskIds.length
+        ? (await tx.comment.deleteMany({
+            where: { task_id: { in: taskIds } },
+          })).count
+        : 0,
+      custom_field_values: taskIds.length
+        ? (await tx.customFieldValue.deleteMany({
+            where: { task_id: { in: taskIds } },
+          })).count
+        : 0,
+      custom_fields: (await tx.customFieldDefinition.deleteMany({
+        where: { project_id: project.id },
+      })).count,
+      workflow_statuses: (await tx.workflowStatus.deleteMany({
+        where: { project_id: project.id },
+      })).count,
+      project_members: (await tx.projectMember.deleteMany({
+        where: { project_id: project.id },
+      })).count,
+      docs: (await tx.doc.deleteMany({
+        where: { project_id: project.id },
+      })).count,
+      activity_events: (await tx.activityEvent.deleteMany({
+        where: {
+          workspace_id: project.workspace_id,
+          OR: [
+            { project_id: project.id },
+            { entity_type: "project", entity_id: project.id },
+            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
+            ...(taskIds.length ? [{ entity_type: "task", entity_id: { in: taskIds } }] : []),
+            ...(docIds.length ? [{ entity_type: "doc", entity_id: { in: docIds } }] : []),
+          ],
+        },
+      })).count,
+      tasks: (await tx.task.deleteMany({
+        where: { project_id: project.id },
+      })).count,
+      projects: (await tx.project.deleteMany({
+        where: { id: project.id },
+      })).count,
+    };
+
+    await tx.activityEvent.create({
+      data: {
+        workspace_id: project.workspace_id,
+        actor_id: auth.prismaUser.id,
+        type: "project_deleted",
+        entity_type: "project",
+        entity_id: project.id,
+        metadata: { name: project.name, deleted },
+      },
+    });
+
+    return deleted;
   });
-  await prisma.project.delete({ where: { id: params.id } });
-  return NextResponse.json({ success: true });
+
+  return NextResponse.json({ success: true, deleted: result });
 }
 export const GET = withErrorReporting("api:projects/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:projects/id:PATCH", PATCH_handler);

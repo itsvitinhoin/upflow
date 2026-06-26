@@ -19,6 +19,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
   const loadProjects = () => {
     setLoading(true);
@@ -63,14 +64,17 @@ export default function ProjectsPage() {
   };
 
   const deleteProject = async (project: Project) => {
+    if (deletingProjectId) return;
     if (!window.confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
 
+    setDeletingProjectId(project.id);
     try {
       const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "Could not delete project");
       }
+      setProjects((current) => current.filter((item) => item.id !== project.id));
       toast.success("Project deleted");
       loadProjects();
       if (typeof window !== "undefined") {
@@ -78,6 +82,8 @@ export default function ProjectsPage() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not delete project");
+    } finally {
+      setDeletingProjectId(null);
     }
   };
 
@@ -127,7 +133,10 @@ export default function ProjectsPage() {
             {filtered.map((project) => (
               <div
                 key={project.id}
-                className="group relative bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all"
+                className={cn(
+                  "group relative bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all",
+                  deletingProjectId === project.id && "pointer-events-none opacity-55",
+                )}
               >
                 <Link href={`/projects/${project.id}`} className="block">
                   <div className="mb-3 flex min-w-0 items-start justify-between gap-2 pr-28">
@@ -195,10 +204,11 @@ export default function ProjectsPage() {
                       e.stopPropagation();
                       deleteProject(project);
                     }}
+                    disabled={deletingProjectId === project.id}
                     className="flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 hover:border-rose-300/60 hover:bg-rose-500/15"
                     title="Delete project"
                   >
-                    <Trash2 className="w-3 h-3" /> Delete
+                    <Trash2 className="w-3 h-3" /> {deletingProjectId === project.id ? "Deleting..." : "Delete"}
                   </button>
                 </div>
               </div>
