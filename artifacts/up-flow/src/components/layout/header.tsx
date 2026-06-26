@@ -77,12 +77,12 @@ function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "e
   if (n.type === "member_joined") {
     return memberJoinedNotificationLabel(n, language);
   }
-  const taskTitle = n.task?.title || "a task";
+  const data = (n.data ?? {}) as { task_title?: string; new_status?: string; actor_name?: string };
+  const taskTitle = n.task?.title || data.task_title || "a task";
   if (n.type === "assigned") return `Assigned to "${taskTitle}"`;
   if (n.type === "commented") return `New comment on "${taskTitle}"`;
   if (n.type === "due_soon") return `"${taskTitle}" is due soon`;
   if (n.type === "status_changed") {
-    const data = (n.data ?? {}) as { new_status?: string; actor_name?: string };
     const actor = data.actor_name || "Someone";
     const newLabel = data.new_status ? STATUS_LABEL[data.new_status] ?? data.new_status : "a new status";
     return `${actor} moved "${taskTitle}" to ${newLabel}`;

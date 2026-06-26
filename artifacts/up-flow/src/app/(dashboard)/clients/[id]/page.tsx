@@ -287,6 +287,13 @@ export default function ClientDetailPage() {
                   Website
                 </a>
               )}
+              <Link
+                href={`/clients/${company.id}/report`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-foreground hover:bg-white/5"
+              >
+                <FileText className="h-4 w-4" />
+                Report workflow
+              </Link>
               <button
                 type="button"
                 onClick={() => setShowProjectDialog(true)}
