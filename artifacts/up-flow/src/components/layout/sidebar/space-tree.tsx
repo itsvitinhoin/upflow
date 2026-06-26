@@ -265,7 +265,6 @@ export function SpaceNode({
               project={p}
               onMove={() => setMoveTarget(p)}
               onNavigate={onNavigate}
-              onDeleted={loadPanel}
               isActive={pathname === `/projects/${p.id}`}
               canManageWorkspace={canManageWorkspace}
             />
@@ -502,7 +501,6 @@ export function FolderNode({
                 project={p}
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
-                onDeleted={loadPanel}
                 isActive={pathname === `/projects/${p.id}`}
                 canManageWorkspace={canManageWorkspace}
               />
@@ -591,7 +589,6 @@ export function UnassignedNode({
                 project={p}
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
-                onDeleted={loadPanel}
                 isActive={pathname === `/projects/${p.id}`}
                 canManageWorkspace={canManageWorkspace}
               />

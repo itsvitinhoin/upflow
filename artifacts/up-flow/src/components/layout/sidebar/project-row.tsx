@@ -2,17 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Folder, MoreHorizontal, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { Folder, MoreHorizontal } from "lucide-react";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { logError } from "@/lib/log-error";
 
 interface ProjectRowProps {
   project: Project;
   onMove: () => void;
   onNavigate?: () => void;
-  onDeleted: () => void;
   isActive: boolean;
   canManageWorkspace: boolean;
 }
@@ -21,7 +18,6 @@ export function ProjectRow({
   project,
   onMove,
   onNavigate,
-  onDeleted,
   isActive,
   canManageWorkspace,
 }: ProjectRowProps) {
@@ -47,24 +43,6 @@ export function ProjectRow({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
-
-  const handleDelete = async () => {
-    setOpen(false);
-    if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
-    try {
-      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Project deleted");
-        onDeleted();
-      } else {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(body?.error ?? "Could not delete project");
-      }
-    } catch (err) {
-      logError("sidebar:project-row:delete", err, { id: project.id });
-      toast.error("Could not delete project");
-    }
-  };
 
   return (
     <div
@@ -119,13 +97,6 @@ export function ProjectRow({
               className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
             >
               <Folder className="w-3 h-3" /> Move to space...
-            </button>
-            <button
-              role="menuitem"
-              onClick={handleDelete}
-              className="w-full flex items-center gap-2 text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 border-t border-white/5"
-            >
-              <Trash2 className="w-3 h-3" /> Delete
             </button>
           </div>
         )}
