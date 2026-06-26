@@ -12,7 +12,8 @@ const baselineMigrations = [
   "20260519170000_remove_clickup_ids",
 ];
 
-const prismaCommand = process.platform === "win32" ? "prisma.cmd" : "prisma";
+const isWindows = process.platform === "win32";
+const prismaCommand = isWindows ? "prisma.cmd" : "prisma";
 const shouldBaseline = process.env.PRISMA_BASELINE_EXISTING_DB === "1";
 const shouldRunOnVercel = process.env.RUN_PRISMA_MIGRATIONS === "1";
 
@@ -25,6 +26,7 @@ function runPrisma(args, options = {}) {
   const result = spawnSync(prismaCommand, args, {
     stdio: options.allowFailure ? "pipe" : "inherit",
     encoding: "utf8",
+    shell: isWindows,
   });
 
   if (result.error) {
