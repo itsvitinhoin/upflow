@@ -48,15 +48,65 @@ async function POST_handler(
     send_to_client: "client_report_marked_sent",
     archive_report: "client_report_archived",
   }[parsed.data.action];
+  const periodFrom = new Date(parsed.data.period.from);
+  const periodTo = new Date(parsed.data.period.to);
+  if (Number.isNaN(periodFrom.getTime()) || Number.isNaN(periodTo.getTime()) || periodTo <= periodFrom) {
+    return NextResponse.json({ error: "Invalid report period" }, { status: 400 });
+  }
+  const now = new Date();
+  const report = await prisma.$transaction(async (tx) => {
+    const latest = await tx.clientReport.findFirst({
+      where: {
+        workspace_id: scope.workspaceId,
+        company_id: company.id,
+        period_from: periodFrom,
+        period_to: periodTo,
+      },
+      orderBy: [{ version: "desc" }, { created_at: "desc" }],
+    });
+    const nextData = {
+      status: parsed.data.status,
+      narrative: parsed.data.narrative ?? null,
+      markdown: parsed.data.markdown ?? null,
+      ...(parsed.data.action === "approve_internal" && {
+        approved_at: now,
+        approved_by: auth.prismaUser.id,
+      }),
+      ...(parsed.data.action === "send_to_client" && {
+        sent_at: now,
+        sent_by: auth.prismaUser.id,
+      }),
+      ...(parsed.data.action === "archive_report" && {
+        archived_at: now,
+      }),
+    };
+    return latest
+      ? tx.clientReport.update({
+          where: { id: latest.id },
+          data: nextData,
+        })
+      : tx.clientReport.create({
+          data: {
+            workspace_id: scope.workspaceId,
+            company_id: company.id,
+            author_id: auth.prismaUser.id,
+            title: `${company.name} client report`,
+            period_from: periodFrom,
+            period_to: periodTo,
+            ...nextData,
+          },
+        });
+  });
 
   await recordActivity({
     workspace_id: scope.workspaceId,
     actor_id: auth.prismaUser.id,
     type: activityType,
     entity_type: "client_report",
-    entity_id: company.id,
+    entity_id: report.id,
     company_id: company.id,
     metadata: {
+      report_id: report.id,
       client_name: company.name,
       status: parsed.data.status,
       period: parsed.data.period,
@@ -69,6 +119,7 @@ async function POST_handler(
     success: true,
     action: parsed.data.action,
     status: parsed.data.status,
+    report,
   });
 }
 

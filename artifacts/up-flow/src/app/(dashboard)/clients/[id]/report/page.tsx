@@ -38,6 +38,17 @@ interface ClientReportPayload {
     next_deadline: string | null;
   };
   markdown: string;
+  report_history?: Array<{
+    id: string;
+    title: string;
+    version: number;
+    status: string;
+    created_at: string;
+    approved_at: string | null;
+    sent_at: string | null;
+    archived_at: string | null;
+    author?: { name: string; email: string } | null;
+  }>;
 }
 
 const STATUS_LABEL: Record<ReportStatus, string> = {
@@ -251,6 +262,31 @@ export default function ClientReportWorkflowPage() {
                   <Archive className="h-4 w-4" />
                   Archive report history
                 </button>
+              </section>
+
+              <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                <h2 className="text-sm font-semibold text-white">Report history</h2>
+                <div className="mt-3 space-y-2">
+                  {(report.report_history ?? []).length === 0 ? (
+                    <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
+                      No archived reports yet.
+                    </p>
+                  ) : (
+                    (report.report_history ?? []).map((item) => (
+                      <div key={item.id} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-sm font-semibold text-white">{item.title}</p>
+                          <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-xs text-blue-100">
+                            v{item.version}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {STATUS_LABEL[item.status as ReportStatus] ?? item.status} - {formatDate(item.created_at)}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </section>
             </aside>
           </div>

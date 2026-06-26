@@ -394,3 +394,98 @@ export interface Template {
   created_at: string;
   updated_at: string;
 }
+
+export interface WorkflowStatus {
+  id: string;
+  workspace_id: string;
+  project_id: string | null;
+  key: string;
+  name: string;
+  category: string;
+  stage_order: number;
+  color: string | null;
+  terminal: boolean;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  workspace_id: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  status: string;
+  stage: string;
+  requested_by: string;
+  approver_id: string | null;
+  requested_changes: string | null;
+  due_at: string | null;
+  approved_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  requester?: { id: string; name: string; email: string } | null;
+  approver?: { id: string; name: string; email: string } | null;
+  events?: ApprovalEvent[];
+}
+
+export interface ApprovalEvent {
+  id: string;
+  approval_id: string;
+  workspace_id: string;
+  actor_id: string | null;
+  from_status: string | null;
+  to_status: string;
+  comment: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  actor?: { id: string; name: string; email: string } | null;
+}
+
+export interface ClientReport {
+  id: string;
+  workspace_id: string;
+  company_id: string;
+  author_id: string;
+  title: string;
+  period_from: string;
+  period_to: string;
+  version: number;
+  status: string;
+  narrative: string | null;
+  markdown: string | null;
+  pdf_url: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
+  sent_at: string | null;
+  sent_by: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+  company?: { id: string; name: string } | null;
+  author?: { id: string; name: string; email: string } | null;
+  approver?: { id: string; name: string; email: string } | null;
+  sender?: { id: string; name: string; email: string } | null;
+}
+
+export interface AutomationRun {
+  id: string;
+  workspace_id: string;
+  rule_id: string | null;
+  status: string;
+  trigger: string;
+  action_type: string;
+  dry_run: boolean;
+  matched: number;
+  executed: number;
+  skipped: number;
+  failure_count: number;
+  dedupe_key: string | null;
+  error: string | null;
+  result: Record<string, unknown> | null;
+  started_at: string;
+  finished_at: string | null;
+  created_by: string | null;
+}

@@ -44,6 +44,7 @@ export async function runAutomationRules(input: {
   actorId: string;
   dryRun?: boolean;
   now?: Date;
+  dedupePrefix?: string;
 }) {
   const now = input.now ?? new Date();
   const dryRun = input.dryRun ?? false;
@@ -88,7 +89,7 @@ export async function runAutomationRules(input: {
       if (outcome.note) notes.push(outcome.note);
     }
 
-    results.push({
+    const result: AutomationRunResult = {
       rule_id: rule.id,
       rule_name: rule.name,
       trigger: rule.trigger,
@@ -97,7 +98,30 @@ export async function runAutomationRules(input: {
       executed,
       skipped,
       notes: notes.slice(0, 10),
-    });
+    };
+    results.push(result);
+
+    await prisma.automationRun
+      .create({
+        data: {
+          workspace_id: input.workspaceId,
+          rule_id: rule.id,
+          status: dryRun ? "dry_run" : skipped > 0 ? "partial" : "success",
+          trigger: rule.trigger,
+          action_type: action.type ?? "unknown_action",
+          dry_run: dryRun,
+          matched: targets.length,
+          executed,
+          skipped,
+          failure_count: skipped,
+          dedupe_key: input.dedupePrefix ? `${input.dedupePrefix}:${rule.id}` : null,
+          result: result as unknown as Prisma.InputJsonValue,
+          started_at: now,
+          finished_at: new Date(),
+          created_by: input.actorId,
+        },
+      })
+      .catch(() => undefined);
   }
 
   if (!dryRun) {

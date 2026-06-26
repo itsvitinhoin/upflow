@@ -53,7 +53,7 @@ async function GET_handler(
   });
   if (!company) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
-  const [tasks, meetings, timeEntries, notes, activity] = await Promise.all([
+  const [tasks, meetings, timeEntries, notes, activity, reportHistory] = await Promise.all([
     prisma.task.findMany({
       where: {
         project: { workspace_id: auth.currentWorkspaceId },
@@ -105,6 +105,16 @@ async function GET_handler(
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       include: { actor: { select: { id: true, name: true, email: true } } },
       take: 100,
+    }),
+    prisma.clientReport.findMany({
+      where: { workspace_id: auth.currentWorkspaceId, company_id: company.id },
+      orderBy: [{ created_at: "desc" }, { id: "asc" }],
+      take: 10,
+      include: {
+        author: { select: { id: true, name: true, email: true } },
+        approver: { select: { id: true, name: true, email: true } },
+        sender: { select: { id: true, name: true, email: true } },
+      },
     }),
   ]);
 
@@ -171,6 +181,7 @@ async function GET_handler(
     time_entries: timeEntries,
     notes,
     activity,
+    report_history: reportHistory,
     markdown,
   });
 }
