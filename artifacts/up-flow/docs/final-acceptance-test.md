@@ -59,12 +59,12 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
 12. Assigned user opens notification.
     - Expected: notification opens the correct task.
 
-13. User edits task.
+13. Admin edits task.
     - Expected: status, priority, assignee, due date, description, comments, subtasks, and cover image save correctly.
 
-14. User deletes task.
+14. Admin deletes task.
     - Expected: destructive confirmation appears.
-    - Expected: unauthorized users cannot delete if policy blocks them.
+    - Expected: members and guests cannot delete or mutate tasks under the current policy.
 
 15. Admin creates a client.
     - Expected: client card shows real available data and safe empty states for missing plan/service fields.
@@ -72,19 +72,20 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
 16. Admin links work to client where supported.
     - Expected: client detail reflects linked projects/tasks.
 
-17. User creates Calendar event.
+17. Admin creates Calendar event.
     - Expected: date is displayed as Brazilian format `dd/mm/yyyy`.
     - Expected: timezone uses `America/Sao_Paulo`.
 
-18. User edits and deletes Calendar event.
-    - Expected: authorized user succeeds.
-    - Expected: unauthorized user sees a clear permission error.
+18. Admin edits and deletes Calendar event.
+    - Expected: admin succeeds.
+    - Expected: member and guest users see a clear permission error.
 
-19. User starts time tracking.
+19. Admin starts time tracking.
     - Expected: running timer persists after reload.
     - Expected: only one running timer exists for the user.
+    - Expected: member and guest users cannot start timers under the current policy.
 
-20. User stops time tracking.
+20. Admin stops time tracking.
     - Expected: Today, This Week, and Daily Average use real `TimeEntry` records.
 
 21. User views home dashboard.
@@ -94,8 +95,13 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
 22. User views Space dashboard.
     - Expected: records are scoped to the selected Space.
     - Expected: department-specific copy appears when applicable.
+    - Expected: members and guests can view workspace and space records without create/edit/delete controls.
 
-23. Mobile viewport test.
+23. Owner opens workspace options and sees the delete workspace action.
+    - Expected: workspace deletion is owner-only and protects the user's only workspace.
+    - Expected: admin, member, and guest users do not see a usable delete workspace action.
+
+24. Mobile viewport test.
     - Expected: dashboard, team, projects, board, calendar, clients, client detail, spaces, folders, and task sheet have no page-level horizontal overflow.
 
 ## Final Verdict

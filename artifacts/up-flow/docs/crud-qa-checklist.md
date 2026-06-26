@@ -1,6 +1,6 @@
 # UP Flow CRUD QA Checklist
 
-Use this checklist in production before marking a module ready for internal use. Run it with one workspace admin and one normal member account. Do not mark a row passed unless it was tested with real production data and the page was reloaded after mutation.
+Use this checklist in production before marking a module ready for internal use. Run it with one workspace admin, one member account, and one guest account. Do not mark a row passed unless it was tested with real production data and the page was reloaded after mutation.
 
 ## Preconditions
 
@@ -9,7 +9,7 @@ Use this checklist in production before marking a module ready for internal use.
 - Latest migrations are applied.
 - Production environment variables are loaded after redeploy.
 - Test workspace, test client, and test project can be safely deleted.
-- Test member account is not a workspace admin unless the unauthorized test explicitly needs an admin.
+- Test member and guest accounts are not workspace admins unless the unauthorized test explicitly needs an admin.
 
 ## Pass Criteria
 
@@ -33,19 +33,21 @@ For every module, confirm:
 | Tasks | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test title validation, assignee, due date, priority, cover image, comments, custom fields, and task assignment notification. |
 | Clients | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client card fields, plan/service fields, contract value, commission, linked projects/tasks, and risk empty states. |
 | Calendar events | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Create in Manage mode for a future date. Verify Brazilian date display and timezone. Tasks due on calendar remain read-only. |
-| Notes | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client notes. Note author, client owner, and workspace admins can manage notes; unrelated members should be blocked. |
-| Contacts | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client contacts. Client owner and workspace admins can edit/delete contacts; invalid emails are rejected. |
+| Notes | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client notes. Workspace owners/admins can manage notes; members and guests are view-only under the current policy. |
+| Contacts | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client contacts. Workspace owners/admins can manage contacts; members and guests are view-only, and invalid emails are rejected. |
 | Team members | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Invite current-workspace member, change role/status/department, remove/deactivate, then verify team list after reload. |
 | Departments | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Create, rename, recolor, delete. Deleting a department should move members to Unassigned. |
 
 ## Unauthorized Access Checks
 
-Run these with a normal member:
+Run these with member and guest accounts:
 
-- Try to delete a task they do not own and are not allowed to delete.
-- Try to edit/delete a client they do not own when workspace policy requires owner/admin.
+- Try to create, edit, or delete tasks.
+- Try to edit/delete a client, contact, or note.
+- Try to start or stop time tracking.
 - Try to manage workspace departments.
 - Try to remove or promote another team member.
+- Try to delete a workspace; only the owner can delete it.
 - Try to open a record URL from another workspace.
 
 Expected result: the API returns `403` or `404`, and the UI shows a clear permission or not-found message without changing local state.

@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Clock3,
   DollarSign,
+  HeartPulse,
   Info,
   MoreHorizontal,
   PackageCheck,
@@ -66,14 +67,23 @@ export default function ClientsPage() {
               {t("clients.subtitle")}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            {t("clients.newCompany")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/clients/health"
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:bg-blue-500/15"
+            >
+              <HeartPulse className="h-4 w-4" />
+              Health center
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              {t("clients.newCompany")}
+            </button>
+          </div>
         </section>
 
         {loading ? (

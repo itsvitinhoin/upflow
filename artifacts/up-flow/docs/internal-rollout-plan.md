@@ -18,7 +18,9 @@ Required checks:
 - Admin Health is ready.
 - Invite flow works for current-workspace users.
 - Personal-workspace invite flow is understood and does not add users to Admin workspace.
-- Spaces, folders, lists, tasks, clients, calendar events, notes, contacts, departments, and time entries can be created and cleaned up.
+- Owners/admins can create and clean up spaces, folders, lists, tasks, clients, calendar events, notes, contacts, departments, and time entries.
+- Members and guests can view workspace records without mutating them.
+- Workspace deletion is owner-only and cannot remove the user's only workspace.
 - Assignment notifications are created and open the correct task.
 - Logout works.
 
