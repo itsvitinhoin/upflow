@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { X, Loader2, Mail } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
@@ -48,6 +49,7 @@ export default function InviteDialog({
   const [role, setRole] = useState<WorkspaceInviteRole>(defaultRole);
   const [inviteMode, setInviteMode] = useState<InviteMode>(defaultMode);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [error, setError] = useState<{
     message: string;
     code?: InviteErrorCode;
@@ -58,13 +60,17 @@ export default function InviteDialog({
     .filter(Boolean).length > 0;
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     setError(null);
     setRole(defaultRole);
     setInviteMode(defaultMode);
   }, [defaultMode, defaultRole, open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +132,7 @@ export default function InviteDialog({
       ? t("invite.workspaceModeHint")
       : t("invite.personalModeHint");
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={onClose}
@@ -242,7 +248,8 @@ export default function InviteDialog({
           </button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

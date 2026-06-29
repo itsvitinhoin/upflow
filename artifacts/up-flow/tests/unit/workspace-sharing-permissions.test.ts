@@ -29,6 +29,18 @@ test("workspace sharing supports guest invites and team role management", () => 
   assert.match(settingsPage, /\/settings\/permissions/);
 });
 
+test("workspace share dialog renders outside sidebar stacking contexts", () => {
+  const inviteDialog = read("src/components/dashboard/invite-dialog.tsx");
+  const workspaceSwitcher = read("src/components/layout/workspace-switcher.tsx");
+
+  assert.match(workspaceSwitcher, /setInviteOpen\(true\)/);
+  assert.match(workspaceSwitcher, /defaultMode="workspace_access"/);
+  assert.match(workspaceSwitcher, /hideMode/);
+  assert.match(inviteDialog, /createPortal/);
+  assert.match(inviteDialog, /document\.body/);
+  assert.match(inviteDialog, /mounted/);
+});
+
 test("members and guests can read workspace records but cannot mutate them", () => {
   const projectAccess = read("src/lib/project-access.ts");
   const spacesRoute = read("src/app/api/spaces/route.ts");
