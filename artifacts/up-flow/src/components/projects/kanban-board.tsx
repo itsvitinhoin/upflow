@@ -41,15 +41,6 @@ function columnLabel(
   return fallback;
 }
 
-function priorityLabel(
-  priority: Task["priority"],
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  if (priority === "high") return t("priority.high");
-  if (priority === "medium") return t("priority.medium");
-  return t("priority.low");
-}
-
 export default function KanbanBoard({
   projectId,
   tasks,
@@ -263,18 +254,7 @@ export default function KanbanBoard({
                                   />
                                 </div>
                               )}
-                              <div className="flex items-start gap-1.5">
-                                <span
-                                  className={cn(
-                                    "mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full shadow-[0_0_12px_currentColor]",
-                                    task.priority === "high"
-                                      ? "bg-upflow-danger"
-                                      : task.priority === "medium"
-                                        ? "bg-upflow-warning"
-                                        : "bg-muted-foreground/50",
-                                  )}
-                                  title={`${t("toolbar.priority")}: ${priorityLabel(task.priority, t)}`}
-                                />
+                              <div className="flex items-start gap-2">
                                 <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">
                                   {task.title}
                                 </p>

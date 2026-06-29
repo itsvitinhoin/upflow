@@ -32,6 +32,8 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   assert.doesNotMatch(taskRoute, /data:image/);
   assert.match(board, /task\.cover_image_url/);
   assert.match(board, /aspect-video w-full object-cover/);
+  assert.doesNotMatch(board, /priorityLabel/);
+  assert.doesNotMatch(board, /shadow-\[0_0_12px_currentColor\]/);
   assert.match(sheet, /t\("task\.boardCoverImage"\)/);
   assert.match(createPanel, /TaskCoverImageControl/);
 });
