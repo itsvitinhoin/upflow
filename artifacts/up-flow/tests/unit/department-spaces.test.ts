@@ -38,7 +38,7 @@ test("department space presets include all requested departments with emojis and
   }
 });
 
-test("department setup is idempotent and wired into workspace/sidebar load paths", () => {
+test("department setup is idempotent but not auto-seeded into personal workspace load paths", () => {
   assert.match(departmentSpacesSource, /normalizeDepartmentSpaceName/);
   assert.match(departmentSpacesSource, /spacesByName\.get/);
   assert.match(departmentSpacesSource, /missingLists/);
@@ -49,9 +49,9 @@ test("department setup is idempotent and wired into workspace/sidebar load paths
   const workspaceLib = readFileSync(join(root, "src/lib/workspace.ts"), "utf8");
   const sidebarRoute = readFileSync(join(root, "src/app/api/sidebar/route.ts"), "utf8");
 
-  assert.match(workspaceRoute, /ensureDepartmentSpaces\(workspace\.id/);
-  assert.match(workspaceLib, /ensureDepartmentSpaces\(workspace\.id/);
-  assert.match(sidebarRoute, /ensureDepartmentSpaces\(auth\.currentWorkspaceId/);
+  assert.doesNotMatch(workspaceRoute, /ensureDepartmentSpaces\(workspace\.id/);
+  assert.doesNotMatch(workspaceLib, /ensureDepartmentSpaces\(workspace\.id/);
+  assert.doesNotMatch(sidebarRoute, /ensureDepartmentSpaces\(auth\.currentWorkspaceId/);
 });
 
 test("space dashboards and department task creation use department presets", () => {

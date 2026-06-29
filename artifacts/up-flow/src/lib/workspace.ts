@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import type { WorkspaceRole } from "@prisma/client";
 import { logError } from "@/lib/log-error";
-import { ensureDepartmentSpaces } from "@/lib/department-spaces";
 
 export const WORKSPACE_COOKIE = "upflow_ws";
 
@@ -63,7 +62,6 @@ export async function ensureOwnedWorkspace(userId: string, displayName: string) 
     },
     select: { id: true, name: true, slug: true },
   });
-  await ensureDepartmentSpaces(workspace.id, userId);
   return workspace;
 }
 

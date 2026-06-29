@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { isSuperAdmin } from "@/lib/auth-helpers";
-import { ensureDepartmentSpaces } from "@/lib/department-spaces";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 // List the caller's workspaces + current active one.
@@ -59,7 +58,6 @@ async function POST_handler(req: Request) {
     },
     select: { id: true, name: true, slug: true },
   });
-  await ensureDepartmentSpaces(workspace.id, auth.prismaUser.id);
 
   return NextResponse.json(workspace, { status: 201 });
 }

@@ -4,10 +4,10 @@ import { requireAuth } from "@/lib/auth-response";
 import { isSuperAdmin } from "@/lib/auth-helpers";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
-const RESET_CONFIRMATION = "RESET QA WORKSPACE";
+const RESET_CONFIRMATION = "RESET WORKSPACE DATA";
 
-function isTestWorkspaceName(name: string) {
-  return /\b(qa|test|testing|sandbox|e2e)\b/i.test(name);
+function canResetWorkspaceData(name: string) {
+  return /\b(qa|test|testing|sandbox|e2e|personal)\b/i.test(name);
 }
 
 async function POST_handler(
@@ -32,11 +32,11 @@ async function POST_handler(
   });
   if (!workspace) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  if (!isTestWorkspaceName(workspace.name)) {
+  if (!canResetWorkspaceData(workspace.name)) {
     return NextResponse.json(
       {
         error:
-          "Workspace reset is limited to dedicated QA, test, sandbox, or E2E workspaces.",
+          "Workspace reset is limited to dedicated QA, test, sandbox, E2E, or personal workspaces.",
       },
       { status: 400 },
     );
@@ -54,7 +54,7 @@ async function POST_handler(
     });
     if (membership?.role !== "owner" || membership.status !== "active") {
       return NextResponse.json(
-        { error: "Only workspace owners can reset QA workspace data." },
+        { error: "Only workspace owners can reset workspace data." },
         { status: 403 },
       );
     }

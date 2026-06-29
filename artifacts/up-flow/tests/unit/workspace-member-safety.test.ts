@@ -32,14 +32,14 @@ test("workspace deletion is owner-only and protects the user's only workspace", 
   assert.match(route, /WORKSPACE_COOKIE/);
 });
 
-test("QA workspace reset is owner-only and preserves access records", () => {
+test("workspace data reset is owner-only and preserves access records", () => {
   const route = read("src/app/api/workspaces/[id]/reset-test-data/route.ts");
   const settingsPage = read("src/app/(dashboard)/settings/page.tsx");
   const qaResetPage = read("src/app/(dashboard)/settings/qa-reset/page.tsx");
 
-  assert.match(route, /RESET_CONFIRMATION = "RESET QA WORKSPACE"/);
-  assert.match(route, /qa\|test\|testing\|sandbox\|e2e/);
-  assert.match(route, /Only workspace owners can reset QA workspace data/);
+  assert.match(route, /RESET_CONFIRMATION = "RESET WORKSPACE DATA"/);
+  assert.match(route, /qa\|test\|testing\|sandbox\|e2e\|personal/);
+  assert.match(route, /Only workspace owners can reset workspace data/);
   assert.match(route, /membership\?\.role !== "owner"/);
   assert.match(route, /membership\.status !== "active"/);
   assert.match(route, /prisma\.\$transaction/);
@@ -51,6 +51,7 @@ test("QA workspace reset is owner-only and preserves access records", () => {
   assert.doesNotMatch(route, /workspaceMember\.deleteMany/);
   assert.doesNotMatch(route, /workspaceInvite\.deleteMany/);
   assert.match(settingsPage, /\/settings\/qa-reset/);
-  assert.match(qaResetPage, /RESET QA WORKSPACE/);
+  assert.match(qaResetPage, /RESET WORKSPACE DATA/);
+  assert.match(qaResetPage, /Clean workspace data/);
   assert.match(qaResetPage, /\/api\/workspaces\/\$\{current\.id\}\/reset-test-data/);
 });

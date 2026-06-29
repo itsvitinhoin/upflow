@@ -175,6 +175,7 @@ test("workspace and space screens expose role-based sharing", () => {
 test("invite modes support personal workspaces and current workspace access", () => {
   assert.match(workspaceLib, /ensureOwnedWorkspace/);
   assert.doesNotMatch(workspaceLib, /where:\s*\{\s*slug:\s*"acme"\s*\}/);
+  assert.doesNotMatch(workspaceLib, /ensureDepartmentSpaces/);
   assert.match(schema, /invite_mode\s+String\s+@default\("personal_workspace"\)/);
   assert.match(route, /mode\?:\s*InviteMode/);
   assert.match(route, /const inviteMode:\s*InviteMode = testerInvite/);

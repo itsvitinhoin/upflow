@@ -6,7 +6,7 @@ import { AlertTriangle, ArrowLeft, RefreshCcw, ShieldCheck } from "lucide-react"
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 
-const RESET_CONFIRMATION = "RESET QA WORKSPACE";
+const RESET_CONFIRMATION = "RESET WORKSPACE DATA";
 
 interface WorkspaceLite {
   id: string;
@@ -28,8 +28,8 @@ interface ResetResponse {
   deleted?: Record<string, number>;
 }
 
-function isTestWorkspaceName(name: string) {
-  return /\b(qa|test|testing|sandbox|e2e)\b/i.test(name);
+function canResetWorkspaceData(name: string) {
+  return /\b(qa|test|testing|sandbox|e2e|personal)\b/i.test(name);
 }
 
 export default function QaResetPage() {
@@ -52,8 +52,8 @@ export default function QaResetPage() {
     [data],
   );
   const isOwner = Boolean(data?.is_super_admin || current?.role === "owner");
-  const isTestWorkspace = Boolean(current && isTestWorkspaceName(current.name));
-  const canReset = Boolean(current && isOwner && isTestWorkspace && confirmation === RESET_CONFIRMATION && !resetting);
+  const resetAllowedForName = Boolean(current && canResetWorkspaceData(current.name));
+  const canReset = Boolean(current && isOwner && resetAllowedForName && confirmation === RESET_CONFIRMATION && !resetting);
 
   async function resetWorkspace() {
     if (!current || !canReset) return;
@@ -74,7 +74,7 @@ export default function QaResetPage() {
 
       setLastDeleted(payload.deleted ?? null);
       setConfirmation("");
-      toast.success("QA workspace data reset.");
+      toast.success("Workspace data reset.");
       window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not reset this workspace.");
@@ -85,7 +85,7 @@ export default function QaResetPage() {
 
   return (
     <>
-      <Header title="QA reset" />
+      <Header title="Clean workspace data" />
       <main className="mx-auto w-full max-w-4xl space-y-5 overflow-x-hidden p-4 sm:p-6">
         <Link
           href="/settings"
@@ -99,12 +99,12 @@ export default function QaResetPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200/80">
-                Test workspace only
+                Clean workspace only
               </p>
-              <h1 className="mt-3 text-3xl font-bold text-foreground">Reset QA workspace data</h1>
+              <h1 className="mt-3 text-3xl font-bold text-foreground">Reset workspace data</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Use this to start an end-to-end UpFlow test run from a clean workspace while keeping users,
-                roles, invites, and workspace access intact.
+                Use this to start an end-to-end UpFlow test run or clean a personal workspace while
+                keeping users, roles, invites, and workspace access intact.
               </p>
             </div>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-200 ring-1 ring-amber-300/25">
@@ -130,13 +130,15 @@ export default function QaResetPage() {
                 </div>
                 <span
                   className={
-                    isTestWorkspace
+                    resetAllowedForName
                       ? "inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300"
                       : "inline-flex items-center gap-2 rounded-full border border-rose-400/25 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-300"
                   }
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  {isTestWorkspace ? "QA name verified" : "Name must include QA, Test, Sandbox, or E2E"}
+                  {resetAllowedForName
+                    ? "Reset name verified"
+                    : "Name must include QA, Test, Sandbox, E2E, or Personal"}
                 </span>
               </div>
 
@@ -155,7 +157,7 @@ export default function QaResetPage() {
 
               {!isOwner ? (
                 <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-200">
-                  Only workspace owners can reset QA data.
+                  Only workspace owners can reset workspace data.
                 </div>
               ) : null}
 
@@ -176,7 +178,7 @@ export default function QaResetPage() {
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300/30 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-muted-foreground sm:w-auto"
               >
                 <RefreshCcw className="h-4 w-4" />
-                {resetting ? "Resetting..." : "Reset QA workspace data"}
+                {resetting ? "Resetting..." : "Reset workspace data"}
               </button>
             </div>
           )}
