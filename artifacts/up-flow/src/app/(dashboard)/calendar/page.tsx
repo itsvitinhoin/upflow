@@ -331,9 +331,10 @@ export default function CalendarPage() {
                   aria-expanded={quickCreateOpen}
                   aria-label={t("calendar.quickCreate")}
                   title={t("calendar.quickCreate")}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-300/25 bg-primary text-primary-foreground shadow-[0_0_24px_rgba(59,130,246,0.28)] transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-blue-300/25 bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-[0_0_24px_rgba(59,130,246,0.28)] transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   <Plus className="h-4 w-4" />
+                  <span>{t("calendar.quickCreateShort")}</span>
                 </button>
                 {quickCreateOpen && (
                   <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#070b18]/95 p-1 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">

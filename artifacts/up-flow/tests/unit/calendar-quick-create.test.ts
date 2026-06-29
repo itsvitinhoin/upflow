@@ -17,6 +17,7 @@ test("calendar selected-day panel exposes quick create actions", () => {
 
   assert.match(page, /quickCreateOpen/);
   assert.match(page, /calendar\.quickCreate/);
+  assert.match(page, /calendar\.quickCreateShort/);
   assert.match(page, /openSchedule\("meeting"\)/);
   assert.match(page, /openSchedule\("reminder"\)/);
   assert.match(page, /openTaskDialog/);
@@ -29,6 +30,7 @@ test("calendar selected-day panel exposes quick create actions", () => {
   assert.match(taskDialog, /defaultDueDate\?: string/);
 
   assert.match(translations, /"calendar.quickMeeting"/);
+  assert.match(translations, /"calendar.quickCreateShort"/);
   assert.match(translations, /"calendar.quickEvent"/);
   assert.match(translations, /"calendar.quickTask"/);
   assert.match(translations, /"calendar.eventDetailsPlaceholder"/);
