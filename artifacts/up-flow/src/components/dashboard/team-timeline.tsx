@@ -5,25 +5,35 @@ import Link from "next/link";
 import { MoreHorizontal, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CalendarEvent, TeamMember, TimeEntry } from "@/lib/types";
-import { cn, formatLongDate, getInitials } from "@/lib/utils";
+import { appTimeInputValue, cn, formatLongDate, formatTime, getInitials } from "@/lib/utils";
 import { sameLocalDate } from "@/components/dashboard/dashboard-utils";
 
 type TimelineBlock = {
   start: number;
   end: number;
   label: string;
+  startLabel: string;
+  endLabel: string;
+  kind: "meeting" | "tracked_time";
 };
 
 function decimalHour(value: string) {
-  const date = new Date(value);
-  return date.getHours() + date.getMinutes() / 60;
+  const [hours, minutes] = appTimeInputValue(value).split(":").map(Number);
+  return hours + minutes / 60;
 }
 
 function clampTimelineBlock(start: number, end: number): TimelineBlock | null {
   const clampedStart = Math.max(8, Math.min(19, start));
   const clampedEnd = Math.max(clampedStart + 0.25, Math.min(19, end));
   if (clampedEnd <= 8 || clampedStart >= 19) return null;
-  return { start: clampedStart, end: clampedEnd, label: "" };
+  return {
+    start: clampedStart,
+    end: clampedEnd,
+    label: "",
+    startLabel: "",
+    endLabel: "",
+    kind: "meeting",
+  };
 }
 
 function buildTimelineRowsFromData(
@@ -55,7 +65,13 @@ function buildTimelineRowsFromData(
           : decimalHour(new Date().toISOString());
         const block = clampTimelineBlock(start, end);
         if (block) {
-          blocks.push({ ...block, label: entry.project?.name ?? "Tracked time" });
+          blocks.push({
+            ...block,
+            label: entry.project?.name ?? "Tracked time",
+            startLabel: formatTime(entry.started_at),
+            endLabel: entry.stopped_at ? formatTime(entry.stopped_at) : formatTime(new Date()),
+            kind: "tracked_time",
+          });
         }
       });
 
@@ -69,7 +85,17 @@ function buildTimelineRowsFromData(
         const start = decimalHour(event.starts_at);
         const end = event.ends_at ? decimalHour(event.ends_at) : start + 0.5;
         const block = clampTimelineBlock(start, end);
-        if (block) blocks.push({ ...block, label: event.title });
+        if (block) {
+          blocks.push({
+            ...block,
+            label: event.title,
+            startLabel: formatTime(event.starts_at),
+            endLabel: event.ends_at
+              ? formatTime(event.ends_at)
+              : formatTime(new Date(new Date(event.starts_at).getTime() + 30 * 60 * 1000)),
+            kind: "meeting",
+          });
+        }
       });
 
     return {
@@ -289,7 +315,7 @@ export function TeamTimeline({
                 </div>
                 <div
                   className={cn(
-                    "relative flex-1 overflow-hidden rounded-xl border border-white/5 bg-white/[0.06]",
+                    "relative flex-1 overflow-visible rounded-xl border border-white/5 bg-white/[0.06]",
                     compact ? "h-6" : "h-9",
                   )}
                 >
@@ -311,19 +337,18 @@ export function TeamTimeline({
                     ))}
                   </div>
                   {blocks.map((b, i) => {
-                    const fmtH = (n: number) =>
-                      n > 12 ? `${n - 12}pm` : n === 12 ? "12pm" : `${n}am`;
                     const dimByLabel =
                       focusedLabel !== null && b.label !== focusedLabel;
                     const dimByHour =
                       focusHour !== null &&
                       !(b.start <= focusHour + 2 && b.end >= focusHour - 2);
+                    const tooltip = `${u.name} - ${b.label} - ${b.startLabel} to ${b.endLabel}`;
                     return (
                       <div
                         key={i}
-                        title={`${u.name} - ${b.label} - ${fmtH(b.start)} to ${fmtH(b.end)}`}
+                        aria-label={tooltip}
                         className={cn(
-                          "absolute bottom-1 top-1 flex items-center truncate rounded-md border-l-2 px-2 text-[10px] font-medium text-foreground/90 shadow-[0_0_18px_rgba(59,130,246,0.18)] transition-opacity",
+                          "group absolute bottom-1 top-1 flex items-center rounded-md border-l-2 px-2 text-[10px] font-medium text-foreground/90 shadow-[0_0_18px_rgba(59,130,246,0.18)] transition-opacity",
                           color,
                           (dimByLabel || dimByHour) && "opacity-30",
                         )}
@@ -335,7 +360,13 @@ export function TeamTimeline({
                           )}% - 4px)`,
                         }}
                       >
-                        {b.label}
+                        <span className="min-w-0 truncate">{b.label}</span>
+                        <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-40 hidden min-w-64 max-w-96 -translate-x-1/2 rounded-lg border border-blue-300/20 bg-[#070b18]/95 px-3 py-2 text-left text-[11px] font-medium text-foreground shadow-[0_18px_46px_rgba(0,0,0,0.5)] backdrop-blur-xl group-hover:block group-focus-within:block">
+                          <span className="block truncate text-blue-100">{b.label}</span>
+                          <span className="mt-0.5 block text-muted-foreground">
+                            {u.name} - {b.startLabel} to {b.endLabel}
+                          </span>
+                        </span>
                       </div>
                     );
                   })}
