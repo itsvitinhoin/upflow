@@ -33,6 +33,16 @@ test("time tracking prevents duplicate running timers and keeps running endpoint
   assert.match(migration, /WHERE "status" = 'running'/);
   assert.match(timePage, /appDateKey/);
   assert.match(timePage, /appDateTimeToUtc/);
+  assert.match(timePage, /\/api\/time\/start/);
+  assert.match(timePage, /\/api\/time\/stop/);
+  assert.match(timePage, /\/api\/time\/running/);
+  assert.match(timePage, /mergeRunningEntry/);
+  assert.match(timePage, /handleStartTimer/);
+  assert.match(timePage, /handleStopTimer/);
+  assert.match(timePage, /<Play className=/);
+  assert.match(timePage, /<Square className=/);
+  assert.match(timePage, /t\("time\.startTimer"\)/);
+  assert.match(timePage, /t\("time\.stopTimer"\)/);
   assert.match(timePage, /activeDays\s*>\s*0\s*\?\s*Math\.round\(weekSeconds\s*\/\s*60\s*\/\s*activeDays\)/);
   assert.doesNotMatch(timePage, /setHours\(0,\s*0,\s*0,\s*0\)/);
 });

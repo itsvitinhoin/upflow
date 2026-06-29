@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/header";
-import { Clock, TrendingUp, Calendar as CalendarIcon, FolderKanban } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, FolderKanban, Loader2, Play, Square, TrendingUp } from "lucide-react";
+import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
 import { logError } from "@/lib/log-error";
 import type { TimeEntry } from "@/lib/types";
@@ -24,6 +25,25 @@ function fmtHM(minutes: number) {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+function fmtElapsed(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}
+
+async function readError(res: Response, fallback: string) {
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  return body?.error ?? fallback;
+}
+
+function mergeRunningEntry(entries: TimeEntry[], running: TimeEntry | null) {
+  if (!running) return entries;
+  return entries.some((entry) => entry.id === running.id)
+    ? entries.map((entry) => (entry.id === running.id ? running : entry))
+    : [running, ...entries];
 }
 
 function appDateTuple(value: string | Date) {
@@ -59,7 +79,22 @@ export default function TimePage() {
   const { t } = useLanguage();
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timerBusy, setTimerBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
+
+  const loadEntries = useCallback(async () => {
+    const weekStart = startOfWeekMonday();
+    const nextWeek = startOfNextWeek(weekStart);
+    const [entriesRes, runningRes] = await Promise.all([
+      fetch(`/api/time/entries?from=${weekStart.toISOString()}&to=${nextWeek.toISOString()}`),
+      fetch("/api/time/running"),
+    ]);
+    if (!entriesRes.ok) throw new Error(await readError(entriesRes, t("time.couldNotLoad")));
+    if (!runningRes.ok) throw new Error(await readError(runningRes, t("time.couldNotLoad")));
+    const data = (await entriesRes.json()) as { items?: TimeEntry[] };
+    const runningData = (await runningRes.json()) as { entry?: TimeEntry | null };
+    setEntries(mergeRunningEntry(data.items ?? [], runningData.entry ?? null));
+  }, [t]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -67,23 +102,29 @@ export default function TimePage() {
   }, []);
 
   useEffect(() => {
-    const weekStart = startOfWeekMonday();
-    const nextWeek = startOfNextWeek(weekStart);
     let alive = true;
-    fetch(`/api/time/entries?from=${weekStart.toISOString()}&to=${nextWeek.toISOString()}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (!alive) return;
-        setEntries((data.items ?? []) as TimeEntry[]);
+    loadEntries()
+      .catch((err) => {
+        logError("time:load-entries", err);
+        toast.error(err instanceof Error ? err.message : t("time.couldNotLoad"));
       })
-      .catch((err) => logError("time:load-entries", err))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [loadEntries, t]);
 
   const todayIdx = dayIndex(now);
+  const runningEntry = useMemo(
+    () => entries.find((entry) => entry.status === "running" && !entry.stopped_at) ?? null,
+    [entries],
+  );
+  const runningSeconds = runningEntry ? entrySeconds(runningEntry, now) : 0;
+  const activeTimerLabel =
+    runningEntry?.description ||
+    runningEntry?.task?.title ||
+    runningEntry?.project?.name ||
+    t("time.unspecifiedWork");
 
   const totals = useMemo(() => {
     const perDay = Array.from({ length: 7 }, () => 0);
@@ -123,10 +164,97 @@ export default function TimePage() {
 
   const maxDayMinutes = Math.max(1, ...totals.perDay.map((seconds) => Math.round(seconds / 60)));
 
+  const handleStartTimer = async () => {
+    setTimerBusy(true);
+    try {
+      const res = await fetch("/api/time/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: t("time.quickTimerDescription") }),
+      });
+      if (!res.ok) throw new Error(await readError(res, t("time.couldNotStart")));
+      const entry = (await res.json()) as TimeEntry;
+      setEntries((current) => [entry, ...current.filter((item) => item.id !== entry.id && item.status !== "running")]);
+      toast.success(t("time.timerStarted"));
+      await loadEntries();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("time.couldNotStart"));
+    } finally {
+      setTimerBusy(false);
+    }
+  };
+
+  const handleStopTimer = async () => {
+    if (!runningEntry) return;
+    setTimerBusy(true);
+    try {
+      const res = await fetch("/api/time/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: runningEntry.id }),
+      });
+      if (!res.ok) throw new Error(await readError(res, t("time.couldNotStop")));
+      const entry = (await res.json()) as TimeEntry;
+      setEntries((current) => current.map((item) => (item.id === entry.id ? entry : item)));
+      toast.success(t("time.timerStopped"));
+      await loadEntries();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("time.couldNotStop"));
+    } finally {
+      setTimerBusy(false);
+    }
+  };
+
   return (
     <>
       <Header title={t("time.title")} />
       <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
+        <section className="glass rounded-2xl p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {runningEntry ? t("time.timerRunning") : t("time.readyToTrack")}
+              </p>
+              <h2 className="mt-2 font-mono text-4xl font-bold tabular-nums text-foreground">
+                {fmtElapsed(runningSeconds)}
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {runningEntry
+                  ? t("time.trackingNow", { item: activeTimerLabel })
+                  : t("time.startHint")}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row lg:flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleStartTimer}
+                disabled={Boolean(runningEntry) || timerBusy}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {timerBusy && !runningEntry ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                {t("time.startTimer")}
+              </button>
+              <button
+                type="button"
+                onClick={handleStopTimer}
+                disabled={!runningEntry || timerBusy}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-upflow-danger px-5 text-sm font-semibold text-white shadow-sm shadow-upflow-danger/25 transition hover:bg-upflow-danger/90 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {timerBusy && runningEntry ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Square className="h-4 w-4" />
+                )}
+                {t("time.stopTimer")}
+              </button>
+            </div>
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SummaryCard
             label={t("time.thisWeek")}
