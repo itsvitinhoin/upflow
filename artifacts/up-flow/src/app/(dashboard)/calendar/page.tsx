@@ -5,10 +5,11 @@ import Link from "next/link";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Plus, X, Trash2, Pencil } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, CheckSquare, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, Video, X } from "lucide-react";
 import { appDateKey, appTimeInputValue, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
+import NewTaskDialog from "@/components/projects/new-task-dialog";
 import { useLanguage } from "@/components/language-provider";
 
 const WEEKDAY_KEYS = [
@@ -65,6 +66,9 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Date>(today);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [scheduleType, setScheduleType] = useState<"meeting" | "reminder">("meeting");
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [manageEvents, setManageEvents] = useState(false);
 
@@ -153,6 +157,17 @@ export default function CalendarPage() {
     setSelected(now);
   };
 
+  const openSchedule = (type: "meeting" | "reminder") => {
+    setQuickCreateOpen(false);
+    setScheduleType(type);
+    setShowSchedule(true);
+  };
+
+  const openTaskDialog = () => {
+    setQuickCreateOpen(false);
+    setShowNewTask(true);
+  };
+
   const deleteEvent = async (event: CalendarEvent) => {
     if (!confirm(t("calendar.deleteConfirm", { title: event.title }))) return;
     try {
@@ -203,7 +218,7 @@ export default function CalendarPage() {
               </div>
               {manageEvents && (
                 <button
-                  onClick={() => setShowSchedule(true)}
+                  onClick={() => openSchedule("reminder")}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -300,16 +315,60 @@ export default function CalendarPage() {
 
         <aside className="min-w-0 space-y-4">
           <div className="rounded-2xl p-4 glass sm:p-5">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              {selectedIsToday ? t("calendar.today") : t("common.selected")}
-            </p>
-            <h3 className="text-lg font-semibold text-foreground mt-1">
-              {formatLongDate(selected)}
-            </h3>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  {selectedIsToday ? t("calendar.today") : t("common.selected")}
+                </p>
+                <h3 className="mt-1 text-lg font-semibold text-foreground">
+                  {formatLongDate(selected)}
+                </h3>
+              </div>
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setQuickCreateOpen((value) => !value)}
+                  aria-expanded={quickCreateOpen}
+                  aria-label={t("calendar.quickCreate")}
+                  title={t("calendar.quickCreate")}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-blue-300/25 bg-primary text-primary-foreground shadow-[0_0_24px_rgba(59,130,246,0.28)] transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                {quickCreateOpen && (
+                  <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#070b18]/95 p-1 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                    <button
+                      type="button"
+                      onClick={() => openSchedule("meeting")}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                    >
+                      <Video className="h-3.5 w-3.5 text-upflow-success" />
+                      {t("calendar.quickMeeting")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openSchedule("reminder")}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                    >
+                      <Bell className="h-3.5 w-3.5 text-primary" />
+                      {t("calendar.quickEvent")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openTaskDialog}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                    >
+                      <CheckSquare className="h-3.5 w-3.5 text-upflow-warning" />
+                      {t("calendar.quickTask")}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
             {manageEvents && (
               <button
                 type="button"
-                onClick={() => setShowSchedule(true)}
+                onClick={() => openSchedule("reminder")}
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -329,7 +388,7 @@ export default function CalendarPage() {
                   {manageEvents && (
                     <button
                       type="button"
-                      onClick={() => setShowSchedule(true)}
+                      onClick={() => openSchedule("reminder")}
                       className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -445,10 +504,21 @@ export default function CalendarPage() {
         open={showSchedule}
         onClose={() => setShowSchedule(false)}
         initialDate={selected}
-        title={t("calendar.newEvent")}
+        title={scheduleType === "meeting" ? t("calendar.quickMeeting") : t("calendar.quickEvent")}
+        defaultType={scheduleType}
         onScheduled={(event) => {
           setEvents((prev) => [...prev, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
         }}
+      />
+
+      <NewTaskDialog
+        open={showNewTask}
+        onClose={() => setShowNewTask(false)}
+        onCreated={() => {
+          setShowNewTask(false);
+          loadCalendar();
+        }}
+        defaultDueDate={appDateKey(selected)}
       />
 
       {editingEvent && (

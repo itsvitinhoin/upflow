@@ -22,6 +22,7 @@ interface NewTaskDialogProps {
   projectId?: string;
   defaultStatus?: string;
   defaultTemplateId?: TaskTemplateId;
+  defaultDueDate?: string;
 }
 
 export default function NewTaskDialog({
@@ -31,6 +32,7 @@ export default function NewTaskDialog({
   projectId,
   defaultStatus = "todo",
   defaultTemplateId = DEFAULT_TASK_TEMPLATE_ID,
+  defaultDueDate = "",
 }: NewTaskDialogProps) {
   const { t } = useLanguage();
   const [title, setTitle] = useState("");
@@ -56,6 +58,7 @@ export default function NewTaskDialog({
     setSelectedProject(projectId || "");
     setTaskTemplateId(defaultTemplateId);
     setTemplateValues({});
+    setDueDate(defaultDueDate);
     setProjectsLoading(true);
     setProjectsError(null);
     fetch("/api/projects")
@@ -75,7 +78,7 @@ export default function NewTaskDialog({
       .finally(() => {
         setProjectsLoading(false);
       });
-  }, [open, projectId, defaultTemplateId]);
+  }, [open, projectId, defaultTemplateId, defaultDueDate]);
 
   useEffect(() => {
     if (!open || !selectedProject) {
@@ -138,7 +141,7 @@ export default function NewTaskDialog({
       setTaskTemplateId(defaultTemplateId);
       setTemplateValues({});
       setPriority("medium");
-      setDueDate("");
+      setDueDate(defaultDueDate);
       setAssigneeId("");
       toast.success(`${cleanTitle} created${selectedProjectName ? ` in ${selectedProjectName}` : ""}`);
       onCreated();

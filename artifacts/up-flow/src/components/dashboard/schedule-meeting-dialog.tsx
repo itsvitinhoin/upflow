@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { X, Video } from "lucide-react";
+import { CalendarPlus, X, Video } from "lucide-react";
 import type { CalendarEvent } from "@/lib/types";
 import { APP_TIME_ZONE, formatLongDate, mergeAppDateAndTime } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
@@ -26,6 +26,7 @@ export default function ScheduleMeetingDialog({
   initialTime = "09:00",
   title: dialogTitle,
   defaultProjectId,
+  defaultType = "meeting",
 }: {
   open: boolean;
   onClose: () => void;
@@ -34,18 +35,21 @@ export default function ScheduleMeetingDialog({
   initialTime?: string;
   title?: string;
   defaultProjectId?: string | null;
+  defaultType?: "meeting" | "reminder";
 }) {
   const { t } = useLanguage();
   const [title, setTitle] = useState("");
   const [time, setTime] = useState(initialTime);
   const [withWho, setWithWho] = useState("");
+  const [eventType, setEventType] = useState<"meeting" | "reminder">(defaultType);
   const [colorIdx, setColorIdx] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setTime(initialTime);
-  }, [initialTime, open]);
+    setEventType(defaultType);
+  }, [defaultType, initialTime, open]);
 
   if (!open) return null;
 
@@ -65,8 +69,8 @@ export default function ScheduleMeetingDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim(),
-          description: withWho.trim() ? `With ${withWho.trim()}` : null,
-          type: "meeting",
+          description: withWho.trim() ? withWho.trim() : null,
+          type: eventType,
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
           timezone: APP_TIME_ZONE,
@@ -76,7 +80,11 @@ export default function ScheduleMeetingDialog({
       });
       if (!res.ok) throw new Error("Failed to schedule meeting");
       const meeting = (await res.json()) as CalendarEvent;
-      toast.success(t("calendar.meetingScheduled"));
+      toast.success(
+        eventType === "meeting"
+          ? t("calendar.meetingScheduled")
+          : t("calendar.eventScheduled"),
+      );
       onScheduled?.(meeting);
       setTitle("");
       setWithWho("");
@@ -101,7 +109,11 @@ export default function ScheduleMeetingDialog({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-upflow-success/20 text-upflow-success flex items-center justify-center">
-              <Video className="w-4 h-4" />
+              {eventType === "meeting" ? (
+                <Video className="w-4 h-4" />
+              ) : (
+                <CalendarPlus className="w-4 h-4" />
+              )}
             </div>
             <h2 className="text-base font-semibold text-foreground">
               {dialogTitle ?? t("calendar.scheduleMeeting")}
@@ -139,10 +151,38 @@ export default function ScheduleMeetingDialog({
             <input
               value={withWho}
               onChange={(e) => setWithWho(e.target.value)}
-              placeholder={t("calendar.withPlaceholder")}
+              placeholder={
+                eventType === "meeting"
+                  ? t("calendar.withPlaceholder")
+                  : t("calendar.eventDetailsPlaceholder")
+              }
               className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          <button
+            type="button"
+            onClick={() => setEventType("meeting")}
+            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              eventType === "meeting"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+            }`}
+          >
+            {t("calendar.meeting")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEventType("reminder")}
+            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+              eventType === "reminder"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+            }`}
+          >
+            {t("calendar.event")}
+          </button>
         </div>
         <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("calendar.tag")}</label>
         <div className="flex gap-2">
