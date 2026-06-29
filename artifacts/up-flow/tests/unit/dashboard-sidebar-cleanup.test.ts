@@ -60,6 +60,28 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(panel, /PanelLeftClose/);
 });
 
+test("empty workspaces teach setup steps and permission boundaries", () => {
+  const page = read("src/app/(dashboard)/page.tsx");
+  const summaryRoute = read("src/app/api/dashboard/summary/route.ts");
+  const onboarding = read("src/components/dashboard/first-run-onboarding.tsx");
+  const panel = read("src/components/layout/sidebar/panel.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
+
+  assert.match(page, /components\/dashboard\/first-run-onboarding/);
+  assert.match(page, /<FirstRunOnboarding\s/);
+  assert.match(summaryRoute, /workspace_setup/);
+  assert.match(summaryRoute, /prisma\.space\.count/);
+  assert.match(summaryRoute, /prisma\.workspaceMember\.count/);
+  assert.match(onboarding, /onboarding\.modelWorkspace/);
+  assert.match(onboarding, /onboarding\.roleHintViewer/);
+  assert.match(onboarding, /onboarding\.stepSpaceAction/);
+  assert.match(panel, /sidebar\.noSpacesHint/);
+  assert.match(panel, /sidebar\.noSpacesViewOnly/);
+  assert.match(panel, /canManageWorkspace \? \(/);
+  assert.match(translations, /Workspace = company\/account environment/);
+  assert.match(translations, /Acesso somente leitura/);
+});
+
 test("sidebar search queries the server and includes parent context for folder matches", () => {
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const panelData = read("src/components/layout/sidebar/use-panel-data.ts");

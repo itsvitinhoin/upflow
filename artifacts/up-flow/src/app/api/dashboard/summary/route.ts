@@ -68,6 +68,10 @@ async function GET_handler(req: NextRequest) {
     companiesForHealth,
     deliveryProjects,
     departments,
+    spaceCount,
+    projectCount,
+    companyCountForSetup,
+    activeWorkspaceMemberCount,
   ] = await Promise.all([
     prisma.task.findMany({
       where: {
@@ -302,6 +306,18 @@ async function GET_handler(req: NextRequest) {
           select: { user_id: true },
         },
       },
+    }),
+    prisma.space.count({
+      where: { workspace_id: auth.currentWorkspaceId },
+    }),
+    prisma.project.count({
+      where: { workspace_id: auth.currentWorkspaceId },
+    }),
+    prisma.company.count({
+      where: { workspace_id: auth.currentWorkspaceId },
+    }),
+    prisma.workspaceMember.count({
+      where: { workspace_id: auth.currentWorkspaceId, status: "active" },
     }),
   ]);
 
@@ -729,6 +745,13 @@ async function GET_handler(req: NextRequest) {
       },
       quick_create: {
         items: ["task", "meeting", "company", "project", "note"],
+      },
+      workspace_setup: {
+        spaces: spaceCount,
+        projects: projectCount,
+        clients: companyCountForSetup,
+        members: activeWorkspaceMemberCount,
+        role: auth.currentRole,
       },
     },
   });

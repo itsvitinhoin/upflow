@@ -132,6 +132,13 @@ export interface CommandCenterPayload {
     top_clients: Array<Pick<Company, "id" | "name" | "contract_value" | "commission">>;
   };
   quick_create: { items: string[] };
+  workspace_setup?: {
+    spaces: number;
+    projects: number;
+    clients: number;
+    members: number;
+    role: "owner" | "admin" | "member" | "guest" | null;
+  };
 }
 
 export interface DashboardResponse {

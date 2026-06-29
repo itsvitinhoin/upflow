@@ -361,14 +361,22 @@ export default function Panel({
                   )}
 
                   {!isSearching && spaces.length === 0 && unassignedItems.length === 0 && (
-                    <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                      <p>{t("sidebar.noSpaces")}</p>
-                      <button
-                        onClick={() => setShowCreate(true)}
-                        className="mt-2 text-primary hover:underline"
-                      >
-                        {t("sidebar.createFirstSpace")}
-                      </button>
+                    <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                      <p className="font-semibold text-foreground">{t("sidebar.noSpaces")}</p>
+                      <p className="mt-2 leading-5">{t("sidebar.noSpacesHint")}</p>
+                      {canManageWorkspace ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowCreate(true)}
+                          className="mt-3 inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+                        >
+                          {t("sidebar.createFirstSpace")}
+                        </button>
+                      ) : (
+                        <p className="mt-3 rounded-xl border border-blue-300/12 bg-blue-500/[0.06] p-2 text-[11px] leading-5 text-blue-100/70">
+                          {t("sidebar.noSpacesViewOnly")}
+                        </p>
+                      )}
                     </div>
                   )}
 

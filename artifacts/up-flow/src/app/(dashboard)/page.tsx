@@ -48,6 +48,7 @@ import InviteDialog from "@/components/dashboard/invite-dialog";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import AgencyOperationsPanel from "@/components/dashboard/agency-operations-panel";
+import { FirstRunOnboarding } from "@/components/dashboard/first-run-onboarding";
 import { TeamTimeline } from "@/components/dashboard/team-timeline";
 import { TaskDetailModal } from "@/components/dashboard/task-detail-modal";
 import { TaskStatusDrawer, TodayFocusPanel } from "@/components/dashboard/task-focus-panels";
@@ -212,8 +213,15 @@ export default function DashboardPage() {
         top_clients: [],
       },
       quick_create: { items: ["task", "meeting", "company", "project", "note"] },
+      workspace_setup: {
+        spaces: 0,
+        projects: projects.length,
+        clients: 0,
+        members: users.length,
+        role: user?.currentRole ?? null,
+      },
     };
-  }, [activity, calendarEvents, commandCenter, runningEntry, tasks, timeEntries, users]);
+  }, [activity, calendarEvents, commandCenter, projects.length, runningEntry, tasks, timeEntries, user?.currentRole, users]);
 
   const todayFocusTasks = useMemo(() => {
     const seen = new Set<string>();
@@ -418,6 +426,13 @@ export default function DashboardPage() {
               />
             </div>
           </section>
+
+          <FirstRunOnboarding
+            setup={commandCenterData.workspace_setup}
+            onCreateProject={() => setShowNewProject(true)}
+            onInviteTeam={() => setShowInvite(true)}
+            onCreateClient={() => setShowCompany(true)}
+          />
 
           <TeamTimeline
             users={users}
