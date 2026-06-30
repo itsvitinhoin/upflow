@@ -47,6 +47,18 @@ type OnboardingProject = {
 
 type UserRef = { id: string; name: string; email: string };
 
+type OnboardingTaskRoute = "commercial" | "finance" | "support" | "marketing_b2b" | "creative_design";
+
+type OnboardingTaskProjectInput = {
+  workspaceId: string;
+  companyId: string;
+  companyName: string;
+  sourceProjectId: string;
+  sourceProjectSpaceId: string | null;
+  ownerId: string;
+  route: OnboardingTaskRoute | null;
+};
+
 export type OnboardingAssignmentNotificationTarget = {
   userId: string | null | undefined;
   taskId: string;
@@ -113,6 +125,83 @@ function departmentStatus(department: string) {
 
 function serviceKey(service: string) {
   return service.trim().toLowerCase();
+}
+
+function normalizedName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .trim()
+    .toLowerCase();
+}
+
+const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
+  commercial: ["commercial", "comercial"],
+  finance: ["finance", "financial", "financeiro"],
+  support: ["support", "technical support", "suporte", "suporte tecnico"],
+  marketing_b2b: ["marketing b2b", "paid media", "media buying"],
+  creative_design: ["creative and design", "creative design", "criativo", "design"],
+};
+
+function routeForService(service: string): OnboardingTaskRoute | null {
+  const key = normalizedName(service);
+  if (key.includes("meta ads")) return "marketing_b2b";
+  if (key.includes("creative")) return "creative_design";
+  return null;
+}
+
+function onboardingProjectName(companyName: string) {
+  return `Onboarding - ${companyName}`;
+}
+
+export async function resolveOnboardingTaskProjectId(
+  db: Db,
+  input: OnboardingTaskProjectInput,
+): Promise<string> {
+  if (!input.route) return input.sourceProjectId;
+
+  const spaces = await db.space.findMany({
+    where: { workspace_id: input.workspaceId },
+    select: { id: true, name: true },
+  });
+  const aliases = ROUTE_SPACE_ALIASES[input.route].map(normalizedName);
+  const exactTarget = spaces.find((space) => aliases.includes(normalizedName(space.name)));
+  const targetSpace =
+    exactTarget ??
+    spaces.find((space) => {
+      const name = normalizedName(space.name);
+      return aliases.some((alias) => name.includes(alias) || alias.includes(name));
+    });
+
+  if (!targetSpace) return input.sourceProjectId;
+  if (targetSpace.id === input.sourceProjectSpaceId) return input.sourceProjectId;
+
+  const name = onboardingProjectName(input.companyName);
+  const existingProject = await db.project.findFirst({
+    where: {
+      workspace_id: input.workspaceId,
+      company_id: input.companyId,
+      space_id: targetSpace.id,
+      name,
+    },
+    select: { id: true },
+  });
+  if (existingProject) return existingProject.id;
+
+  const createdProject = await db.project.create({
+    data: {
+      name,
+      description: `Operational onboarding tasks for ${input.companyName}.`,
+      workspace_id: input.workspaceId,
+      owner_id: input.ownerId,
+      space_id: targetSpace.id,
+      company_id: input.companyId,
+    },
+    select: { id: true },
+  });
+  return createdProject.id;
 }
 
 export async function sendOnboardingAssignmentNotifications(targets: OnboardingAssignmentNotificationTarget[]) {
@@ -191,6 +280,7 @@ export async function startClientOnboarding(input: {
         id: true,
         name: true,
         workspace_id: true,
+        space_id: true,
         company_id: true,
         owner_id: true,
         closing_date: true,
@@ -243,6 +333,26 @@ export async function startClientOnboarding(input: {
       input.responsibleSalespersonId ??
       project.responsible_salesperson_id ??
       project.owner_id;
+    const baseTaskProjectInput = {
+      workspaceId: project.workspace_id,
+      companyId: project.company_id,
+      companyName: project.company.name,
+      sourceProjectId: project.id,
+      sourceProjectSpaceId: project.space_id,
+      ownerId: input.actorId,
+    };
+    const commercialProjectId = await resolveOnboardingTaskProjectId(tx, {
+      ...baseTaskProjectInput,
+      route: "commercial",
+    });
+    const financeProjectId = await resolveOnboardingTaskProjectId(tx, {
+      ...baseTaskProjectInput,
+      route: "finance",
+    });
+    const supportProjectId = await resolveOnboardingTaskProjectId(tx, {
+      ...baseTaskProjectInput,
+      route: "support",
+    });
 
     const onboarding = await tx.clientOnboarding.create({
       data: {
@@ -273,7 +383,7 @@ export async function startClientOnboarding(input: {
 
     const commercialTask = await tx.task.create({
       data: {
-        project_id: project.id,
+        project_id: commercialProjectId,
         company_id: project.company_id,
         title: "Onboarding: commercial setup confirmed",
         description: "Project created with client, services, salesperson, closing date, and initial notes.",
@@ -285,7 +395,7 @@ export async function startClientOnboarding(input: {
     });
     const financeTask = await tx.task.create({
       data: {
-        project_id: project.id,
+        project_id: financeProjectId,
         company_id: project.company_id,
         title: "Onboarding: complete finance registration",
         description: "Fill legal company name, CNPJ, billing contact, payment terms, contract value, and start date.",
@@ -297,7 +407,7 @@ export async function startClientOnboarding(input: {
     });
     const contractTask = await tx.task.create({
       data: {
-        project_id: project.id,
+        project_id: commercialProjectId,
         company_id: project.company_id,
         title: "Onboarding: upload signed contract",
         description: "Upload the signed contract privately so only Finance/Admin can access the file.",
@@ -309,7 +419,7 @@ export async function startClientOnboarding(input: {
     });
     const supportTask = await tx.task.create({
       data: {
-        project_id: project.id,
+        project_id: supportProjectId,
         company_id: project.company_id,
         title: "Onboarding: create client communication group",
         description: "Create the support/client communication group and record the link, participants, and notes.",
@@ -419,9 +529,13 @@ export async function startClientOnboarding(input: {
     for (const service of contractedServices) {
       const mapping = mappingByService.get(serviceKey(service));
       const leaderId = mapping?.leader_id ?? null;
+      const serviceProjectId = await resolveOnboardingTaskProjectId(tx, {
+        ...baseTaskProjectInput,
+        route: routeForService(service),
+      });
       const serviceTask = await tx.task.create({
         data: {
-          project_id: project.id,
+          project_id: serviceProjectId,
           company_id: project.company_id,
           title: `Onboarding: schedule ${service} onboarding meeting`,
           description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,

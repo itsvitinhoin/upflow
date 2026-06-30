@@ -10,6 +10,7 @@ import {
   onboardingInclude,
   recomputeOnboardingProgress,
   redactOnboardingContracts,
+  resolveOnboardingTaskProjectId,
   sendOnboardingAssignmentNotifications,
   type OnboardingAssignmentNotificationTarget,
 } from "@/lib/onboarding";
@@ -221,6 +222,35 @@ async function PATCH_handler(
         data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
       });
       if (meeting.checklist_item_id) {
+        const projectContext = await tx.project.findUnique({
+          where: { id: access.onboarding.project_id },
+          select: {
+            id: true,
+            owner_id: true,
+            space_id: true,
+            company: { select: { name: true } },
+          },
+        });
+        if (!projectContext) throw new Error("Onboarding project not found.");
+        const service = parsed.data.service_assignment.service;
+        const normalizedService = service
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        const route = normalizedService.includes("meta ads")
+          ? "marketing_b2b"
+          : normalizedService.includes("creative")
+            ? "creative_design"
+            : null;
+        const taskProjectId = await resolveOnboardingTaskProjectId(tx, {
+          workspaceId: access.onboarding.workspace_id,
+          companyId: access.onboarding.company_id,
+          companyName: projectContext.company?.name ?? "Client",
+          sourceProjectId: access.onboarding.project_id,
+          sourceProjectSpaceId: projectContext.space_id,
+          ownerId: auth.prismaUser.id,
+          route,
+        });
         const checklistItem = await tx.onboardingChecklistItem.update({
           where: { id: meeting.checklist_item_id },
           data: { owner_id: parsed.data.service_assignment.leader_id ?? null },
@@ -230,10 +260,10 @@ async function PATCH_handler(
         if (!taskId) {
           const serviceTask = await tx.task.create({
             data: {
-              project_id: access.onboarding.project_id,
+              project_id: taskProjectId,
               company_id: access.onboarding.company_id,
-              title: `Onboarding: schedule ${parsed.data.service_assignment.service} onboarding meeting`,
-              description: `Schedule the ${parsed.data.service_assignment.service} onboarding meeting and save the date/link in the onboarding workflow.`,
+              title: `Onboarding: schedule ${service} onboarding meeting`,
+              description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,
               status: "todo",
               priority: "medium",
               assignee_id: parsed.data.service_assignment.leader_id ?? null,
@@ -248,7 +278,10 @@ async function PATCH_handler(
         } else {
           await tx.task.update({
             where: { id: taskId },
-            data: { assignee_id: parsed.data.service_assignment.leader_id ?? null },
+            data: {
+              assignee_id: parsed.data.service_assignment.leader_id ?? null,
+              project_id: taskProjectId,
+            },
           });
         }
         notificationTargets.push({
@@ -257,7 +290,7 @@ async function PATCH_handler(
           workspaceId: access.onboarding.workspace_id,
           onboardingId: params.id,
           actorId: auth.prismaUser.id,
-          label: `Schedule ${parsed.data.service_assignment.service} onboarding meeting`,
+          label: `Schedule ${service} onboarding meeting`,
         });
       }
       const missingLeader = await tx.onboardingServiceAssignment.findFirst({
