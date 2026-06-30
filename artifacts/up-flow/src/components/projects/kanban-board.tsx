@@ -9,6 +9,7 @@ import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CustomFieldChip from "@/components/projects/custom-field-chip";
+import { PriorityBadge } from "@/components/projects/priority-ui";
 import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
 import type { ToolbarState } from "@/components/projects/project-toolbar";
 
@@ -261,6 +262,10 @@ export default function KanbanBoard({
                                 {isOverdue(task.due_date) && task.status !== "done" && (
                                   <AlertCircle className="w-3.5 h-3.5 text-upflow-danger flex-shrink-0" />
                                 )}
+                              </div>
+
+                              <div className="mt-2">
+                                <PriorityBadge priority={task.priority} t={t} />
                               </div>
 
                               {visibleCustomFields.length > 0 && (

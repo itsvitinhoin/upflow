@@ -13,6 +13,7 @@ import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
+import { priorityToneClass, TASK_PRIORITIES } from "@/components/projects/priority-ui";
 import type {
   CustomFieldDefinition,
   Task,
@@ -281,9 +282,13 @@ function renderStandardCell(
         value={t.priority}
         onChange={(e) => updateTask(t.id, { priority: e.target.value })}
         onClick={(e) => e.stopPropagation()}
-        className="bg-transparent text-xs text-foreground hover:bg-muted/50 px-1.5 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring"
+        title={`${translate("toolbar.priority")}: ${priorityMetaLabel(t.priority, translate)}`}
+        className={cn(
+          "max-w-full rounded-md border px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring",
+          priorityToneClass(t.priority),
+        )}
       >
-        {(["low", "medium", "high"] as const).map((p) => (
+        {TASK_PRIORITIES.map((p) => (
           <option key={p} value={p}>
             {priorityMetaLabel(p, translate)}
           </option>
@@ -326,7 +331,7 @@ function buildColumns(
   const standards: BuiltCol[] = [
     { key: "assignee", label: t("toolbar.assignee"), kind: "standard", width: "minmax(140px, 0.8fr)" },
     { key: "due_date", label: t("toolbar.dueDate"), kind: "standard", width: "minmax(140px, 0.8fr)" },
-    { key: "priority", label: t("toolbar.priority"), kind: "standard", width: "minmax(110px, 0.6fr)" },
+    { key: "priority", label: t("toolbar.priority"), kind: "standard", width: "minmax(130px, 0.7fr)" },
     { key: "status", label: t("toolbar.status"), kind: "standard", width: "minmax(120px, 0.6fr)" },
   ];
   const customs: BuiltCol[] = customFields.map((f) => ({

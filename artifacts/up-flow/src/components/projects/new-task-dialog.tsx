@@ -12,6 +12,7 @@ import {
   type TaskTemplateId,
 } from "@/lib/task-templates";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
+import { PriorityPicker, type TaskPriority } from "@/components/projects/priority-ui";
 import { useLanguage } from "@/components/language-provider";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 
@@ -40,7 +41,7 @@ export default function NewTaskDialog({
   const [taskTemplateId, setTaskTemplateId] =
     useState<TaskTemplateId>(defaultTemplateId);
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
-  const [priority, setPriority] = useState("medium");
+  const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [selectedProject, setSelectedProject] = useState(projectId || "");
@@ -252,17 +253,9 @@ export default function NewTaskDialog({
           />
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.priority")}</label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="low">{t("priority.low")}</option>
-                <option value="medium">{t("priority.medium")}</option>
-                <option value="high">{t("priority.high")}</option>
-              </select>
+              <PriorityPicker value={priority} onChange={setPriority} t={t} />
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.assignee")}</label>

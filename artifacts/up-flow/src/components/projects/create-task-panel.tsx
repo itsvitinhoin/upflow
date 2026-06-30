@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
+import { PriorityPicker, type TaskPriority } from "@/components/projects/priority-ui";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import {
   buildTaskBrief,
@@ -42,15 +43,6 @@ function statusOptionLabel(
   return t("status.done");
 }
 
-function priorityOptionLabel(
-  priority: "low" | "medium" | "high",
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  if (priority === "high") return t("priority.high");
-  if (priority === "medium") return t("priority.medium");
-  return t("priority.low");
-}
-
 export default function CreateTaskPanel({
   open,
   onClose,
@@ -67,7 +59,7 @@ export default function CreateTaskPanel({
     useState<TaskTemplateId>(DEFAULT_TASK_TEMPLATE_ID);
   const [templateValues, setTemplateValues] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"todo" | "in_progress" | "done">(defaultStatus);
-  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
+  const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [assigneeId, setAssigneeId] = useState("");
@@ -232,23 +224,7 @@ export default function CreateTaskPanel({
               />
             </Row>
             <Row label={t("toolbar.priority")}>
-              <div className="flex gap-1">
-                {(["low", "medium", "high"] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPriority(p)}
-                    className={cn(
-                      "text-xs px-2.5 py-1 rounded-md border capitalize",
-                      priority === p
-                        ? "bg-primary/15 border-primary/40 text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {priorityOptionLabel(p, t)}
-                  </button>
-                ))}
-              </div>
+              <PriorityPicker value={priority} onChange={setPriority} t={t} />
             </Row>
           </div>
 
