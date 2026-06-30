@@ -22,6 +22,13 @@ const CompanySchema = z.object({
   included_services: z.array(z.string().trim().min(1)).max(50).optional().nullable(),
   plan_notes: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  owner_id: z.string().trim().optional().nullable(),
+  contact_name: z.string().trim().optional().nullable(),
+  contact_email: z.string().trim().email().optional().nullable(),
+  contact_phone: z.string().trim().optional().nullable(),
+  contact_role: z.string().trim().optional().nullable(),
+  responsible_department_id: z.string().trim().optional().nullable(),
+  responsible_department_name: z.string().trim().optional().nullable(),
 });
 
 async function GET_handler(req: NextRequest) {
@@ -112,10 +119,49 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: "Invalid company", issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  let ownerId = auth.prismaUser.id;
+  if (parsed.data.owner_id) {
+    const selectedOwner = await prisma.workspaceMember.findFirst({
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: parsed.data.owner_id,
+        status: "active",
+      },
+      select: { user_id: true },
+    });
+    if (!selectedOwner) {
+      return NextResponse.json({ error: "Selected assignee is not an active workspace member" }, { status: 400 });
+    }
+    ownerId = selectedOwner.user_id;
+  }
+
+  let departmentName = parsed.data.responsible_department_name || null;
+  if (parsed.data.responsible_department_id) {
+    const department = await prisma.department.findFirst({
+      where: {
+        id: parsed.data.responsible_department_id,
+        workspace_id: auth.currentWorkspaceId,
+      },
+      select: { name: true },
+    });
+    if (!department) {
+      return NextResponse.json({ error: "Selected department does not belong to this workspace" }, { status: 400 });
+    }
+    departmentName = department.name;
+  }
+
+  const contactName = parsed.data.contact_name || parsed.data.contact_email || "";
+  const notes = [
+    parsed.data.notes || null,
+    departmentName ? `Responsible department: ${departmentName}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n") || null;
+
   const company = await prisma.company.create({
     data: {
       workspace_id: auth.currentWorkspaceId,
-      owner_id: auth.prismaUser.id,
+      owner_id: ownerId,
       name: parsed.data.name,
       description: parsed.data.description || null,
       website: parsed.data.website || null,
@@ -129,7 +175,24 @@ async function POST_handler(req: NextRequest) {
       billing_cycle: parsed.data.billing_cycle || null,
       included_services: parsed.data.included_services?.length ? parsed.data.included_services : undefined,
       plan_notes: parsed.data.plan_notes || null,
-      notes: parsed.data.notes || null,
+      notes,
+      ...(contactName || parsed.data.contact_phone
+        ? {
+            contacts: {
+              create: {
+                workspace_id: auth.currentWorkspaceId,
+                name: contactName || "Primary contact",
+                email: parsed.data.contact_email || null,
+                phone: parsed.data.contact_phone || null,
+                role: parsed.data.contact_role || "Primary contact",
+              },
+            },
+          }
+        : {}),
+    },
+    include: {
+      owner: { select: { id: true, name: true, email: true } },
+      contacts: true,
     },
   });
 
@@ -139,7 +202,12 @@ async function POST_handler(req: NextRequest) {
     type: "company_created",
     entity_type: "company",
     entity_id: company.id,
-    metadata: { name: company.name },
+    metadata: {
+      name: company.name,
+      owner_id: ownerId,
+      responsible_department: departmentName,
+      contact_email: parsed.data.contact_email || null,
+    },
   });
 
   return NextResponse.json(company, { status: 201 });
