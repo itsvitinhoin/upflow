@@ -124,9 +124,9 @@ export default function ServiceLeaderMappingPanel({
                       ),
                     )
                   }
-                  className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm text-foreground outline-none"
+                  className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-xs font-semibold text-foreground outline-none sm:text-sm"
                 >
-                  <option value="">{t("companyDialog.responsibleDepartment")}</option>
+                  <option value="">{t("onboardingWorkflow.departmentShort")}</option>
                   {departments.map((department) => (
                     <option key={department.id} value={department.id}>{department.name}</option>
                   ))}
@@ -142,9 +142,9 @@ export default function ServiceLeaderMappingPanel({
                       ),
                     )
                   }
-                  className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm text-foreground outline-none"
+                  className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-xs font-semibold text-foreground outline-none sm:text-sm"
                 >
-                  <option value="">{t("companyDialog.assigneeOwner")}</option>
+                  <option value="">{t("onboardingWorkflow.leaderShort")}</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>{user.name}</option>
                   ))}
