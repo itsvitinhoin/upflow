@@ -13,6 +13,7 @@ type Mapping = {
   department_id: string | null;
   active: boolean;
   leader?: { id: string; name: string; email: string } | null;
+  department?: { id: string; name: string } | null;
 };
 
 export default function ServiceLeaderMappingPanel({
@@ -67,8 +68,9 @@ export default function ServiceLeaderMappingPanel({
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error || t("onboardingWorkflow.mappingSaveFailed"));
       }
+      const data = (await res.json()) as { items?: Mapping[] };
+      if (data.items) setMappings(data.items);
       toast.success(t("onboardingWorkflow.mappingSaved"));
-      await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.mappingSaveFailed"));
     } finally {
@@ -119,9 +121,15 @@ export default function ServiceLeaderMappingPanel({
                   title={t("companyDialog.responsibleDepartment")}
                   onChange={(event) =>
                     setMappings((current) =>
-                      current.map((row) =>
-                        row.service === mapping.service ? { ...row, department_id: event.target.value || null } : row,
-                      ),
+                      current.map((row) => {
+                        if (row.service !== mapping.service) return row;
+                        const department = departments.find((item) => item.id === event.target.value) ?? null;
+                        return {
+                          ...row,
+                          department_id: event.target.value || null,
+                          department: department ? { id: department.id, name: department.name } : null,
+                        };
+                      }),
                     )
                   }
                   className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-xs font-semibold text-foreground outline-none sm:text-sm"
@@ -137,9 +145,15 @@ export default function ServiceLeaderMappingPanel({
                   title={t("companyDialog.assigneeOwner")}
                   onChange={(event) =>
                     setMappings((current) =>
-                      current.map((row) =>
-                        row.service === mapping.service ? { ...row, leader_id: event.target.value || null } : row,
-                      ),
+                      current.map((row) => {
+                        if (row.service !== mapping.service) return row;
+                        const leader = users.find((item) => item.id === event.target.value) ?? null;
+                        return {
+                          ...row,
+                          leader_id: event.target.value || null,
+                          leader: leader ? { id: leader.id, name: leader.name, email: leader.email } : null,
+                        };
+                      }),
                     )
                   }
                   className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-xs font-semibold text-foreground outline-none sm:text-sm"

@@ -126,8 +126,8 @@ export default function CalendarPage() {
   const gridEnd = new Date(gridStart);
   gridEnd.setDate(gridStart.getDate() + 42);
 
-  const loadCalendar = () => {
-    setLoading(true);
+  const loadCalendar = (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     const from = mergeAppDateAndTime(gridStart, "00:00").toISOString();
     const to = mergeAppDateAndTime(gridEnd, "23:59").toISOString();
     Promise.all([
@@ -141,7 +141,9 @@ export default function CalendarPage() {
         setEvents(eventList);
       })
       .catch((err) => logError("calendar:load", err))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!options?.silent) setLoading(false);
+      });
   };
 
   useEffect(() => {
@@ -626,7 +628,7 @@ export default function CalendarPage() {
         onClose={() => setShowNewTask(false)}
         onCreated={() => {
           setShowNewTask(false);
-          loadCalendar();
+          loadCalendar({ silent: true });
         }}
         defaultDueDate={appDateKey(selected)}
       />

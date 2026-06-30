@@ -79,8 +79,8 @@ export default function SpaceContainerPage() {
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
   const [updatingTask, setUpdatingTask] = useState(false);
 
-  const loadContainer = async () => {
-    setLoading(true);
+  const loadContainer = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/spaces/${id}`);
@@ -95,12 +95,12 @@ export default function SpaceContainerPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load this Space. Check your workspace access and try again.");
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
-  const loadDashboard = async () => {
-    setDashboardLoading(true);
+  const loadDashboard = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setDashboardLoading(true);
     setDashboardError(null);
     try {
       const res = await fetch(`/api/spaces/${id}/dashboard`);
@@ -115,14 +115,14 @@ export default function SpaceContainerPage() {
     } catch (err) {
       setDashboardError(err instanceof Error ? err.message : "Could not load this Space dashboard yet.");
     } finally {
-      setDashboardLoading(false);
+      if (!options?.silent) setDashboardLoading(false);
     }
   };
 
   const refreshAfterCreate = () => {
     window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
-    loadContainer();
-    loadDashboard();
+    loadContainer({ silent: true });
+    loadDashboard({ silent: true });
   };
 
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function SpaceContainerPage() {
         throw new Error(await readSpaceApiError(res, "Could not update this task status."));
       }
       toast.success(t("space.taskMoved").replace("{status}", status.replace("_", " ")));
-      loadDashboard();
+      loadDashboard({ silent: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update task");
     } finally {
@@ -406,7 +406,7 @@ export default function SpaceContainerPage() {
         onClose={() => setShowNewTask(false)}
         onCreated={() => {
           setShowNewTask(false);
-          loadDashboard();
+          loadDashboard({ silent: true });
           toast.success("Task created");
         }}
       />
@@ -417,7 +417,7 @@ export default function SpaceContainerPage() {
         onClose={() => setShowSchedule(false)}
         onScheduled={() => {
           setShowSchedule(false);
-          loadDashboard();
+          loadDashboard({ silent: true });
         }}
       />
 

@@ -33,8 +33,8 @@ export default function FolderContainerPage() {
   const [showNewList, setShowNewList] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch(`/api/folders/${id}`);
@@ -49,13 +49,13 @@ export default function FolderContainerPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
   const refreshAfterCreate = () => {
     window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
-    loadData();
+    loadData({ silent: true });
   };
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function FolderContainerPage() {
               {t("folder.loadErrorBody")}
             </p>
             <button
-              onClick={loadData}
+              onClick={() => loadData()}
               className="mt-4 inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
             >
               <RefreshCcw className="w-4 h-4" />

@@ -23,15 +23,17 @@ export default function ProjectsPage() {
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
   const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
 
-  const loadProjects = () => {
-    setLoading(true);
+  const loadProjects = (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     fetch("/api/projects")
       .then((r) => r.json())
       .then((data: { items: Project[] }) => {
         setProjects(data.items ?? []);
-        setLoading(false);
+        if (!options?.silent) setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!options?.silent) setLoading(false);
+      });
   };
 
   const loadSpaces = () => {
@@ -56,7 +58,7 @@ export default function ProjectsPage() {
       if (!res.ok) throw new Error();
       toast.success(t("projects.moved"));
       setMoveProjectId(null);
-      loadProjects();
+      loadProjects({ silent: true });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
@@ -78,7 +80,7 @@ export default function ProjectsPage() {
       }
       setProjects((current) => current.filter((item) => item.id !== project.id));
       toast.success(t("projects.deleted"));
-      loadProjects();
+      loadProjects({ silent: true });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
@@ -224,7 +226,7 @@ export default function ProjectsPage() {
         onClose={() => setShowNew(false)}
         onCreated={() => {
           setShowNew(false);
-          loadProjects();
+          loadProjects({ silent: true });
           toast.success(t("projects.created"));
         }}
       />

@@ -351,9 +351,9 @@ export default function Header({ title }: HeaderProps) {
       <NewProjectDialog
         open={showNewProject}
         onClose={() => setShowNewProject(false)}
-        onCreated={() => {
+        onCreated={(project) => {
           setShowNewProject(false);
-          router.refresh();
+          router.push(`/projects/${project.id}`);
         }}
       />
 

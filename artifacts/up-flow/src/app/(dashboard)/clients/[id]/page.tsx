@@ -44,8 +44,8 @@ export default function ClientDetailPage() {
     plan_notes: "",
   });
 
-  const loadCompany = async () => {
-    setLoading(true);
+  const loadCompany = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     const res = await fetch(`/api/companies/${id}`);
     if (res.status === 404) {
       setNotFoundState(true);
@@ -54,7 +54,7 @@ export default function ClientDetailPage() {
     const payload = (await res.json()) as ClientPayload;
     setCompany(payload);
     setPlanForm(toPlanForm(payload));
-    setLoading(false);
+    if (!options?.silent) setLoading(false);
   };
 
   const showClientMutationError = (message: string) => {
@@ -100,7 +100,7 @@ export default function ClientDetailPage() {
     if (res.ok) {
       setContactName("");
       setContactEmail("");
-      await loadCompany();
+      await loadCompany({ silent: true });
       showClientMutationSuccess("Contact added.");
     } else {
       showClientMutationError(await parseErrorMessage(res, "Could not add contact. Check the fields and try again."));
@@ -120,7 +120,7 @@ export default function ClientDetailPage() {
     });
     if (res.ok) {
       setNoteBody("");
-      await loadCompany();
+      await loadCompany({ silent: true });
       showClientMutationSuccess("Note added.");
     } else {
       showClientMutationError(await parseErrorMessage(res, "Could not add note. Add note text and try again."));
@@ -148,7 +148,7 @@ export default function ClientDetailPage() {
     });
     if (res.ok) {
       setEditingContact(null);
-      await loadCompany();
+      await loadCompany({ silent: true });
       showClientMutationSuccess("Contact updated.");
     } else {
       showClientMutationError(await parseErrorMessage(res, "Could not update contact. Check the fields and try again."));
@@ -162,7 +162,7 @@ export default function ClientDetailPage() {
     setClientMutationError(null);
     const res = await fetch(`/api/companies/${id}/contacts/${contact.id}`, { method: "DELETE" });
     if (res.ok) {
-      await loadCompany();
+      await loadCompany({ silent: true });
       showClientMutationSuccess("Contact deleted.");
     } else {
       showClientMutationError(await parseErrorMessage(res, "Could not delete contact."));
@@ -185,7 +185,7 @@ export default function ClientDetailPage() {
     });
     if (res.ok) {
       setEditingNote(null);
-      await loadCompany();
+      await loadCompany({ silent: true });
       showClientMutationSuccess("Note updated.");
     } else {
       showClientMutationError(await parseErrorMessage(res, "Could not update note."));
@@ -199,7 +199,7 @@ export default function ClientDetailPage() {
     setClientMutationError(null);
     const res = await fetch(`/api/companies/${id}/notes/${note.id}`, { method: "DELETE" });
     if (res.ok) {
-      await loadCompany();
+      await loadCompany({ silent: true });
       showClientMutationSuccess("Note deleted.");
     } else {
       showClientMutationError(await parseErrorMessage(res, "Could not delete note."));
@@ -422,7 +422,7 @@ export default function ClientDetailPage() {
         <ClientOnboardingPanel
           companyId={company.id}
           company={company}
-          onChanged={loadCompany}
+          onChanged={() => loadCompany({ silent: true })}
         />
 
         <section className="glass rounded-xl p-5">
@@ -759,7 +759,7 @@ export default function ClientDetailPage() {
         defaultCompanyId={company.id}
         onCreated={() => {
           setShowProjectDialog(false);
-          loadCompany();
+          void loadCompany({ silent: true });
         }}
       />
     </>

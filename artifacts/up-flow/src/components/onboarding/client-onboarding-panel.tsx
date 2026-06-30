@@ -25,7 +25,7 @@ type Props = {
   companyId?: string | null;
   projectId?: string | null;
   company?: Partial<Company> | null;
-  onChanged?: () => void;
+  onChanged?: () => void | Promise<void>;
 };
 
 type OnboardingResponse = { items?: ClientOnboarding[] };
@@ -84,9 +84,9 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   const [meetings, setMeetings] = useState<Record<string, { scheduled_at: string; meeting_url: string; notes: string }>>({});
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
 
-  const load = async () => {
+  const load = async (options?: { silent?: boolean }) => {
     if (!companyId && !projectId) return;
-    setLoading(true);
+    if (!options?.silent) setLoading(true);
     try {
       const query = projectId ? `project_id=${projectId}` : `company_id=${companyId}`;
       const res = await fetch(`/api/onboarding?${query}`);
@@ -129,7 +129,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.loadFailed"));
     } finally {
-      setLoading(false);
+      if (!options?.silent) setLoading(false);
     }
   };
 
@@ -189,8 +189,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   }, [onboarding]);
 
   const refresh = async () => {
-    await load();
-    onChanged?.();
+    await load({ silent: true });
+    await onChanged?.();
   };
 
   const start = async () => {

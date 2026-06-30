@@ -5,11 +5,12 @@ import { toast } from "sonner";
 import { X, Loader2 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
+import type { Project } from "@/lib/types";
 
 interface NewProjectDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (project: Project) => void;
   /** Pre-fill the Space the new project should belong to. */
   defaultSpaceId?: string | null;
   /** Link the new project to a client/company. */
@@ -68,6 +69,7 @@ export default function NewProjectDialog({
         const data = await res.json() as { error?: string };
         throw new Error(data.error || t("projects.failedCreate"));
       }
+      const project = (await res.json()) as Project;
       setName("");
       setDescription("");
       setDueDate("");
@@ -77,7 +79,7 @@ export default function NewProjectDialog({
       setOnboardingStartDate("");
       setInitialNotes("");
       window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
-      onCreated();
+      onCreated(project);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("projects.failedCreate");
       toast.error(message);

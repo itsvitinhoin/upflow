@@ -213,9 +213,9 @@ export default function CommandPalette() {
       <NewProjectDialog
         open={showNewProject}
         onClose={() => setShowNewProject(false)}
-        onCreated={() => {
+        onCreated={(project) => {
           setShowNewProject(false);
-          router.refresh();
+          router.push(`/projects/${project.id}`);
         }}
       />
     </>
