@@ -69,6 +69,26 @@ export function parseContractedServices(value: unknown): string[] {
   return [];
 }
 
+export function financeRegistrationComplete(company: {
+  legal_name: string | null;
+  cnpj: string | null;
+  billing_email: string | null;
+  main_contact_email: string | null;
+  contract_value: number | null;
+  payment_terms: string | null;
+  contract_start_date: Date | null;
+}) {
+  return Boolean(
+    company.legal_name &&
+      company.cnpj &&
+      company.billing_email &&
+      company.main_contact_email &&
+      company.contract_value != null &&
+      company.payment_terms &&
+      company.contract_start_date,
+  );
+}
+
 function departmentStatus(department: string) {
   const key = department.toLowerCase();
   if (key.includes("commercial")) return "pending_commercial_setup";
@@ -534,4 +554,3 @@ export function redactOnboardingContracts<T extends { contracts?: Array<Record<s
     })),
   };
 }
-

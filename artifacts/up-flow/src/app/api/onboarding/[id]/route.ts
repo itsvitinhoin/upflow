@@ -4,7 +4,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { loadOnboardingAccess, onboardingInclude, recomputeOnboardingProgress, redactOnboardingContracts } from "@/lib/onboarding";
+import {
+  financeRegistrationComplete,
+  loadOnboardingAccess,
+  onboardingInclude,
+  recomputeOnboardingProgress,
+  redactOnboardingContracts,
+} from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const PatchSchema = z.object({
@@ -48,26 +54,6 @@ function optionalDate(value: string | null | undefined) {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "invalid" : date;
-}
-
-function financeComplete(company: {
-  legal_name: string | null;
-  cnpj: string | null;
-  billing_email: string | null;
-  main_contact_email: string | null;
-  contract_value: number | null;
-  payment_terms: string | null;
-  contract_start_date: Date | null;
-}) {
-  return Boolean(
-    company.legal_name &&
-      company.cnpj &&
-      company.billing_email &&
-      company.main_contact_email &&
-      company.contract_value != null &&
-      company.payment_terms &&
-      company.contract_start_date,
-  );
 }
 
 async function GET_handler(
@@ -123,7 +109,7 @@ async function PATCH_handler(
           contract_start_date: true,
         },
       });
-      if (financeComplete(company)) {
+      if (financeRegistrationComplete(company)) {
         await tx.onboardingChecklistItem.updateMany({
           where: { onboarding_id: params.id, department: "Finance" },
           data: { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
