@@ -103,49 +103,53 @@ export default function ServiceLeaderMappingPanel({
           <Loader2 className="h-4 w-4 animate-spin" /> {t("common.loading")}
         </div>
       ) : (
-        <div className="mt-4 grid gap-2 lg:grid-cols-2">
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {mappings.map((mapping) => (
-            <div key={mapping.id} className="grid gap-2 rounded-xl border border-blue-300/10 bg-white/[0.03] p-3 sm:grid-cols-[1fr_180px_180px] sm:items-center">
-              <div>
-                <p className="text-sm font-semibold text-foreground">{mapping.service}</p>
-                <p className="text-xs text-muted-foreground">
+            <div key={mapping.id} className="min-w-0 rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
+              <div className="mb-3 min-w-0">
+                <p className="truncate text-sm font-semibold text-foreground" title={mapping.service}>{mapping.service}</p>
+                <p className="truncate text-xs text-muted-foreground">
                   {mapping.leader?.name ?? t("companyDialog.notAssigned")}
                 </p>
               </div>
-              <select
-                value={mapping.department_id ?? ""}
-                disabled={!isAdmin}
-                onChange={(event) =>
-                  setMappings((current) =>
-                    current.map((row) =>
-                      row.service === mapping.service ? { ...row, department_id: event.target.value || null } : row,
-                    ),
-                  )
-                }
-                className="h-9 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm text-foreground outline-none"
-              >
-                <option value="">{t("companyDialog.responsibleDepartment")}</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>{department.name}</option>
-                ))}
-              </select>
-              <select
-                value={mapping.leader_id ?? ""}
-                disabled={!isAdmin}
-                onChange={(event) =>
-                  setMappings((current) =>
-                    current.map((row) =>
-                      row.service === mapping.service ? { ...row, leader_id: event.target.value || null } : row,
-                    ),
-                  )
-                }
-                className="h-9 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm text-foreground outline-none"
-              >
-                <option value="">{t("companyDialog.assigneeOwner")}</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>{user.name}</option>
-                ))}
-              </select>
+              <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+                <select
+                  value={mapping.department_id ?? ""}
+                  disabled={!isAdmin}
+                  title={t("companyDialog.responsibleDepartment")}
+                  onChange={(event) =>
+                    setMappings((current) =>
+                      current.map((row) =>
+                        row.service === mapping.service ? { ...row, department_id: event.target.value || null } : row,
+                      ),
+                    )
+                  }
+                  className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm text-foreground outline-none"
+                >
+                  <option value="">{t("companyDialog.responsibleDepartment")}</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>{department.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={mapping.leader_id ?? ""}
+                  disabled={!isAdmin}
+                  title={t("companyDialog.assigneeOwner")}
+                  onChange={(event) =>
+                    setMappings((current) =>
+                      current.map((row) =>
+                        row.service === mapping.service ? { ...row, leader_id: event.target.value || null } : row,
+                      ),
+                    )
+                  }
+                  className="h-9 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm text-foreground outline-none"
+                >
+                  <option value="">{t("companyDialog.assigneeOwner")}</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>{user.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           ))}
         </div>
