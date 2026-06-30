@@ -45,8 +45,10 @@ test("calendar events expose edit and completion color controls", () => {
   assert.match(page, /eventIsComplete/);
   assert.match(page, /openEventMenu/);
   assert.match(page, /onContextMenu=\{\(e\) => openEventMenu\(event, e\)\}/);
+  assert.match(page, /onClick=\{\(\) => setEditingEvent\(event\)\}/);
   assert.match(page, /setEditingEvent\(event\)/);
   assert.match(page, /updateEventColor\(event, COMPLETED_EVENT_COLOR\)/);
+  assert.match(page, /setSelected\(new Date\(event\.starts_at\)\)/);
   assert.match(page, /calendar\.markComplete/);
   assert.match(page, /calendar\.changeColor/);
   assert.match(page, /calendar\.legendCompletedEvent/);

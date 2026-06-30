@@ -333,6 +333,11 @@ export default function CalendarPage() {
                       <div
                         key={event.id}
                         title={`${eventTime(event)} ${event.title}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelected(day);
+                          setEditingEvent(event);
+                        }}
                         onContextMenu={(e) => openEventMenu(event, e)}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
@@ -454,10 +459,11 @@ export default function CalendarPage() {
                   {selectedEvents.map((event) => (
                     <li
                       key={event.id}
+                      onClick={() => setEditingEvent(event)}
                       onContextMenu={(e) => openEventMenu(event, e)}
                       onDoubleClick={() => setEditingEvent(event)}
                       className={cn(
-                        "group flex items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
+                        "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
                         eventColor(event),
                       )}
                     >
@@ -479,7 +485,10 @@ export default function CalendarPage() {
                       <div className="flex flex-shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
                         <button
                           type="button"
-                          onClick={() => void updateEventColor(event, COMPLETED_EVENT_COLOR)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void updateEventColor(event, COMPLETED_EVENT_COLOR);
+                          }}
                           aria-label={`${t("calendar.markComplete")} ${event.title}`}
                           title={t("calendar.markComplete")}
                           className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-success hover:bg-upflow-success/10"
@@ -488,7 +497,10 @@ export default function CalendarPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setEditingEvent(event)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingEvent(event);
+                          }}
                           aria-label={`${t("calendar.editEvent")} ${event.title}`}
                           title={t("calendar.editEvent")}
                           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
@@ -497,7 +509,10 @@ export default function CalendarPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void deleteEvent(event)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void deleteEvent(event);
+                          }}
                           aria-label={`${t("common.delete")} ${event.title}`}
                           title={t("common.delete")}
                           className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
@@ -576,6 +591,7 @@ export default function CalendarPage() {
         defaultType={scheduleType}
         onScheduled={(event) => {
           setEvents((prev) => [...prev, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
+          setSelected(new Date(event.starts_at));
         }}
       />
 
