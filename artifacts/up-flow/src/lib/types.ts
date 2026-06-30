@@ -25,6 +25,11 @@ export interface Project {
   space_id?: string | null;
   folder_id?: string | null;
   company_id?: string | null;
+  onboarding_enabled?: boolean;
+  closing_date?: string | null;
+  onboarding_start_date?: string | null;
+  responsible_salesperson_id?: string | null;
+  initial_notes?: string | null;
   due_date: string | null;
   created_at: string;
   owner: ProjectOwner;
@@ -349,6 +354,16 @@ export interface Company {
   included_services: string[] | null;
   plan_notes: string | null;
   notes: string | null;
+  legal_name: string | null;
+  cnpj: string | null;
+  billing_email: string | null;
+  main_contact_email: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  address: string | null;
+  billing_notes: string | null;
+  payment_terms: string | null;
+  contract_start_date: string | null;
   owner_id: string;
   created_at: string;
   updated_at: string;
@@ -380,6 +395,115 @@ export interface Company {
   tasks?: Pick<Task, "id" | "title" | "status" | "priority" | "due_date">[];
   calendar_events?: CalendarEvent[];
   activity_events?: ActivityEvent[];
+  client_onboardings?: ClientOnboarding[];
+}
+
+export interface ClientOnboarding {
+  id: string;
+  workspace_id: string;
+  company_id: string;
+  project_id: string;
+  status: string;
+  progress: number;
+  closing_date: string | null;
+  expected_start_date: string | null;
+  responsible_salesperson_id: string | null;
+  initial_notes: string | null;
+  contracted_services: string[] | null;
+  completed_at: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  company?: { id: string; name: string } | null;
+  project?: { id: string; name: string } | null;
+  salesperson?: { id: string; name: string; email: string } | null;
+  checklist_items?: OnboardingChecklistItem[];
+  service_assignments?: OnboardingServiceAssignment[];
+  meetings?: OnboardingMeeting[];
+  contracts?: ClientContract[];
+  support_group?: SupportGroup | null;
+}
+
+export interface OnboardingChecklistItem {
+  id: string;
+  onboarding_id: string;
+  workspace_id: string;
+  task_id: string | null;
+  department: string;
+  title: string;
+  status: "pending" | "in_progress" | "complete" | string;
+  required: boolean;
+  owner_id: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  notes: string | null;
+  sort_order: number;
+  owner?: { id: string; name: string; email: string } | null;
+  completer?: { id: string; name: string; email: string } | null;
+  task?: { id: string; title: string; status: string } | null;
+}
+
+export interface OnboardingServiceAssignment {
+  id: string;
+  onboarding_id: string;
+  workspace_id: string;
+  service: string;
+  leader_id: string | null;
+  department_id: string | null;
+  department_name: string | null;
+  status: string;
+  notes: string | null;
+  leader?: { id: string; name: string; email: string } | null;
+  department?: { id: string; name: string } | null;
+}
+
+export interface OnboardingMeeting {
+  id: string;
+  onboarding_id: string;
+  workspace_id: string;
+  service: string;
+  checklist_item_id: string | null;
+  scheduled: boolean;
+  scheduled_at: string | null;
+  meeting_url: string | null;
+  leader_id: string | null;
+  notes: string | null;
+  leader?: { id: string; name: string; email: string } | null;
+}
+
+export interface ClientContract {
+  id: string;
+  onboarding_id: string;
+  workspace_id: string;
+  company_id: string;
+  project_id: string | null;
+  file_name: string;
+  storage_bucket?: string;
+  storage_path?: string;
+  mime_type?: string | null;
+  size_bytes?: number | null;
+  status: string;
+  visibility: string;
+  uploaded_by: string;
+  uploaded_at: string;
+  created_at: string;
+  private?: boolean;
+  uploader?: { id: string; name: string; email: string } | null;
+}
+
+export interface SupportGroup {
+  id: string;
+  onboarding_id: string;
+  workspace_id: string;
+  group_created: boolean;
+  group_link: string | null;
+  group_created_at: string | null;
+  created_by: string | null;
+  internal_participants: string[] | null;
+  client_participants: string[] | null;
+  notes: string | null;
+  creator?: { id: string; name: string; email: string } | null;
 }
 
 export interface Template {

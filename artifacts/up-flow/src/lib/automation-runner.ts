@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { recordActivity } from "@/lib/activity";
+import { parseContractedServices, startClientOnboarding } from "@/lib/onboarding";
 
 export const AUTOMATION_RUNNER_TRIGGERS = [
   "task_overdue",
@@ -416,7 +417,31 @@ async function executeAction(input: {
   }
 
   if (actionType === "apply_template") {
-    return { ok: false, note: "apply_template needs an explicit onboarding/template workflow before execution" };
+    const config = input.action.config ?? {};
+    const templateType = getString(config, "template_type") ?? getString(config, "template");
+    if (templateType && templateType !== "client_onboarding" && templateType !== "client-onboarding") {
+      return { ok: false, note: `Unsupported template ${templateType}` };
+    }
+    let projectId = input.target.projectId ?? getString(input.action.config, "project_id");
+    if (!projectId && input.target.companyId) {
+      const project = await prisma.project.findFirst({
+        where: { workspace_id: input.workspaceId, company_id: input.target.companyId },
+        orderBy: [{ created_at: "desc" }, { id: "asc" }],
+        select: { id: true },
+      });
+      projectId = project?.id ?? null;
+    }
+    if (!projectId) {
+      return { ok: false, note: "Client onboarding template requires a linked project" };
+    }
+    const onboarding = await startClientOnboarding({
+      projectId,
+      actorId: input.actorId,
+      services: parseContractedServices(config.services),
+      initialNotes: getString(config, "initial_notes"),
+      responsibleSalespersonId: getString(config, "responsible_salesperson_id"),
+    });
+    return { ok: true, note: `Started onboarding for ${onboarding.company.name}` };
   }
 
   return { ok: false, note: `Unsupported action ${actionType}` };

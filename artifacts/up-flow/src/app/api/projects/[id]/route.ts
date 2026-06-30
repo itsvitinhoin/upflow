@@ -19,6 +19,11 @@ const UpdateProjectSchema = z.object({
   space_id: z.string().uuid().nullable().optional(),
   folder_id: z.string().uuid().nullable().optional(),
   company_id: z.string().uuid().nullable().optional(),
+  onboarding_enabled: z.boolean().optional(),
+  closing_date: z.string().nullable().optional(),
+  onboarding_start_date: z.string().nullable().optional(),
+  responsible_salesperson_id: z.string().uuid().nullable().optional(),
+  initial_notes: z.string().nullable().optional(),
 });
 
 function parsePatchDate(value: string | null | undefined) {
@@ -76,10 +81,28 @@ async function PATCH_handler(
     );
   }
   const body = parsed.data;
-  const { name, description, status, due_date, space_id, folder_id, company_id } = body;
+  const {
+    name,
+    description,
+    status,
+    due_date,
+    space_id,
+    folder_id,
+    company_id,
+    onboarding_enabled,
+    closing_date,
+    onboarding_start_date,
+    responsible_salesperson_id,
+    initial_notes,
+  } = body;
   const parsedDueDate = parsePatchDate(due_date);
+  const parsedClosingDate = parsePatchDate(closing_date);
+  const parsedOnboardingStartDate = parsePatchDate(onboarding_start_date);
   if (parsedDueDate === "invalid") {
     return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
+  }
+  if (parsedClosingDate === "invalid" || parsedOnboardingStartDate === "invalid") {
+    return NextResponse.json({ error: "Invalid onboarding date" }, { status: 400 });
   }
 
   if (space_id) {
@@ -115,6 +138,11 @@ async function PATCH_handler(
       ...(description !== undefined && { description }),
       ...(status !== undefined && { status }),
       ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
+      ...(onboarding_enabled !== undefined && { onboarding_enabled }),
+      ...(parsedClosingDate !== undefined && { closing_date: parsedClosingDate }),
+      ...(parsedOnboardingStartDate !== undefined && { onboarding_start_date: parsedOnboardingStartDate }),
+      ...(responsible_salesperson_id !== undefined && { responsible_salesperson_id: responsible_salesperson_id || null }),
+      ...(initial_notes !== undefined && { initial_notes }),
       ...(space_id !== undefined && { space_id: space_id || null }),
       ...(folder_id !== undefined && { folder_id: folder_id || null }),
       ...(company_id !== undefined && { company_id: company_id || null }),

@@ -22,6 +22,16 @@ const UpdateCompanySchema = z.object({
   included_services: z.array(z.string().trim().min(1)).max(50).nullable().optional(),
   plan_notes: z.string().trim().nullable().optional(),
   notes: z.string().trim().nullable().optional(),
+  legal_name: z.string().trim().nullable().optional(),
+  cnpj: z.string().trim().nullable().optional(),
+  billing_email: z.string().trim().email().nullable().optional(),
+  main_contact_email: z.string().trim().email().nullable().optional(),
+  phone: z.string().trim().nullable().optional(),
+  whatsapp: z.string().trim().nullable().optional(),
+  address: z.string().trim().nullable().optional(),
+  billing_notes: z.string().trim().nullable().optional(),
+  payment_terms: z.string().trim().nullable().optional(),
+  contract_start_date: z.string().nullable().optional(),
 });
 
 async function getCompany(id: string, workspaceId: string) {
@@ -235,6 +245,11 @@ async function PATCH_handler(
       parsed.data.included_services === null
         ? Prisma.JsonNull
         : parsed.data.included_services;
+  }
+  if ("contract_start_date" in parsed.data) {
+    updateData.contract_start_date = parsed.data.contract_start_date
+      ? new Date(parsed.data.contract_start_date)
+      : null;
   }
 
   const updated = await prisma.company.update({

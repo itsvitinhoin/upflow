@@ -115,6 +115,16 @@ model User {
   client_reports_authored  ClientReport[]          @relation("ClientReportAuthor")
   client_reports_approved  ClientReport[]          @relation("ClientReportApprover")
   client_reports_sent      ClientReport[]          @relation("ClientReportSender")
+  projects_sold            Project[]               @relation("ProjectResponsibleSalesperson")
+  onboarding_created       ClientOnboarding[]      @relation("ClientOnboardingCreator")
+  onboarding_sales         ClientOnboarding[]      @relation("ClientOnboardingSalesperson")
+  onboarding_items_owned   OnboardingChecklistItem[] @relation("OnboardingChecklistOwner")
+  onboarding_items_done    OnboardingChecklistItem[] @relation("OnboardingChecklistCompleter")
+  onboarding_assignments   OnboardingServiceAssignment[] @relation("OnboardingServiceLeader")
+  onboarding_meetings      OnboardingMeeting[]     @relation("OnboardingMeetingLeader")
+  onboarding_contracts     ClientContract[]        @relation("ClientContractUploader")
+  support_groups_created   SupportGroup[]          @relation("SupportGroupCreator")
+  service_leader_mappings  ServiceLeaderMapping[]  @relation("ServiceLeaderMappingLeader")
 }
 
 model Workspace {
@@ -146,6 +156,13 @@ model Workspace {
   approval_requests    ApprovalRequest[]
   approval_events      ApprovalEvent[]
   client_reports       ClientReport[]
+  client_onboardings   ClientOnboarding[]
+  onboarding_items     OnboardingChecklistItem[]
+  onboarding_assignments OnboardingServiceAssignment[]
+  onboarding_meetings  OnboardingMeeting[]
+  client_contracts     ClientContract[]
+  support_groups       SupportGroup[]
+  service_leader_mappings ServiceLeaderMapping[]
 }
 
 model WorkspaceMember {
@@ -175,6 +192,8 @@ model Department {
   created_at   DateTime          @default(now())
   workspace    Workspace         @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   members      WorkspaceMember[]
+  onboarding_assignments OnboardingServiceAssignment[]
+  service_leader_mappings ServiceLeaderMapping[]
 
   @@unique([workspace_id, name])
   @@index([workspace_id])
@@ -257,6 +276,11 @@ model Project {
   space_id              String?
   folder_id             String?
   company_id            String?
+  onboarding_enabled    Boolean                 @default(false)
+  closing_date          DateTime?
+  onboarding_start_date DateTime?
+  responsible_salesperson_id String?
+  initial_notes         String?
   due_date              DateTime?
   created_at            DateTime                @default(now())
   workspace             Workspace               @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
@@ -272,9 +296,13 @@ model Project {
   project_members       ProjectMember[]
   recurring_task_rules  RecurringTaskRule[]
   workflow_statuses     WorkflowStatus[]
+  client_onboarding     ClientOnboarding?
+  onboarding_contracts  ClientContract[]
+  responsible_salesperson User?                 @relation("ProjectResponsibleSalesperson", fields: [responsible_salesperson_id], references: [id], onDelete: SetNull)
 
   @@index([workspace_id])
   @@index([company_id])
+  @@index([responsible_salesperson_id])
 }
 
 model Task {
@@ -308,6 +336,7 @@ model Task {
   dependencies          TaskDependency[]    @relation("TaskDependencies")
   dependents            TaskDependency[]    @relation("TaskDependents")
   recurring_rules       RecurringTaskRule[]
+  onboarding_items      OnboardingChecklistItem[]
 
   @@index([company_id])
 }
@@ -447,6 +476,16 @@ model Company {
   included_services Json?
   plan_notes        String?
   notes             String?
+  legal_name        String?
+  cnpj              String?
+  billing_email     String?
+  main_contact_email String?
+  phone             String?
+  whatsapp          String?
+  address           String?
+  billing_notes     String?
+  payment_terms     String?
+  contract_start_date DateTime?
   owner_id          String
   created_at        DateTime         @default(now())
   updated_at        DateTime         @updatedAt
@@ -459,9 +498,187 @@ model Company {
   contacts          CompanyContact[]
   notes_log         CompanyNote[]
   reports           ClientReport[]
+  client_onboardings ClientOnboarding[]
+  client_contracts  ClientContract[]
 
   @@index([workspace_id])
   @@index([owner_id])
+}
+
+model ClientOnboarding {
+  id                         String    @id @default(uuid())
+  workspace_id               String
+  company_id                 String
+  project_id                 String    @unique
+  status                     String    @default("pending_commercial_setup")
+  progress                   Int       @default(0)
+  closing_date               DateTime?
+  expected_start_date        DateTime?
+  responsible_salesperson_id String?
+  initial_notes              String?
+  contracted_services        Json?
+  completed_at               DateTime?
+  created_by                 String
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+  workspace                  Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  company                    Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  project                    Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  creator                    User      @relation("ClientOnboardingCreator", fields: [created_by], references: [id], onDelete: Cascade)
+  salesperson                User?     @relation("ClientOnboardingSalesperson", fields: [responsible_salesperson_id], references: [id], onDelete: SetNull)
+  checklist_items            OnboardingChecklistItem[]
+  service_assignments        OnboardingServiceAssignment[]
+  meetings                   OnboardingMeeting[]
+  contracts                  ClientContract[]
+  support_group              SupportGroup?
+
+  @@index([workspace_id, status])
+  @@index([company_id])
+  @@index([responsible_salesperson_id])
+}
+
+model OnboardingChecklistItem {
+  id             String    @id @default(uuid())
+  onboarding_id  String
+  workspace_id   String
+  task_id        String?
+  department     String
+  title          String
+  status         String    @default("pending")
+  required       Boolean   @default(true)
+  owner_id       String?
+  due_date       DateTime?
+  completed_at   DateTime?
+  completed_by   String?
+  notes          String?
+  sort_order     Int       @default(0)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  onboarding     ClientOnboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
+  workspace      Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  task           Task?     @relation(fields: [task_id], references: [id], onDelete: SetNull)
+  owner          User?     @relation("OnboardingChecklistOwner", fields: [owner_id], references: [id], onDelete: SetNull)
+  completer      User?     @relation("OnboardingChecklistCompleter", fields: [completed_by], references: [id], onDelete: SetNull)
+  meetings       OnboardingMeeting[]
+
+  @@index([workspace_id])
+  @@index([onboarding_id, sort_order])
+  @@index([owner_id])
+  @@index([task_id])
+}
+
+model OnboardingServiceAssignment {
+  id             String    @id @default(uuid())
+  onboarding_id  String
+  workspace_id   String
+  service        String
+  leader_id      String?
+  department_id  String?
+  department_name String?
+  status         String    @default("pending")
+  notes          String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+  onboarding     ClientOnboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
+  workspace      Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  leader         User?     @relation("OnboardingServiceLeader", fields: [leader_id], references: [id], onDelete: SetNull)
+  department     Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
+
+  @@unique([onboarding_id, service])
+  @@index([workspace_id])
+  @@index([leader_id])
+  @@index([department_id])
+}
+
+model OnboardingMeeting {
+  id                String    @id @default(uuid())
+  onboarding_id     String
+  workspace_id      String
+  service           String
+  checklist_item_id String?
+  scheduled         Boolean   @default(false)
+  scheduled_at      DateTime?
+  meeting_url       String?
+  leader_id         String?
+  notes             String?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+  onboarding        ClientOnboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
+  workspace         Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  checklist_item    OnboardingChecklistItem? @relation(fields: [checklist_item_id], references: [id], onDelete: SetNull)
+  leader            User?     @relation("OnboardingMeetingLeader", fields: [leader_id], references: [id], onDelete: SetNull)
+
+  @@unique([onboarding_id, service])
+  @@index([workspace_id])
+  @@index([leader_id])
+  @@index([checklist_item_id])
+}
+
+model ClientContract {
+  id             String    @id @default(uuid())
+  onboarding_id  String
+  workspace_id   String
+  company_id     String
+  project_id     String?
+  file_name      String
+  storage_bucket String
+  storage_path   String
+  mime_type      String?
+  size_bytes     Int?
+  status         String    @default("uploaded")
+  visibility     String    @default("private")
+  uploaded_by    String
+  uploaded_at    DateTime  @default(now())
+  created_at     DateTime  @default(now())
+  onboarding     ClientOnboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
+  workspace      Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  company        Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  project        Project?  @relation(fields: [project_id], references: [id], onDelete: SetNull)
+  uploader       User      @relation("ClientContractUploader", fields: [uploaded_by], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([company_id])
+  @@index([project_id])
+  @@index([onboarding_id])
+}
+
+model SupportGroup {
+  id                    String    @id @default(uuid())
+  onboarding_id         String    @unique
+  workspace_id          String
+  group_created         Boolean   @default(false)
+  group_link            String?
+  group_created_at      DateTime?
+  created_by            String?
+  internal_participants Json?
+  client_participants   Json?
+  notes                 String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+  onboarding            ClientOnboarding @relation(fields: [onboarding_id], references: [id], onDelete: Cascade)
+  workspace             Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  creator               User?     @relation("SupportGroupCreator", fields: [created_by], references: [id], onDelete: SetNull)
+
+  @@index([workspace_id])
+  @@index([created_by])
+}
+
+model ServiceLeaderMapping {
+  id            String    @id @default(uuid())
+  workspace_id  String
+  service       String
+  leader_id     String?
+  department_id String?
+  active        Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+  workspace     Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  leader        User?     @relation("ServiceLeaderMappingLeader", fields: [leader_id], references: [id], onDelete: SetNull)
+  department    Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
+
+  @@unique([workspace_id, service])
+  @@index([leader_id])
+  @@index([department_id])
 }
 
 model CompanyContact {

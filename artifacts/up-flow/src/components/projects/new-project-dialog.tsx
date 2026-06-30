@@ -27,6 +27,11 @@ export default function NewProjectDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [startOnboarding, setStartOnboarding] = useState(Boolean(defaultCompanyId));
+  const [contractedServices, setContractedServices] = useState("");
+  const [closingDate, setClosingDate] = useState("");
+  const [onboardingStartDate, setOnboardingStartDate] = useState("");
+  const [initialNotes, setInitialNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
   if (!open) return null;
@@ -45,6 +50,18 @@ export default function NewProjectDialog({
           due_date: dueDate || null,
           ...(defaultSpaceId ? { space_id: defaultSpaceId } : {}),
           ...(defaultCompanyId ? { company_id: defaultCompanyId } : {}),
+          ...(defaultCompanyId && startOnboarding
+            ? {
+                start_onboarding: true,
+                contracted_services: contractedServices
+                  .split(/,|\r?\n/)
+                  .map((item) => item.trim())
+                  .filter(Boolean),
+                closing_date: closingDate || null,
+                onboarding_start_date: onboardingStartDate || null,
+                initial_notes: initialNotes.trim() || null,
+              }
+            : {}),
         }),
       });
       if (!res.ok) {
@@ -54,6 +71,11 @@ export default function NewProjectDialog({
       setName("");
       setDescription("");
       setDueDate("");
+      setStartOnboarding(Boolean(defaultCompanyId));
+      setContractedServices("");
+      setClosingDate("");
+      setOnboardingStartDate("");
+      setInitialNotes("");
       window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       onCreated();
     } catch (err: unknown) {
@@ -123,6 +145,64 @@ export default function NewProjectDialog({
               className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
+          {defaultCompanyId && (
+            <div className="rounded-xl border border-blue-300/15 bg-blue-400/5 p-3">
+              <label className="flex items-center justify-between gap-3 text-sm font-semibold text-foreground">
+                <span>{t("onboardingWorkflow.startWithProject")}</span>
+                <input
+                  type="checkbox"
+                  checked={startOnboarding}
+                  onChange={(event) => setStartOnboarding(event.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+              </label>
+              {startOnboarding && (
+                <div className="mt-3 grid gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                      {t("onboardingWorkflow.contractedServices")}
+                    </label>
+                    <textarea
+                      value={contractedServices}
+                      onChange={(e) => setContractedServices(e.target.value)}
+                      placeholder="Meta Ads, SEO, Social Media"
+                      rows={2}
+                      className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        {t("onboardingWorkflow.closingDate")}
+                      </label>
+                      <BrazilianDateInput
+                        value={closingDate}
+                        onChange={setClosingDate}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        {t("onboardingWorkflow.expectedStart")}
+                      </label>
+                      <BrazilianDateInput
+                        value={onboardingStartDate}
+                        onChange={setOnboardingStartDate}
+                        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                  </div>
+                  <textarea
+                    value={initialNotes}
+                    onChange={(e) => setInitialNotes(e.target.value)}
+                    placeholder={t("onboardingWorkflow.initialNotes")}
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              )}
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button
               type="button"

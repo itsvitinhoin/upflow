@@ -24,6 +24,7 @@ import {
   RealUserInvitePanel,
   TesterInvitePanel,
 } from "@/components/team/team-invite-panels";
+import ServiceLeaderMappingPanel from "@/components/team/service-leader-mapping-panel";
 import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
 import { cn, formatTime, getInitials } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
@@ -605,6 +606,14 @@ export default function TeamPage() {
             }}
           />
         )}
+
+        <div className="mb-4">
+          <ServiceLeaderMappingPanel
+            isAdmin={isAdmin}
+            users={users}
+            departments={departments}
+          />
+        </div>
 
         {isSuperAdmin && (
           <details className="mb-4 rounded-xl border border-border bg-card/50 p-3">

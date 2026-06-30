@@ -7,6 +7,20 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { readableProjectWhere } from "@/lib/project-access";
+import { startClientOnboarding } from "@/lib/onboarding";
+
+async function canCreateProjectInWorkspace(userId: string, workspaceId: string, admin: boolean) {
+  if (admin) return true;
+  const member = await prisma.workspaceMember.findUnique({
+    where: { workspace_id_user_id: { workspace_id: workspaceId, user_id: userId } },
+    include: { department: { select: { name: true } } },
+  });
+  return Boolean(
+    member?.status === "active" &&
+      member.role !== "guest" &&
+      member.department?.name.toLowerCase().includes("commercial"),
+  );
+}
 
 async function getHandler(req: NextRequest) {
   const _r = await requireAuth();
@@ -41,7 +55,8 @@ async function postHandler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
-  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
+  const isAdmin = isWorkspaceAdminFor(auth, auth.currentWorkspaceId);
+  if (!(await canCreateProjectInWorkspace(auth.prismaUser.id, auth.currentWorkspaceId, isAdmin))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -52,8 +67,27 @@ async function postHandler(req: NextRequest) {
     space_id?: string | null;
     folder_id?: string | null;
     company_id?: string | null;
+    start_onboarding?: boolean;
+    contracted_services?: string[];
+    closing_date?: string | null;
+    onboarding_start_date?: string | null;
+    responsible_salesperson_id?: string | null;
+    initial_notes?: string | null;
   };
-  const { name, description, due_date, space_id, folder_id, company_id } = body;
+  const {
+    name,
+    description,
+    due_date,
+    space_id,
+    folder_id,
+    company_id,
+    start_onboarding,
+    contracted_services,
+    closing_date,
+    onboarding_start_date,
+    responsible_salesperson_id,
+    initial_notes,
+  } = body;
 
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -98,6 +132,25 @@ async function postHandler(req: NextRequest) {
     });
     if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 });
   }
+  const parsedClosingDate = closing_date ? parseAppDate(closing_date) : null;
+  const parsedOnboardingStartDate = onboarding_start_date ? parseAppDate(onboarding_start_date) : null;
+  if (parsedClosingDate === "invalid" || parsedOnboardingStartDate === "invalid") {
+    return NextResponse.json({ error: "Invalid onboarding date" }, { status: 400 });
+  }
+  if (responsible_salesperson_id) {
+    const salesperson = await prisma.workspaceMember.findFirst({
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: responsible_salesperson_id,
+        status: "active",
+        role: { not: "guest" },
+      },
+      select: { user_id: true },
+    });
+    if (!salesperson) {
+      return NextResponse.json({ error: "Selected salesperson is not an active workspace member" }, { status: 400 });
+    }
+  }
 
   const project = await prisma.project.create({
     data: {
@@ -109,6 +162,11 @@ async function postHandler(req: NextRequest) {
       space_id: resolvedSpaceId,
       folder_id: folder_id || null,
       company_id: company_id || null,
+      onboarding_enabled: Boolean(start_onboarding && company_id),
+      closing_date: parsedClosingDate,
+      onboarding_start_date: parsedOnboardingStartDate,
+      responsible_salesperson_id: responsible_salesperson_id || (start_onboarding ? auth.prismaUser.id : null),
+      initial_notes: initial_notes || null,
     },
     include: {
       owner: { select: { id: true, name: true, email: true } },
@@ -117,6 +175,18 @@ async function postHandler(req: NextRequest) {
       _count: { select: { tasks: true } },
     },
   });
+
+  if (start_onboarding && company_id) {
+    await startClientOnboarding({
+      projectId: project.id,
+      actorId: auth.prismaUser.id,
+      services: Array.isArray(contracted_services) ? contracted_services : undefined,
+      closingDate: parsedClosingDate,
+      expectedStartDate: parsedOnboardingStartDate,
+      responsibleSalespersonId: responsible_salesperson_id || auth.prismaUser.id,
+      initialNotes: initial_notes || null,
+    });
+  }
 
   await recordActivity({
     workspace_id: auth.currentWorkspaceId,

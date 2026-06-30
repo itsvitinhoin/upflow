@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
 import ListView from "@/components/projects/list-view";
@@ -181,6 +182,10 @@ export default function ProjectPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="mb-5">
+          <ClientOnboardingPanel projectId={id} companyId={project.company_id} onChanged={loadData} />
         </div>
 
         <ProjectToolbar
