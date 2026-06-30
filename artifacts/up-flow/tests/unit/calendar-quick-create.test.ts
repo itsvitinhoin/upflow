@@ -35,3 +35,27 @@ test("calendar selected-day panel exposes quick create actions", () => {
   assert.match(translations, /"calendar.quickTask"/);
   assert.match(translations, /"calendar.eventDetailsPlaceholder"/);
 });
+
+test("calendar events expose edit and completion color controls", () => {
+  const page = source("src/app/(dashboard)/calendar/page.tsx");
+  const api = source("src/app/api/calendar/events/[id]/route.ts");
+  const translations = source("src/lib/i18n/translations.ts");
+
+  assert.match(page, /COMPLETED_EVENT_COLOR/);
+  assert.match(page, /eventIsComplete/);
+  assert.match(page, /openEventMenu/);
+  assert.match(page, /onContextMenu=\{\(e\) => openEventMenu\(event, e\)\}/);
+  assert.match(page, /setEditingEvent\(event\)/);
+  assert.match(page, /updateEventColor\(event, COMPLETED_EVENT_COLOR\)/);
+  assert.match(page, /calendar\.markComplete/);
+  assert.match(page, /calendar\.changeColor/);
+  assert.match(page, /calendar\.legendCompletedEvent/);
+
+  assert.match(api, /color: z\.string\(\)\.trim\(\)\.optional\(\)\.nullable\(\)/);
+  assert.match(api, /body\.color !== undefined/);
+
+  assert.match(translations, /"calendar.markComplete"/);
+  assert.match(translations, /"calendar.editEvent"/);
+  assert.match(translations, /"calendar.colorComplete"/);
+  assert.match(translations, /"calendar.legendCompletedEvent"/);
+});

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
-import { Bell, Calendar as CalendarIcon, CheckSquare, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, Video, X } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, Video, X } from "lucide-react";
 import { appDateKey, appTimeInputValue, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
@@ -55,6 +55,23 @@ const taskColor: Record<Task["priority"], string> = {
   high: "bg-upflow-danger/30 text-upflow-danger border-l-upflow-danger",
 };
 
+const DEFAULT_EVENT_COLOR = "bg-primary/20 text-primary border-l-primary";
+const COMPLETED_EVENT_COLOR = "bg-upflow-success/30 text-upflow-success border-l-upflow-success";
+const EVENT_COLOR_OPTIONS = [
+  { key: "default", color: null, className: DEFAULT_EVENT_COLOR, labelKey: "calendar.colorDefault" },
+  { key: "complete", color: COMPLETED_EVENT_COLOR, className: COMPLETED_EVENT_COLOR, labelKey: "calendar.colorComplete" },
+  { key: "amber", color: "bg-upflow-warning/30 text-upflow-warning border-l-upflow-warning", className: "bg-upflow-warning/30 text-upflow-warning border-l-upflow-warning", labelKey: "calendar.colorWarning" },
+  { key: "red", color: "bg-upflow-danger/30 text-upflow-danger border-l-upflow-danger", className: "bg-upflow-danger/30 text-upflow-danger border-l-upflow-danger", labelKey: "calendar.colorUrgent" },
+] as const;
+
+function eventColor(event: CalendarEvent) {
+  return event.color || DEFAULT_EVENT_COLOR;
+}
+
+function eventIsComplete(event: CalendarEvent) {
+  return event.color === COMPLETED_EVENT_COLOR || event.color?.includes("upflow-success") || false;
+}
+
 export default function CalendarPage() {
   const { language, t } = useLanguage();
   const [today, setToday] = useState(() => new Date());
@@ -71,6 +88,7 @@ export default function CalendarPage() {
   const [scheduleType, setScheduleType] = useState<"meeting" | "reminder">("meeting");
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [manageEvents, setManageEvents] = useState(false);
+  const [eventMenu, setEventMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
 
   useEffect(() => {
     const refreshToday = () => setToday(new Date());
@@ -169,6 +187,7 @@ export default function CalendarPage() {
   };
 
   const deleteEvent = async (event: CalendarEvent) => {
+    setEventMenu(null);
     if (!confirm(t("calendar.deleteConfirm", { title: event.title }))) return;
     try {
       const res = await fetch(`/api/calendar/events/${event.id}`, { method: "DELETE" });
@@ -182,6 +201,33 @@ export default function CalendarPage() {
     } catch {
       toast.error(t("calendar.couldNotDelete"));
     }
+  };
+
+  const updateEventColor = async (event: CalendarEvent, color: string | null) => {
+    setEventMenu(null);
+    try {
+      const res = await fetch(`/api/calendar/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ color }),
+      });
+      if (res.status === 403) {
+        toast.error(t("calendar.noPermission"));
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to update event");
+      const updated = (await res.json()) as CalendarEvent;
+      setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      toast.success(color === COMPLETED_EVENT_COLOR ? t("calendar.eventCompleted") : t("calendar.eventUpdated"));
+    } catch {
+      toast.error(t("calendar.couldNotUpdate"));
+    }
+  };
+
+  const openEventMenu = (event: CalendarEvent, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEventMenu({ event, x: e.clientX, y: e.clientY });
   };
 
   return (
@@ -286,9 +332,15 @@ export default function CalendarPage() {
                     {dayEvents.slice(0, 2).map((event) => (
                       <div
                         key={event.id}
-                        title={event.title}
-                        className={cn("truncate text-[10px] px-1 py-0.5 rounded border-l-2 border-l-primary", event.color || "bg-primary/20 text-primary")}
+                        title={`${eventTime(event)} ${event.title}`}
+                        onContextMenu={(e) => openEventMenu(event, e)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingEvent(event);
+                        }}
+                        className={cn("truncate text-[10px] px-1 py-0.5 rounded border-l-2", eventColor(event))}
                       >
+                        {eventIsComplete(event) && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
                         {eventTime(event)} {event.title}
                       </div>
                     ))}
@@ -402,10 +454,11 @@ export default function CalendarPage() {
                   {selectedEvents.map((event) => (
                     <li
                       key={event.id}
+                      onContextMenu={(e) => openEventMenu(event, e)}
+                      onDoubleClick={() => setEditingEvent(event)}
                       className={cn(
-                        "flex items-center gap-2 rounded-lg border-l-2 border-l-primary px-3 py-2 transition-colors",
-                        event.color || "bg-primary/20 text-primary",
-                        manageEvents ? "hover:bg-white/5" : "",
+                        "group flex items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
+                        eventColor(event),
                       )}
                     >
                       <div
@@ -414,6 +467,7 @@ export default function CalendarPage() {
                         )}
                       >
                         <p className="text-xs font-medium text-foreground truncate">
+                          {eventIsComplete(event) && <Check className="mr-1 inline h-3 w-3 text-upflow-success" />}
                           {eventTime(event)} {event.title}
                         </p>
                         {(event.location || event.meeting_url || event.description) && (
@@ -422,26 +476,35 @@ export default function CalendarPage() {
                           </p>
                         )}
                       </div>
-                      {manageEvents && (
-                        <div className="flex flex-shrink-0 items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setEditingEvent(event)}
-                            aria-label={`${t("common.updated")} ${event.title}`}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void deleteEvent(event)}
-                            aria-label={`${t("common.delete")} ${event.title}`}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex flex-shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => void updateEventColor(event, COMPLETED_EVENT_COLOR)}
+                          aria-label={`${t("calendar.markComplete")} ${event.title}`}
+                          title={t("calendar.markComplete")}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-success hover:bg-upflow-success/10"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingEvent(event)}
+                          aria-label={`${t("calendar.editEvent")} ${event.title}`}
+                          title={t("calendar.editEvent")}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteEvent(event)}
+                          aria-label={`${t("common.delete")} ${event.title}`}
+                          title={t("common.delete")}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -487,6 +550,10 @@ export default function CalendarPage() {
               <li className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-primary/40 border-l-2 border-l-primary" />
                 {t("calendar.legendEvent")}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-upflow-success/40 border-l-2 border-l-upflow-success" />
+                {t("calendar.legendCompletedEvent")}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-upflow-danger/40 border-l-2 border-l-upflow-danger" />
@@ -536,6 +603,61 @@ export default function CalendarPage() {
             setEditingEvent(null);
           }}
         />
+      )}
+
+      {eventMenu && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setEventMenu(null)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setEventMenu(null);
+          }}
+        >
+          <div
+            className="absolute w-56 overflow-hidden rounded-xl border border-white/10 bg-[#070b18]/95 p-1 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            style={{
+              left: Math.min(eventMenu.x, window.innerWidth - 240),
+              top: Math.min(eventMenu.y, window.innerHeight - 280),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setEditingEvent(eventMenu.event);
+                setEventMenu(null);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {t("calendar.editEvent")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void updateEventColor(eventMenu.event, COMPLETED_EVENT_COLOR)}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-upflow-success transition hover:bg-white/10"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {t("calendar.markComplete")}
+            </button>
+            <div className="my-1 border-t border-white/10" />
+            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("calendar.changeColor")}
+            </p>
+            {EVENT_COLOR_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => void updateEventColor(eventMenu.event, option.color)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+              >
+                <span className={cn("h-3 w-3 rounded border-l-2", option.className)} />
+                {t(option.labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </>
   );
