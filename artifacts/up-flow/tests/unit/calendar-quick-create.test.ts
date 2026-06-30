@@ -43,6 +43,10 @@ test("calendar events expose edit and completion color controls", () => {
 
   assert.match(page, /COMPLETED_EVENT_COLOR/);
   assert.match(page, /eventIsComplete/);
+  assert.match(page, /eventHasEnded/);
+  assert.match(page, /eventDisplayState/);
+  assert.match(page, /isAutoComplete/);
+  assert.match(page, /isComplete \? COMPLETED_EVENT_COLOR : eventColor\(event\)/);
   assert.match(page, /openEventMenu/);
   assert.match(page, /onContextMenu=\{\(e\) => openEventMenu\(event, e\)\}/);
   assert.match(page, /onClick=\{\(\) => setEditingEvent\(event\)\}/);
@@ -50,6 +54,7 @@ test("calendar events expose edit and completion color controls", () => {
   assert.match(page, /updateEventColor\(event, COMPLETED_EVENT_COLOR\)/);
   assert.match(page, /setSelected\(new Date\(event\.starts_at\)\)/);
   assert.match(page, /calendar\.markComplete/);
+  assert.match(page, /calendar\.autoCompleted/);
   assert.match(page, /calendar\.changeColor/);
   assert.match(page, /calendar\.legendCompletedEvent/);
 
@@ -58,6 +63,7 @@ test("calendar events expose edit and completion color controls", () => {
 
   assert.match(translations, /"calendar.markComplete"/);
   assert.match(translations, /"calendar.editEvent"/);
+  assert.match(translations, /"calendar.autoCompleted"/);
   assert.match(translations, /"calendar.colorComplete"/);
   assert.match(translations, /"calendar.legendCompletedEvent"/);
 });

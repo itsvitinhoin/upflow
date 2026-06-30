@@ -72,6 +72,23 @@ function eventIsComplete(event: CalendarEvent) {
   return event.color === COMPLETED_EVENT_COLOR || event.color?.includes("upflow-success") || false;
 }
 
+function eventHasEnded(event: CalendarEvent, now: Date) {
+  if (!event.ends_at) return false;
+  return new Date(event.ends_at).getTime() <= now.getTime();
+}
+
+function eventDisplayState(event: CalendarEvent, now: Date) {
+  const manuallyComplete = eventIsComplete(event);
+  const automaticallyComplete = !manuallyComplete && eventHasEnded(event, now);
+  const isComplete = manuallyComplete || automaticallyComplete;
+
+  return {
+    isComplete,
+    isAutoComplete: automaticallyComplete,
+    color: isComplete ? COMPLETED_EVENT_COLOR : eventColor(event),
+  };
+}
+
 export default function CalendarPage() {
   const { language, t } = useLanguage();
   const [today, setToday] = useState(() => new Date());
@@ -329,26 +346,30 @@ export default function CalendarPage() {
                     {day.getDate()}
                   </span>
                   <div className="mt-1 hidden w-full space-y-0.5 overflow-hidden sm:block">
-                    {dayEvents.slice(0, 2).map((event) => (
-                      <div
-                        key={event.id}
-                        title={`${eventTime(event)} ${event.title}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelected(day);
-                          setEditingEvent(event);
-                        }}
-                        onContextMenu={(e) => openEventMenu(event, e)}
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditingEvent(event);
-                        }}
-                        className={cn("truncate text-[10px] px-1 py-0.5 rounded border-l-2", eventColor(event))}
-                      >
-                        {eventIsComplete(event) && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
-                        {eventTime(event)} {event.title}
-                      </div>
-                    ))}
+                    {dayEvents.slice(0, 2).map((event) => {
+                      const display = eventDisplayState(event, today);
+
+                      return (
+                        <div
+                          key={event.id}
+                          title={`${eventTime(event)} ${event.title}${display.isAutoComplete ? ` - ${t("calendar.autoCompleted")}` : ""}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelected(day);
+                            setEditingEvent(event);
+                          }}
+                          onContextMenu={(e) => openEventMenu(event, e)}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setEditingEvent(event);
+                          }}
+                          className={cn("truncate text-[10px] px-1 py-0.5 rounded border-l-2", display.color)}
+                        >
+                          {display.isComplete && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
+                          {eventTime(event)} {event.title}
+                        </div>
+                      );
+                    })}
                     {dayTasks.slice(0, 2).map((task) => (
                       <div
                         key={task.id}
@@ -456,72 +477,77 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 <ul className="space-y-1.5">
-                  {selectedEvents.map((event) => (
-                    <li
-                      key={event.id}
-                      onClick={() => setEditingEvent(event)}
-                      onContextMenu={(e) => openEventMenu(event, e)}
-                      onDoubleClick={() => setEditingEvent(event)}
-                      className={cn(
-                        "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
-                        eventColor(event),
-                      )}
-                    >
-                      <div
+                  {selectedEvents.map((event) => {
+                    const display = eventDisplayState(event, today);
+
+                    return (
+                      <li
+                        key={event.id}
+                        title={display.isAutoComplete ? t("calendar.autoCompleted") : undefined}
+                        onClick={() => setEditingEvent(event)}
+                        onContextMenu={(e) => openEventMenu(event, e)}
+                        onDoubleClick={() => setEditingEvent(event)}
                         className={cn(
-                          "min-w-0 flex-1 text-left",
+                          "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
+                          display.color,
                         )}
                       >
-                        <p className="text-xs font-medium text-foreground truncate">
-                          {eventIsComplete(event) && <Check className="mr-1 inline h-3 w-3 text-upflow-success" />}
-                          {eventTime(event)} {event.title}
-                        </p>
-                        {(event.location || event.meeting_url || event.description) && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                            {event.location || event.meeting_url || event.description}
+                        <div
+                          className={cn(
+                            "min-w-0 flex-1 text-left",
+                          )}
+                        >
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {display.isComplete && <Check className="mr-1 inline h-3 w-3 text-upflow-success" />}
+                            {eventTime(event)} {event.title}
                           </p>
-                        )}
-                      </div>
-                      <div className="flex flex-shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void updateEventColor(event, COMPLETED_EVENT_COLOR);
-                          }}
-                          aria-label={`${t("calendar.markComplete")} ${event.title}`}
-                          title={t("calendar.markComplete")}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-success hover:bg-upflow-success/10"
-                        >
-                          <Check className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingEvent(event);
-                          }}
-                          aria-label={`${t("calendar.editEvent")} ${event.title}`}
-                          title={t("calendar.editEvent")}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void deleteEvent(event);
-                          }}
-                          aria-label={`${t("common.delete")} ${event.title}`}
-                          title={t("common.delete")}
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </li>
-                  ))}
+                          {(event.location || event.meeting_url || event.description || display.isAutoComplete) && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              {event.location || event.meeting_url || event.description || t("calendar.autoCompleted")}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void updateEventColor(event, COMPLETED_EVENT_COLOR);
+                            }}
+                            aria-label={`${t("calendar.markComplete")} ${event.title}`}
+                            title={t("calendar.markComplete")}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-success hover:bg-upflow-success/10"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingEvent(event);
+                            }}
+                            aria-label={`${t("calendar.editEvent")} ${event.title}`}
+                            title={t("calendar.editEvent")}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void deleteEvent(event);
+                            }}
+                            aria-label={`${t("common.delete")} ${event.title}`}
+                            title={t("common.delete")}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-upflow-danger hover:bg-upflow-danger/10"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>
