@@ -355,6 +355,79 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     }
   };
 
+  const renderServiceAssignmentControls = (compact = false) => (
+    <div className={cn("space-y-2", compact && "mt-3 rounded-lg border border-blue-300/10 bg-blue-500/[0.03] p-3")}>
+      <p className="text-xs text-muted-foreground">
+        {teamOptions.isAdmin ? t("onboardingWorkflow.assignmentsHint") : t("onboardingWorkflow.adminOnlyAssignments")}
+      </p>
+      {(onboarding?.service_assignments ?? []).length === 0 && (
+        <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-muted-foreground">
+          {t("onboardingWorkflow.noServiceAssignments")}
+        </div>
+      )}
+      {(onboarding?.service_assignments ?? []).map((assignment) => {
+        const draft = assignmentDrafts[assignment.service] ?? {
+          leader_id: assignment.leader_id ?? "",
+          department_id: assignment.department_id ?? "",
+          notes: assignment.notes ?? "",
+        };
+        return (
+          <div key={assignment.id} className="grid min-w-0 gap-2 rounded-lg border border-white/8 bg-[#050a18]/75 p-2 lg:grid-cols-[minmax(120px,0.9fr)_minmax(120px,1fr)_minmax(120px,1fr)_auto]">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground" title={assignment.service}>{assignment.service}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {assignment.leader?.name ?? t("companyDialog.notAssigned")}
+                {assignment.department?.name || assignment.department_name ? ` - ${assignment.department?.name ?? assignment.department_name}` : ""}
+              </p>
+            </div>
+            <select
+              value={draft.department_id}
+              disabled={!teamOptions.isAdmin}
+              title={t("companyDialog.responsibleDepartment")}
+              onChange={(event) =>
+                setAssignmentDrafts((current) => ({
+                  ...current,
+                  [assignment.service]: { ...draft, department_id: event.target.value },
+                }))
+              }
+              className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
+            >
+              <option value="">{t("onboardingWorkflow.departmentShort")}</option>
+              {teamOptions.departments.map((department) => (
+                <option key={department.id} value={department.id}>{department.name}</option>
+              ))}
+            </select>
+            <select
+              value={draft.leader_id}
+              disabled={!teamOptions.isAdmin}
+              title={t("companyDialog.assigneeOwner")}
+              onChange={(event) =>
+                setAssignmentDrafts((current) => ({
+                  ...current,
+                  [assignment.service]: { ...draft, leader_id: event.target.value },
+                }))
+              }
+              className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
+            >
+              <option value="">{t("onboardingWorkflow.leaderShort")}</option>
+              {teamOptions.members.map((member) => (
+                <option key={member.id} value={member.id}>{member.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => saveServiceAssignment(assignment)}
+              disabled={!teamOptions.isAdmin || saving === `assignment:${assignment.id}`}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
+            >
+              {saving === `assignment:${assignment.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {t("common.save")}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+
   const uploadContract = async (file: File | undefined) => {
     if (!onboarding || !file) return;
     setSaving("contract");
@@ -469,101 +542,40 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                 <div key={department} className="rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/55">{department}</p>
                   <div className="space-y-2">
-                    {items.map((item) => (
-                      <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-white/8 bg-[#070d1c]/70 p-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.owner?.name ?? t("companyDialog.notAssigned")} {item.task ? `- ${item.task.title}` : ""}
-                          </p>
+                    {items.map((item) => {
+                      const normalizedTitle = item.title.toLowerCase();
+                      const showAssignmentControls =
+                        department.toLowerCase().includes("internal") &&
+                        (normalizedTitle.includes("service leaders") || normalizedTitle.includes("lider") || normalizedTitle.includes("líder"));
+                      return (
+                        <div key={item.id} className="rounded-lg border border-white/8 bg-[#070d1c]/70 p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {item.owner?.name ?? t("companyDialog.notAssigned")} {item.task ? `- ${item.task.title}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>{statusLabel(item.status, t)}</span>
+                              {item.status !== "complete" && !showAssignmentControls && (
+                                <button
+                                  onClick={() => updateItem(item, "complete")}
+                                  disabled={saving === item.id}
+                                  className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:opacity-60"
+                                >
+                                  {saving === item.id ? t("common.saving") : t("onboardingWorkflow.markDone")}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          {showAssignmentControls && renderServiceAssignmentControls(true)}
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>{statusLabel(item.status, t)}</span>
-                          {item.status !== "complete" && (
-                            <button
-                              onClick={() => updateItem(item, "complete")}
-                              disabled={saving === item.id}
-                              className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:opacity-60"
-                            >
-                              {saving === item.id ? t("common.saving") : t("onboardingWorkflow.markDone")}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
-            </div>
-          </Panel>
-
-          <Panel title={t("onboardingWorkflow.serviceAssignments")} icon={<Users className="h-4 w-4" />}>
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                {teamOptions.isAdmin ? t("onboardingWorkflow.assignmentsHint") : t("onboardingWorkflow.adminOnlyAssignments")}
-              </p>
-              {(onboarding.service_assignments ?? []).map((assignment) => {
-                const draft = assignmentDrafts[assignment.service] ?? {
-                  leader_id: assignment.leader_id ?? "",
-                  department_id: assignment.department_id ?? "",
-                  notes: assignment.notes ?? "",
-                };
-                return (
-                  <div key={assignment.id} className="rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
-                    <div className="mb-3 min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground" title={assignment.service}>{assignment.service}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {assignment.leader?.name ?? t("companyDialog.notAssigned")}
-                        {assignment.department?.name || assignment.department_name ? ` - ${assignment.department?.name ?? assignment.department_name}` : ""}
-                      </p>
-                    </div>
-                    <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-                      <select
-                        value={draft.department_id}
-                        disabled={!teamOptions.isAdmin}
-                        title={t("companyDialog.responsibleDepartment")}
-                        onChange={(event) =>
-                          setAssignmentDrafts((current) => ({
-                            ...current,
-                            [assignment.service]: { ...draft, department_id: event.target.value },
-                          }))
-                        }
-                        className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
-                      >
-                        <option value="">{t("onboardingWorkflow.departmentShort")}</option>
-                        {teamOptions.departments.map((department) => (
-                          <option key={department.id} value={department.id}>{department.name}</option>
-                        ))}
-                      </select>
-                      <select
-                        value={draft.leader_id}
-                        disabled={!teamOptions.isAdmin}
-                        title={t("companyDialog.assigneeOwner")}
-                        onChange={(event) =>
-                          setAssignmentDrafts((current) => ({
-                            ...current,
-                            [assignment.service]: { ...draft, leader_id: event.target.value },
-                          }))
-                        }
-                        className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
-                      >
-                        <option value="">{t("onboardingWorkflow.leaderShort")}</option>
-                        {teamOptions.members.map((member) => (
-                          <option key={member.id} value={member.id}>{member.name}</option>
-                        ))}
-                      </select>
-                      <button
-                        onClick={() => saveServiceAssignment(assignment)}
-                        disabled={!teamOptions.isAdmin || saving === `assignment:${assignment.id}`}
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
-                      >
-                        {saving === `assignment:${assignment.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        {t("common.save")}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </Panel>
 
