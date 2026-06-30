@@ -16,11 +16,11 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   const companyRoute = read("src/app/api/companies/[id]/route.ts");
 
   assert.match(projectsPage, /Trash2/);
-  assert.match(projectsPage, /Delete project/);
+  assert.match(projectsPage, /t\("projects\.deleteProject"\)/);
   assert.match(projectsPage, /fetch\(`\/api\/projects\/\$\{project\.id\}`,\s*\{\s*method:\s*"DELETE"\s*\}\)/);
   assert.match(projectsPage, /deletingProjectId/);
   assert.match(projectsPage, /setProjects\(\(current\) => current\.filter/);
-  assert.match(projectsPage, /Project deleted/);
+  assert.match(projectsPage, /t\("projects\.deleted"\)/);
   assert.match(projectRoute, /prisma\.\$transaction/);
   assert.match(projectRoute, /taskDependency\.deleteMany/);
   assert.match(projectRoute, /notification\.deleteMany/);
@@ -33,9 +33,9 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectRoute, /deleted:\s*result/);
 
   assert.match(clientsPage, /Trash2/);
-  assert.match(clientsPage, /Delete client/);
+  assert.match(clientsPage, /t\("clients\.deleteClient"\)/);
   assert.match(clientsPage, /fetch\(`\/api\/companies\/\$\{company\.id\}`,\s*\{\s*method:\s*"DELETE"\s*\}\)/);
-  assert.match(clientsPage, /Client deleted/);
+  assert.match(clientsPage, /t\("clients\.deleted"\)/);
 
   assert.match(companyRoute, /async function DELETE_handler/);
   assert.match(companyRoute, /isWorkspaceAdminFor\(auth, company\.workspace_id\)/);

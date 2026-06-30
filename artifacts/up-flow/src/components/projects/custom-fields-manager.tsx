@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { X, Plus, Trash2, Settings2, Loader2, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CustomFieldDefinition, CustomFieldType } from "@/lib/types";
+import { useLanguage } from "@/components/language-provider";
 
 interface Props {
   open: boolean;
@@ -14,13 +15,13 @@ interface Props {
   onChanged: () => void;
 }
 
-const TYPES: { value: CustomFieldType; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "dropdown", label: "Dropdown" },
-  { value: "date", label: "Date" },
-  { value: "checkbox", label: "Checkbox" },
-  { value: "people", label: "People" },
+const TYPES: { value: CustomFieldType; labelKey: string }[] = [
+  { value: "text", labelKey: "customFields.type.text" },
+  { value: "number", labelKey: "customFields.type.number" },
+  { value: "dropdown", labelKey: "customFields.type.dropdown" },
+  { value: "date", labelKey: "customFields.type.date" },
+  { value: "checkbox", labelKey: "customFields.type.checkbox" },
+  { value: "people", labelKey: "customFields.type.people" },
 ];
 
 export default function CustomFieldsManager({
@@ -30,6 +31,7 @@ export default function CustomFieldsManager({
   fields,
   onChanged,
 }: Props) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [type, setType] = useState<CustomFieldType>("text");
   const [optionsText, setOptionsText] = useState("");
@@ -68,12 +70,12 @@ export default function CustomFieldsManager({
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Failed");
+        throw new Error(data.error || t("customFields.failed"));
       }
       setName("");
       setOptionsText("");
       onChanged();
-      toast.success("Field added");
+      toast.success(t("customFields.added"));
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -89,7 +91,7 @@ export default function CustomFieldsManager({
 
   const saveEdit = async (f: CustomFieldDefinition) => {
     if (!editName.trim()) {
-      toast.error("Name is required");
+      toast.error(t("customFields.nameRequired"));
       return;
     }
     try {
@@ -111,14 +113,14 @@ export default function CustomFieldsManager({
       if (!res.ok) throw new Error();
       setEditingId(null);
       onChanged();
-      toast.success("Field updated");
+      toast.success(t("customFields.updated"));
     } catch {
-      toast.error("Failed to update");
+      toast.error(t("customFields.failedUpdate"));
     }
   };
 
   const remove = async (fieldId: string) => {
-    if (!confirm("Delete this field? Existing values will be removed.")) return;
+    if (!confirm(t("customFields.deleteConfirm"))) return;
     try {
       const res = await fetch(
         `/api/projects/${projectId}/custom-fields/${fieldId}`,
@@ -126,9 +128,9 @@ export default function CustomFieldsManager({
       );
       if (!res.ok) throw new Error();
       onChanged();
-      toast.success("Field deleted");
+      toast.success(t("customFields.deleted"));
     } catch {
-      toast.error("Failed to delete");
+      toast.error(t("customFields.failedDelete"));
     }
   };
 
@@ -139,7 +141,7 @@ export default function CustomFieldsManager({
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Settings2 className="w-4 h-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold text-foreground">Custom fields</h2>
+            <h2 className="text-base font-semibold text-foreground">{t("toolbar.customFields")}</h2>
           </div>
           <button
             onClick={onClose}
@@ -152,10 +154,10 @@ export default function CustomFieldsManager({
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-              Existing fields
+              {t("customFields.existingFields")}
             </h3>
             {fields.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No custom fields yet.</p>
+              <p className="text-sm text-muted-foreground">{t("customFields.noneYet")}</p>
             ) : (
               <div className="border border-border rounded-lg divide-y divide-border bg-card">
                 {fields.map((f) => {
@@ -174,9 +176,9 @@ export default function CustomFieldsManager({
                           <div className="flex-1 min-w-0">
                             <div className="text-sm text-foreground truncate">{f.name}</div>
                             <div className="text-xs text-muted-foreground capitalize">
-                              {f.type}
+                              {t(`customFields.type.${f.type}`)}
                               {f.type === "dropdown" && f.options && f.options.length > 0 && (
-                                <> · {f.options.length} options</>
+                                <> · {t("customFields.optionsCount", { count: f.options.length })}</>
                               )}
                             </div>
                           </div>
@@ -186,14 +188,14 @@ export default function CustomFieldsManager({
                             <button
                               onClick={() => saveEdit(f)}
                               className="text-upflow-success hover:bg-upflow-success/10 p-1.5 rounded"
-                              title="Save"
+                              title={t("common.save")}
                             >
                               <Check className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => setEditingId(null)}
                               className="text-muted-foreground hover:bg-muted p-1.5 rounded"
-                              title="Cancel"
+                              title={t("common.cancel")}
                             >
                               <X className="w-3.5 h-3.5" />
                             </button>
@@ -203,14 +205,14 @@ export default function CustomFieldsManager({
                             <button
                               onClick={() => startEdit(f)}
                               className="text-muted-foreground hover:text-foreground p-1.5 rounded hover:bg-muted"
-                              title="Edit field"
+                              title={t("customFields.editField")}
                             >
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => remove(f.id)}
                               className="text-muted-foreground hover:text-destructive p-1.5 rounded hover:bg-destructive/10"
-                              title="Delete field"
+                              title={t("customFields.deleteField")}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -222,7 +224,7 @@ export default function CustomFieldsManager({
                           value={editOptions}
                           onChange={(e) => setEditOptions(e.target.value)}
                           rows={3}
-                          placeholder="Options (one per line)"
+                          placeholder={t("customFields.optionsPlaceholder")}
                           className="w-full mt-2 text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                         />
                       )}
@@ -235,33 +237,33 @@ export default function CustomFieldsManager({
 
           <form onSubmit={create} className="space-y-3 border-t border-border pt-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Add a new field
+              {t("customFields.addNewField")}
             </h3>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">Name</label>
+              <label className="block text-xs text-muted-foreground mb-1">{t("companyDialog.name")}</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Story points"
+                placeholder={t("customFields.namePlaceholder")}
                 className="w-full text-sm bg-white/5 border border-white/10 rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">Type</label>
+              <label className="block text-xs text-muted-foreground mb-1">{t("customFields.type")}</label>
               <div className="grid gap-1.5 sm:grid-cols-3">
-                {TYPES.map((t) => (
+                {TYPES.map((item) => (
                   <button
-                    key={t.value}
+                    key={item.value}
                     type="button"
-                    onClick={() => setType(t.value)}
+                    onClick={() => setType(item.value)}
                     className={cn(
                       "text-xs px-2 py-1.5 rounded-md border transition-colors",
-                      type === t.value
+                      type === item.value
                         ? "bg-primary/15 border-primary/40 text-primary"
                         : "bg-white/5 border-white/10 text-foreground hover:bg-white/10",
                     )}
                   >
-                    {t.label}
+                    {t(item.labelKey)}
                   </button>
                 ))}
               </div>
@@ -269,7 +271,7 @@ export default function CustomFieldsManager({
             {type === "dropdown" && (
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">
-                  Options (one per line or comma-separated)
+                  {t("customFields.optionsHint")}
                 </label>
                 <textarea
                   value={optionsText}
@@ -286,7 +288,7 @@ export default function CustomFieldsManager({
               className="w-full flex items-center justify-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-md transition-colors"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Add field
+              {t("customFields.addField")}
             </button>
           </form>
         </div>

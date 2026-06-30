@@ -8,10 +8,12 @@ import { toast } from "sonner";
 import { FolderOpen, Plus, Calendar, CheckSquare, Folder, Trash2 } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
+import { useLanguage } from "@/components/language-provider";
 import { cn, formatDate, getInitials, statusColor, statusLabel } from "@/lib/utils";
 import type { Project, Space } from "@/lib/types";
 
 export default function ProjectsPage() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get("search") ?? "";
   const [projects, setProjects] = useState<Project[]>([]);
@@ -52,36 +54,36 @@ export default function ProjectsPage() {
         body: JSON.stringify({ space_id: spaceId }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Project moved");
+      toast.success(t("projects.moved"));
       setMoveProjectId(null);
       loadProjects();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
     } catch {
-      toast.error("Could not move project");
+      toast.error(t("projects.couldNotMove"));
     }
   };
 
   const deleteProject = async (project: Project) => {
     if (deletingProjectId) return;
-    if (!window.confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(t("projects.deleteConfirm", { name: project.name }))) return;
 
     setDeletingProjectId(project.id);
     try {
       const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Could not delete project");
+        throw new Error(body?.error ?? t("projects.couldNotDelete"));
       }
       setProjects((current) => current.filter((item) => item.id !== project.id));
-      toast.success("Project deleted");
+      toast.success(t("projects.deleted"));
       loadProjects();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not delete project");
+      toast.error(err instanceof Error ? err.message : t("projects.couldNotDelete"));
     } finally {
       setDeletingProjectId(null);
     }
@@ -93,20 +95,20 @@ export default function ProjectsPage() {
 
   return (
     <>
-      <Header title="Projects" />
+      <Header title={t("projects.title")} />
       <div className="mx-auto max-w-6xl overflow-x-hidden p-4 sm:p-6">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-foreground">All Projects</h2>
+            <h2 className="text-xl font-bold text-foreground">{t("projects.allProjects")}</h2>
             <p className="text-muted-foreground text-sm mt-0.5">
-              {projects.length} project{projects.length !== 1 ? "s" : ""}
+              {t("projects.count", { count: projects.length })}
             </p>
           </div>
           <button
             onClick={() => setShowNew(true)}
             className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
-            <Plus className="w-4 h-4" /> New Project
+            <Plus className="w-4 h-4" /> {t("projects.newProject")}
           </button>
         </div>
 
@@ -119,13 +121,13 @@ export default function ProjectsPage() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No projects found</p>
-            <p className="text-sm mt-1">Create your first project to get started</p>
+            <p className="font-medium">{t("projects.noProjectsFound")}</p>
+            <p className="text-sm mt-1">{t("projects.noProjectsHint")}</p>
             <button
               onClick={() => setShowNew(true)}
               className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
-              Create Project
+              {t("projects.createProject")}
             </button>
           </div>
         ) : (
@@ -193,9 +195,9 @@ export default function ProjectsPage() {
                       setMoveProjectId(project.id);
                     }}
                     className="flex items-center gap-1 rounded-md border border-border bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-                    title="Move to space"
+                    title={t("projects.moveToSpace")}
                   >
-                    <Folder className="w-3 h-3" /> Move
+                    <Folder className="w-3 h-3" /> {t("projects.move")}
                   </button>
                   <button
                     type="button"
@@ -206,9 +208,9 @@ export default function ProjectsPage() {
                     }}
                     disabled={deletingProjectId === project.id}
                     className="flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 hover:border-rose-300/60 hover:bg-rose-500/15"
-                    title="Delete project"
+                    title={t("projects.deleteProject")}
                   >
-                    <Trash2 className="w-3 h-3" /> {deletingProjectId === project.id ? "Deleting..." : "Delete"}
+                    <Trash2 className="w-3 h-3" /> {deletingProjectId === project.id ? t("projects.deleting") : t("common.delete")}
                   </button>
                 </div>
               </div>
@@ -223,7 +225,7 @@ export default function ProjectsPage() {
         onCreated={() => {
           setShowNew(false);
           loadProjects();
-          toast.success("Project created!");
+          toast.success(t("projects.created"));
         }}
       />
 
@@ -250,6 +252,7 @@ function MoveToSpaceDialog({
   onClose: () => void;
   onMove: (spaceId: string | null) => void;
 }) {
+  const { t } = useLanguage();
   const [target, setTarget] = useState<string>(project.space_id ?? "");
   return (
     <div
@@ -260,15 +263,15 @@ function MoveToSpaceDialog({
         className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-foreground">Move project</h3>
+        <h3 className="text-base font-semibold text-foreground">{t("projects.moveProject")}</h3>
         <p className="text-xs text-muted-foreground mt-0.5 mb-4 truncate">{project.name}</p>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Space</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">{t("projects.space")}</label>
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
-          <option value="">— Unassigned —</option>
+          <option value="">{t("common.unassigned")}</option>
           {spaces.map((sp) => (
             <option key={sp.id} value={sp.id}>
               {sp.icon || "🗂️"} {sp.name}
@@ -280,13 +283,13 @@ function MoveToSpaceDialog({
             onClick={onClose}
             className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={() => onMove(target || null)}
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg"
           >
-            Move
+            {t("projects.move")}
           </button>
         </div>
       </div>

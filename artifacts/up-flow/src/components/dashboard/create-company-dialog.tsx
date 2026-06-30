@@ -21,6 +21,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
 
@@ -41,27 +42,58 @@ type WorkspaceResponse = {
   current_workspace_id?: string | null;
 };
 
-const INDUSTRY_OPTIONS = ["SaaS", "E-commerce", "Local business", "Health", "Education", "Finance", "Real estate", "Other"];
-const SERVICE_TYPE_OPTIONS = ["Paid media", "Social media", "Creative production", "SEO", "Web design", "Consulting", "Full service", "Other"];
-const PLAN_OPTIONS = ["Starter", "Growth", "Scale", "Enterprise", "Project", "Retainer", "Other"];
-const BILLING_OPTIONS = [
-  { value: "", label: "Not set" },
-  { value: "monthly", label: "Monthly" },
-  { value: "quarterly", label: "Quarterly" },
-  { value: "annual", label: "Annual" },
-  { value: "project", label: "Per project" },
+type SelectOption = {
+  value: string;
+  labelKey: string;
+};
+
+const INDUSTRY_OPTIONS: SelectOption[] = [
+  { value: "SaaS", labelKey: "companyDialog.industry.saas" },
+  { value: "E-commerce", labelKey: "companyDialog.industry.ecommerce" },
+  { value: "Local business", labelKey: "companyDialog.industry.localBusiness" },
+  { value: "Health", labelKey: "companyDialog.industry.health" },
+  { value: "Education", labelKey: "companyDialog.industry.education" },
+  { value: "Finance", labelKey: "companyDialog.industry.finance" },
+  { value: "Real estate", labelKey: "companyDialog.industry.realEstate" },
+  { value: "Other", labelKey: "companyDialog.option.other" },
 ];
-const SERVICE_OPTIONS = [
-  "Meta Ads",
-  "Google Ads",
-  "Creative approvals",
-  "Monthly report",
-  "Social Media",
-  "Content calendar",
-  "Video production",
-  "Landing page",
-  "SEO",
-  "Email marketing",
+const SERVICE_TYPE_OPTIONS: SelectOption[] = [
+  { value: "Paid media", labelKey: "companyDialog.serviceType.paidMedia" },
+  { value: "Social media", labelKey: "companyDialog.serviceType.socialMedia" },
+  { value: "Creative production", labelKey: "companyDialog.serviceType.creativeProduction" },
+  { value: "SEO", labelKey: "companyDialog.serviceType.seo" },
+  { value: "Web design", labelKey: "companyDialog.serviceType.webDesign" },
+  { value: "Consulting", labelKey: "companyDialog.serviceType.consulting" },
+  { value: "Full service", labelKey: "companyDialog.serviceType.fullService" },
+  { value: "Other", labelKey: "companyDialog.option.other" },
+];
+const PLAN_OPTIONS: SelectOption[] = [
+  { value: "Starter", labelKey: "companyDialog.plan.starter" },
+  { value: "Growth", labelKey: "companyDialog.plan.growth" },
+  { value: "Scale", labelKey: "companyDialog.plan.scale" },
+  { value: "Enterprise", labelKey: "companyDialog.plan.enterprise" },
+  { value: "Project", labelKey: "companyDialog.plan.project" },
+  { value: "Retainer", labelKey: "companyDialog.plan.retainer" },
+  { value: "Other", labelKey: "companyDialog.option.other" },
+];
+const BILLING_OPTIONS = [
+  { value: "", labelKey: "companyDialog.notSet" },
+  { value: "monthly", labelKey: "companyDialog.billing.monthly" },
+  { value: "quarterly", labelKey: "companyDialog.billing.quarterly" },
+  { value: "annual", labelKey: "companyDialog.billing.annual" },
+  { value: "project", labelKey: "companyDialog.billing.perProject" },
+];
+const SERVICE_OPTIONS: SelectOption[] = [
+  { value: "Meta Ads", labelKey: "companyDialog.service.metaAds" },
+  { value: "Google Ads", labelKey: "companyDialog.service.googleAds" },
+  { value: "Creative approvals", labelKey: "companyDialog.service.creativeApprovals" },
+  { value: "Monthly report", labelKey: "companyDialog.service.monthlyReport" },
+  { value: "Social Media", labelKey: "companyDialog.service.socialMedia" },
+  { value: "Content calendar", labelKey: "companyDialog.service.contentCalendar" },
+  { value: "Video production", labelKey: "companyDialog.service.videoProduction" },
+  { value: "Landing page", labelKey: "companyDialog.service.landingPage" },
+  { value: "SEO", labelKey: "companyDialog.service.seo" },
+  { value: "Email marketing", labelKey: "companyDialog.service.emailMarketing" },
 ];
 
 async function readApiError(res: Response, fallback: string) {
@@ -77,10 +109,19 @@ function SelectIcon({ className }: { className?: string }) {
   return <ChevronDown className={cn("pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-100/60", className)} />;
 }
 
-function getSelectValue(value: string, options: string[], custom: boolean) {
+function getSelectValue(value: string, options: SelectOption[], custom: boolean) {
   if (custom) return "Other";
   if (!value) return "";
-  return options.includes(value) ? value : "Other";
+  return options.some((option) => option.value === value) ? value : "Other";
+}
+
+function optionLabel(
+  value: string,
+  options: SelectOption[],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  const option = options.find((item) => item.value === value);
+  return option ? t(option.labelKey) : value;
 }
 
 export default function CreateCompanyDialog({
@@ -92,6 +133,7 @@ export default function CreateCompanyDialog({
   onClose: () => void;
   onCreated?: (c: Company) => void;
 }) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState("");
@@ -147,7 +189,7 @@ export default function CreateCompanyDialog({
         }
       })
       .catch(() => {
-        if (!cancelled) toast.error("Could not load team options");
+        if (!cancelled) toast.error(t("companyDialog.loadOptionsError"));
       })
       .finally(() => {
         if (!cancelled) setLoadingOptions(false);
@@ -156,7 +198,7 @@ export default function CreateCompanyDialog({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, t]);
 
   const selectedDepartmentName = useMemo(
     () => departments.find((department) => department.id === departmentId)?.name ?? "",
@@ -213,7 +255,7 @@ export default function CreateCompanyDialog({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error("Company name is required");
+      toast.error(t("companyDialog.nameRequired"));
       return;
     }
     setSubmitting(true);
@@ -244,9 +286,9 @@ export default function CreateCompanyDialog({
           responsible_department_name: selectedDepartmentName || null,
         }),
       });
-      if (!res.ok) throw new Error(await readApiError(res, "Failed to create company"));
+      if (!res.ok) throw new Error(await readApiError(res, t("companyDialog.createFailed")));
       const company = (await res.json()) as Company;
-      toast.success(`Created ${company.name}`);
+      toast.success(t("companyDialog.created", { name: company.name }));
       onCreated?.(company);
       reset();
       onClose();
@@ -254,7 +296,7 @@ export default function CreateCompanyDialog({
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not create company");
+      toast.error(err instanceof Error ? err.message : t("companyDialog.createError"));
     } finally {
       setSubmitting(false);
     }
@@ -281,9 +323,9 @@ export default function CreateCompanyDialog({
               <Building2 className="h-9 w-9" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-3xl font-bold tracking-tight text-white">Create company</h2>
+              <h2 className="text-3xl font-bold tracking-tight text-white">{t("companyDialog.title")}</h2>
               <p className="mt-2 text-base text-blue-100/62">
-                Add a new client organization to manage campaigns, ownership, contacts, and billing.
+                {t("companyDialog.subtitle")}
               </p>
             </div>
           </div>
@@ -291,39 +333,39 @@ export default function CreateCompanyDialog({
             type="button"
             onClick={onClose}
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-blue-100/70 transition hover:bg-white/10 hover:text-white"
-            aria-label="Close create company dialog"
+            aria-label={t("companyDialog.close")}
           >
             <X className="h-7 w-7" />
           </button>
         </div>
 
         <div className="space-y-6">
-          <Field label="Name" required>
+          <Field label={t("companyDialog.name")} required>
             <div className="relative">
               <FieldIcon icon={<Building2 className="h-5 w-5" />} />
               <input
                 autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Acme Corp"
+                placeholder={t("companyDialog.namePlaceholder")}
                 className={fieldClass}
               />
             </div>
           </Field>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Field label="Domain">
+            <Field label={t("companyDialog.domain")}>
               <div className="relative">
                 <FieldIcon icon={<Globe2 className="h-5 w-5" />} />
                 <input
                   value={domain}
                   onChange={(e) => setDomain(e.target.value)}
-                  placeholder="acme.com"
+                  placeholder={t("companyDialog.domainPlaceholder")}
                   className={fieldClass}
                 />
               </div>
             </Field>
-            <Field label="Industry">
+            <Field label={t("companyDialog.industry")}>
               <div className="relative">
                 <FieldIcon icon={<BriefcaseBusiness className="h-5 w-5" />} />
                 <select
@@ -335,9 +377,9 @@ export default function CreateCompanyDialog({
                   }}
                   className={cn(fieldClass, "appearance-none")}
                 >
-                  <option value="">Not set</option>
+                  <option value="">{t("companyDialog.notSet")}</option>
                   {INDUSTRY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                   ))}
                 </select>
                 <SelectIcon />
@@ -346,7 +388,7 @@ export default function CreateCompanyDialog({
                 <input
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
-                  placeholder="Custom industry"
+                  placeholder={t("companyDialog.customIndustryPlaceholder")}
                   className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#12192a]/86 px-4 text-sm text-foreground outline-none focus:border-blue-400"
                 />
               )}
@@ -354,7 +396,7 @@ export default function CreateCompanyDialog({
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Field label="Service type">
+            <Field label={t("companyDialog.serviceType")}>
               <div className="relative">
                 <FieldIcon icon={<Megaphone className="h-5 w-5" />} />
                 <select
@@ -366,9 +408,9 @@ export default function CreateCompanyDialog({
                   }}
                   className={cn(fieldClass, "appearance-none")}
                 >
-                  <option value="">Not set</option>
+                  <option value="">{t("companyDialog.notSet")}</option>
                   {SERVICE_TYPE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                   ))}
                 </select>
                 <SelectIcon />
@@ -377,12 +419,12 @@ export default function CreateCompanyDialog({
                 <input
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value)}
-                  placeholder="Custom service type"
+                  placeholder={t("companyDialog.customServiceTypePlaceholder")}
                   className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#12192a]/86 px-4 text-sm text-foreground outline-none focus:border-blue-400"
                 />
               )}
             </Field>
-            <Field label="Plan">
+            <Field label={t("companyDialog.plan")}>
               <div className="relative">
                 <FieldIcon icon={<TrendingUp className="h-5 w-5" />} />
                 <select
@@ -394,9 +436,9 @@ export default function CreateCompanyDialog({
                   }}
                   className={cn(fieldClass, "appearance-none")}
                 >
-                  <option value="">Not set</option>
+                  <option value="">{t("companyDialog.notSet")}</option>
                   {PLAN_OPTIONS.map((option) => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                   ))}
                 </select>
                 <SelectIcon />
@@ -405,14 +447,14 @@ export default function CreateCompanyDialog({
                 <input
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
-                  placeholder="Custom plan"
+                  placeholder={t("companyDialog.customPlanPlaceholder")}
                   className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#12192a]/86 px-4 text-sm text-foreground outline-none focus:border-blue-400"
                 />
               )}
             </Field>
           </div>
 
-          <Field label="Billing cycle">
+          <Field label={t("companyDialog.billingCycle")}>
             <div className="relative">
               <FieldIcon icon={<RefreshCcw className="h-5 w-5" />} />
               <select
@@ -421,7 +463,7 @@ export default function CreateCompanyDialog({
                 className={cn(fieldClass, "appearance-none")}
               >
                 {BILLING_OPTIONS.map((option) => (
-                  <option key={option.value || "not-set"} value={option.value}>{option.label}</option>
+                  <option key={option.value || "not-set"} value={option.value}>{t(option.labelKey)}</option>
                 ))}
               </select>
               <SelectIcon />
@@ -429,7 +471,7 @@ export default function CreateCompanyDialog({
           </Field>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Field label="Responsible department">
+            <Field label={t("companyDialog.responsibleDepartment")}>
               <div className="relative">
                 <FieldIcon icon={<Users className="h-5 w-5" />} />
                 <select
@@ -438,7 +480,7 @@ export default function CreateCompanyDialog({
                   className={cn(fieldClass, "appearance-none")}
                   disabled={loadingOptions}
                 >
-                  <option value="">Not assigned</option>
+                  <option value="">{t("companyDialog.notAssigned")}</option>
                   {departments.map((department) => (
                     <option key={department.id} value={department.id}>{department.name}</option>
                   ))}
@@ -446,7 +488,7 @@ export default function CreateCompanyDialog({
                 <SelectIcon />
               </div>
             </Field>
-            <Field label="Assignee / owner">
+            <Field label={t("companyDialog.assigneeOwner")}>
               <div className="relative">
                 <FieldIcon icon={<UserRound className="h-5 w-5" />} />
                 <select
@@ -455,7 +497,7 @@ export default function CreateCompanyDialog({
                   className={cn(fieldClass, "appearance-none")}
                   disabled={loadingOptions}
                 >
-                  <option value="">Current admin</option>
+                  <option value="">{t("companyDialog.currentAdmin")}</option>
                   {filteredAssignees.map((member) => (
                     <option key={member.id} value={member.id}>{member.name || member.email}</option>
                   ))}
@@ -466,55 +508,55 @@ export default function CreateCompanyDialog({
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
-            <Field label="Client contact">
+            <Field label={t("companyDialog.clientContact")}>
               <div className="relative">
                 <FieldIcon icon={<UserRound className="h-5 w-5" />} />
                 <input
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
-                  placeholder="Contact name"
+                  placeholder={t("companyDialog.contactNamePlaceholder")}
                   className={fieldClass}
                 />
               </div>
             </Field>
-            <Field label="Email">
+            <Field label={t("companyDialog.email")}>
               <div className="relative">
                 <FieldIcon icon={<Mail className="h-5 w-5" />} />
                 <input
                   type="email"
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
-                  placeholder="client@acme.com"
+                  placeholder={t("companyDialog.emailPlaceholder")}
                   className={fieldClass}
                 />
               </div>
             </Field>
-            <Field label="Phone">
+            <Field label={t("companyDialog.phone")}>
               <div className="relative">
                 <FieldIcon icon={<Phone className="h-5 w-5" />} />
                 <input
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
-                  placeholder="+55 11 99999-9999"
+                  placeholder={t("companyDialog.phonePlaceholder")}
                   className={fieldClass}
                 />
               </div>
             </Field>
           </div>
 
-          <Field label="Contact role">
+          <Field label={t("companyDialog.contactRole")}>
             <div className="relative">
               <FieldIcon icon={<BriefcaseBusiness className="h-5 w-5" />} />
               <input
                 value={contactRole}
                 onChange={(e) => setContactRole(e.target.value)}
-                placeholder="Marketing manager, decision maker, finance contact..."
+                placeholder={t("companyDialog.contactRolePlaceholder")}
                 className={fieldClass}
               />
             </div>
           </Field>
 
-          <Field label="Included services">
+          <Field label={t("companyDialog.includedServices")}>
             <div className="rounded-2xl border border-blue-200/16 bg-[#12192a]/86 p-4">
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="relative">
@@ -527,11 +569,11 @@ export default function CreateCompanyDialog({
                     }}
                     className={cn(fieldClass, "h-14 appearance-none")}
                   >
-                    <option value="">Add service from dropdown</option>
-                    {SERVICE_OPTIONS.filter((option) => !includedServices.includes(option)).map((option) => (
-                      <option key={option} value={option}>{option}</option>
+                    <option value="">{t("companyDialog.addServicePlaceholder")}</option>
+                    {SERVICE_OPTIONS.filter((option) => !includedServices.includes(option.value)).map((option) => (
+                      <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                     ))}
-                    <option value="custom">Custom service...</option>
+                    <option value="custom">{t("companyDialog.customServiceOption")}</option>
                   </select>
                   <SelectIcon />
                 </div>
@@ -542,7 +584,7 @@ export default function CreateCompanyDialog({
                   className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-blue-400/35 bg-blue-500/12 px-5 text-sm font-semibold text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Plus className="h-4 w-4" />
-                  Add
+                  {t("common.add")}
                 </button>
               </div>
               {servicePick === "custom" && (
@@ -555,7 +597,7 @@ export default function CreateCompanyDialog({
                       addService(customService);
                     }
                   }}
-                  placeholder="Type a service and press Add"
+                  placeholder={t("companyDialog.customServicePlaceholder")}
                   className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#0d1424] px-4 text-sm text-foreground outline-none focus:border-blue-400"
                 />
               )}
@@ -565,11 +607,11 @@ export default function CreateCompanyDialog({
                     key={service}
                     className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-500/12 px-3 py-1.5 text-sm text-blue-100"
                   >
-                    {service}
+                    {optionLabel(service, SERVICE_OPTIONS, t)}
                     <button
                       type="button"
                       onClick={() => removeService(service)}
-                      aria-label={`Remove ${service}`}
+                      aria-label={t("companyDialog.removeService", { service: optionLabel(service, SERVICE_OPTIONS, t) })}
                       className="rounded-full text-blue-100/60 hover:text-white"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -577,19 +619,19 @@ export default function CreateCompanyDialog({
                   </span>
                 ))}
                 {includedServices.length === 0 && (
-                  <span className="text-sm text-blue-100/45">No services selected yet.</span>
+                  <span className="text-sm text-blue-100/45">{t("companyDialog.noServices")}</span>
                 )}
               </div>
             </div>
           </Field>
 
-          <Field label="Notes">
+          <Field label={t("companyDialog.notes")}>
             <div className="relative">
               <FieldIcon className="top-5 translate-y-0" icon={<NotebookText className="h-5 w-5" />} />
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Optional context, goals, access notes, billing details, or client preferences..."
+                placeholder={t("companyDialog.notesPlaceholder")}
                 className={textareaClass}
               />
             </div>
@@ -603,7 +645,7 @@ export default function CreateCompanyDialog({
             disabled={submitting}
             className="h-16 rounded-2xl border border-white/18 bg-white/[0.02] text-base font-semibold text-foreground transition hover:bg-white/[0.07] disabled:opacity-40"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
@@ -611,13 +653,13 @@ export default function CreateCompanyDialog({
             className="inline-flex h-16 items-center justify-center gap-3 rounded-2xl border border-blue-300/40 bg-primary text-base font-bold text-primary-foreground shadow-[0_0_34px_rgba(59,130,246,0.38),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Sparkles className="h-5 w-5" />
-            {submitting ? "Creating..." : "Create"}
+            {submitting ? t("common.creating") : t("common.create")}
           </button>
         </div>
 
         {!workspaceId && (
           <p className="mt-4 text-center text-xs text-blue-100/45">
-            Team and department options appear after an active workspace is available.
+            {t("companyDialog.teamOptionsUnavailable")}
           </p>
         )}
       </form>

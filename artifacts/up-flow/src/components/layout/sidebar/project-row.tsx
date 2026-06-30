@@ -54,18 +54,18 @@ export function ProjectRow({
 
   const handleDelete = async () => {
     setOpen(false);
-    if (!confirm(`Delete project "${project.name}"? This cannot be undone.`)) return;
+    if (!confirm(t("projects.deleteConfirm", { name: project.name }))) return;
     try {
       const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Could not delete project");
+        throw new Error(body?.error ?? t("projects.couldNotDelete"));
       }
-      toast.success("Project deleted");
+      toast.success(t("projects.deleted"));
       onDeleted();
     } catch (err) {
       logError("sidebar:project-row:delete", err, { id: project.id });
-      toast.error(err instanceof Error ? err.message : "Could not delete project");
+      toast.error(err instanceof Error ? err.message : t("projects.couldNotDelete"));
     }
   };
 
@@ -101,7 +101,7 @@ export function ProjectRow({
       <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
         <button
           onClick={() => setOpen((v) => !v)}
-          aria-label={`Actions for ${project.name}`}
+          aria-label={t("projects.actionsFor", { name: project.name })}
           aria-expanded={open}
           data-menu-trigger
           className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
@@ -121,7 +121,7 @@ export function ProjectRow({
               }}
               className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
             >
-              <Folder className="w-3 h-3" /> Move to space...
+              <Folder className="w-3 h-3" /> {t("projects.moveToSpace")}
             </button>
             <button
               role="menuitem"

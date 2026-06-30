@@ -58,21 +58,21 @@ export default function ClientsPage() {
   }, [loadCompanies]);
 
   const deleteCompany = async (company: Company) => {
-    if (!window.confirm(`Delete client "${company.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(t("clients.deleteConfirm", { name: company.name }))) return;
 
     try {
       const res = await fetch(`/api/companies/${company.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Could not delete client");
+        throw new Error(body?.error ?? t("clients.couldNotDelete"));
       }
-      toast.success("Client deleted");
+      toast.success(t("clients.deleted"));
       await loadCompanies();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not delete client");
+      toast.error(err instanceof Error ? err.message : t("clients.couldNotDelete"));
     }
   };
 
@@ -93,7 +93,7 @@ export default function ClientsPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:bg-blue-500/15"
             >
               <HeartPulse className="h-4 w-4" />
-              Health center
+              {t("clients.healthCenter")}
             </Link>
             <button
               type="button"
@@ -199,7 +199,7 @@ export default function ClientsPage() {
                       </p>
                       <p className="mt-0.5 truncate text-xs text-blue-100/55">
                         {company.service_type || t("clients.serviceTypeNotSet")}
-                        {company.billing_cycle ? ` - ${formatBillingCycle(company.billing_cycle)}` : ""}
+                        {company.billing_cycle ? ` - ${formatBillingCycle(company.billing_cycle, t)}` : ""}
                       </p>
                     </div>
                   </div>
@@ -309,10 +309,10 @@ export default function ClientsPage() {
                     deleteCompany(company);
                   }}
                   className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 opacity-85 transition hover:border-rose-300/60 hover:bg-rose-500/15 hover:opacity-100"
-                  title="Delete client"
+                  title={t("clients.deleteClient")}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                  Delete
+                  {t("common.delete")}
                 </button>
               </div>
             ))}
@@ -394,8 +394,17 @@ function AssignedMember({ name }: { name: string }) {
   );
 }
 
-function formatBillingCycle(value: string) {
-  return value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
+function formatBillingCycle(
+  value: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  const labels: Record<string, string> = {
+    monthly: t("companyDialog.billing.monthly"),
+    quarterly: t("companyDialog.billing.quarterly"),
+    annual: t("companyDialog.billing.annual"),
+    project: t("companyDialog.billing.perProject"),
+  };
+  return labels[value] ?? value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
 function money(value: number | null | undefined, language: string, t: (key: string, vars?: Record<string, string | number>) => string) {

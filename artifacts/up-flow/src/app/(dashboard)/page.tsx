@@ -1458,11 +1458,11 @@ function CommandCenterDrawer({
 
           {kind === "quick_create" && (
             <div className="grid gap-2">
-              <button type="button" onClick={onCreateTask} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Create task</button>
-              <button type="button" onClick={onCreateMeeting} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Schedule meeting</button>
-              <button type="button" onClick={onCreateCompany} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Create company</button>
-              <button type="button" onClick={onCreateProject} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">Create project</button>
-              <Link href="/docs" className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-foreground hover:bg-white/[0.06]">Create note</Link>
+              <button type="button" onClick={onCreateTask} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">{t("task.createTask")}</button>
+              <button type="button" onClick={onCreateMeeting} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">{t("calendar.scheduleMeeting")}</button>
+              <button type="button" onClick={onCreateCompany} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">{t("companyDialog.title")}</button>
+              <button type="button" onClick={onCreateProject} className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-left text-sm text-foreground hover:bg-white/[0.06]">{t("projects.createProject")}</button>
+              <Link href="/docs" className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 text-sm text-foreground hover:bg-white/[0.06]">{t("dashboard.createNote")}</Link>
             </div>
           )}
         </div>

@@ -70,6 +70,9 @@ test("core rollout surfaces are wired to the language provider", () => {
   const dashboard = read("src/app/(dashboard)/page.tsx");
   const calendar = read("src/app/(dashboard)/calendar/page.tsx");
   const clients = read("src/app/(dashboard)/clients/page.tsx");
+  const createCompanyDialog = read("src/components/dashboard/create-company-dialog.tsx");
+  const projects = read("src/app/(dashboard)/projects/page.tsx");
+  const customFields = read("src/components/projects/custom-fields-manager.tsx");
   const team = read("src/app/(dashboard)/team/page.tsx");
   const time = read("src/app/(dashboard)/time/page.tsx");
   const inviteDialog = read("src/components/dashboard/invite-dialog.tsx");
@@ -80,6 +83,12 @@ test("core rollout surfaces are wired to the language provider", () => {
 
   assert.match(translations, /"calendar\.manage": "Gerenciar"/);
   assert.match(translations, /"clients\.assignedTeam": "Equipe atribuída"/);
+  assert.match(translations, /"clients\.healthCenter": "Central de saúde"/);
+  assert.match(translations, /"companyDialog\.title": "Criar empresa"/);
+  assert.match(translations, /"companyDialog\.responsibleDepartment": "Departamento responsável"/);
+  assert.match(translations, /"companyDialog\.serviceType\.paidMedia": "Mídia paga"/);
+  assert.match(translations, /"projects\.deleteProject": "Excluir projeto"/);
+  assert.match(translations, /"customFields\.existingFields": "Campos existentes"/);
   assert.match(translations, /"team\.membersTitle": "Membros da equipe"/);
   assert.match(translations, /"time\.weeklyHours": "Horas da semana"/);
   assert.match(translations, /"invite\.mode": "Modo do convite"/);
@@ -93,6 +102,19 @@ test("core rollout surfaces are wired to the language provider", () => {
   assert.match(calendar, /Intl\.DateTimeFormat\(language/);
   assert.match(clients, /t\("clients\.planNotSet"\)/);
   assert.match(clients, /t\("clients\.assignedTeam"\)/);
+  assert.match(clients, /t\("clients\.healthCenter"\)/);
+  assert.match(clients, /t\("clients\.deleteConfirm"/);
+  assert.match(createCompanyDialog, /useLanguage/);
+  assert.match(createCompanyDialog, /t\("companyDialog\.title"\)/);
+  assert.match(createCompanyDialog, /t\("companyDialog\.responsibleDepartment"\)/);
+  assert.match(createCompanyDialog, /t\(option\.labelKey\)/);
+  assert.match(createCompanyDialog, /optionLabel\(service, SERVICE_OPTIONS, t\)/);
+  assert.match(projects, /t\("projects\.allProjects"\)/);
+  assert.match(projects, /t\("projects\.deleteConfirm"/);
+  assert.match(projects, /t\("projects\.moveToSpace"\)/);
+  assert.match(customFields, /useLanguage/);
+  assert.match(customFields, /t\("customFields\.existingFields"\)/);
+  assert.match(customFields, /t\(item\.labelKey\)/);
   assert.match(team, /t\("team\.membersTitle"\)/);
   assert.match(team, /t\("team\.searchMembers"\)/);
   assert.match(time, /t\("time\.title"\)/);
