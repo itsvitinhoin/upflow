@@ -172,6 +172,28 @@ async function PATCH_handler(
 
     if (parsed.data.service_assignment) {
       if (!access.admin) return null;
+      if (parsed.data.service_assignment.leader_id) {
+        const member = await tx.workspaceMember.findFirst({
+          where: {
+            workspace_id: access.onboarding.workspace_id,
+            user_id: parsed.data.service_assignment.leader_id,
+            status: "active",
+            role: { not: "guest" },
+          },
+          select: { id: true },
+        });
+        if (!member) throw new Error("Selected leader is not an active workspace member.");
+      }
+      if (parsed.data.service_assignment.department_id) {
+        const department = await tx.department.findFirst({
+          where: {
+            id: parsed.data.service_assignment.department_id,
+            workspace_id: access.onboarding.workspace_id,
+          },
+          select: { id: true },
+        });
+        if (!department) throw new Error("Selected department does not belong to this workspace.");
+      }
       await tx.onboardingServiceAssignment.update({
         where: {
           onboarding_id_service: {
@@ -186,7 +208,7 @@ async function PATCH_handler(
           status: parsed.data.service_assignment.leader_id ? "assigned" : "unassigned",
         },
       });
-      await tx.onboardingMeeting.update({
+      const meeting = await tx.onboardingMeeting.update({
         where: {
           onboarding_id_service: {
             onboarding_id: params.id,
@@ -194,6 +216,22 @@ async function PATCH_handler(
           },
         },
         data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
+      });
+      if (meeting.checklist_item_id) {
+        await tx.onboardingChecklistItem.update({
+          where: { id: meeting.checklist_item_id },
+          data: { owner_id: parsed.data.service_assignment.leader_id ?? null },
+        });
+      }
+      const missingLeader = await tx.onboardingServiceAssignment.findFirst({
+        where: { onboarding_id: params.id, leader_id: null },
+        select: { id: true },
+      });
+      await tx.onboardingChecklistItem.updateMany({
+        where: { onboarding_id: params.id, department: "Internal Assignment" },
+        data: missingLeader
+          ? { status: "pending", completed_at: null, completed_by: null }
+          : { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
       });
     }
 

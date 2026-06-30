@@ -18,7 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
-import type { ClientOnboarding, Company, OnboardingChecklistItem, OnboardingMeeting } from "@/lib/types";
+import type { ClientOnboarding, Company, Department, OnboardingChecklistItem, OnboardingMeeting, OnboardingServiceAssignment, TeamMember } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
 type Props = {
@@ -29,6 +29,12 @@ type Props = {
 };
 
 type OnboardingResponse = { items?: ClientOnboarding[] };
+type TeamOverviewResponse = {
+  current_role?: "owner" | "admin" | "member" | "guest" | null;
+  is_super_admin?: boolean;
+  members?: TeamMember[];
+  departments?: Department[];
+};
 
 function statusLabel(status: string, t: (key: string) => string) {
   const key = `onboardingWorkflow.status.${status}`;
@@ -56,6 +62,11 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
+  const [teamOptions, setTeamOptions] = useState<{
+    members: TeamMember[];
+    departments: Department[];
+    isAdmin: boolean;
+  }>({ members: [], departments: [], isAdmin: false });
   const [finance, setFinance] = useState({
     legal_name: company?.legal_name ?? "",
     cnpj: company?.cnpj ?? "",
@@ -71,6 +82,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   });
   const [support, setSupport] = useState({ group_link: "", notes: "" });
   const [meetings, setMeetings] = useState<Record<string, { scheduled_at: string; meeting_url: string; notes: string }>>({});
+  const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
 
   const load = async () => {
     if (!companyId && !projectId) return;
@@ -102,6 +114,18 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
           ),
         );
       }
+      setAssignmentDrafts(
+        Object.fromEntries(
+          (first?.service_assignments ?? []).map((assignment) => [
+            assignment.service,
+            {
+              leader_id: assignment.leader_id ?? "",
+              department_id: assignment.department_id ?? "",
+              notes: assignment.notes ?? "",
+            },
+          ]),
+        ),
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.loadFailed"));
     } finally {
@@ -113,6 +137,30 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, projectId]);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadTeamOptions = async () => {
+      try {
+        const res = await fetch("/api/team/overview");
+        if (!res.ok) return;
+        const data = (await res.json()) as TeamOverviewResponse;
+        if (ignore) return;
+        const currentRole = data.current_role ?? null;
+        setTeamOptions({
+          members: (data.members ?? []).filter((member) => member.workspace_status === "active" && member.workspace_role !== "guest"),
+          departments: data.departments ?? [],
+          isAdmin: Boolean(data.is_super_admin || currentRole === "owner" || currentRole === "admin"),
+        });
+      } catch {
+        if (!ignore) setTeamOptions({ members: [], departments: [], isAdmin: false });
+      }
+    };
+    void loadTeamOptions();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     setFinance({
@@ -277,6 +325,36 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     }
   };
 
+  const saveServiceAssignment = async (assignment: OnboardingServiceAssignment) => {
+    if (!onboarding || !teamOptions.isAdmin) return;
+    const draft = assignmentDrafts[assignment.service] ?? { leader_id: "", department_id: "", notes: "" };
+    setSaving(`assignment:${assignment.id}`);
+    try {
+      const res = await fetch(`/api/onboarding/${onboarding.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service_assignment: {
+            service: assignment.service,
+            leader_id: draft.leader_id || null,
+            department_id: draft.department_id || null,
+            notes: draft.notes || null,
+          },
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || t("onboardingWorkflow.assignmentFailed"));
+      }
+      toast.success(t("onboardingWorkflow.assignmentSaved"));
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.assignmentFailed"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const uploadContract = async (file: File | undefined) => {
     if (!onboarding || !file) return;
     setSaving("contract");
@@ -416,6 +494,76 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                   </div>
                 </div>
               ))}
+            </div>
+          </Panel>
+
+          <Panel title={t("onboardingWorkflow.serviceAssignments")} icon={<Users className="h-4 w-4" />}>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                {teamOptions.isAdmin ? t("onboardingWorkflow.assignmentsHint") : t("onboardingWorkflow.adminOnlyAssignments")}
+              </p>
+              {(onboarding.service_assignments ?? []).map((assignment) => {
+                const draft = assignmentDrafts[assignment.service] ?? {
+                  leader_id: assignment.leader_id ?? "",
+                  department_id: assignment.department_id ?? "",
+                  notes: assignment.notes ?? "",
+                };
+                return (
+                  <div key={assignment.id} className="rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
+                    <div className="mb-3 min-w-0">
+                      <p className="truncate text-sm font-semibold text-foreground" title={assignment.service}>{assignment.service}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {assignment.leader?.name ?? t("companyDialog.notAssigned")}
+                        {assignment.department?.name || assignment.department_name ? ` - ${assignment.department?.name ?? assignment.department_name}` : ""}
+                      </p>
+                    </div>
+                    <div className="grid min-w-0 gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+                      <select
+                        value={draft.department_id}
+                        disabled={!teamOptions.isAdmin}
+                        title={t("companyDialog.responsibleDepartment")}
+                        onChange={(event) =>
+                          setAssignmentDrafts((current) => ({
+                            ...current,
+                            [assignment.service]: { ...draft, department_id: event.target.value },
+                          }))
+                        }
+                        className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
+                      >
+                        <option value="">{t("onboardingWorkflow.departmentShort")}</option>
+                        {teamOptions.departments.map((department) => (
+                          <option key={department.id} value={department.id}>{department.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={draft.leader_id}
+                        disabled={!teamOptions.isAdmin}
+                        title={t("companyDialog.assigneeOwner")}
+                        onChange={(event) =>
+                          setAssignmentDrafts((current) => ({
+                            ...current,
+                            [assignment.service]: { ...draft, leader_id: event.target.value },
+                          }))
+                        }
+                        className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
+                      >
+                        <option value="">{t("onboardingWorkflow.leaderShort")}</option>
+                        {teamOptions.members.map((member) => (
+                          <option key={member.id} value={member.id}>{member.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => saveServiceAssignment(assignment)}
+                        disabled={!teamOptions.isAdmin || saving === `assignment:${assignment.id}`}
+                        className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
+                      >
+                        {saving === `assignment:${assignment.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        {t("common.save")}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </Panel>
 
