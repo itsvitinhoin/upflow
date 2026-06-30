@@ -2,7 +2,9 @@ import { Prisma } from "@prisma/client";
 import type { AuthUser } from "@/lib/auth-helpers";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
+import { logError } from "@/lib/log-error";
 import { prisma } from "@/lib/prisma";
+import { broadcastNotification } from "@/lib/supabase-server";
 
 export const ONBOARDING_STATUSES = [
   "pending_commercial_setup",
@@ -44,6 +46,15 @@ type OnboardingProject = {
 };
 
 type UserRef = { id: string; name: string; email: string };
+
+export type OnboardingAssignmentNotificationTarget = {
+  userId: string | null | undefined;
+  taskId: string;
+  workspaceId: string;
+  onboardingId: string;
+  actorId: string;
+  label: string;
+};
 
 function uniqueStrings(values: Array<string | null | undefined>) {
   const seen = new Set<string>();
@@ -104,6 +115,45 @@ function serviceKey(service: string) {
   return service.trim().toLowerCase();
 }
 
+export async function sendOnboardingAssignmentNotifications(targets: OnboardingAssignmentNotificationTarget[]) {
+  const uniqueTargets = new Map<string, OnboardingAssignmentNotificationTarget>();
+  for (const target of targets) {
+    if (!target.userId || target.userId === target.actorId) continue;
+    uniqueTargets.set(`${target.userId}:${target.taskId}`, target);
+  }
+
+  for (const target of uniqueTargets.values()) {
+    await prisma.notification
+      .create({
+        data: {
+          type: "assigned",
+          user_id: target.userId!,
+          task_id: target.taskId,
+          workspace_id: target.workspaceId,
+          data: {
+            source: "client_onboarding",
+            onboarding_id: target.onboardingId,
+            label: target.label,
+          },
+        },
+      })
+      .catch((err) =>
+        logError("onboarding:assignment-notify", err, {
+          task_id: target.taskId,
+          user_id: target.userId,
+          onboarding_id: target.onboardingId,
+        }),
+      );
+    await broadcastNotification(target.userId!).catch((err) =>
+      logError("onboarding:assignment-broadcast", err, {
+        task_id: target.taskId,
+        user_id: target.userId,
+        onboarding_id: target.onboardingId,
+      }),
+    );
+  }
+}
+
 async function findDepartmentOwner(db: Db, workspaceId: string, matcher: RegExp): Promise<UserRef | null> {
   const member = await db.workspaceMember.findFirst({
     where: {
@@ -134,6 +184,7 @@ export async function startClientOnboarding(input: {
   responsibleSalespersonId?: string | null;
 }) {
   return prisma.$transaction(async (tx) => {
+    const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
     const project = await tx.project.findUnique({
       where: { id: input.projectId },
       select: {
@@ -165,7 +216,7 @@ export async function startClientOnboarding(input: {
       where: { project_id: project.id },
       include: onboardingInclude(),
     });
-    if (existing) return existing;
+    if (existing) return { onboarding: existing, notificationTargets: [] };
 
     const services = uniqueStrings([
       ...(input.services ?? []),
@@ -269,6 +320,33 @@ export async function startClientOnboarding(input: {
       },
     });
 
+    notificationTargets.push(
+      {
+        userId: financeOwner?.id,
+        taskId: financeTask.id,
+        workspaceId: project.workspace_id,
+        onboardingId: onboarding.id,
+        actorId: input.actorId,
+        label: "Complete finance registration",
+      },
+      {
+        userId: financeOwner?.id,
+        taskId: contractTask.id,
+        workspaceId: project.workspace_id,
+        onboardingId: onboarding.id,
+        actorId: input.actorId,
+        label: "Upload signed contract",
+      },
+      {
+        userId: supportOwner?.id,
+        taskId: supportTask.id,
+        workspaceId: project.workspace_id,
+        onboardingId: onboarding.id,
+        actorId: input.actorId,
+        label: "Create client communication group",
+      },
+    );
+
     await tx.onboardingChecklistItem.createMany({
       data: [
         {
@@ -341,10 +419,23 @@ export async function startClientOnboarding(input: {
     for (const service of contractedServices) {
       const mapping = mappingByService.get(serviceKey(service));
       const leaderId = mapping?.leader_id ?? null;
+      const serviceTask = await tx.task.create({
+        data: {
+          project_id: project.id,
+          company_id: project.company_id,
+          title: `Onboarding: schedule ${service} onboarding meeting`,
+          description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,
+          status: "todo",
+          priority: "medium",
+          assignee_id: leaderId,
+          position,
+        },
+      });
       const item = await tx.onboardingChecklistItem.create({
         data: {
           onboarding_id: onboarding.id,
           workspace_id: project.workspace_id,
+          task_id: serviceTask.id,
           department: "Service Onboarding",
           title: `${service} onboarding meeting scheduled`,
           owner_id: leaderId,
@@ -371,12 +462,21 @@ export async function startClientOnboarding(input: {
           leader_id: leaderId,
         },
       });
+      notificationTargets.push({
+        userId: leaderId,
+        taskId: serviceTask.id,
+        workspaceId: project.workspace_id,
+        onboardingId: onboarding.id,
+        actorId: input.actorId,
+        label: `Schedule ${service} onboarding meeting`,
+      });
       position += 10;
     }
 
     const refreshed = await recomputeOnboardingProgress(tx, onboarding.id);
-    return refreshed;
-  }).then(async (onboarding) => {
+    return { onboarding: refreshed, notificationTargets };
+  }).then(async ({ onboarding, notificationTargets }) => {
+    await sendOnboardingAssignmentNotifications(notificationTargets);
     await recordActivity({
       workspace_id: onboarding.workspace_id,
       actor_id: input.actorId,

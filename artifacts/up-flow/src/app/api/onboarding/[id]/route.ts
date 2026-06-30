@@ -10,6 +10,8 @@ import {
   onboardingInclude,
   recomputeOnboardingProgress,
   redactOnboardingContracts,
+  sendOnboardingAssignmentNotifications,
+  type OnboardingAssignmentNotificationTarget,
 } from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -88,7 +90,8 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid onboarding update", issues: parsed.error.flatten() }, { status: 400 });
   }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
+    const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
     if (parsed.data.finance) {
       if (!access.canUpdateFinance) return null;
       const startDate = optionalDate(parsed.data.finance.contract_start_date);
@@ -218,9 +221,43 @@ async function PATCH_handler(
         data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
       });
       if (meeting.checklist_item_id) {
-        await tx.onboardingChecklistItem.update({
+        const checklistItem = await tx.onboardingChecklistItem.update({
           where: { id: meeting.checklist_item_id },
           data: { owner_id: parsed.data.service_assignment.leader_id ?? null },
+          select: { id: true, task_id: true, sort_order: true },
+        });
+        let taskId = checklistItem.task_id;
+        if (!taskId) {
+          const serviceTask = await tx.task.create({
+            data: {
+              project_id: access.onboarding.project_id,
+              company_id: access.onboarding.company_id,
+              title: `Onboarding: schedule ${parsed.data.service_assignment.service} onboarding meeting`,
+              description: `Schedule the ${parsed.data.service_assignment.service} onboarding meeting and save the date/link in the onboarding workflow.`,
+              status: "todo",
+              priority: "medium",
+              assignee_id: parsed.data.service_assignment.leader_id ?? null,
+              position: checklistItem.sort_order,
+            },
+          });
+          taskId = serviceTask.id;
+          await tx.onboardingChecklistItem.update({
+            where: { id: checklistItem.id },
+            data: { task_id: taskId },
+          });
+        } else {
+          await tx.task.update({
+            where: { id: taskId },
+            data: { assignee_id: parsed.data.service_assignment.leader_id ?? null },
+          });
+        }
+        notificationTargets.push({
+          userId: parsed.data.service_assignment.leader_id,
+          taskId,
+          workspaceId: access.onboarding.workspace_id,
+          onboardingId: params.id,
+          actorId: auth.prismaUser.id,
+          label: `Schedule ${parsed.data.service_assignment.service} onboarding meeting`,
         });
       }
       const missingLeader = await tx.onboardingServiceAssignment.findFirst({
@@ -235,10 +272,13 @@ async function PATCH_handler(
       });
     }
 
-    return recomputeOnboardingProgress(tx, params.id);
+    const onboarding = await recomputeOnboardingProgress(tx, params.id);
+    return { onboarding, notificationTargets };
   });
 
-  if (!updated) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!result) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { onboarding: updated, notificationTargets } = result;
+  await sendOnboardingAssignmentNotifications(notificationTargets);
 
   await recordActivity({
     workspace_id: updated.workspace_id,
