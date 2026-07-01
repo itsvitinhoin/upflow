@@ -254,6 +254,20 @@ async function DELETE_handler(
           ],
         },
       })).count,
+      onboarding_task_links: taskIds.length
+        ? (await tx.onboardingChecklistItem.updateMany({
+            where: { task_id: { in: taskIds } },
+            data: { task_id: null },
+          })).count
+        : 0,
+      client_onboardings: (await tx.clientOnboarding.updateMany({
+        where: { project_id: project.id },
+        data: { project_id: null },
+      })).count,
+      client_contracts: (await tx.clientContract.updateMany({
+        where: { project_id: project.id },
+        data: { project_id: null },
+      })).count,
       task_dependencies: taskIds.length
         ? (await tx.taskDependency.deleteMany({
             where: {
@@ -305,6 +319,10 @@ async function DELETE_handler(
         where: { id: project.id },
       })).count,
     };
+
+    if (deleted.projects !== 1) {
+      throw new Error("Project delete did not remove the project row");
+    }
 
     await tx.activityEvent.create({
       data: {

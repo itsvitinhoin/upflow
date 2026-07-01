@@ -26,7 +26,7 @@ export interface NodeHandlers {
   pathname: string;
   onNavigate?: () => void;
   canManageWorkspace: boolean;
-  loadPanel: () => void;
+  loadPanel: (options?: { force?: boolean; query?: string }) => void;
   setMoveTarget: (p: Project) => void;
   setRenameTarget: (s: Space) => void;
   setCreateFolderTarget: (
@@ -266,7 +266,7 @@ export function SpaceNode({
               href={`/spaces/${sp.id}?tab=browse&list=${p.id}`}
               onMove={() => setMoveTarget(p)}
               onNavigate={onNavigate}
-              onDeleted={loadPanel}
+              onDeleted={() => loadPanel({ force: true })}
               isActive={pathname === `/projects/${p.id}`}
               canManageWorkspace={canManageWorkspace}
             />
@@ -298,7 +298,7 @@ interface FolderNodeProps {
   pathname: string;
   onNavigate?: () => void;
   canManageWorkspace: boolean;
-  loadPanel: () => void;
+  loadPanel: (options?: { force?: boolean; query?: string }) => void;
   setMoveTarget: (p: Project) => void;
   isSearching: boolean;
   setCreateFolderTarget: (
@@ -504,7 +504,7 @@ export function FolderNode({
                 href={`/folders/${f.id}?list=${p.id}`}
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
-                onDeleted={loadPanel}
+                onDeleted={() => loadPanel({ force: true })}
                 isActive={pathname === `/projects/${p.id}`}
                 canManageWorkspace={canManageWorkspace}
               />
@@ -532,7 +532,7 @@ interface UnassignedNodeProps {
   toggleCollapse: (id: string) => void;
   pathname: string;
   onNavigate?: () => void;
-  loadPanel: () => void;
+  loadPanel: (options?: { force?: boolean; query?: string }) => void;
   setMoveTarget: (p: Project) => void;
   isSearching: boolean;
   canManageWorkspace: boolean;
@@ -593,7 +593,7 @@ export function UnassignedNode({
                 project={p}
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
-                onDeleted={loadPanel}
+                onDeleted={() => loadPanel({ force: true })}
                 isActive={pathname === `/projects/${p.id}`}
                 canManageWorkspace={canManageWorkspace}
               />

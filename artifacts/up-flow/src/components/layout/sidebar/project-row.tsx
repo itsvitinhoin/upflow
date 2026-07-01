@@ -61,6 +61,7 @@ export function ProjectRow({
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? t("projects.couldNotDelete"));
       }
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       toast.success(t("projects.deleted"));
       onDeleted();
     } catch (err) {

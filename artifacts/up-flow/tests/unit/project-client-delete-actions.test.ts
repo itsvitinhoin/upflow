@@ -14,6 +14,8 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   const clientsPage = read("src/app/(dashboard)/clients/page.tsx");
   const projectRoute = read("src/app/api/projects/[id]/route.ts");
   const companyRoute = read("src/app/api/companies/[id]/route.ts");
+  const sidebarProjectRow = read("src/components/layout/sidebar/project-row.tsx");
+  const sidebarTree = read("src/components/layout/sidebar/space-tree.tsx");
 
   assert.match(projectsPage, /Trash2/);
   assert.match(projectsPage, /t\("projects\.deleteProject"\)/);
@@ -28,9 +30,15 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectRoute, /calendarEvent\.deleteMany/);
   assert.match(projectRoute, /approvalRequest\.deleteMany/);
   assert.match(projectRoute, /activityEvent\.deleteMany/);
+  assert.match(projectRoute, /onboardingChecklistItem\.updateMany/);
+  assert.match(projectRoute, /clientOnboarding\.updateMany/);
+  assert.match(projectRoute, /clientContract\.updateMany/);
   assert.match(projectRoute, /project\.deleteMany/);
+  assert.match(projectRoute, /deleted\.projects !== 1/);
   assert.match(projectRoute, /workspace_id:\s*project\.workspace_id/);
   assert.match(projectRoute, /deleted:\s*result/);
+  assert.match(sidebarProjectRow, /new CustomEvent\("upflow:sidebar-refresh"\)/);
+  assert.match(sidebarTree, /onDeleted=\{\(\) => loadPanel\(\{ force: true \}\)\}/);
 
   assert.match(clientsPage, /Trash2/);
   assert.match(clientsPage, /t\("clients\.deleteClient"\)/);
