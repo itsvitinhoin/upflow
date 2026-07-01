@@ -7,7 +7,7 @@ import { recordActivity } from "@/lib/activity";
 import {
   financeRegistrationComplete,
   loadOnboardingAccess,
-  onboardingInclude,
+  onboardingSelect,
   recomputeOnboardingProgress,
   redactOnboardingContracts,
   resolveOnboardingTaskProjectId,
@@ -73,7 +73,7 @@ async function GET_handler(
   void req;
   const onboarding = await prisma.clientOnboarding.findUnique({
     where: { id: params.id },
-    include: onboardingInclude(),
+    select: onboardingSelect(),
   });
   if (!onboarding) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const access = await loadOnboardingAccess(auth, onboarding.id);
@@ -321,7 +321,13 @@ async function PATCH_handler(
           completion_overridden_by: auth.prismaUser.id,
           completion_overridden_at: new Date(),
         },
+        select: { id: true },
       });
+      const onboarding = await tx.clientOnboarding.findUniqueOrThrow({
+        where: { id: params.id },
+        select: onboardingSelect(),
+      });
+      return { onboarding, notificationTargets };
     }
 
     const onboarding = await recomputeOnboardingProgress(tx, params.id);

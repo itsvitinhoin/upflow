@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { canAccessWorkspace } from "@/lib/auth-helpers";
-import { onboardingInclude, redactOnboardingContracts, loadOnboardingAccess } from "@/lib/onboarding";
+import { onboardingSelect, redactOnboardingContracts, loadOnboardingAccess } from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 async function GET_handler(req: NextRequest) {
@@ -29,7 +29,7 @@ async function GET_handler(req: NextRequest) {
       { created_at: "desc" },
       { id: "asc" },
     ],
-    include: onboardingInclude(),
+    select: onboardingSelect(),
   });
 
   const items = [];

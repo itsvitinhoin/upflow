@@ -29,9 +29,18 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(route, /expected_start_date/);
   assert.match(updateRoute, /completion_override/);
   assert.match(updateRoute, /completion_override_reason/);
+  assert.match(updateRoute, /completion_override[\s\S]*findUniqueOrThrow[\s\S]*select: onboardingSelect\(\)[\s\S]*return \{ onboarding, notificationTargets \}/);
   assert.match(route, /withErrorReporting\("api:onboarding\/client-wizard:POST"/);
   assert.match(dialog, /\/api\/onboarding\/client-wizard/);
   assert.match(dialog, /companyDialog\.createAndStart/);
+
+  assert.match(helper, /const ONBOARDING_SAFE_SCALAR_SELECT = \{/);
+  assert.match(helper, /export function onboardingSelect\(\)/);
+  assert.match(helper, /select: onboardingSelect\(\)/);
+  assert.doesNotMatch(helper, /onboardingInclude/);
+  assert.doesNotMatch(helper, /completion_override_reason/);
+  assert.doesNotMatch(route, /include: onboardingInclude/);
+  assert.doesNotMatch(updateRoute, /include: onboardingInclude/);
 
   assert.match(helper, /projectName: "Contracts & Handoffs"/);
   assert.match(helper, /projectName: "Client Onboarding"/);

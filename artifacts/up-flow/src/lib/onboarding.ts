@@ -134,6 +134,24 @@ export type OnboardingAssignmentNotificationTarget = {
   companyId?: string | null;
 };
 
+const ONBOARDING_SAFE_SCALAR_SELECT = {
+  id: true,
+  workspace_id: true,
+  company_id: true,
+  project_id: true,
+  status: true,
+  progress: true,
+  closing_date: true,
+  expected_start_date: true,
+  responsible_salesperson_id: true,
+  initial_notes: true,
+  contracted_services: true,
+  completed_at: true,
+  created_by: true,
+  created_at: true,
+  updated_at: true,
+} as const satisfies Prisma.ClientOnboardingSelect;
+
 const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
   commercial: ["commercial", "comercial"],
   finance: ["finance", "financial", "financeiro"],
@@ -540,7 +558,7 @@ async function createOnboardingRecords(
   const existing = sourceProject
     ? await tx.clientOnboarding.findUnique({
         where: { project_id: sourceProject.id },
-        include: onboardingInclude(),
+        select: onboardingSelect(),
       })
     : await tx.clientOnboarding.findFirst({
         where: {
@@ -549,7 +567,7 @@ async function createOnboardingRecords(
           status: { not: "onboarding_complete" },
         },
         orderBy: [{ created_at: "desc" }, { id: "asc" }],
-        include: onboardingInclude(),
+        select: onboardingSelect(),
       });
   if (existing) {
     return {
@@ -625,6 +643,7 @@ async function createOnboardingRecords(
       contracted_services: contractedServices,
       created_by: input.actorId,
     },
+    select: ONBOARDING_SAFE_SCALAR_SELECT,
   });
 
   if (sourceProject) {
@@ -1082,8 +1101,9 @@ export async function startClientOnboarding(input: {
   return result.onboarding;
 }
 
-export function onboardingInclude() {
+export function onboardingSelect() {
   return {
+    ...ONBOARDING_SAFE_SCALAR_SELECT,
     company: { select: { id: true, name: true } },
     project: { select: { id: true, name: true } },
     salesperson: { select: { id: true, name: true, email: true } },
@@ -1125,28 +1145,14 @@ export function onboardingInclude() {
 export async function recomputeOnboardingProgress(db: Db, onboardingId: string) {
   const onboarding = await db.clientOnboarding.findUnique({
     where: { id: onboardingId },
-    include: {
+    select: {
+      ...ONBOARDING_SAFE_SCALAR_SELECT,
       checklist_items: true,
       contracts: { select: { id: true } },
       support_group: true,
     },
   });
   if (!onboarding) throw new Error("Onboarding not found");
-
-  if (onboarding.completion_overridden_at) {
-    await db.clientOnboarding.update({
-      where: { id: onboardingId },
-      data: {
-        progress: 100,
-        status: "onboarding_complete",
-        completed_at: onboarding.completed_at ?? new Date(),
-      },
-    });
-    return db.clientOnboarding.findUniqueOrThrow({
-      where: { id: onboardingId },
-      include: onboardingInclude(),
-    });
-  }
 
   const required = onboarding.checklist_items.filter((item) => item.required);
   const complete = required.filter((item) => item.status === "complete");
@@ -1165,18 +1171,20 @@ export async function recomputeOnboardingProgress(db: Db, onboardingId: string) 
       status,
       completed_at: status === "onboarding_complete" ? new Date() : null,
     },
+    select: { id: true },
   });
 
   return db.clientOnboarding.findUniqueOrThrow({
     where: { id: onboardingId },
-    include: onboardingInclude(),
+    select: onboardingSelect(),
   });
 }
 
 export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string) {
   const onboarding = await prisma.clientOnboarding.findUnique({
     where: { id: onboardingId },
-    include: {
+    select: {
+      ...ONBOARDING_SAFE_SCALAR_SELECT,
       service_assignments: { select: { service: true, leader_id: true } },
       checklist_items: { select: { id: true, department: true, owner_id: true } },
     },
