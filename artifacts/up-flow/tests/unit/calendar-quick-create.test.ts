@@ -67,3 +67,14 @@ test("calendar events expose edit and completion color controls", () => {
   assert.match(translations, /"calendar.colorComplete"/);
   assert.match(translations, /"calendar.legendCompletedEvent"/);
 });
+
+test("calendar month cells support dense event days without a two-item cap", () => {
+  const page = source("src/app/(dashboard)/calendar/page.tsx");
+
+  assert.match(page, /data-calendar-day-items/);
+  assert.match(page, /overflow-y-auto/);
+  assert.match(page, /dayEvents\.map/);
+  assert.match(page, /dayTasks\.map/);
+  assert.doesNotMatch(page, /dayEvents\.slice\(0,\s*2\)/);
+  assert.doesNotMatch(page, /dayTasks\.slice\(0,\s*2\)/);
+});

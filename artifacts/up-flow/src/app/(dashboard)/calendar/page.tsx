@@ -332,14 +332,14 @@ export default function CalendarPage() {
                   key={key}
                   onClick={() => setSelected(day)}
                   className={cn(
-                    "flex h-16 flex-col items-start rounded-lg border p-1 text-left transition-colors sm:h-24 sm:p-1.5",
+                    "flex h-20 min-h-20 flex-col items-start overflow-hidden rounded-lg border p-1 text-left transition-colors sm:h-28 sm:min-h-28 sm:p-1.5 xl:h-32 xl:min-h-32",
                     isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-white/5",
                     !inMonth && "opacity-40",
                   )}
                 >
                   <span
                     className={cn(
-                      "text-xs font-medium",
+                      "shrink-0 text-xs font-medium",
                       isToday
                         ? "w-5 h-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground"
                         : "text-foreground",
@@ -347,8 +347,8 @@ export default function CalendarPage() {
                   >
                     {day.getDate()}
                   </span>
-                  <div className="mt-1 hidden w-full space-y-0.5 overflow-hidden sm:block">
-                    {dayEvents.slice(0, 2).map((event) => {
+                  <div className="mt-1 hidden min-h-0 w-full flex-1 space-y-0.5 overflow-y-auto pr-0.5 sm:block" data-calendar-day-items>
+                    {dayEvents.map((event) => {
                       const display = eventDisplayState(event, today);
 
                       return (
@@ -372,7 +372,7 @@ export default function CalendarPage() {
                         </div>
                       );
                     })}
-                    {dayTasks.slice(0, 2).map((task) => (
+                    {dayTasks.map((task) => (
                       <div
                         key={task.id}
                         title={task.title}
@@ -381,11 +381,6 @@ export default function CalendarPage() {
                         {task.title}
                       </div>
                     ))}
-                    {dayEvents.length + dayTasks.length > 4 && (
-                      <div className="text-[10px] text-muted-foreground px-1">
-                        {t("calendar.more", { count: dayEvents.length + dayTasks.length - 4 })}
-                      </div>
-                    )}
                   </div>
                 </button>
               );
@@ -478,7 +473,7 @@ export default function CalendarPage() {
                   )}
                 </div>
               ) : (
-                <ul className="space-y-1.5">
+                <ul className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
                   {selectedEvents.map((event) => {
                     const display = eventDisplayState(event, today);
 
