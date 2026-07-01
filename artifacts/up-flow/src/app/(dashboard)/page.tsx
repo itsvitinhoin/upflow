@@ -267,14 +267,14 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) throw new Error("Failed to update");
+      if (!res.ok) throw new Error(await readDashboardApiError(res, t("dashboard.couldNotUpdateTask")));
       toast.success(
         t("dashboard.taskMoved", { status: taskStatusLabel(status, t) }),
       );
       setActiveTask(null);
       loadData();
-    } catch {
-      toast.error(t("dashboard.couldNotUpdateTask"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("dashboard.couldNotUpdateTask"));
     } finally {
       setUpdating(false);
     }
@@ -887,6 +887,15 @@ function SummaryPill({
       <span className={cn("shrink-0 text-3xl font-bold tracking-tight drop-shadow-[0_0_14px_currentColor]", styles.text)}>{value}</span>
     </button>
   );
+}
+
+async function readDashboardApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function StatusCountButton({

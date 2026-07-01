@@ -109,8 +109,21 @@ export interface Task {
   assignee: TaskAssignee | null;
   project: TaskProject | null;
   subtasks?: Subtask[];
+  onboarding_link?: TaskOnboardingLink | null;
   custom_field_values?: TaskCustomFieldValue[];
   _count?: { comments: number; subtasks: number };
+}
+
+export interface TaskOnboardingLink {
+  id: string;
+  onboarding_id: string;
+  company_id: string;
+  company_name: string;
+  department: string;
+  title: string;
+  status: string;
+  progress: number;
+  href: string;
 }
 
 export type CustomFieldType =

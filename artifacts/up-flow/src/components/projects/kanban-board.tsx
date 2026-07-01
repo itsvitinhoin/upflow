@@ -154,9 +154,9 @@ export default function KanbanBoard({
           dstIndex: destination.index,
         }),
       });
-      if (!res.ok) throw new Error(`Reorder failed: ${res.status}`);
-    } catch {
-      toast.error("Failed to update task");
+      if (!res.ok) throw new Error(await readTaskApiError(res, t("common.failedToUpdate")));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.failedToUpdate"));
       onUpdate();
     }
   };
@@ -349,4 +349,13 @@ export default function KanbanBoard({
       )}
     </>
   );
+}
+
+async function readTaskApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
 }

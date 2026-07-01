@@ -240,6 +240,79 @@ export function financeRegistrationComplete(company: {
   );
 }
 
+export async function getOnboardingCompletionBlocker(
+  db: Db,
+  onboardingId: string,
+  item: { id: string; department: string },
+) {
+  const department = item.department.toLowerCase();
+
+  if (department.includes("finance")) {
+    const onboarding = await db.clientOnboarding.findUnique({
+      where: { id: onboardingId },
+      select: {
+        company: {
+          select: {
+            legal_name: true,
+            cnpj: true,
+            billing_email: true,
+            main_contact_email: true,
+            contract_value: true,
+            payment_terms: true,
+            contract_start_date: true,
+          },
+        },
+      },
+    });
+    if (!onboarding?.company || !financeRegistrationComplete(onboarding.company)) {
+      return "Complete the finance registration fields before marking Finance done.";
+    }
+  }
+
+  if (department.includes("contract")) {
+    const contractCount = await db.clientContract.count({ where: { onboarding_id: onboardingId } });
+    if (contractCount === 0) return "Upload a private contract before marking Contract done.";
+  }
+
+  if (department.includes("support")) {
+    const support = await db.supportGroup.findUnique({
+      where: { onboarding_id: onboardingId },
+      select: { group_created: true },
+    });
+    if (!support?.group_created) return "Create the support group before marking Support done.";
+  }
+
+  if (department.includes("internal")) {
+    const missingLeader = await db.onboardingServiceAssignment.findFirst({
+      where: {
+        onboarding_id: onboardingId,
+        OR: [{ leader_id: null }, { status: "needs_mapping" }],
+      },
+      select: { id: true },
+    });
+    if (missingLeader) return "Assign leaders for every contracted service before marking Internal Assignment done.";
+  }
+
+  if (department.includes("service")) {
+    const meeting = await db.onboardingMeeting.findFirst({
+      where: { onboarding_id: onboardingId, checklist_item_id: item.id },
+      select: { scheduled: true },
+    });
+    if (!meeting?.scheduled) return "Schedule the onboarding meeting before marking this service done.";
+  }
+
+  return null;
+}
+
+export async function getOnboardingTaskCompletionBlocker(db: Db, taskId: string) {
+  const item = await db.onboardingChecklistItem.findFirst({
+    where: { task_id: taskId },
+    select: { id: true, onboarding_id: true, department: true },
+  });
+  if (!item) return null;
+  return getOnboardingCompletionBlocker(db, item.onboarding_id, item);
+}
+
 function departmentStatus(department: string) {
   const key = department.toLowerCase();
   if (key.includes("commercial")) return "pending_commercial_setup";
@@ -705,7 +778,8 @@ async function createOnboardingRecords(
     project_id: financeProjectId,
     route: "finance",
     title: "Onboarding: complete finance registration",
-    description: "Fill legal company name, CNPJ, billing contact, payment terms, contract value, and start date.",
+    description:
+      "Finance queue action: fill legal company name, CNPJ, billing contact, payment terms, contract value, and start date. When this task is marked done, the onboarding checklist and progress update automatically.",
     status: "todo",
     priority: "high",
     assignee_id: financeOwner?.id ?? null,
@@ -715,7 +789,8 @@ async function createOnboardingRecords(
     project_id: commercialProjectId,
     route: "commercial",
     title: "Onboarding: upload signed contract",
-    description: "Upload the signed contract privately so only Finance/Admin can access the file.",
+    description:
+      "Commercial/Finance queue action: upload the signed contract privately so only Finance/Admin can access the file. When this task is marked done, the onboarding checklist and progress update automatically.",
     status: "todo",
     priority: "high",
     assignee_id: financeOwner?.id ?? null,
@@ -725,7 +800,8 @@ async function createOnboardingRecords(
     project_id: supportProjectId,
     route: "support",
     title: "Onboarding: create client communication group",
-    description: "Create the support/client communication group and record the link, participants, and notes.",
+    description:
+      "Support queue action: create the support/client communication group and record the link, participants, and notes. When this task is marked done, the onboarding checklist and progress update automatically.",
     status: "todo",
     priority: "medium",
     assignee_id: supportOwner?.id ?? null,
@@ -844,7 +920,7 @@ async function createOnboardingRecords(
       project_id: serviceProjectId,
       route: assignmentRoute,
       title: `Onboarding: schedule ${service} onboarding meeting`,
-      description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,
+      description: `Service queue action: schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow. When this task is marked done, the onboarding checklist and progress update automatically.`,
       status: "todo",
       priority: "medium",
       assignee_id: leaderId,
@@ -1178,6 +1254,73 @@ export async function recomputeOnboardingProgress(db: Db, onboardingId: string) 
     where: { id: onboardingId },
     select: onboardingSelect(),
   });
+}
+
+export async function syncOnboardingChecklistFromTaskStatus(
+  db: Db,
+  input: { taskId: string; status: "todo" | "in_progress" | "done"; actorId: string },
+) {
+  const item = await db.onboardingChecklistItem.findFirst({
+    where: { task_id: input.taskId },
+    select: {
+      id: true,
+      onboarding_id: true,
+      workspace_id: true,
+      department: true,
+      title: true,
+      status: true,
+    },
+  });
+  if (!item) return { linked: false as const };
+
+  if (input.status === "done") {
+    const blocker = await getOnboardingCompletionBlocker(db, item.onboarding_id, item);
+    if (blocker) return { linked: true as const, blocked: true as const, reason: blocker };
+    await db.onboardingChecklistItem.update({
+      where: { id: item.id },
+      data: {
+        status: "complete",
+        completed_at: new Date(),
+        completed_by: input.actorId,
+      },
+    });
+  } else if (item.status === "complete") {
+    await db.onboardingChecklistItem.update({
+      where: { id: item.id },
+      data: {
+        status: input.status === "in_progress" ? "in_progress" : "pending",
+        completed_at: null,
+        completed_by: null,
+      },
+    });
+  } else if (item.status !== input.status && (input.status === "todo" || input.status === "in_progress")) {
+    await db.onboardingChecklistItem.update({
+      where: { id: item.id },
+      data: { status: input.status === "in_progress" ? "in_progress" : "pending" },
+    });
+  }
+
+  const onboarding = await recomputeOnboardingProgress(db, item.onboarding_id);
+  await recordActivity({
+    workspace_id: item.workspace_id,
+    actor_id: input.actorId,
+    type: "client_onboarding_item_updated",
+    entity_type: "client_onboarding",
+    entity_id: item.onboarding_id,
+    project_id: onboarding.project_id,
+    task_id: input.taskId,
+    company_id: onboarding.company_id,
+    metadata: {
+      source: "task_status_sync",
+      item_id: item.id,
+      item_title: item.title,
+      task_status: input.status,
+      item_status: input.status === "done" ? "complete" : input.status === "in_progress" ? "in_progress" : "pending",
+      progress: onboarding.progress,
+    },
+  });
+
+  return { linked: true as const, blocked: false as const, onboarding };
 }
 
 export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string) {

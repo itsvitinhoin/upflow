@@ -13,6 +13,11 @@ import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
 import {
+  getOnboardingTaskCompletionBlocker,
+  loadOnboardingAccess,
+  syncOnboardingChecklistFromTaskStatus,
+} from "@/lib/onboarding";
+import {
   canAssignUserToProject,
   canContributeToProject,
   canReadProject,
@@ -104,7 +109,40 @@ async function GET_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  return NextResponse.json(task);
+  const onboardingLink = await prisma.onboardingChecklistItem.findFirst({
+    where: { task_id: task.id },
+    select: {
+      id: true,
+      onboarding_id: true,
+      department: true,
+      title: true,
+      status: true,
+      onboarding: {
+        select: {
+          company_id: true,
+          progress: true,
+          company: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  return NextResponse.json({
+    ...task,
+    onboarding_link: onboardingLink
+      ? {
+          id: onboardingLink.id,
+          onboarding_id: onboardingLink.onboarding_id,
+          company_id: onboardingLink.onboarding.company_id,
+          company_name: onboardingLink.onboarding.company.name,
+          department: onboardingLink.department,
+          title: onboardingLink.title,
+          status: onboardingLink.status,
+          progress: onboardingLink.onboarding.progress,
+          href: `/clients/${onboardingLink.onboarding.company_id}`,
+        }
+      : null,
+  });
 }
 
 async function PATCH_handler(
@@ -122,15 +160,7 @@ async function PATCH_handler(
     include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
   });
   if (!oldTask) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!(await canContributeToProject(auth, oldTask.project))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const isProjectOwner = oldTask.project.owner_id === prismaUser.id;
-  const isAssignee = oldTask.assignee_id === prismaUser.id;
-  void isProjectOwner;
-  void isAssignee;
-  if (!isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
+  if (!(await canReadProject(auth, oldTask.project)) && oldTask.assignee_id !== prismaUser.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -149,6 +179,24 @@ async function PATCH_handler(
     position?: number;
   };
   const { title, description, status, priority, assignee_id, cover_image_url, due_date, position } = body;
+  const canContribute = await canContributeToProject(auth, oldTask.project);
+  const isWorkspaceAdmin = canContribute;
+  const onboardingItem = await prisma.onboardingChecklistItem.findFirst({
+    where: { task_id: params.id },
+    select: { id: true, onboarding_id: true, department: true, owner_id: true, title: true },
+  });
+  const onboardingAccess = onboardingItem ? await loadOnboardingAccess(auth, onboardingItem.onboarding_id) : null;
+  const changedKeys = Object.entries(body)
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key);
+  const isStatusOnlyPatch = changedKeys.length === 1 && status !== undefined;
+  const canUpdateDepartmentOnboardingStatus = Boolean(
+    onboardingItem && isStatusOnlyPatch && onboardingAccess?.canUpdateChecklistItem(onboardingItem),
+  );
+  if (!canContribute && !canUpdateDepartmentOnboardingStatus) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const parsedDueDate = parsePatchDate(due_date);
   if (parsedDueDate === "invalid") {
     return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
@@ -161,7 +209,7 @@ async function PATCH_handler(
     );
   }
 
-  if (assignee_id !== undefined && !isWorkspaceAdminFor(auth, oldTask.project.workspace_id)) {
+  if (assignee_id !== undefined && !isWorkspaceAdmin) {
     return NextResponse.json({ error: "Only workspace admins can reassign tasks" }, { status: 403 });
   }
 
@@ -172,6 +220,11 @@ async function PATCH_handler(
         { status: 400 },
       );
     }
+  }
+
+  if (status === "done" && status !== oldTask.status) {
+    const blocker = await getOnboardingTaskCompletionBlocker(prisma, params.id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 
   const task = await prisma.task.update({
@@ -191,6 +244,15 @@ async function PATCH_handler(
       project: { select: { id: true, name: true } },
     },
   });
+
+  const onboardingSync =
+    status !== undefined && status !== oldTask.status
+      ? await syncOnboardingChecklistFromTaskStatus(prisma, {
+          taskId: task.id,
+          status,
+          actorId: prismaUser.id,
+        })
+      : null;
 
   if (assignee_id && assignee_id !== prismaUser.id && assignee_id !== oldTask.assignee_id) {
     await prisma.notification
@@ -258,7 +320,7 @@ async function PATCH_handler(
     },
   });
 
-  return NextResponse.json(task);
+  return NextResponse.json(onboardingSync?.linked ? { ...task, onboarding_sync: onboardingSync } : task);
 }
 
 async function DELETE_handler(

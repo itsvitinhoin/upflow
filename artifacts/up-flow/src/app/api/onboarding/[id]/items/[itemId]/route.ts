@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { financeRegistrationComplete, loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
+import { getOnboardingCompletionBlocker, loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const ItemSchema = z.object({
@@ -13,70 +12,6 @@ const ItemSchema = z.object({
   owner_id: z.string().trim().nullable().optional(),
   due_date: z.string().nullable().optional(),
 });
-
-async function getCompletionBlocker(
-  db: typeof prisma | Prisma.TransactionClient,
-  onboardingId: string,
-  item: { id: string; department: string },
-) {
-  const department = item.department.toLowerCase();
-
-  if (department.includes("finance")) {
-    const onboarding = await db.clientOnboarding.findUnique({
-      where: { id: onboardingId },
-      select: {
-        company: {
-          select: {
-            legal_name: true,
-            cnpj: true,
-            billing_email: true,
-            main_contact_email: true,
-            contract_value: true,
-            payment_terms: true,
-            contract_start_date: true,
-          },
-        },
-      },
-    });
-    if (!onboarding?.company || !financeRegistrationComplete(onboarding.company)) {
-      return "Complete the finance registration fields before marking Finance done.";
-    }
-  }
-
-  if (department.includes("contract")) {
-    const contractCount = await db.clientContract.count({ where: { onboarding_id: onboardingId } });
-    if (contractCount === 0) return "Upload a private contract before marking Contract done.";
-  }
-
-  if (department.includes("support")) {
-    const support = await db.supportGroup.findUnique({
-      where: { onboarding_id: onboardingId },
-      select: { group_created: true },
-    });
-    if (!support?.group_created) return "Create the support group before marking Support done.";
-  }
-
-  if (department.includes("internal")) {
-    const missingLeader = await db.onboardingServiceAssignment.findFirst({
-      where: {
-        onboarding_id: onboardingId,
-        OR: [{ leader_id: null }, { status: "needs_mapping" }],
-      },
-      select: { id: true },
-    });
-    if (missingLeader) return "Assign leaders for every contracted service before marking Internal Assignment done.";
-  }
-
-  if (department.includes("service")) {
-    const meeting = await db.onboardingMeeting.findFirst({
-      where: { onboarding_id: onboardingId, checklist_item_id: item.id },
-      select: { scheduled: true },
-    });
-    if (!meeting?.scheduled) return "Schedule the onboarding meeting before marking this service done.";
-  }
-
-  return null;
-}
 
 async function PATCH_handler(
   req: NextRequest,
@@ -113,7 +48,7 @@ async function PATCH_handler(
   }
 
   if (parsed.data.status === "complete") {
-    const blocker = await getCompletionBlocker(prisma, params.id, item);
+    const blocker = await getOnboardingCompletionBlocker(prisma, params.id, item);
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 

@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   canAccessWorkspace,
+  isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import {
+  getOnboardingTaskCompletionBlocker,
+  loadOnboardingAccess,
+  syncOnboardingChecklistFromTaskStatus,
+} from "@/lib/onboarding";
 
 type ColumnKey = "todo" | "in_progress" | "done";
 const VALID_COLUMNS: ColumnKey[] = ["todo", "in_progress", "done"];
@@ -29,6 +35,7 @@ async function POST_handler(
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  const isWorkspaceAdmin = isWorkspaceAdminFor(auth, project.workspace_id);
 
   const body = (await req.json()) as {
     movedTaskId?: string;
@@ -51,7 +58,7 @@ async function POST_handler(
 
   const movedTask = await prisma.task.findUnique({
     where: { id: movedTaskId },
-    select: { id: true, project_id: true, assignee_id: true, status: true },
+    select: { id: true, project_id: true, status: true },
   });
   if (!movedTask) return NextResponse.json({ error: "Task not found" }, { status: 404 });
   if (movedTask.project_id !== params.id) {
@@ -65,6 +72,23 @@ async function POST_handler(
       { error: "Source column does not match task's current status" },
       { status: 409 },
     );
+  }
+
+  const onboardingItem = await prisma.onboardingChecklistItem.findFirst({
+    where: { task_id: movedTaskId },
+    select: { id: true, onboarding_id: true, department: true, owner_id: true, title: true },
+  });
+  const onboardingAccess = onboardingItem ? await loadOnboardingAccess(auth, onboardingItem.onboarding_id) : null;
+  const canMoveDepartmentOnboardingTask = Boolean(
+    onboardingItem && onboardingAccess?.canUpdateChecklistItem(onboardingItem) && srcColumn !== dstColumn,
+  );
+  if (!isWorkspaceAdmin && !canMoveDepartmentOnboardingTask) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (dstColumn === "done" && dstColumn !== srcColumn) {
+    const blocker = await getOnboardingTaskCompletionBlocker(prisma, movedTaskId);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 
   const affectedColumns: ColumnKey[] =
@@ -114,6 +138,15 @@ async function POST_handler(
     ),
   );
 
-  return NextResponse.json({ success: true, count: updates.length });
+  const onboardingSync =
+    srcColumn !== dstColumn
+      ? await syncOnboardingChecklistFromTaskStatus(prisma, {
+          taskId: movedTaskId,
+          status: dstColumn,
+          actorId: auth.prismaUser.id,
+        })
+      : null;
+
+  return NextResponse.json({ success: true, count: updates.length, onboarding_sync: onboardingSync });
 }
 export const POST = withErrorReporting("api:projects/id/reorder-tasks:POST", POST_handler);

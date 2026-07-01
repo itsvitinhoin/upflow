@@ -81,13 +81,13 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patch),
         });
-        if (!res.ok) throw new Error(`PATCH /api/tasks/${currentTask.id} → ${res.status}`);
+        if (!res.ok) throw new Error(await readTaskApiError(res, t("common.failedToUpdate")));
         const updated = (await res.json()) as Task;
         setCurrentTask((prev) => ({ ...prev, ...updated }));
         toast.success(t("common.updated"));
       } catch (err) {
         logError("task-sheet:update", err, { id: currentTask.id, patch });
-        toast.error(t("common.failedToUpdate"));
+        toast.error(err instanceof Error ? err.message : t("common.failedToUpdate"));
       } finally {
         setSaving(false);
       }
@@ -306,6 +306,40 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
+            {currentTask.onboarding_link && (
+              <div className="rounded-xl border border-primary/25 bg-primary/10 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                      {t("task.onboardingTask")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">
+                      {currentTask.onboarding_link.department}: {currentTask.onboarding_link.title}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {t("task.onboardingTaskBody")}
+                    </p>
+                  </div>
+                  <a
+                    href={currentTask.onboarding_link.href}
+                    className="rounded-lg border border-primary/35 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15"
+                  >
+                    {t("task.openClient")}
+                  </a>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${currentTask.onboarding_link.progress}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-primary">
+                    {currentTask.onboarding_link.progress}%
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-b border-border px-4 py-4 sm:px-6">
@@ -569,4 +603,13 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
       </div>
     </>
   );
+}
+
+async function readTaskApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
 }

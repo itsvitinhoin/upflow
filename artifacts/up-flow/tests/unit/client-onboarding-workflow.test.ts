@@ -14,8 +14,14 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   const migration = read("prisma/migrations/20260701120000_streamlined_client_onboarding/migration.sql");
   const route = read("src/app/api/onboarding/client-wizard/route.ts");
   const updateRoute = read("src/app/api/onboarding/[id]/route.ts");
+  const itemRoute = read("src/app/api/onboarding/[id]/items/[itemId]/route.ts");
+  const taskRoute = read("src/app/api/tasks/[id]/route.ts");
+  const reorderRoute = read("src/app/api/projects/[id]/reorder-tasks/route.ts");
   const helper = read("src/lib/onboarding.ts");
   const dialog = read("src/components/dashboard/create-company-dialog.tsx");
+  const taskSheet = read("src/components/projects/task-detail-sheet.tsx");
+  const listView = read("src/components/projects/list-view.tsx");
+  const kanbanBoard = read("src/components/projects/kanban-board.tsx");
   const queuePage = read("src/app/(dashboard)/onboarding/page.tsx");
   const notifications = read("src/lib/notification-links.ts");
 
@@ -50,6 +56,20 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
 
   assert.match(helper, /status: needsMapping \? "needs_mapping" : "assigned"/);
   assert.match(helper, /missingMappings/);
+  assert.match(helper, /export async function getOnboardingCompletionBlocker/);
+  assert.match(helper, /export async function getOnboardingTaskCompletionBlocker/);
+  assert.match(helper, /export async function syncOnboardingChecklistFromTaskStatus/);
+  assert.match(helper, /source: "task_status_sync"/);
+  assert.match(itemRoute, /getOnboardingCompletionBlocker/);
+  assert.match(taskRoute, /getOnboardingTaskCompletionBlocker/);
+  assert.match(taskRoute, /syncOnboardingChecklistFromTaskStatus/);
+  assert.match(taskRoute, /canUpdateDepartmentOnboardingStatus/);
+  assert.match(reorderRoute, /syncOnboardingChecklistFromTaskStatus/);
+  assert.match(reorderRoute, /canMoveDepartmentOnboardingTask/);
+  assert.match(reorderRoute, /dstColumn === "done"/);
+  assert.match(taskSheet, /readTaskApiError/);
+  assert.match(listView, /readTaskApiError/);
+  assert.match(kanbanBoard, /readTaskApiError/);
   assert.match(read("src/components/onboarding/client-onboarding-panel.tsx"), /onboardingWorkflow\.overrideAction/);
   assert.match(queuePage, /onboardingQueue\.view\.missingMapping/);
   assert.match(notifications, /client_onboarding/);

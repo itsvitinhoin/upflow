@@ -91,10 +91,10 @@ export default function ListView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await readTaskApiError(res, t("common.failedToUpdate")));
       onUpdate();
-    } catch {
-      toast.error(t("common.failedToUpdate"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("common.failedToUpdate"));
     }
   };
 
@@ -462,6 +462,15 @@ function statusMetaLabel(
   if (status === "todo") return t("status.todo");
   if (status === "in_progress") return t("status.inProgress");
   return t("status.done");
+}
+
+async function readTaskApiError(res: Response, fallback: string) {
+  try {
+    const data = (await res.json()) as { error?: string };
+    return data.error || fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function priorityMetaLabel(
