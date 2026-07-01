@@ -33,10 +33,40 @@ export const DEFAULT_ONBOARDING_SERVICES = [
 type Tx = Prisma.TransactionClient;
 type Db = typeof prisma | Tx;
 
-type OnboardingProject = {
+type OnboardingTaskRoute =
+  | "commercial"
+  | "finance"
+  | "support"
+  | "marketing_b2b"
+  | "creative_design";
+
+type OnboardingTaskProjectInput = {
+  workspaceId: string;
+  companyId?: string | null;
+  companyName?: string;
+  sourceProjectId?: string | null;
+  sourceProjectSpaceId?: string | null;
+  ownerId: string;
+  route: OnboardingTaskRoute | null;
+};
+
+type UserRef = { id: string; name: string; email: string };
+
+type CompanySnapshot = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  owner_id: string;
+  included_services: Prisma.JsonValue | null;
+  service_type: string | null;
+  plan_name: string | null;
+};
+
+type SourceProjectSnapshot = {
   id: string;
   name: string;
   workspace_id: string;
+  space_id: string | null;
   company_id: string | null;
   owner_id: string;
   closing_date: Date | null;
@@ -45,18 +75,53 @@ type OnboardingProject = {
   initial_notes: string | null;
 };
 
-type UserRef = { id: string; name: string; email: string };
+type CreatedOnboardingTask = {
+  id: string;
+  title: string;
+  route: OnboardingTaskRoute;
+  project_id: string;
+  assignee_id: string | null;
+};
 
-type OnboardingTaskRoute = "commercial" | "finance" | "support" | "marketing_b2b" | "creative_design";
+type OnboardingCreationResult = {
+  onboarding: Awaited<ReturnType<typeof recomputeOnboardingProgress>>;
+  notificationTargets: OnboardingAssignmentNotificationTarget[];
+  createdTasks: CreatedOnboardingTask[];
+  missingMappings: string[];
+  reused: boolean;
+};
 
-type OnboardingTaskProjectInput = {
+export type ClientOnboardingWizardInput = {
   workspaceId: string;
-  companyId: string;
-  companyName: string;
-  sourceProjectId: string;
-  sourceProjectSpaceId: string | null;
-  ownerId: string;
-  route: OnboardingTaskRoute | null;
+  actorId: string;
+  companyId?: string | null;
+  name: string;
+  website?: string | null;
+  industry?: string | null;
+  serviceType?: string | null;
+  planName?: string | null;
+  billingCycle?: string | null;
+  includedServices: string[];
+  notes?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactRole?: string | null;
+  ownerId?: string | null;
+  expectedStartDate?: Date | null;
+  closingDate?: Date | null;
+  initialNotes?: string | null;
+  responsibleSalespersonId?: string | null;
+  contractValue?: number | null;
+};
+
+export type ClientOnboardingWizardResult = {
+  company_id: string;
+  onboarding_id: string;
+  redirect_url: string;
+  created_tasks: CreatedOnboardingTask[];
+  notifications: number;
+  missing_mappings: string[];
 };
 
 export type OnboardingAssignmentNotificationTarget = {
@@ -66,6 +131,51 @@ export type OnboardingAssignmentNotificationTarget = {
   onboardingId: string;
   actorId: string;
   label: string;
+  companyId?: string | null;
+};
+
+const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
+  commercial: ["commercial", "comercial"],
+  finance: ["finance", "financial", "financeiro"],
+  support: ["support", "technical support", "suporte", "suporte tecnico"],
+  marketing_b2b: ["marketing b2b", "paid media", "media buying", "marketing"],
+  creative_design: ["creative and design", "creative design", "creative & design", "criativo", "design"],
+};
+
+const ROUTE_QUEUE_CONFIG: Record<
+  OnboardingTaskRoute,
+  { spaceName: string; projectName: string; description: string; aliases: string[] }
+> = {
+  commercial: {
+    spaceName: "Commercial",
+    projectName: "Contracts & Handoffs",
+    description: "Reusable queue for client contracts, handoffs, and onboarding commercial checks.",
+    aliases: ROUTE_SPACE_ALIASES.commercial,
+  },
+  finance: {
+    spaceName: "Finance",
+    projectName: "Client Onboarding",
+    description: "Reusable queue for finance registration and billing onboarding tasks.",
+    aliases: ROUTE_SPACE_ALIASES.finance,
+  },
+  support: {
+    spaceName: "Support",
+    projectName: "Client Channels",
+    description: "Reusable queue for support group and client communication setup.",
+    aliases: ROUTE_SPACE_ALIASES.support,
+  },
+  marketing_b2b: {
+    spaceName: "Marketing B2B",
+    projectName: "Service Onboarding",
+    description: "Reusable queue for paid media, tracking, reporting, and marketing service kickoff tasks.",
+    aliases: ROUTE_SPACE_ALIASES.marketing_b2b,
+  },
+  creative_design: {
+    spaceName: "Creative & Design",
+    projectName: "Service Onboarding",
+    description: "Reusable queue for creative, video, website, and design service kickoff tasks.",
+    aliases: ROUTE_SPACE_ALIASES.creative_design,
+  },
 };
 
 function uniqueStrings(values: Array<string | null | undefined>) {
@@ -137,54 +247,84 @@ function normalizedName(value: string) {
     .toLowerCase();
 }
 
-const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
-  commercial: ["commercial", "comercial"],
-  finance: ["finance", "financial", "financeiro"],
-  support: ["support", "technical support", "suporte", "suporte tecnico"],
-  marketing_b2b: ["marketing b2b", "paid media", "media buying"],
-  creative_design: ["creative and design", "creative design", "criativo", "design"],
-};
-
-function routeForService(service: string): OnboardingTaskRoute | null {
+export function routeForService(service: string): OnboardingTaskRoute | null {
   const key = normalizedName(service);
-  if (key.includes("meta ads")) return "marketing_b2b";
-  if (key.includes("creative")) return "creative_design";
+  if (
+    key.includes("creative") ||
+    key.includes("video") ||
+    key.includes("website") ||
+    key.includes("web design") ||
+    key.includes("landing page")
+  ) {
+    return "creative_design";
+  }
+  if (
+    key.includes("meta ads") ||
+    key.includes("google ads") ||
+    key.includes("paid media") ||
+    key.includes("social") ||
+    key.includes("seo") ||
+    key.includes("tracking") ||
+    key.includes("analytics") ||
+    key.includes("email") ||
+    key.includes("monthly report") ||
+    key.includes("content")
+  ) {
+    return "marketing_b2b";
+  }
+  if (key.includes("support")) return "support";
   return null;
 }
 
-function onboardingProjectName(companyName: string) {
-  return `Onboarding - ${companyName}`;
+function routeMatcher(route: OnboardingTaskRoute) {
+  return ROUTE_QUEUE_CONFIG[route].aliases.map((alias) => normalizedName(alias));
+}
+
+async function findTargetSpace(db: Db, workspaceId: string, route: OnboardingTaskRoute) {
+  const spaces = await db.space.findMany({
+    where: { workspace_id: workspaceId },
+    select: { id: true, name: true },
+  });
+  const aliases = routeMatcher(route);
+  return (
+    spaces.find((space) => aliases.includes(normalizedName(space.name))) ??
+    spaces.find((space) => {
+      const name = normalizedName(space.name);
+      return aliases.some((alias) => name.includes(alias) || alias.includes(name));
+    }) ??
+    null
+  );
+}
+
+async function ensureTargetSpace(db: Db, workspaceId: string, route: OnboardingTaskRoute, ownerId: string) {
+  const existing = await findTargetSpace(db, workspaceId, route);
+  if (existing) return existing;
+  const config = ROUTE_QUEUE_CONFIG[route];
+  return db.space.create({
+    data: {
+      workspace_id: workspaceId,
+      owner_id: ownerId,
+      name: config.spaceName,
+      icon: null,
+    },
+    select: { id: true, name: true },
+  });
 }
 
 export async function resolveOnboardingTaskProjectId(
   db: Db,
   input: OnboardingTaskProjectInput,
 ): Promise<string> {
-  if (!input.route) return input.sourceProjectId;
+  const route = input.route ?? "commercial";
+  const config = ROUTE_QUEUE_CONFIG[route];
+  const targetSpace = await ensureTargetSpace(db, input.workspaceId, route, input.ownerId);
 
-  const spaces = await db.space.findMany({
-    where: { workspace_id: input.workspaceId },
-    select: { id: true, name: true },
-  });
-  const aliases = ROUTE_SPACE_ALIASES[input.route].map(normalizedName);
-  const exactTarget = spaces.find((space) => aliases.includes(normalizedName(space.name)));
-  const targetSpace =
-    exactTarget ??
-    spaces.find((space) => {
-      const name = normalizedName(space.name);
-      return aliases.some((alias) => name.includes(alias) || alias.includes(name));
-    });
-
-  if (!targetSpace) return input.sourceProjectId;
-  if (targetSpace.id === input.sourceProjectSpaceId) return input.sourceProjectId;
-
-  const name = onboardingProjectName(input.companyName);
   const existingProject = await db.project.findFirst({
     where: {
       workspace_id: input.workspaceId,
-      company_id: input.companyId,
       space_id: targetSpace.id,
-      name,
+      company_id: null,
+      name: config.projectName,
     },
     select: { id: true },
   });
@@ -192,12 +332,12 @@ export async function resolveOnboardingTaskProjectId(
 
   const createdProject = await db.project.create({
     data: {
-      name,
-      description: `Operational onboarding tasks for ${input.companyName}.`,
+      name: config.projectName,
+      description: config.description,
       workspace_id: input.workspaceId,
       owner_id: input.ownerId,
       space_id: targetSpace.id,
-      company_id: input.companyId,
+      company_id: null,
     },
     select: { id: true },
   });
@@ -211,6 +351,7 @@ export async function sendOnboardingAssignmentNotifications(targets: OnboardingA
     uniqueTargets.set(`${target.userId}:${target.taskId}`, target);
   }
 
+  let sent = 0;
   for (const target of uniqueTargets.values()) {
     await prisma.notification
       .create({
@@ -222,9 +363,14 @@ export async function sendOnboardingAssignmentNotifications(targets: OnboardingA
           data: {
             source: "client_onboarding",
             onboarding_id: target.onboardingId,
+            company_id: target.companyId,
             label: target.label,
+            task_title: target.label,
           },
         },
+      })
+      .then(() => {
+        sent += 1;
       })
       .catch((err) =>
         logError("onboarding:assignment-notify", err, {
@@ -241,26 +387,624 @@ export async function sendOnboardingAssignmentNotifications(targets: OnboardingA
       }),
     );
   }
+  return sent;
 }
 
-async function findDepartmentOwner(db: Db, workspaceId: string, matcher: RegExp): Promise<UserRef | null> {
+async function sendOnboardingAdminSummaryNotifications(input: {
+  workspaceId: string;
+  actorId: string;
+  onboardingId: string;
+  companyId: string;
+  companyName: string;
+  createdTaskCount: number;
+  missingMappings: string[];
+}) {
+  const admins = await prisma.workspaceMember.findMany({
+    where: {
+      workspace_id: input.workspaceId,
+      status: "active",
+      role: { in: ["owner", "admin"] },
+      user_id: { not: input.actorId },
+    },
+    select: { user_id: true },
+  });
+  if (admins.length === 0) return 0;
+
+  await prisma.notification.createMany({
+    data: admins.map((admin) => ({
+      type: "assigned" as const,
+      user_id: admin.user_id,
+      workspace_id: input.workspaceId,
+      data: {
+        source: "client_onboarding_summary",
+        onboarding_id: input.onboardingId,
+        company_id: input.companyId,
+        task_title: `Onboarding started: ${input.companyName}`,
+        label: `Onboarding started for ${input.companyName}`,
+        created_task_count: input.createdTaskCount,
+        missing_mappings: input.missingMappings,
+      },
+    })),
+  });
+  await Promise.all(
+    admins.map((admin) =>
+      broadcastNotification(admin.user_id).catch((err) =>
+        logError("onboarding:admin-summary-broadcast", err, {
+          user_id: admin.user_id,
+          onboarding_id: input.onboardingId,
+        }),
+      ),
+    ),
+  );
+  return admins.length;
+}
+
+async function findAdminFallback(db: Db, workspaceId: string): Promise<UserRef | null> {
+  const member = await db.workspaceMember.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      status: "active",
+      role: { in: ["owner", "admin"] },
+    },
+    orderBy: [{ role: "asc" }, { created_at: "asc" }],
+    select: { user: { select: { id: true, name: true, email: true } } },
+  });
+  if (member?.user) return member.user;
+
+  const anyMember = await db.workspaceMember.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      status: "active",
+      role: { not: "guest" },
+    },
+    orderBy: [{ created_at: "asc" }],
+    select: { user: { select: { id: true, name: true, email: true } } },
+  });
+  return anyMember?.user ?? null;
+}
+
+async function findDepartmentOwner(db: Db, workspaceId: string, route: OnboardingTaskRoute): Promise<UserRef | null> {
+  const aliases = ROUTE_QUEUE_CONFIG[route].aliases;
   const member = await db.workspaceMember.findFirst({
     where: {
       workspace_id: workspaceId,
       status: "active",
       role: { not: "guest" },
-      department: { name: { contains: matcher.source, mode: "insensitive" } },
+      OR: aliases.map((alias) => ({
+        department: { name: { contains: alias, mode: "insensitive" as const } },
+      })),
     },
     select: { user: { select: { id: true, name: true, email: true } } },
   });
   return member?.user ?? null;
 }
 
-async function findDepartmentByName(db: Db, workspaceId: string, matcher: RegExp) {
+async function findDepartmentByRoute(db: Db, workspaceId: string, route: OnboardingTaskRoute) {
+  const aliases = ROUTE_QUEUE_CONFIG[route].aliases;
   return db.department.findFirst({
-    where: { workspace_id: workspaceId, name: { contains: matcher.source, mode: "insensitive" } },
+    where: {
+      workspace_id: workspaceId,
+      OR: aliases.map((alias) => ({ name: { contains: alias, mode: "insensitive" as const } })),
+    },
     select: { id: true, name: true },
   });
+}
+
+async function ownerForRoute(
+  db: Db,
+  workspaceId: string,
+  route: OnboardingTaskRoute,
+  fallback: UserRef | null,
+) {
+  return (await findDepartmentOwner(db, workspaceId, route)) ?? fallback;
+}
+
+async function departmentForRoute(db: Db, workspaceId: string, route: OnboardingTaskRoute) {
+  return findDepartmentByRoute(db, workspaceId, route);
+}
+
+function onboardingServices(input: {
+  explicitServices?: string[];
+  includedServices?: Prisma.JsonValue | null;
+  serviceType?: string | null;
+}) {
+  const services = uniqueStrings([
+    ...(input.explicitServices ?? []),
+    ...parseContractedServices(input.includedServices),
+    input.serviceType,
+  ]);
+  return services.length ? services : ["General onboarding"];
+}
+
+function cleanNullable(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed || null;
+}
+
+async function createOnboardingRecords(
+  tx: Tx,
+  input: {
+    company: CompanySnapshot;
+    sourceProject?: SourceProjectSnapshot | null;
+    actorId: string;
+    services?: string[];
+    closingDate?: Date | null;
+    expectedStartDate?: Date | null;
+    initialNotes?: string | null;
+    responsibleSalespersonId?: string | null;
+  },
+): Promise<OnboardingCreationResult> {
+  const company = input.company;
+  const sourceProject = input.sourceProject ?? null;
+
+  const existing = sourceProject
+    ? await tx.clientOnboarding.findUnique({
+        where: { project_id: sourceProject.id },
+        include: onboardingInclude(),
+      })
+    : await tx.clientOnboarding.findFirst({
+        where: {
+          workspace_id: company.workspace_id,
+          company_id: company.id,
+          status: { not: "onboarding_complete" },
+        },
+        orderBy: [{ created_at: "desc" }, { id: "asc" }],
+        include: onboardingInclude(),
+      });
+  if (existing) {
+    return {
+      onboarding: existing,
+      notificationTargets: [],
+      createdTasks: [],
+      missingMappings: [],
+      reused: true,
+    };
+  }
+
+  const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
+  const createdTasks: CreatedOnboardingTask[] = [];
+  const missingMappings: string[] = [];
+  const contractedServices = onboardingServices({
+    explicitServices: input.services,
+    includedServices: company.included_services,
+    serviceType: company.service_type,
+  });
+
+  const mappingRows = await tx.serviceLeaderMapping.findMany({
+    where: { workspace_id: company.workspace_id, active: true },
+    include: {
+      department: { select: { id: true, name: true } },
+      leader: { select: { id: true, name: true, email: true } },
+    },
+  });
+  const mappingByService = new Map(mappingRows.map((mapping) => [serviceKey(mapping.service), mapping]));
+  const adminFallback = await findAdminFallback(tx, company.workspace_id);
+  const financeOwner = await ownerForRoute(tx, company.workspace_id, "finance", adminFallback);
+  const supportOwner = await ownerForRoute(tx, company.workspace_id, "support", adminFallback);
+  const commercialOwner = await ownerForRoute(tx, company.workspace_id, "commercial", adminFallback);
+  const salespersonId =
+    input.responsibleSalespersonId ??
+    sourceProject?.responsible_salesperson_id ??
+    commercialOwner?.id ??
+    sourceProject?.owner_id ??
+    company.owner_id;
+
+  const queueProjectCache = new Map<OnboardingTaskRoute, string>();
+  const queueProjectId = async (route: OnboardingTaskRoute | null) => {
+    const resolvedRoute = route ?? "commercial";
+    const cached = queueProjectCache.get(resolvedRoute);
+    if (cached) return cached;
+    const projectId = await resolveOnboardingTaskProjectId(tx, {
+      workspaceId: company.workspace_id,
+      companyId: company.id,
+      companyName: company.name,
+      sourceProjectId: sourceProject?.id ?? null,
+      sourceProjectSpaceId: sourceProject?.space_id ?? null,
+      ownerId: input.actorId,
+      route: resolvedRoute,
+    });
+    queueProjectCache.set(resolvedRoute, projectId);
+    return projectId;
+  };
+
+  const commercialProjectId = await queueProjectId("commercial");
+  const financeProjectId = await queueProjectId("finance");
+  const supportProjectId = await queueProjectId("support");
+
+  const onboarding = await tx.clientOnboarding.create({
+    data: {
+      workspace_id: company.workspace_id,
+      company_id: company.id,
+      project_id: sourceProject?.id ?? null,
+      status: "pending_finance_registration",
+      progress: 0,
+      closing_date: input.closingDate ?? sourceProject?.closing_date ?? null,
+      expected_start_date: input.expectedStartDate ?? sourceProject?.onboarding_start_date ?? null,
+      responsible_salesperson_id: salespersonId,
+      initial_notes: input.initialNotes ?? sourceProject?.initial_notes ?? null,
+      contracted_services: contractedServices,
+      created_by: input.actorId,
+    },
+  });
+
+  if (sourceProject) {
+    await tx.project.update({
+      where: { id: sourceProject.id },
+      data: {
+        onboarding_enabled: true,
+        responsible_salesperson_id: salespersonId,
+        ...(input.closingDate !== undefined && { closing_date: input.closingDate }),
+        ...(input.expectedStartDate !== undefined && { onboarding_start_date: input.expectedStartDate }),
+        ...(input.initialNotes !== undefined && { initial_notes: input.initialNotes }),
+      },
+    });
+  }
+
+  const createTask = async (data: {
+    project_id: string;
+    route: OnboardingTaskRoute;
+    title: string;
+    description: string;
+    status: "todo" | "in_progress" | "done";
+    priority: "low" | "medium" | "high";
+    assignee_id: string | null;
+    position: number;
+  }) => {
+    const task = await tx.task.create({
+      data: {
+        project_id: data.project_id,
+        company_id: company.id,
+        title: data.title,
+        description: data.description,
+        status: data.status,
+        priority: data.priority,
+        assignee_id: data.assignee_id,
+        position: data.position,
+      },
+    });
+    createdTasks.push({
+      id: task.id,
+      title: task.title,
+      route: data.route,
+      project_id: data.project_id,
+      assignee_id: task.assignee_id,
+    });
+    return task;
+  };
+
+  const commercialTask = await createTask({
+    project_id: commercialProjectId,
+    route: "commercial",
+    title: "Onboarding: commercial setup confirmed",
+    description: "Client created with services, owner, expected start, and initial onboarding notes.",
+    status: "done",
+    priority: "high",
+    assignee_id: salespersonId,
+    position: 0,
+  });
+  const financeTask = await createTask({
+    project_id: financeProjectId,
+    route: "finance",
+    title: "Onboarding: complete finance registration",
+    description: "Fill legal company name, CNPJ, billing contact, payment terms, contract value, and start date.",
+    status: "todo",
+    priority: "high",
+    assignee_id: financeOwner?.id ?? null,
+    position: 1,
+  });
+  const contractTask = await createTask({
+    project_id: commercialProjectId,
+    route: "commercial",
+    title: "Onboarding: upload signed contract",
+    description: "Upload the signed contract privately so only Finance/Admin can access the file.",
+    status: "todo",
+    priority: "high",
+    assignee_id: financeOwner?.id ?? null,
+    position: 2,
+  });
+  const supportTask = await createTask({
+    project_id: supportProjectId,
+    route: "support",
+    title: "Onboarding: create client communication group",
+    description: "Create the support/client communication group and record the link, participants, and notes.",
+    status: "todo",
+    priority: "medium",
+    assignee_id: supportOwner?.id ?? null,
+    position: 3,
+  });
+
+  notificationTargets.push(
+    {
+      userId: financeOwner?.id,
+      taskId: financeTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Finance registration for ${company.name}`,
+      companyId: company.id,
+    },
+    {
+      userId: financeOwner?.id,
+      taskId: contractTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Upload signed contract for ${company.name}`,
+      companyId: company.id,
+    },
+    {
+      userId: supportOwner?.id,
+      taskId: supportTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Create support group for ${company.name}`,
+      companyId: company.id,
+    },
+  );
+
+  const allMapped = contractedServices.every((service) => mappingByService.get(serviceKey(service))?.leader_id);
+  await tx.onboardingChecklistItem.createMany({
+    data: [
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: commercialTask.id,
+        department: "Commercial",
+        title: "Client created and services selected",
+        status: "complete",
+        owner_id: salespersonId,
+        completed_at: new Date(),
+        completed_by: input.actorId,
+        sort_order: 0,
+      },
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: financeTask.id,
+        department: "Finance",
+        title: "Company registration completed",
+        owner_id: financeOwner?.id ?? null,
+        sort_order: 10,
+      },
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: contractTask.id,
+        department: "Contract",
+        title: "Signed contract uploaded privately",
+        owner_id: financeOwner?.id ?? null,
+        sort_order: 20,
+      },
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        department: "Internal Assignment",
+        title: "Service leaders assigned",
+        status: allMapped ? "complete" : "pending",
+        completed_at: allMapped ? new Date() : null,
+        completed_by: allMapped ? input.actorId : null,
+        notes: allMapped ? null : "One or more services are using fallback owners and need service leader mapping.",
+        sort_order: 30,
+      },
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: supportTask.id,
+        department: "Support",
+        title: "Client communication group created",
+        owner_id: supportOwner?.id ?? null,
+        sort_order: 40,
+      },
+    ],
+  });
+
+  await tx.supportGroup.create({
+    data: {
+      onboarding_id: onboarding.id,
+      workspace_id: company.workspace_id,
+      created_by: supportOwner?.id ?? null,
+    },
+  });
+
+  let position = 50;
+  for (const service of contractedServices) {
+    const route = routeForService(service);
+    const assignmentRoute = route ?? "commercial";
+    const mapping = mappingByService.get(serviceKey(service));
+    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, assignmentRoute, adminFallback);
+    const fallbackDepartment = await departmentForRoute(tx, company.workspace_id, assignmentRoute);
+    const leaderId = mapping?.leader_id ?? fallbackLeader?.id ?? null;
+    const departmentId = mapping?.department_id ?? fallbackDepartment?.id ?? null;
+    const departmentName = mapping?.department?.name ?? fallbackDepartment?.name ?? null;
+    const needsMapping = !mapping?.leader_id;
+    if (needsMapping) missingMappings.push(service);
+
+    const serviceProjectId = await queueProjectId(route);
+    const serviceTask = await createTask({
+      project_id: serviceProjectId,
+      route: assignmentRoute,
+      title: `Onboarding: schedule ${service} onboarding meeting`,
+      description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,
+      status: "todo",
+      priority: "medium",
+      assignee_id: leaderId,
+      position,
+    });
+    const item = await tx.onboardingChecklistItem.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: serviceTask.id,
+        department: "Service Onboarding",
+        title: `${service} onboarding meeting scheduled`,
+        owner_id: leaderId,
+        notes: needsMapping ? "Service leader mapping missing; fallback owner assigned." : null,
+        sort_order: position,
+      },
+    });
+    await tx.onboardingServiceAssignment.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        service,
+        leader_id: leaderId,
+        department_id: departmentId,
+        department_name: departmentName,
+        status: needsMapping ? "needs_mapping" : "assigned",
+        notes: needsMapping ? "Needs service leader mapping. Fallback owner was assigned for continuity." : null,
+      },
+    });
+    await tx.onboardingMeeting.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        service,
+        checklist_item_id: item.id,
+        leader_id: leaderId,
+      },
+    });
+    notificationTargets.push({
+      userId: leaderId,
+      taskId: serviceTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Schedule ${service} onboarding meeting for ${company.name}`,
+      companyId: company.id,
+    });
+    position += 10;
+  }
+
+  const refreshed = await recomputeOnboardingProgress(tx, onboarding.id);
+  return { onboarding: refreshed, notificationTargets, createdTasks, missingMappings, reused: false };
+}
+
+export async function createClientOnboardingFromWizard(
+  input: ClientOnboardingWizardInput,
+): Promise<ClientOnboardingWizardResult> {
+  const result = await prisma.$transaction(async (tx) => {
+    const company = input.companyId
+      ? await tx.company.update({
+          where: { id: input.companyId },
+          data: {
+            name: input.name.trim(),
+            website: cleanNullable(input.website),
+            industry: cleanNullable(input.industry),
+            service_type: cleanNullable(input.serviceType),
+            plan_name: cleanNullable(input.planName),
+            billing_cycle: cleanNullable(input.billingCycle),
+            included_services: input.includedServices,
+            notes: cleanNullable(input.notes),
+            description: cleanNullable(input.notes),
+            contract_value: input.contractValue ?? undefined,
+            owner_id: input.ownerId ?? input.actorId,
+          },
+          select: {
+            id: true,
+            workspace_id: true,
+            name: true,
+            owner_id: true,
+            included_services: true,
+            service_type: true,
+            plan_name: true,
+          },
+        })
+      : await tx.company.create({
+          data: {
+            workspace_id: input.workspaceId,
+            name: input.name.trim(),
+            website: cleanNullable(input.website),
+            industry: cleanNullable(input.industry),
+            service_type: cleanNullable(input.serviceType),
+            plan_name: cleanNullable(input.planName),
+            billing_cycle: cleanNullable(input.billingCycle),
+            included_services: input.includedServices,
+            notes: cleanNullable(input.notes),
+            description: cleanNullable(input.notes),
+            contract_value: input.contractValue ?? null,
+            owner_id: input.ownerId ?? input.actorId,
+          },
+          select: {
+            id: true,
+            workspace_id: true,
+            name: true,
+            owner_id: true,
+            included_services: true,
+            service_type: true,
+            plan_name: true,
+          },
+        });
+
+    if (company.workspace_id !== input.workspaceId) {
+      throw new Error("Selected client does not belong to this workspace.");
+    }
+
+    if (input.contactName?.trim()) {
+      await tx.companyContact.create({
+        data: {
+          workspace_id: input.workspaceId,
+          company_id: company.id,
+          name: input.contactName.trim(),
+          email: cleanNullable(input.contactEmail),
+          phone: cleanNullable(input.contactPhone),
+          role: cleanNullable(input.contactRole),
+        },
+      });
+    }
+
+    const onboardingResult = await createOnboardingRecords(tx, {
+      company,
+      actorId: input.actorId,
+      services: input.includedServices,
+      closingDate: input.closingDate ?? null,
+      expectedStartDate: input.expectedStartDate ?? null,
+      initialNotes: input.initialNotes ?? input.notes ?? null,
+      responsibleSalespersonId: input.responsibleSalespersonId ?? input.ownerId ?? input.actorId,
+    });
+
+    return { company, ...onboardingResult };
+  });
+
+  const assignedNotificationCount = await sendOnboardingAssignmentNotifications(result.notificationTargets);
+  const adminNotificationCount = await sendOnboardingAdminSummaryNotifications({
+    workspaceId: result.company.workspace_id,
+    actorId: input.actorId,
+    onboardingId: result.onboarding.id,
+    companyId: result.company.id,
+    companyName: result.company.name,
+    createdTaskCount: result.createdTasks.length,
+    missingMappings: result.missingMappings,
+  });
+
+  if (!result.reused) {
+    await recordActivity({
+      workspace_id: result.company.workspace_id,
+      actor_id: input.actorId,
+      type: "client_onboarding_started",
+      entity_type: "client_onboarding",
+      entity_id: result.onboarding.id,
+      project_id: result.onboarding.project_id,
+      company_id: result.company.id,
+      metadata: {
+        source: "client_wizard",
+        status: result.onboarding.status,
+        progress: result.onboarding.progress,
+        services: result.onboarding.contracted_services,
+        created_tasks: result.createdTasks.length,
+        missing_mappings: result.missingMappings,
+      },
+    });
+  }
+
+  return {
+    company_id: result.company.id,
+    onboarding_id: result.onboarding.id,
+    redirect_url: `/clients/${result.company.id}`,
+    created_tasks: result.createdTasks,
+    notifications: assignedNotificationCount + adminNotificationCount,
+    missing_mappings: result.missingMappings,
+  };
 }
 
 export async function startClientOnboarding(input: {
@@ -272,8 +1016,7 @@ export async function startClientOnboarding(input: {
   initialNotes?: string | null;
   responsibleSalespersonId?: string | null;
 }) {
-  return prisma.$transaction(async (tx) => {
-    const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
+  const result = await prisma.$transaction(async (tx) => {
     const project = await tx.project.findUnique({
       where: { id: input.projectId },
       select: {
@@ -290,7 +1033,9 @@ export async function startClientOnboarding(input: {
         company: {
           select: {
             id: true,
+            workspace_id: true,
             name: true,
+            owner_id: true,
             included_services: true,
             service_type: true,
             plan_name: true,
@@ -302,311 +1047,39 @@ export async function startClientOnboarding(input: {
       throw new Error("Onboarding requires a project linked to a client.");
     }
 
-    const existing = await tx.clientOnboarding.findUnique({
-      where: { project_id: project.id },
-      include: onboardingInclude(),
+    return createOnboardingRecords(tx, {
+      company: project.company,
+      sourceProject: project,
+      actorId: input.actorId,
+      services: input.services,
+      closingDate: input.closingDate,
+      expectedStartDate: input.expectedStartDate,
+      initialNotes: input.initialNotes,
+      responsibleSalespersonId: input.responsibleSalespersonId,
     });
-    if (existing) return { onboarding: existing, notificationTargets: [] };
+  });
 
-    const services = uniqueStrings([
-      ...(input.services ?? []),
-      ...parseContractedServices(project.company.included_services),
-      project.company.service_type,
-    ]);
-    const contractedServices = services.length ? services : ["General onboarding"];
-    const mappingRows = await tx.serviceLeaderMapping.findMany({
-      where: {
-        workspace_id: project.workspace_id,
-        active: true,
-        service: { in: contractedServices },
-      },
-      include: {
-        department: { select: { id: true, name: true } },
-        leader: { select: { id: true, name: true, email: true } },
-      },
-    });
-    const mappingByService = new Map(mappingRows.map((mapping) => [serviceKey(mapping.service), mapping]));
-    const financeOwner = await findDepartmentOwner(tx, project.workspace_id, /finance/i);
-    const supportOwner = await findDepartmentOwner(tx, project.workspace_id, /support/i);
-    const supportDepartment = await findDepartmentByName(tx, project.workspace_id, /support/i);
-    const salespersonId =
-      input.responsibleSalespersonId ??
-      project.responsible_salesperson_id ??
-      project.owner_id;
-    const baseTaskProjectInput = {
-      workspaceId: project.workspace_id,
-      companyId: project.company_id,
-      companyName: project.company.name,
-      sourceProjectId: project.id,
-      sourceProjectSpaceId: project.space_id,
-      ownerId: input.actorId,
-    };
-    const commercialProjectId = await resolveOnboardingTaskProjectId(tx, {
-      ...baseTaskProjectInput,
-      route: "commercial",
-    });
-    const financeProjectId = await resolveOnboardingTaskProjectId(tx, {
-      ...baseTaskProjectInput,
-      route: "finance",
-    });
-    const supportProjectId = await resolveOnboardingTaskProjectId(tx, {
-      ...baseTaskProjectInput,
-      route: "support",
-    });
-
-    const onboarding = await tx.clientOnboarding.create({
-      data: {
-        workspace_id: project.workspace_id,
-        company_id: project.company_id,
-        project_id: project.id,
-        status: "pending_finance_registration",
-        progress: 0,
-        closing_date: input.closingDate ?? project.closing_date ?? null,
-        expected_start_date: input.expectedStartDate ?? project.onboarding_start_date ?? null,
-        responsible_salesperson_id: salespersonId,
-        initial_notes: input.initialNotes ?? project.initial_notes ?? null,
-        contracted_services: contractedServices,
-        created_by: input.actorId,
-      },
-    });
-
-    await tx.project.update({
-      where: { id: project.id },
-      data: {
-        onboarding_enabled: true,
-        responsible_salesperson_id: salespersonId,
-        ...(input.closingDate !== undefined && { closing_date: input.closingDate }),
-        ...(input.expectedStartDate !== undefined && { onboarding_start_date: input.expectedStartDate }),
-        ...(input.initialNotes !== undefined && { initial_notes: input.initialNotes }),
-      },
-    });
-
-    const commercialTask = await tx.task.create({
-      data: {
-        project_id: commercialProjectId,
-        company_id: project.company_id,
-        title: "Onboarding: commercial setup confirmed",
-        description: "Project created with client, services, salesperson, closing date, and initial notes.",
-        status: "done",
-        priority: "high",
-        assignee_id: salespersonId,
-        position: 0,
-      },
-    });
-    const financeTask = await tx.task.create({
-      data: {
-        project_id: financeProjectId,
-        company_id: project.company_id,
-        title: "Onboarding: complete finance registration",
-        description: "Fill legal company name, CNPJ, billing contact, payment terms, contract value, and start date.",
-        status: "todo",
-        priority: "high",
-        assignee_id: financeOwner?.id ?? null,
-        position: 1,
-      },
-    });
-    const contractTask = await tx.task.create({
-      data: {
-        project_id: commercialProjectId,
-        company_id: project.company_id,
-        title: "Onboarding: upload signed contract",
-        description: "Upload the signed contract privately so only Finance/Admin can access the file.",
-        status: "todo",
-        priority: "high",
-        assignee_id: financeOwner?.id ?? null,
-        position: 2,
-      },
-    });
-    const supportTask = await tx.task.create({
-      data: {
-        project_id: supportProjectId,
-        company_id: project.company_id,
-        title: "Onboarding: create client communication group",
-        description: "Create the support/client communication group and record the link, participants, and notes.",
-        status: "todo",
-        priority: "medium",
-        assignee_id: supportOwner?.id ?? null,
-        position: 3,
-      },
-    });
-
-    notificationTargets.push(
-      {
-        userId: financeOwner?.id,
-        taskId: financeTask.id,
-        workspaceId: project.workspace_id,
-        onboardingId: onboarding.id,
-        actorId: input.actorId,
-        label: "Complete finance registration",
-      },
-      {
-        userId: financeOwner?.id,
-        taskId: contractTask.id,
-        workspaceId: project.workspace_id,
-        onboardingId: onboarding.id,
-        actorId: input.actorId,
-        label: "Upload signed contract",
-      },
-      {
-        userId: supportOwner?.id,
-        taskId: supportTask.id,
-        workspaceId: project.workspace_id,
-        onboardingId: onboarding.id,
-        actorId: input.actorId,
-        label: "Create client communication group",
-      },
-    );
-
-    await tx.onboardingChecklistItem.createMany({
-      data: [
-        {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          task_id: commercialTask.id,
-          department: "Commercial",
-          title: "Project created and services selected",
-          status: "complete",
-          owner_id: salespersonId,
-          completed_at: new Date(),
-          completed_by: input.actorId,
-          sort_order: 0,
-        },
-        {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          task_id: financeTask.id,
-          department: "Finance",
-          title: "Company registration completed",
-          owner_id: financeOwner?.id ?? null,
-          sort_order: 10,
-        },
-        {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          task_id: contractTask.id,
-          department: "Contract",
-          title: "Signed contract uploaded privately",
-          owner_id: financeOwner?.id ?? null,
-          sort_order: 20,
-        },
-        {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          department: "Internal Assignment",
-          title: "Service leaders assigned",
-          status: contractedServices.every((service) => mappingByService.get(serviceKey(service))?.leader_id)
-            ? "complete"
-            : "pending",
-          completed_at: contractedServices.every((service) => mappingByService.get(serviceKey(service))?.leader_id)
-            ? new Date()
-            : null,
-          completed_by: contractedServices.every((service) => mappingByService.get(serviceKey(service))?.leader_id)
-            ? input.actorId
-            : null,
-          sort_order: 30,
-        },
-        {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          task_id: supportTask.id,
-          department: "Support",
-          title: "Client communication group created",
-          owner_id: supportOwner?.id ?? null,
-          sort_order: 40,
-        },
-      ],
-    });
-
-    await tx.supportGroup.create({
-      data: {
-        onboarding_id: onboarding.id,
-        workspace_id: project.workspace_id,
-        created_by: supportOwner?.id ?? null,
-      },
-    });
-
-    let position = 50;
-    for (const service of contractedServices) {
-      const mapping = mappingByService.get(serviceKey(service));
-      const leaderId = mapping?.leader_id ?? null;
-      const serviceProjectId = await resolveOnboardingTaskProjectId(tx, {
-        ...baseTaskProjectInput,
-        route: routeForService(service),
-      });
-      const serviceTask = await tx.task.create({
-        data: {
-          project_id: serviceProjectId,
-          company_id: project.company_id,
-          title: `Onboarding: schedule ${service} onboarding meeting`,
-          description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,
-          status: "todo",
-          priority: "medium",
-          assignee_id: leaderId,
-          position,
-        },
-      });
-      const item = await tx.onboardingChecklistItem.create({
-        data: {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          task_id: serviceTask.id,
-          department: "Service Onboarding",
-          title: `${service} onboarding meeting scheduled`,
-          owner_id: leaderId,
-          sort_order: position,
-        },
-      });
-      await tx.onboardingServiceAssignment.create({
-        data: {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          service,
-          leader_id: leaderId,
-          department_id: mapping?.department_id ?? supportDepartment?.id ?? null,
-          department_name: mapping?.department?.name ?? null,
-          status: leaderId ? "assigned" : "unassigned",
-        },
-      });
-      await tx.onboardingMeeting.create({
-        data: {
-          onboarding_id: onboarding.id,
-          workspace_id: project.workspace_id,
-          service,
-          checklist_item_id: item.id,
-          leader_id: leaderId,
-        },
-      });
-      notificationTargets.push({
-        userId: leaderId,
-        taskId: serviceTask.id,
-        workspaceId: project.workspace_id,
-        onboardingId: onboarding.id,
-        actorId: input.actorId,
-        label: `Schedule ${service} onboarding meeting`,
-      });
-      position += 10;
-    }
-
-    const refreshed = await recomputeOnboardingProgress(tx, onboarding.id);
-    return { onboarding: refreshed, notificationTargets };
-  }).then(async ({ onboarding, notificationTargets }) => {
-    await sendOnboardingAssignmentNotifications(notificationTargets);
+  await sendOnboardingAssignmentNotifications(result.notificationTargets);
+  if (!result.reused) {
     await recordActivity({
-      workspace_id: onboarding.workspace_id,
+      workspace_id: result.onboarding.workspace_id,
       actor_id: input.actorId,
       type: "client_onboarding_started",
       entity_type: "client_onboarding",
-      entity_id: onboarding.id,
-      project_id: onboarding.project_id,
-      company_id: onboarding.company_id,
+      entity_id: result.onboarding.id,
+      project_id: result.onboarding.project_id,
+      company_id: result.onboarding.company_id,
       metadata: {
-        status: onboarding.status,
-        progress: onboarding.progress,
-        services: onboarding.contracted_services,
+        source: "project_onboarding",
+        status: result.onboarding.status,
+        progress: result.onboarding.progress,
+        services: result.onboarding.contracted_services,
+        created_tasks: result.createdTasks.length,
+        missing_mappings: result.missingMappings,
       },
     });
-    return onboarding;
-  });
+  }
+  return result.onboarding;
 }
 
 export function onboardingInclude() {
@@ -659,6 +1132,21 @@ export async function recomputeOnboardingProgress(db: Db, onboardingId: string) 
     },
   });
   if (!onboarding) throw new Error("Onboarding not found");
+
+  if (onboarding.completion_overridden_at) {
+    await db.clientOnboarding.update({
+      where: { id: onboardingId },
+      data: {
+        progress: 100,
+        status: "onboarding_complete",
+        completed_at: onboarding.completed_at ?? new Date(),
+      },
+    });
+    return db.clientOnboarding.findUniqueOrThrow({
+      where: { id: onboardingId },
+      include: onboardingInclude(),
+    });
+  }
 
   const required = onboarding.checklist_items.filter((item) => item.required);
   const complete = required.filter((item) => item.status === "complete");

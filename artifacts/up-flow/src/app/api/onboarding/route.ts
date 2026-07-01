@@ -16,17 +16,19 @@ async function GET_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ items: [] });
   }
-  if (!companyId && !projectId) {
-    return NextResponse.json({ error: "company_id or project_id is required" }, { status: 400 });
-  }
-
   const rows = await prisma.clientOnboarding.findMany({
     where: {
       workspace_id: auth.currentWorkspaceId,
       ...(companyId ? { company_id: companyId } : {}),
       ...(projectId ? { project_id: projectId } : {}),
+      ...(!companyId && !projectId ? { status: { not: "onboarding_complete" } } : {}),
     },
-    orderBy: [{ created_at: "desc" }, { id: "asc" }],
+    orderBy: [
+      { status: "asc" },
+      { expected_start_date: "asc" },
+      { created_at: "desc" },
+      { id: "asc" },
+    ],
     include: onboardingInclude(),
   });
 

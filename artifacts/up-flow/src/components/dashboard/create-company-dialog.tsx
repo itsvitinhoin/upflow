@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import {
   BriefcaseBusiness,
   Building2,
+  CalendarClock,
   ChevronDown,
+  DollarSign,
   Globe2,
   Mail,
   Megaphone,
@@ -40,6 +42,15 @@ export type Company = {
 
 type WorkspaceResponse = {
   current_workspace_id?: string | null;
+};
+
+type ClientWizardResponse = {
+  company_id: string;
+  onboarding_id: string;
+  redirect_url: string;
+  created_tasks: Array<{ id: string; title: string }>;
+  notifications: number;
+  missing_mappings: string[];
 };
 
 type SelectOption = {
@@ -124,16 +135,25 @@ function optionLabel(
   return option ? t(option.labelKey) : value;
 }
 
+function todayInputDate() {
+  const date = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 export default function CreateCompanyDialog({
   open,
   onClose,
   onCreated,
+  mode = "company",
 }: {
   open: boolean;
   onClose: () => void;
   onCreated?: (c: Company) => void;
+  mode?: "company" | "onboarding";
 }) {
   const { t } = useLanguage();
+  const onboardingMode = mode === "onboarding";
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState("");
@@ -151,6 +171,8 @@ export default function CreateCompanyDialog({
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactRole, setContactRole] = useState("");
+  const [expectedStartDate, setExpectedStartDate] = useState(todayInputDate);
+  const [contractValue, setContractValue] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
@@ -218,6 +240,10 @@ export default function CreateCompanyDialog({
 
   if (!open) return null;
 
+  const dialogTitle = onboardingMode ? t("companyDialog.onboardingTitle") : t("companyDialog.title");
+  const dialogSubtitle = onboardingMode ? t("companyDialog.onboardingSubtitle") : t("companyDialog.subtitle");
+  const submitLabel = onboardingMode ? t("companyDialog.createAndStart") : t("common.create");
+
   const addService = (value: string) => {
     const service = value.trim();
     if (!service || includedServices.includes(service)) return;
@@ -248,6 +274,8 @@ export default function CreateCompanyDialog({
     setContactEmail("");
     setContactPhone("");
     setContactRole("");
+    setExpectedStartDate(todayInputDate());
+    setContractValue("");
     setDepartmentId("");
     setAssigneeId("");
   };
@@ -258,38 +286,82 @@ export default function CreateCompanyDialog({
       toast.error(t("companyDialog.nameRequired"));
       return;
     }
+    if (onboardingMode && includedServices.length === 0) {
+      toast.error(t("companyDialog.servicesRequired"));
+      return;
+    }
+    if (onboardingMode && !expectedStartDate) {
+      toast.error(t("companyDialog.expectedStartRequired"));
+      return;
+    }
+    const parsedContractValue = contractValue.trim() ? Number(contractValue) : null;
+    if (parsedContractValue !== null && !Number.isFinite(parsedContractValue)) {
+      toast.error(t("companyDialog.contractValueInvalid"));
+      return;
+    }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/companies", {
+      const website = domain.trim()
+        ? /^https?:\/\//i.test(domain.trim())
+          ? domain.trim()
+          : `https://${domain.trim()}`
+        : null;
+      const basePayload = {
+        name: name.trim(),
+        website,
+        industry: industry.trim() || null,
+        service_type: serviceType.trim() || null,
+        plan_name: planName.trim() || null,
+        billing_cycle: billingCycle.trim() || null,
+        included_services: includedServices,
+        notes: notes.trim() || null,
+        description: notes.trim() || null,
+        owner_id: assigneeId || null,
+        contact_name: contactName.trim() || null,
+        contact_email: contactEmail.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        contact_role: contactRole.trim() || null,
+        responsible_department_id: departmentId || null,
+        responsible_department_name: selectedDepartmentName || null,
+      };
+      const res = await fetch(onboardingMode ? "/api/onboarding/client-wizard" : "/api/companies", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(
+          onboardingMode
+            ? {
+                ...basePayload,
+                expected_start_date: expectedStartDate,
+                closing_date: null,
+                initial_notes: notes.trim() || null,
+                responsible_salesperson_id: assigneeId || null,
+                contract_value: parsedContractValue,
+              }
+            : basePayload,
+        ),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, t("companyDialog.createFailed")));
+      if (onboardingMode) {
+        const payload = (await res.json()) as ClientWizardResponse;
+        toast.success(t("companyDialog.onboardingStarted", { name: name.trim() }));
+        if (payload.missing_mappings.length > 0) {
+          toast.message(t("companyDialog.missingMappings", { count: payload.missing_mappings.length }));
+        }
+        onCreated?.({
+          id: payload.company_id,
           name: name.trim(),
-          website: domain.trim()
-            ? /^https?:\/\//i.test(domain.trim())
-              ? domain.trim()
-              : `https://${domain.trim()}`
-            : null,
-          industry: industry.trim() || null,
+          website,
           service_type: serviceType.trim() || null,
           plan_name: planName.trim() || null,
           billing_cycle: billingCycle.trim() || null,
           included_services: includedServices,
-          notes: notes.trim() || null,
-          description: notes.trim() || null,
-          owner_id: assigneeId || null,
-          contact_name: contactName.trim() || null,
-          contact_email: contactEmail.trim() || null,
-          contact_phone: contactPhone.trim() || null,
-          contact_role: contactRole.trim() || null,
-          responsible_department_id: departmentId || null,
-          responsible_department_name: selectedDepartmentName || null,
-        }),
-      });
-      if (!res.ok) throw new Error(await readApiError(res, t("companyDialog.createFailed")));
-      const company = (await res.json()) as Company;
-      toast.success(t("companyDialog.created", { name: company.name }));
-      onCreated?.(company);
+          created_at: new Date().toISOString(),
+        });
+      } else {
+        const company = (await res.json()) as Company;
+        toast.success(t("companyDialog.created", { name: company.name }));
+        onCreated?.(company);
+      }
       reset();
       onClose();
       if (typeof window !== "undefined") {
@@ -323,9 +395,11 @@ export default function CreateCompanyDialog({
               <Building2 className="h-9 w-9" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-3xl font-bold tracking-tight text-white">{t("companyDialog.title")}</h2>
+              <h2 className="text-3xl font-bold tracking-tight text-white">
+                {dialogTitle}
+              </h2>
               <p className="mt-2 text-base text-blue-100/62">
-                {t("companyDialog.subtitle")}
+                {dialogSubtitle}
               </p>
             </div>
           </div>
@@ -469,6 +543,36 @@ export default function CreateCompanyDialog({
               <SelectIcon />
             </div>
           </Field>
+
+          {onboardingMode && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Field label={t("companyDialog.expectedStart")} required>
+                <div className="relative">
+                  <FieldIcon icon={<CalendarClock className="h-5 w-5" />} />
+                  <input
+                    type="date"
+                    value={expectedStartDate}
+                    onChange={(e) => setExpectedStartDate(e.target.value)}
+                    className={fieldClass}
+                  />
+                </div>
+              </Field>
+              <Field label={t("companyDialog.contractValue")}>
+                <div className="relative">
+                  <FieldIcon icon={<DollarSign className="h-5 w-5" />} />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={contractValue}
+                    onChange={(e) => setContractValue(e.target.value)}
+                    placeholder={t("companyDialog.contractValuePlaceholder")}
+                    className={fieldClass}
+                  />
+                </div>
+              </Field>
+            </div>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Field label={t("companyDialog.responsibleDepartment")}>
@@ -649,11 +753,11 @@ export default function CreateCompanyDialog({
           </button>
           <button
             type="submit"
-            disabled={submitting || !name.trim()}
+            disabled={submitting || !name.trim() || (onboardingMode && (!expectedStartDate || includedServices.length === 0))}
             className="inline-flex h-16 items-center justify-center gap-3 rounded-2xl border border-blue-300/40 bg-primary text-base font-bold text-primary-foreground shadow-[0_0_34px_rgba(59,130,246,0.38),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Sparkles className="h-5 w-5" />
-            {submitting ? t("common.creating") : t("common.create")}
+            {submitting ? t("common.creating") : submitLabel}
           </button>
         </div>
 

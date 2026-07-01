@@ -101,7 +101,7 @@ export default function ClientsPage() {
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
-              {t("clients.newCompany")}
+              {t("clients.startOnboarding")}
             </button>
           </div>
         </section>
@@ -142,7 +142,7 @@ export default function ClientsPage() {
               className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
             >
               <Plus className="h-4 w-4" />
-              {t("clients.newCompany")}
+              {t("clients.startOnboarding")}
             </button>
           </section>
         ) : (
@@ -332,6 +332,7 @@ export default function ClientsPage() {
       <CreateCompanyDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
+        mode="onboarding"
         onCreated={(company) => {
           setShowCreate(false);
           window.location.assign(`/clients/${company.id}`);

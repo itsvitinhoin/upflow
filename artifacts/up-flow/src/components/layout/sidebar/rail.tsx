@@ -11,6 +11,7 @@ import {
   Kanban,
   Building2,
   Activity,
+  ClipboardCheck,
   HelpCircle,
   LogOut,
   PanelLeftClose,
@@ -37,6 +38,7 @@ export const primaryNav: NavItem[] = [
   { href: "/calendar", label: "Calendar", labelKey: "nav.calendar", icon: Calendar },
   { href: "/projects", label: "Projects", labelKey: "nav.projects", icon: Kanban },
   { href: "/clients", label: "Clients", labelKey: "nav.clients", icon: Building2 },
+  { href: "/onboarding", label: "Onboarding", labelKey: "nav.onboarding", icon: ClipboardCheck },
   { href: "/activity", label: "Activity", labelKey: "nav.activity", icon: Activity },
 ];
 

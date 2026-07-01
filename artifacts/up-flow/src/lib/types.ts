@@ -402,7 +402,7 @@ export interface ClientOnboarding {
   id: string;
   workspace_id: string;
   company_id: string;
-  project_id: string;
+  project_id: string | null;
   status: string;
   progress: number;
   closing_date: string | null;
@@ -411,6 +411,9 @@ export interface ClientOnboarding {
   initial_notes: string | null;
   contracted_services: string[] | null;
   completed_at: string | null;
+  completion_override_reason: string | null;
+  completion_overridden_by: string | null;
+  completion_overridden_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

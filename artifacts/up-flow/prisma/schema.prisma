@@ -509,7 +509,7 @@ model ClientOnboarding {
   id                         String    @id @default(uuid())
   workspace_id               String
   company_id                 String
-  project_id                 String    @unique
+  project_id                 String?   @unique
   status                     String    @default("pending_commercial_setup")
   progress                   Int       @default(0)
   closing_date               DateTime?
@@ -518,12 +518,15 @@ model ClientOnboarding {
   initial_notes              String?
   contracted_services        Json?
   completed_at               DateTime?
+  completion_override_reason String?
+  completion_overridden_by   String?
+  completion_overridden_at   DateTime?
   created_by                 String
   created_at                 DateTime  @default(now())
   updated_at                 DateTime  @updatedAt
   workspace                  Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   company                    Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
-  project                    Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  project                    Project?  @relation(fields: [project_id], references: [id], onDelete: SetNull)
   creator                    User      @relation("ClientOnboardingCreator", fields: [created_by], references: [id], onDelete: Cascade)
   salesperson                User?     @relation("ClientOnboardingSalesperson", fields: [responsible_salesperson_id], references: [id], onDelete: SetNull)
   checklist_items            OnboardingChecklistItem[]

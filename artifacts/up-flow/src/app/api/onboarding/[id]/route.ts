@@ -11,6 +11,7 @@ import {
   recomputeOnboardingProgress,
   redactOnboardingContracts,
   resolveOnboardingTaskProjectId,
+  routeForService,
   sendOnboardingAssignmentNotifications,
   type OnboardingAssignmentNotificationTarget,
 } from "@/lib/onboarding";
@@ -49,6 +50,9 @@ const PatchSchema = z.object({
     leader_id: z.string().trim().nullable().optional(),
     department_id: z.string().trim().nullable().optional(),
     notes: z.string().trim().nullable().optional(),
+  }).optional(),
+  completion_override: z.object({
+    reason: z.string().trim().min(8),
   }).optional(),
 });
 
@@ -222,34 +226,30 @@ async function PATCH_handler(
         data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
       });
       if (meeting.checklist_item_id) {
-        const projectContext = await tx.project.findUnique({
-          where: { id: access.onboarding.project_id },
-          select: {
-            id: true,
-            owner_id: true,
-            space_id: true,
-            company: { select: { name: true } },
-          },
+        const projectContext = access.onboarding.project_id
+          ? await tx.project.findUnique({
+              where: { id: access.onboarding.project_id },
+              select: {
+                id: true,
+                owner_id: true,
+                space_id: true,
+                company: { select: { name: true } },
+              },
+            })
+          : null;
+        const companyContext = await tx.company.findUnique({
+          where: { id: access.onboarding.company_id },
+          select: { name: true },
         });
-        if (!projectContext) throw new Error("Onboarding project not found.");
         const service = parsed.data.service_assignment.service;
-        const normalizedService = service
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase();
-        const route = normalizedService.includes("meta ads")
-          ? "marketing_b2b"
-          : normalizedService.includes("creative")
-            ? "creative_design"
-            : null;
         const taskProjectId = await resolveOnboardingTaskProjectId(tx, {
           workspaceId: access.onboarding.workspace_id,
           companyId: access.onboarding.company_id,
-          companyName: projectContext.company?.name ?? "Client",
-          sourceProjectId: access.onboarding.project_id,
-          sourceProjectSpaceId: projectContext.space_id,
+          companyName: projectContext?.company?.name ?? companyContext?.name ?? "Client",
+          sourceProjectId: access.onboarding.project_id ?? null,
+          sourceProjectSpaceId: projectContext?.space_id ?? null,
           ownerId: auth.prismaUser.id,
-          route,
+          route: routeForService(service),
         });
         const checklistItem = await tx.onboardingChecklistItem.update({
           where: { id: meeting.checklist_item_id },
@@ -291,10 +291,14 @@ async function PATCH_handler(
           onboardingId: params.id,
           actorId: auth.prismaUser.id,
           label: `Schedule ${service} onboarding meeting`,
+          companyId: access.onboarding.company_id,
         });
       }
       const missingLeader = await tx.onboardingServiceAssignment.findFirst({
-        where: { onboarding_id: params.id, leader_id: null },
+        where: {
+          onboarding_id: params.id,
+          OR: [{ leader_id: null }, { status: "needs_mapping" }],
+        },
         select: { id: true },
       });
       await tx.onboardingChecklistItem.updateMany({
@@ -302,6 +306,21 @@ async function PATCH_handler(
         data: missingLeader
           ? { status: "pending", completed_at: null, completed_by: null }
           : { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
+      });
+    }
+
+    if (parsed.data.completion_override) {
+      if (!access.admin) return null;
+      await tx.clientOnboarding.update({
+        where: { id: params.id },
+        data: {
+          status: "onboarding_complete",
+          progress: 100,
+          completed_at: new Date(),
+          completion_override_reason: parsed.data.completion_override.reason,
+          completion_overridden_by: auth.prismaUser.id,
+          completion_overridden_at: new Date(),
+        },
       });
     }
 

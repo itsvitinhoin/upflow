@@ -58,7 +58,10 @@ async function getCompletionBlocker(
 
   if (department.includes("internal")) {
     const missingLeader = await db.onboardingServiceAssignment.findFirst({
-      where: { onboarding_id: onboardingId, leader_id: null },
+      where: {
+        onboarding_id: onboardingId,
+        OR: [{ leader_id: null }, { status: "needs_mapping" }],
+      },
       select: { id: true },
     });
     if (missingLeader) return "Assign leaders for every contracted service before marking Internal Assignment done.";

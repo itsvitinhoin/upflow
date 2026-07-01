@@ -83,6 +83,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   const [support, setSupport] = useState({ group_link: "", notes: "" });
   const [meetings, setMeetings] = useState<Record<string, { scheduled_at: string; meeting_url: string; notes: string }>>({});
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
+  const [overrideReason, setOverrideReason] = useState("");
 
   const load = async (options?: { silent?: boolean }) => {
     if (!companyId && !projectId) return;
@@ -187,6 +188,14 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     }
     return Array.from(groups.entries());
   }, [onboarding]);
+
+  const missingMappings = useMemo(
+    () =>
+      (onboarding?.service_assignments ?? []).filter(
+        (assignment) => assignment.status === "needs_mapping" || !assignment.leader_id,
+      ),
+    [onboarding],
+  );
 
   const refresh = async () => {
     await load({ silent: true });
@@ -355,6 +364,34 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     }
   };
 
+  const overrideCompletion = async () => {
+    if (!onboarding || !teamOptions.isAdmin) return;
+    const reason = overrideReason.trim();
+    if (reason.length < 8) {
+      toast.error(t("onboardingWorkflow.overrideReasonRequired"));
+      return;
+    }
+    setSaving("completion-override");
+    try {
+      const res = await fetch(`/api/onboarding/${onboarding.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ completion_override: { reason } }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || t("onboardingWorkflow.overrideFailed"));
+      }
+      toast.success(t("onboardingWorkflow.overrideSaved"));
+      setOverrideReason("");
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.overrideFailed"));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const renderServiceAssignmentControls = (compact = false) => (
     <div className={cn("space-y-2", compact && "mt-3 rounded-lg border border-blue-300/10 bg-blue-500/[0.03] p-3")}>
       <p className="text-xs text-muted-foreground">
@@ -375,10 +412,15 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
           <div key={assignment.id} className="grid min-w-0 gap-2 rounded-lg border border-white/8 bg-[#050a18]/75 p-2 lg:grid-cols-[minmax(120px,0.9fr)_minmax(120px,1fr)_minmax(120px,1fr)_auto]">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground" title={assignment.service}>{assignment.service}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {assignment.leader?.name ?? t("companyDialog.notAssigned")}
-                {assignment.department?.name || assignment.department_name ? ` - ${assignment.department?.name ?? assignment.department_name}` : ""}
-              </p>
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="truncate text-xs text-muted-foreground">
+                  {assignment.leader?.name ?? t("companyDialog.notAssigned")}
+                  {assignment.department?.name || assignment.department_name ? ` - ${assignment.department?.name ?? assignment.department_name}` : ""}
+                </span>
+                <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-semibold", statusClass(assignment.status))}>
+                  {statusLabel(assignment.status, t)}
+                </span>
+              </div>
             </div>
             <select
               value={draft.department_id}
@@ -533,6 +575,44 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
       <div className="h-2 overflow-hidden rounded-full bg-white/8">
         <div className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all" style={{ width: `${onboarding.progress}%` }} />
       </div>
+
+      {missingMappings.length > 0 && (
+        <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
+          <p className="font-semibold">{t("onboardingWorkflow.missingMappingTitle")}</p>
+          <p className="mt-1 text-amber-100/78">
+            {t("onboardingWorkflow.missingMappingBody", { services: missingMappings.map((assignment) => assignment.service).join(", ") })}
+          </p>
+        </div>
+      )}
+
+      {teamOptions.isAdmin && onboarding.status !== "onboarding_complete" && (
+        <div className="grid gap-3 rounded-xl border border-blue-300/12 bg-white/[0.03] p-3 md:grid-cols-[1fr_auto] md:items-end">
+          <label className="space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/55">{t("onboardingWorkflow.overrideTitle")}</span>
+            <input
+              value={overrideReason}
+              onChange={(event) => setOverrideReason(event.target.value)}
+              placeholder={t("onboardingWorkflow.overridePlaceholder")}
+              className="h-10 w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 text-sm text-foreground outline-none focus:border-blue-400"
+            />
+          </label>
+          <button
+            onClick={overrideCompletion}
+            disabled={saving === "completion-override"}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:opacity-60"
+          >
+            {saving === "completion-override" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            {t("onboardingWorkflow.overrideAction")}
+          </button>
+        </div>
+      )}
+
+      {onboarding.completion_override_reason && (
+        <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
+          <p className="font-semibold">{t("onboardingWorkflow.overrideRecorded")}</p>
+          <p className="mt-1 text-emerald-100/78">{onboarding.completion_override_reason}</p>
+        </div>
+      )}
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-4">

@@ -22,8 +22,10 @@ import {
   Plus,
   Hash,
   CheckSquare,
+  Building2,
 } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
+import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 
 interface PaletteProject {
   id: string;
@@ -43,6 +45,7 @@ export default function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [showClientOnboarding, setShowClientOnboarding] = useState(false);
   const [projects, setProjects] = useState<PaletteProject[]>([]);
   const [spaces, setSpaces] = useState<PaletteSpace[]>([]);
   const [tasks, setTasks] = useState<PaletteTask[]>([]);
@@ -110,6 +113,15 @@ export default function CommandPalette() {
             >
               <Plus className="mr-2 h-4 w-4" />
               <span>New Project</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                setShowClientOnboarding(true);
+              }}
+            >
+              <Building2 className="mr-2 h-4 w-4" />
+              <span>New Client + Onboarding</span>
             </CommandItem>
           </CommandGroup>
 
@@ -216,6 +228,15 @@ export default function CommandPalette() {
         onCreated={(project) => {
           setShowNewProject(false);
           router.push(`/projects/${project.id}`);
+        }}
+      />
+      <CreateCompanyDialog
+        open={showClientOnboarding}
+        mode="onboarding"
+        onClose={() => setShowClientOnboarding(false)}
+        onCreated={(company) => {
+          setShowClientOnboarding(false);
+          router.push(`/clients/${company.id}`);
         }}
       />
     </>
