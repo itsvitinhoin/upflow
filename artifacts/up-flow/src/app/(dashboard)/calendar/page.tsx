@@ -57,6 +57,7 @@ const taskColor: Record<Task["priority"], string> = {
 
 const DEFAULT_EVENT_COLOR = "bg-primary/20 text-primary border-l-primary";
 const COMPLETED_EVENT_COLOR = "bg-upflow-success/30 text-upflow-success border-l-upflow-success";
+const DAY_CELL_VISIBLE_ITEM_LIMIT = 6;
 const EVENT_COLOR_OPTIONS = [
   { key: "default", color: null, className: DEFAULT_EVENT_COLOR, labelKey: "calendar.colorDefault" },
   { key: "complete", color: COMPLETED_EVENT_COLOR, className: COMPLETED_EVENT_COLOR, labelKey: "calendar.colorComplete" },
@@ -327,12 +328,18 @@ export default function CalendarPage() {
               const key = dateKey(day);
               const dayTasks = tasksByDay.get(key) ?? [];
               const dayEvents = eventsByDay.get(key) ?? [];
+              const totalDayItems = dayEvents.length + dayTasks.length;
+              const needsMoreIndicator = totalDayItems > DAY_CELL_VISIBLE_ITEM_LIMIT;
+              const visibleItemSlots = needsMoreIndicator ? DAY_CELL_VISIBLE_ITEM_LIMIT - 1 : DAY_CELL_VISIBLE_ITEM_LIMIT;
+              const visibleDayEvents = dayEvents.slice(0, visibleItemSlots);
+              const visibleDayTasks = dayTasks.slice(0, Math.max(visibleItemSlots - visibleDayEvents.length, 0));
+              const hiddenDayItems = totalDayItems - visibleDayEvents.length - visibleDayTasks.length;
               return (
                 <button
                   key={key}
                   onClick={() => setSelected(day)}
                   className={cn(
-                    "flex h-20 min-h-20 flex-col items-start overflow-hidden rounded-lg border p-1 text-left transition-colors sm:h-28 sm:min-h-28 sm:p-1.5 xl:h-32 xl:min-h-32",
+                    "flex h-24 min-h-24 flex-col items-start overflow-hidden rounded-lg border p-1 text-left transition-colors sm:h-32 sm:min-h-32 sm:p-1.5 xl:h-36 xl:min-h-36",
                     isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-white/5",
                     !inMonth && "opacity-40",
                   )}
@@ -347,8 +354,8 @@ export default function CalendarPage() {
                   >
                     {day.getDate()}
                   </span>
-                  <div className="mt-1 hidden min-h-0 w-full flex-1 space-y-0.5 overflow-y-auto pr-0.5 sm:block" data-calendar-day-items>
-                    {dayEvents.map((event) => {
+                  <div className="mt-1 hidden w-full space-y-0.5 overflow-hidden sm:block" data-calendar-day-items>
+                    {visibleDayEvents.map((event) => {
                       const display = eventDisplayState(event, today);
 
                       return (
@@ -365,22 +372,27 @@ export default function CalendarPage() {
                             e.stopPropagation();
                             setEditingEvent(event);
                           }}
-                          className={cn("truncate text-[10px] px-1 py-0.5 rounded border-l-2", display.color)}
+                          className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", display.color)}
                         >
                           {display.isComplete && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
                           {eventTime(event)} {event.title}
                         </div>
                       );
                     })}
-                    {dayTasks.map((task) => (
+                    {visibleDayTasks.map((task) => (
                       <div
                         key={task.id}
                         title={task.title}
-                        className={cn("truncate text-[10px] px-1 py-0.5 rounded border-l-2", taskColor[task.priority])}
+                        className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", taskColor[task.priority])}
                       >
                         {task.title}
                       </div>
                     ))}
+                    {hiddenDayItems > 0 && (
+                      <div className="rounded bg-white/5 px-1 py-0.5 text-[9px] font-medium leading-none text-muted-foreground">
+                        {t("calendar.more", { count: hiddenDayItems })}
+                      </div>
+                    )}
                   </div>
                 </button>
               );
