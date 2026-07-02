@@ -30,6 +30,14 @@ export const DEFAULT_ONBOARDING_SERVICES = [
   "Support",
 ] as const;
 
+export const MARKETING_B2B_FORM_SERVICES = [
+  "Meta Ads",
+  "Google Ads",
+  "E-Commerce",
+  "Up Zero",
+  "Up Motion",
+] as const;
+
 type Tx = Prisma.TransactionClient;
 type Db = typeof prisma | Tx;
 
@@ -293,6 +301,16 @@ export async function getOnboardingCompletionBlocker(
     if (missingLeader) return "Assign leaders for every contracted service before marking Internal Assignment done.";
   }
 
+  if (department.includes("marketing b2b")) {
+    const form = await db.marketingB2BOnboardingForm.findUnique({
+      where: { checklist_item_id: item.id },
+      select: { status: true },
+    });
+    if (form?.status !== "complete") {
+      return "Finalize the Marketing B2B onboarding form before marking this task done.";
+    }
+  }
+
   if (department.includes("service")) {
     const meeting = await db.onboardingMeeting.findFirst({
       where: { onboarding_id: onboardingId, checklist_item_id: item.id },
@@ -338,6 +356,18 @@ function normalizedName(value: string) {
     .toLowerCase();
 }
 
+export function isMarketingB2BFormService(service: string) {
+  const key = normalizedName(service);
+  return (
+    key === "meta ads" ||
+    key === "google ads" ||
+    key === "e commerce" ||
+    key === "ecommerce" ||
+    key === "up zero" ||
+    key === "up motion"
+  );
+}
+
 export function routeForService(service: string): OnboardingTaskRoute | null {
   const key = normalizedName(service);
   if (
@@ -352,6 +382,10 @@ export function routeForService(service: string): OnboardingTaskRoute | null {
   if (
     key.includes("meta ads") ||
     key.includes("google ads") ||
+    key.includes("e commerce") ||
+    key.includes("ecommerce") ||
+    key.includes("up zero") ||
+    key.includes("up motion") ||
     key.includes("paid media") ||
     key.includes("social") ||
     key.includes("seo") ||
@@ -429,6 +463,97 @@ export async function resolveOnboardingTaskProjectId(
       owner_id: input.ownerId,
       space_id: targetSpace.id,
       company_id: null,
+    },
+    select: { id: true },
+  });
+  return createdProject.id;
+}
+
+async function ensureFolder(
+  db: Db,
+  input: {
+    workspaceId: string;
+    spaceId: string;
+    ownerId: string;
+    name: string;
+    parentId?: string | null;
+    icon?: string | null;
+  },
+) {
+  const existing = await db.folder.findFirst({
+    where: {
+      workspace_id: input.workspaceId,
+      space_id: input.spaceId,
+      parent_id: input.parentId ?? null,
+      name: { equals: input.name, mode: "insensitive" },
+    },
+    select: { id: true, name: true },
+  });
+  if (existing) return existing;
+
+  return db.folder.create({
+    data: {
+      workspace_id: input.workspaceId,
+      space_id: input.spaceId,
+      owner_id: input.ownerId,
+      parent_id: input.parentId ?? null,
+      name: input.name,
+      icon: input.icon ?? null,
+    },
+    select: { id: true, name: true },
+  });
+}
+
+export async function resolveMarketingB2BOnboardingProjectId(
+  db: Db,
+  input: {
+    workspaceId: string;
+    companyId: string;
+    companyName: string;
+    ownerId: string;
+  },
+): Promise<string> {
+  const targetSpace = await ensureTargetSpace(db, input.workspaceId, "marketing_b2b", input.ownerId);
+  const onboardingFolder = await ensureFolder(db, {
+    workspaceId: input.workspaceId,
+    spaceId: targetSpace.id,
+    ownerId: input.ownerId,
+    name: "Onboarding",
+    parentId: null,
+    icon: "folder",
+  });
+  const clientFolder = await ensureFolder(db, {
+    workspaceId: input.workspaceId,
+    spaceId: targetSpace.id,
+    ownerId: input.ownerId,
+    name: input.companyName,
+    parentId: onboardingFolder.id,
+    icon: "folder",
+  });
+
+  const projectName = "Marketing B2B Onboarding";
+  const existingProject = await db.project.findFirst({
+    where: {
+      workspace_id: input.workspaceId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: projectName,
+    },
+    select: { id: true },
+  });
+  if (existingProject) return existingProject.id;
+
+  const createdProject = await db.project.create({
+    data: {
+      workspace_id: input.workspaceId,
+      owner_id: input.ownerId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: projectName,
+      description:
+        "Marketing B2B onboarding form and execution tasks for this client.",
     },
     select: { id: true },
   });
@@ -903,7 +1028,99 @@ async function createOnboardingRecords(
   });
 
   let position = 50;
+  const b2bFormServices = contractedServices.filter(isMarketingB2BFormService);
+  const b2bFormServiceKeys = new Set(b2bFormServices.map(serviceKey));
+  const b2bAssignments: Array<{
+    service: string;
+    leaderId: string | null;
+    departmentId: string | null;
+    departmentName: string | null;
+    needsMapping: boolean;
+  }> = [];
+
+  for (const service of b2bFormServices) {
+    const mapping = mappingByService.get(serviceKey(service));
+    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2b", adminFallback);
+    const fallbackDepartment = await departmentForRoute(tx, company.workspace_id, "marketing_b2b");
+    const leaderId = mapping?.leader_id ?? fallbackLeader?.id ?? null;
+    const departmentId = mapping?.department_id ?? fallbackDepartment?.id ?? null;
+    const departmentName = mapping?.department?.name ?? fallbackDepartment?.name ?? "Marketing B2B";
+    const needsMapping = !mapping?.leader_id;
+    if (needsMapping) missingMappings.push(service);
+
+    await tx.onboardingServiceAssignment.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        service,
+        leader_id: leaderId,
+        department_id: departmentId,
+        department_name: departmentName,
+        status: needsMapping ? "needs_mapping" : "assigned",
+        notes: needsMapping ? "Needs service leader mapping. Fallback owner was assigned for continuity." : null,
+      },
+    });
+    b2bAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
+  }
+
+  if (b2bFormServices.length > 0) {
+    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2b", adminFallback);
+    const formOwnerId = b2bAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
+    const b2bProjectId = await resolveMarketingB2BOnboardingProjectId(tx, {
+      workspaceId: company.workspace_id,
+      companyId: company.id,
+      companyName: company.name,
+      ownerId: input.actorId,
+    });
+    const b2bTask = await createTask({
+      project_id: b2bProjectId,
+      route: "marketing_b2b",
+      title: "Marketing B2B onboarding form",
+      description: `Marketing B2B queue action: complete the client onboarding form for ${b2bFormServices.join(", ")}. Fields are optional and autosaved. Click Finalize onboarding B2B to update the central onboarding progress.`,
+      status: "todo",
+      priority: "high",
+      assignee_id: formOwnerId,
+      position,
+    });
+    const b2bItem = await tx.onboardingChecklistItem.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: b2bTask.id,
+        department: "Marketing B2B",
+        title: "Marketing B2B onboarding form completed",
+        owner_id: formOwnerId,
+        notes: b2bAssignments.some((assignment) => assignment.needsMapping)
+          ? "One or more B2B services are using fallback owners and need service leader mapping."
+          : null,
+        sort_order: position,
+      },
+    });
+    await tx.marketingB2BOnboardingForm.create({
+      data: {
+        workspace_id: company.workspace_id,
+        onboarding_id: onboarding.id,
+        checklist_item_id: b2bItem.id,
+        task_id: b2bTask.id,
+        company_id: company.id,
+        project_id: b2bProjectId,
+        values: {},
+      },
+    });
+    notificationTargets.push({
+      userId: formOwnerId,
+      taskId: b2bTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Complete Marketing B2B onboarding form for ${company.name}`,
+      companyId: company.id,
+    });
+    position += 10;
+  }
+
   for (const service of contractedServices) {
+    if (b2bFormServiceKeys.has(serviceKey(service))) continue;
     const route = routeForService(service);
     const assignmentRoute = route ?? "commercial";
     const mapping = mappingByService.get(serviceKey(service));
@@ -1188,7 +1405,8 @@ export function onboardingSelect() {
       include: {
         owner: { select: { id: true, name: true, email: true } },
         completer: { select: { id: true, name: true, email: true } },
-        task: { select: { id: true, title: true, status: true } },
+        task: { select: { id: true, title: true, status: true, project_id: true } },
+        marketing_b2b_form: { select: { id: true, status: true, completed_at: true, task_id: true } },
       },
     },
     service_assignments: {
@@ -1214,6 +1432,10 @@ export function onboardingSelect() {
       include: {
         creator: { select: { id: true, name: true, email: true } },
       },
+    },
+    marketing_b2b_forms: {
+      orderBy: [{ created_at: "asc" as const }],
+      select: { id: true, status: true, completed_at: true, task_id: true, checklist_item_id: true },
     },
   };
 }

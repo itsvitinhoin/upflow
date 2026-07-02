@@ -71,6 +71,9 @@ async function getHandler(req: NextRequest) {
       custom_field_values: {
         select: { definition_id: true, value: true },
       },
+      marketing_b2b_onboarding_form: {
+        select: { id: true, status: true, completed_at: true },
+      },
       _count: { select: { comments: true, subtasks: true } },
     },
   });
@@ -232,6 +235,9 @@ async function postHandler(req: NextRequest) {
       include: {
         assignee: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, name: true } },
+        marketing_b2b_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
       },
     });
 

@@ -101,6 +101,9 @@ async function GET_handler(
         },
         orderBy: { created_at: "asc" },
       },
+      marketing_b2b_onboarding_form: {
+        select: { id: true, status: true, completed_at: true },
+      },
     },
   });
 
@@ -242,6 +245,9 @@ async function PATCH_handler(
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       project: { select: { id: true, name: true } },
+      marketing_b2b_onboarding_form: {
+        select: { id: true, status: true, completed_at: true },
+      },
     },
   });
 

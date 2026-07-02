@@ -8,6 +8,7 @@ import {
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
+  ExternalLink,
   FileLock2,
   Loader2,
   Lock,
@@ -624,6 +625,10 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                   <div className="space-y-2">
                     {items.map((item) => {
                       const normalizedTitle = item.title.toLowerCase();
+                      const isMarketingB2BFormItem = Boolean(item.marketing_b2b_form);
+                      const formHref = item.task?.project_id
+                        ? `/projects/${item.task.project_id}?task=${item.task_id ?? item.task.id}`
+                        : null;
                       const showAssignmentControls =
                         department.toLowerCase().includes("internal") &&
                         (normalizedTitle.includes("service leaders") || normalizedTitle.includes("lider") || normalizedTitle.includes("líder"));
@@ -638,7 +643,16 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>{statusLabel(item.status, t)}</span>
-                              {item.status !== "complete" && !showAssignmentControls && (
+                              {isMarketingB2BFormItem && formHref && (
+                                <a
+                                  href={formHref}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-2.5 py-1 text-xs font-semibold text-blue-100 hover:bg-blue-400/15"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  {t("marketingB2BForm.openShort")}
+                                </a>
+                              )}
+                              {item.status !== "complete" && !showAssignmentControls && !isMarketingB2BFormItem && (
                                 <button
                                   onClick={() => updateItem(item, "complete")}
                                   disabled={saving === item.id}
@@ -649,6 +663,11 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                               )}
                             </div>
                           </div>
+                          {isMarketingB2BFormItem && (
+                            <p className="mt-2 rounded-lg border border-blue-300/10 bg-blue-400/5 px-3 py-2 text-xs text-blue-100/78">
+                              {t("marketingB2BForm.centralHint")}
+                            </p>
+                          )}
                           {showAssignmentControls && renderServiceAssignmentControls(true)}
                         </div>
                       );

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
 import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
+import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CustomFieldChip from "@/components/projects/custom-field-chip";
 import { PriorityBadge } from "@/components/projects/priority-ui";
@@ -336,7 +337,16 @@ export default function KanbanBoard({
         </div>
       </DragDropContext>
 
-      {selectedTask && (
+      {selectedTask?.marketing_b2b_onboarding_form ? (
+        <MarketingB2BOnboardingForm
+          taskId={selectedTask.id}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={() => {
+            setSelectedTask(null);
+            onUpdate();
+          }}
+        />
+      ) : selectedTask ? (
         <TaskDetailSheet
           task={selectedTask}
           users={users}
@@ -346,7 +356,7 @@ export default function KanbanBoard({
             onUpdate();
           }}
         />
-      )}
+      ) : null}
     </>
   );
 }
