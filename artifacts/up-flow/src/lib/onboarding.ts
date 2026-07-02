@@ -685,7 +685,8 @@ export async function resolveMarketingB2COnboardingProjectId(
     icon: "folder",
   });
 
-  const projectName = "Marketing B2C Onboarding";
+  const projectName = input.companyName.trim() || "Marketing B2C Onboarding";
+  const legacyProjectName = "Marketing B2C Onboarding";
   const existingProject = await db.project.findFirst({
     where: {
       workspace_id: input.workspaceId,
@@ -697,6 +698,27 @@ export async function resolveMarketingB2COnboardingProjectId(
     select: { id: true },
   });
   if (existingProject) return existingProject.id;
+
+  if (projectName !== legacyProjectName) {
+    const legacyProject = await db.project.findFirst({
+      where: {
+        workspace_id: input.workspaceId,
+        space_id: targetSpace.id,
+        folder_id: clientFolder.id,
+        company_id: input.companyId,
+        name: legacyProjectName,
+      },
+      select: { id: true },
+    });
+    if (legacyProject) {
+      const renamedProject = await db.project.update({
+        where: { id: legacyProject.id },
+        data: { name: projectName },
+        select: { id: true },
+      });
+      return renamedProject.id;
+    }
+  }
 
   const createdProject = await db.project.create({
     data: {

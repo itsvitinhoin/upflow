@@ -35,6 +35,9 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /routeForResponsibleDepartment/);
   assert.match(helper, /resolveMarketingB2COnboardingProjectId/);
   assert.match(helper, /Marketing B2C Onboarding/);
+  assert.match(helper, /const projectName = input\.companyName\.trim\(\) \|\| "Marketing B2C Onboarding"/);
+  assert.match(helper, /legacyProjectName/);
+  assert.match(helper, /db\.project\.update[\s\S]*name: projectName/);
   assert.match(helper, /b2cFormServices/);
   assert.match(helper, /marketingB2COnboardingForm\.create/);
   assert.match(helper, /b2cFormServiceKeys\.has\(serviceKey\(service\)\)/);
