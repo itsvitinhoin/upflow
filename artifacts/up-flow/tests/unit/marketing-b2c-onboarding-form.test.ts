@@ -48,6 +48,11 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /responsibleDepartmentRoute === "marketing_b2c"/);
   assert.match(helper, /key\.includes\("content calendar"\)/);
   assert.match(helper, /key\.includes\("campanhas"\)/);
+  assert.match(helper, /key === "tiktok ads"/);
+  assert.match(helper, /key === "pinterest ads"/);
+  assert.match(helper, /key\.startsWith\("up motion "\)/);
+  assert.match(helper, /key === "implantacao ia"/);
+  assert.match(helper, /key === "social media"/);
 
   assert.match(route, /marketingB2COnboardingForm\.findUnique/);
   assert.match(route, /marketingB2COnboardingForm\.update/);
@@ -76,6 +81,9 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(wizardRoute, /responsibleDepartmentName/);
   assert.match(companyDialog, /companyDialog\.service\.nuvemshop/);
   assert.match(companyDialog, /companyDialog\.service\.googleShopping/);
+  assert.match(companyDialog, /companyDialog\.service\.tiktokAds/);
+  assert.match(companyDialog, /companyDialog\.service\.upMotionV1/);
+  assert.match(companyDialog, /companyDialog\.service\.aiImplementation/);
 
   assert.match(translations, /marketingB2CForm\.field\.brandName/);
   assert.match(translations, /marketingB2CForm\.field\.metaPixelStatus/);

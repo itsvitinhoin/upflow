@@ -33,17 +33,30 @@ export const DEFAULT_ONBOARDING_SERVICES = [
 export const MARKETING_B2B_FORM_SERVICES = [
   "Meta Ads",
   "Google Ads",
+  "TikTok Ads",
+  "Pinterest Ads",
   "E-Commerce",
   "Up Zero",
   "Up Motion",
+  "UP Motion v.1",
+  "UP Motion v.2",
+  "Implantacao IA",
 ] as const;
 
 export const MARKETING_B2C_FORM_SERVICES = [
   "Meta Ads",
   "Google Ads",
+  "TikTok Ads",
+  "Pinterest Ads",
   "E-Commerce",
   "Nuvemshop",
   "Google Shopping",
+  "Social Media",
+  "Up Zero",
+  "Up Motion",
+  "UP Motion v.1",
+  "UP Motion v.2",
+  "Implantacao IA",
   "Influencers / UGC",
 ] as const;
 
@@ -394,10 +407,16 @@ export function isMarketingB2BFormService(service: string) {
   return (
     key === "meta ads" ||
     key === "google ads" ||
+    key === "tiktok ads" ||
+    key === "pinterest ads" ||
     key === "e commerce" ||
     key === "ecommerce" ||
     key === "up zero" ||
-    key === "up motion"
+    key === "up motion" ||
+    key.startsWith("up motion ") ||
+    key === "implantacao ia" ||
+    key === "implementacao ia" ||
+    key === "ai implementation"
   );
 }
 
@@ -406,10 +425,19 @@ export function isMarketingB2CFormService(service: string) {
   return (
     key === "meta ads" ||
     key === "google ads" ||
+    key === "tiktok ads" ||
+    key === "pinterest ads" ||
     key === "e commerce" ||
     key === "ecommerce" ||
     key === "nuvemshop" ||
     key === "google shopping" ||
+    key === "social media" ||
+    key === "up zero" ||
+    key === "up motion" ||
+    key.startsWith("up motion ") ||
+    key === "implantacao ia" ||
+    key === "implementacao ia" ||
+    key === "ai implementation" ||
     key.includes("influencer") ||
     key.includes("ugc") ||
     key.includes("marketing b2c") ||

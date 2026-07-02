@@ -39,6 +39,9 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(route, /withErrorReporting\("api:onboarding\/client-wizard:POST"/);
   assert.match(dialog, /\/api\/onboarding\/client-wizard/);
   assert.match(dialog, /companyDialog\.createAndStart/);
+  assert.match(dialog, /companyDialog\.brandType/);
+  assert.match(dialog, /companyDialog\.planServices/);
+  assert.match(dialog, /companyDialog\.negotiatedMonthlyFee/);
 
   assert.match(helper, /const ONBOARDING_SAFE_SCALAR_SELECT = \{/);
   assert.match(helper, /export function onboardingSelect\(\)/);

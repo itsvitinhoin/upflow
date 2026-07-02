@@ -35,6 +35,14 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(createDialog, /SERVICE_TYPE_OPTIONS/);
   assert.match(createDialog, /PLAN_OPTIONS/);
   assert.match(createDialog, /SERVICE_OPTIONS/);
+  assert.match(createDialog, /BRAND_TYPE_OPTIONS/);
+  assert.match(createDialog, /ONBOARDING_PLAN_OPTIONS/);
+  assert.match(createDialog, /ONBOARDING_SERVICE_OPTIONS/);
+  assert.match(createDialog, /companyDialog\.brandData/);
+  assert.match(createDialog, /companyDialog\.negotiatedMonthlyFee/);
+  assert.match(createDialog, /companyDialog\.saveDraft/);
+  assert.match(createDialog, /findBrandDepartmentId/);
+  assert.match(createDialog, /parseCurrencyValue/);
   assert.match(createDialog, /removeService/);
   assert.match(createDialog, /owner_id: assigneeId/);
   assert.match(createDialog, /contact_email: contactEmail/);

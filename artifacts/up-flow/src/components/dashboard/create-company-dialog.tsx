@@ -7,16 +7,22 @@ import {
   BriefcaseBusiness,
   Building2,
   CalendarClock,
+  CheckCircle2,
   ChevronDown,
+  Crown,
   DollarSign,
   Globe2,
+  LayoutGrid,
   Mail,
   Megaphone,
   NotebookText,
   Phone,
   Plus,
   RefreshCcw,
+  Rocket,
+  Save,
   Sparkles,
+  Store,
   Trash2,
   TrendingUp,
   UserRound,
@@ -111,6 +117,31 @@ const SERVICE_OPTIONS: SelectOption[] = [
   { value: "Email marketing", labelKey: "companyDialog.service.emailMarketing" },
 ];
 
+const BRAND_TYPE_OPTIONS: SelectOption[] = [
+  { value: "B2B", labelKey: "companyDialog.brandType.b2b" },
+  { value: "B2C", labelKey: "companyDialog.brandType.b2c" },
+];
+
+const ONBOARDING_PLAN_OPTIONS: SelectOption[] = [
+  { value: "Plano Starter", labelKey: "companyDialog.onboardingPlan.starter" },
+  { value: "Plano Growth", labelKey: "companyDialog.onboardingPlan.growth" },
+  { value: "Plano Performance", labelKey: "companyDialog.onboardingPlan.performance" },
+  { value: "Plano Venture", labelKey: "companyDialog.onboardingPlan.venture" },
+  { value: "Plano Personalizado", labelKey: "companyDialog.onboardingPlan.custom" },
+];
+
+const ONBOARDING_SERVICE_OPTIONS: SelectOption[] = [
+  { value: "Meta Ads", labelKey: "companyDialog.service.metaAds" },
+  { value: "Google Ads", labelKey: "companyDialog.service.googleAds" },
+  { value: "TikTok Ads", labelKey: "companyDialog.service.tiktokAds" },
+  { value: "Pinterest Ads", labelKey: "companyDialog.service.pinterestAds" },
+  { value: "UP Motion v.1", labelKey: "companyDialog.service.upMotionV1" },
+  { value: "UP Motion v.2", labelKey: "companyDialog.service.upMotionV2" },
+  { value: "Social Media", labelKey: "companyDialog.service.socialMedia" },
+  { value: "Implantacao IA", labelKey: "companyDialog.service.aiImplementation" },
+  { value: "UP Zero", labelKey: "companyDialog.service.upZero" },
+];
+
 async function readApiError(res: Response, fallback: string) {
   try {
     const data = (await res.json()) as { error?: string };
@@ -145,6 +176,29 @@ function todayInputDate() {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function normalizeLabel(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function findBrandDepartmentId(departments: Department[], brandType: string) {
+  const target = brandType === "B2C" ? "marketing b2c" : brandType === "B2B" ? "marketing b2b" : "";
+  if (!target) return "";
+  return departments.find((department) => normalizeLabel(department.name).includes(target))?.id ?? "";
+}
+
+function parseCurrencyValue(value: string) {
+  const cleaned = value.replace(/[^\d,.-]/g, "").trim();
+  if (!cleaned) return null;
+  const normalized = cleaned.includes(",")
+    ? cleaned.replace(/\./g, "").replace(",", ".")
+    : cleaned;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
 export default function CreateCompanyDialog({
   open,
   onClose,
@@ -167,7 +221,7 @@ export default function CreateCompanyDialog({
   const [customServiceType, setCustomServiceType] = useState(false);
   const [customPlanName, setCustomPlanName] = useState(false);
   const [billingCycle, setBillingCycle] = useState("");
-  const [includedServices, setIncludedServices] = useState<string[]>(["Meta Ads", "Creative approvals", "Monthly report"]);
+  const [includedServices, setIncludedServices] = useState<string[]>([]);
   const [servicePick, setServicePick] = useState("");
   const [customService, setCustomService] = useState("");
   const [notes, setNotes] = useState("");
@@ -242,6 +296,12 @@ export default function CreateCompanyDialog({
     }
   }, [assigneeId, filteredAssignees]);
 
+  useEffect(() => {
+    if (!onboardingMode || !serviceType || departmentId) return;
+    const matchedDepartmentId = findBrandDepartmentId(departments, serviceType);
+    if (matchedDepartmentId) setDepartmentId(matchedDepartmentId);
+  }, [departmentId, departments, onboardingMode, serviceType]);
+
   if (!open) return null;
 
   const dialogTitle = onboardingMode ? t("companyDialog.onboardingTitle") : t("companyDialog.title");
@@ -270,7 +330,7 @@ export default function CreateCompanyDialog({
     setCustomServiceType(false);
     setCustomPlanName(false);
     setBillingCycle("");
-    setIncludedServices(["Meta Ads", "Creative approvals", "Monthly report"]);
+    setIncludedServices([]);
     setServicePick("");
     setCustomService("");
     setNotes("");
@@ -290,6 +350,10 @@ export default function CreateCompanyDialog({
       toast.error(t("companyDialog.nameRequired"));
       return;
     }
+    if (onboardingMode && !serviceType.trim()) {
+      toast.error(t("companyDialog.brandTypeRequired"));
+      return;
+    }
     if (onboardingMode && includedServices.length === 0) {
       toast.error(t("companyDialog.servicesRequired"));
       return;
@@ -298,7 +362,7 @@ export default function CreateCompanyDialog({
       toast.error(t("companyDialog.expectedStartRequired"));
       return;
     }
-    const parsedContractValue = contractValue.trim() ? Number(contractValue) : null;
+    const parsedContractValue = parseCurrencyValue(contractValue);
     if (parsedContractValue !== null && !Number.isFinite(parsedContractValue)) {
       toast.error(t("companyDialog.contractValueInvalid"));
       return;
@@ -378,10 +442,279 @@ export default function CreateCompanyDialog({
     }
   };
 
+  const saveDraft = async () => {
+    if (!name.trim()) {
+      toast.error(t("companyDialog.nameRequired"));
+      return;
+    }
+    const parsedContractValue = parseCurrencyValue(contractValue);
+    if (parsedContractValue !== null && !Number.isFinite(parsedContractValue)) {
+      toast.error(t("companyDialog.contractValueInvalid"));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const website = domain.trim()
+        ? /^https?:\/\//i.test(domain.trim())
+          ? domain.trim()
+          : `https://${domain.trim()}`
+        : null;
+      const res = await fetch("/api/companies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          website,
+          industry: industry.trim() || null,
+          service_type: serviceType.trim() || null,
+          plan_name: planName.trim() || null,
+          billing_cycle: billingCycle.trim() || null,
+          included_services: includedServices,
+          contract_value: parsedContractValue,
+          notes: notes.trim() || null,
+          description: notes.trim() || null,
+          owner_id: assigneeId || null,
+          contact_name: contactName.trim() || null,
+          contact_email: contactEmail.trim() || null,
+          contact_phone: contactPhone.trim() || null,
+          contact_role: contactRole.trim() || null,
+          responsible_department_id: departmentId || null,
+          responsible_department_name: selectedDepartmentName || null,
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, t("companyDialog.createFailed")));
+      const company = (await res.json()) as Company;
+      toast.success(t("companyDialog.draftSaved", { name: company.name }));
+      onCreated?.(company);
+      reset();
+      onClose();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("companyDialog.createError"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const fieldClass =
     "h-16 w-full rounded-2xl border border-blue-200/16 bg-[#12192a]/86 pl-14 pr-4 text-base text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-blue-100/45 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/70 focus:shadow-[0_0_24px_rgba(59,130,246,0.32)]";
   const textareaClass =
     "min-h-28 w-full rounded-2xl border border-blue-200/16 bg-[#12192a]/86 px-14 py-4 text-base text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-blue-100/45 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/70 focus:shadow-[0_0_24px_rgba(59,130,246,0.32)]";
+
+  if (onboardingMode) {
+    const onboardingInputClass =
+      "h-14 w-full rounded-xl border border-blue-200/18 bg-[#08142a]/72 px-14 text-base text-white outline-none transition placeholder:text-blue-100/44 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/75 focus:shadow-[0_0_28px_rgba(59,130,246,0.34)]";
+    const onboardingSelectClass = cn(onboardingInputClass, "appearance-none pr-12");
+    const availableServices = ONBOARDING_SERVICE_OPTIONS.filter((option) => !includedServices.includes(option.value));
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#020817]/82 p-4 backdrop-blur-xl sm:p-6"
+        onClick={onClose}
+      >
+        <form
+          onSubmit={submit}
+          className="relative my-6 flex max-h-[calc(100dvh-48px)] w-full max-w-6xl flex-col overflow-hidden rounded-[26px] border border-blue-200/55 bg-[radial-gradient(circle_at_16%_8%,rgba(37,99,235,0.32),transparent_28%),radial-gradient(circle_at_88%_0%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(135deg,rgba(10,23,47,0.98),rgba(3,10,24,0.99))] shadow-[0_34px_110px_rgba(0,0,0,0.66),0_0_0_1px_rgba(96,165,250,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="overflow-y-auto px-5 pb-5 pt-6 sm:px-10 sm:pb-8 sm:pt-9">
+            <div className="mb-7 flex items-start justify-between gap-5">
+              <div className="flex min-w-0 items-center gap-5">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[24px] border border-blue-300/55 bg-blue-500/18 text-blue-100 shadow-[0_0_36px_rgba(59,130,246,0.52),inset_0_1px_0_rgba(255,255,255,0.16)]">
+                  <Building2 className="h-10 w-10" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    {t("companyDialog.onboardingTitle")}
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-base text-blue-100/70">
+                    {t("companyDialog.onboardingBrief")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-100/20 bg-white/[0.04] text-blue-100/70 transition hover:bg-white/[0.09] hover:text-white"
+                aria-label={t("companyDialog.close")}
+              >
+                <X className="h-7 w-7" />
+              </button>
+            </div>
+
+            <div className="mb-3 flex justify-end">
+              <span className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-500/10 px-5 py-2 text-sm font-semibold text-blue-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                <Sparkles className="h-4 w-4" />
+                {t("companyDialog.newClient")}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <OnboardingSection icon={<Store className="h-5 w-5" />} title={t("companyDialog.brandData")}>
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <OnboardingField label={t("companyDialog.brandName")} required>
+                    <div className="relative">
+                      <FieldIcon icon={<Building2 className="h-5 w-5" />} />
+                      <input
+                        autoFocus
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder={t("companyDialog.brandNamePlaceholder")}
+                        className={onboardingInputClass}
+                      />
+                    </div>
+                  </OnboardingField>
+
+                  <OnboardingField label={t("companyDialog.brandType")} required>
+                    <div className="relative">
+                      <FieldIcon icon={<Users className="h-5 w-5" />} />
+                      <select
+                        value={serviceType}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setServiceType(value);
+                          setIndustry(value || "");
+                          const matchedDepartmentId = findBrandDepartmentId(departments, value);
+                          setDepartmentId(matchedDepartmentId);
+                        }}
+                        className={onboardingSelectClass}
+                      >
+                        <option value="">{t("companyDialog.brandTypePlaceholder")}</option>
+                        {BRAND_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                        ))}
+                      </select>
+                      <SelectIcon />
+                    </div>
+                  </OnboardingField>
+                </div>
+              </OnboardingSection>
+
+              <OnboardingSection icon={<Crown className="h-5 w-5" />} title={t("companyDialog.planSection")}>
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.95fr)]">
+                  <OnboardingField label={t("companyDialog.contractedPlan")}>
+                    <div className="relative">
+                      <FieldIcon icon={<Crown className="h-5 w-5" />} />
+                      <select
+                        value={planName}
+                        onChange={(e) => setPlanName(e.target.value)}
+                        className={onboardingSelectClass}
+                      >
+                        <option value="">{t("companyDialog.planPlaceholder")}</option>
+                        {ONBOARDING_PLAN_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                        ))}
+                      </select>
+                      <SelectIcon />
+                    </div>
+                  </OnboardingField>
+
+                  <div className="rounded-2xl border border-blue-200/14 bg-blue-950/18 p-5">
+                    <div className="flex items-center gap-3 text-sm font-semibold text-blue-300">
+                      <Sparkles className="h-4 w-4" />
+                      {t("companyDialog.availablePlans")}
+                    </div>
+                    <p className="mt-3 text-sm leading-7 text-blue-100/68">
+                      {ONBOARDING_PLAN_OPTIONS.map((option) => t(option.labelKey)).join("  •  ")}
+                    </p>
+                  </div>
+                </div>
+              </OnboardingSection>
+
+              <OnboardingSection icon={<LayoutGrid className="h-5 w-5" />} title={t("companyDialog.servicesFinancial")}>
+                <div className="space-y-5">
+                  <OnboardingField label={t("companyDialog.planServices")} required>
+                    <div className="relative">
+                      <FieldIcon icon={<Plus className="h-5 w-5" />} />
+                      <select
+                        value={servicePick}
+                        onChange={(e) => {
+                          setServicePick(e.target.value);
+                          if (e.target.value) addService(e.target.value);
+                        }}
+                        className={onboardingSelectClass}
+                      >
+                        <option value="">{t("companyDialog.planServicesPlaceholder")}</option>
+                        {availableServices.map((option) => (
+                          <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                        ))}
+                      </select>
+                      <SelectIcon />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {includedServices.map((service) => (
+                        <span
+                          key={service}
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-blue-300/28 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100"
+                        >
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-300" />
+                          <span className="truncate">{optionLabel(service, ONBOARDING_SERVICE_OPTIONS, t)}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeService(service)}
+                            aria-label={t("companyDialog.removeService", { service: optionLabel(service, ONBOARDING_SERVICE_OPTIONS, t) })}
+                            className="rounded-full text-blue-100/54 transition hover:text-white"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                      {includedServices.length === 0 && (
+                        <span className="text-sm text-blue-100/48">{t("companyDialog.noServices")}</span>
+                      )}
+                    </div>
+                  </OnboardingField>
+
+                  <OnboardingField label={t("companyDialog.negotiatedMonthlyFee")}>
+                    <div className="relative">
+                      <span className="absolute left-0 top-0 flex h-14 w-16 items-center justify-center rounded-l-xl border-r border-blue-200/14 text-base font-bold text-blue-300">
+                        R$
+                      </span>
+                      <input
+                        inputMode="decimal"
+                        value={contractValue}
+                        onChange={(e) => setContractValue(e.target.value)}
+                        placeholder={t("companyDialog.negotiatedMonthlyFeePlaceholder")}
+                        className={cn(onboardingInputClass, "pl-20")}
+                      />
+                    </div>
+                  </OnboardingField>
+                </div>
+              </OnboardingSection>
+            </div>
+          </div>
+
+          <div className="grid gap-4 border-t border-blue-200/12 bg-[#071226]/74 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:px-10">
+            <button
+              type="button"
+              onClick={saveDraft}
+              disabled={submitting || !name.trim()}
+              className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-blue-100/22 bg-white/[0.03] text-base font-semibold text-foreground transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <Save className="h-5 w-5" />
+              {t("companyDialog.saveDraft")}
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !name.trim() || !serviceType.trim() || includedServices.length === 0}
+              className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-blue-300/55 bg-blue-600 text-base font-bold text-white shadow-[0_0_34px_rgba(59,130,246,0.48),inset_0_1px_0_rgba(255,255,255,0.22)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <Rocket className="h-5 w-5" />
+              {submitting ? t("common.creating") : t("companyDialog.createAndStart")}
+            </button>
+          </div>
+
+          {!workspaceId && (
+            <p className="px-10 pb-4 text-center text-xs text-blue-100/45">
+              {t("companyDialog.teamOptionsUnavailable")}
+            </p>
+          )}
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -805,5 +1138,46 @@ function FieldIcon({
     <span className={cn("absolute left-5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-blue-500/14 text-blue-300", className)}>
       {icon}
     </span>
+  );
+}
+
+function OnboardingSection({
+  icon,
+  title,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-blue-200/18 bg-[#0b172b]/72 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="mb-4 flex items-center gap-3 text-xl font-bold text-white">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl text-blue-300">
+          {icon}
+        </span>
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function OnboardingField({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-bold text-blue-50/92">
+        {label} {required && <span className="text-rose-300">*</span>}
+      </span>
+      {children}
+    </label>
   );
 }
