@@ -38,6 +38,15 @@ export const MARKETING_B2B_FORM_SERVICES = [
   "Up Motion",
 ] as const;
 
+export const MARKETING_B2C_FORM_SERVICES = [
+  "Meta Ads",
+  "Google Ads",
+  "E-Commerce",
+  "Nuvemshop",
+  "Google Shopping",
+  "Influencers / UGC",
+] as const;
+
 type Tx = Prisma.TransactionClient;
 type Db = typeof prisma | Tx;
 
@@ -46,6 +55,7 @@ type OnboardingTaskRoute =
   | "finance"
   | "support"
   | "marketing_b2b"
+  | "marketing_b2c"
   | "creative_design";
 
 type OnboardingTaskProjectInput = {
@@ -120,6 +130,8 @@ export type ClientOnboardingWizardInput = {
   closingDate?: Date | null;
   initialNotes?: string | null;
   responsibleSalespersonId?: string | null;
+  responsibleDepartmentId?: string | null;
+  responsibleDepartmentName?: string | null;
   contractValue?: number | null;
 };
 
@@ -165,6 +177,7 @@ const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
   finance: ["finance", "financial", "financeiro"],
   support: ["support", "technical support", "suporte", "suporte tecnico"],
   marketing_b2b: ["marketing b2b", "paid media", "media buying", "marketing"],
+  marketing_b2c: ["marketing b2c", "consumer marketing", "b2c", "varejo", "ecommerce"],
   creative_design: ["creative and design", "creative design", "creative & design", "criativo", "design"],
 };
 
@@ -195,6 +208,12 @@ const ROUTE_QUEUE_CONFIG: Record<
     projectName: "Service Onboarding",
     description: "Reusable queue for paid media, tracking, reporting, and marketing service kickoff tasks.",
     aliases: ROUTE_SPACE_ALIASES.marketing_b2b,
+  },
+  marketing_b2c: {
+    spaceName: "Marketing B2C",
+    projectName: "Service Onboarding",
+    description: "Reusable queue for consumer marketing, e-commerce, traffic, and B2C onboarding tasks.",
+    aliases: ROUTE_SPACE_ALIASES.marketing_b2c,
   },
   creative_design: {
     spaceName: "Creative & Design",
@@ -311,6 +330,16 @@ export async function getOnboardingCompletionBlocker(
     }
   }
 
+  if (department.includes("marketing b2c")) {
+    const form = await db.marketingB2COnboardingForm.findUnique({
+      where: { checklist_item_id: item.id },
+      select: { status: true },
+    });
+    if (form?.status !== "complete") {
+      return "Finalize the Marketing B2C onboarding form before marking this task done.";
+    }
+  }
+
   if (department.includes("service")) {
     const meeting = await db.onboardingMeeting.findFirst({
       where: { onboarding_id: onboardingId, checklist_item_id: item.id },
@@ -368,8 +397,44 @@ export function isMarketingB2BFormService(service: string) {
   );
 }
 
+export function isMarketingB2CFormService(service: string) {
+  const key = normalizedName(service);
+  return (
+    key === "meta ads" ||
+    key === "google ads" ||
+    key === "e commerce" ||
+    key === "ecommerce" ||
+    key === "nuvemshop" ||
+    key === "google shopping" ||
+    key.includes("influencer") ||
+    key.includes("ugc") ||
+    key.includes("marketing b2c") ||
+    key.includes("consumer marketing")
+  );
+}
+
+function isMarketingB2BDepartment(value: string | null | undefined) {
+  const key = normalizedName(value ?? "");
+  return key.includes("marketing b2b");
+}
+
+function isMarketingB2CDepartment(value: string | null | undefined) {
+  const key = normalizedName(value ?? "");
+  return key.includes("marketing b2c") || key === "b2c" || key.includes("consumer marketing");
+}
+
 export function routeForService(service: string): OnboardingTaskRoute | null {
   const key = normalizedName(service);
+  if (
+    key.includes("nuvemshop") ||
+    key.includes("google shopping") ||
+    key.includes("influencer") ||
+    key.includes("ugc") ||
+    key.includes("marketing b2c") ||
+    key.includes("consumer marketing")
+  ) {
+    return "marketing_b2c";
+  }
   if (
     key.includes("creative") ||
     key.includes("video") ||
@@ -554,6 +619,62 @@ export async function resolveMarketingB2BOnboardingProjectId(
       name: projectName,
       description:
         "Marketing B2B onboarding form and execution tasks for this client.",
+    },
+    select: { id: true },
+  });
+  return createdProject.id;
+}
+
+export async function resolveMarketingB2COnboardingProjectId(
+  db: Db,
+  input: {
+    workspaceId: string;
+    companyId: string;
+    companyName: string;
+    ownerId: string;
+  },
+): Promise<string> {
+  const targetSpace = await ensureTargetSpace(db, input.workspaceId, "marketing_b2c", input.ownerId);
+  const onboardingFolder = await ensureFolder(db, {
+    workspaceId: input.workspaceId,
+    spaceId: targetSpace.id,
+    ownerId: input.ownerId,
+    name: "Onboarding",
+    parentId: null,
+    icon: "folder",
+  });
+  const clientFolder = await ensureFolder(db, {
+    workspaceId: input.workspaceId,
+    spaceId: targetSpace.id,
+    ownerId: input.ownerId,
+    name: input.companyName,
+    parentId: onboardingFolder.id,
+    icon: "folder",
+  });
+
+  const projectName = "Marketing B2C Onboarding";
+  const existingProject = await db.project.findFirst({
+    where: {
+      workspace_id: input.workspaceId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: projectName,
+    },
+    select: { id: true },
+  });
+  if (existingProject) return existingProject.id;
+
+  const createdProject = await db.project.create({
+    data: {
+      workspace_id: input.workspaceId,
+      owner_id: input.ownerId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: projectName,
+      description:
+        "Marketing B2C onboarding form and execution tasks for this client.",
     },
     select: { id: true },
   });
@@ -748,6 +869,8 @@ async function createOnboardingRecords(
     expectedStartDate?: Date | null;
     initialNotes?: string | null;
     responsibleSalespersonId?: string | null;
+    responsibleDepartmentId?: string | null;
+    responsibleDepartmentName?: string | null;
   },
 ): Promise<OnboardingCreationResult> {
   const company = input.company;
@@ -785,6 +908,8 @@ async function createOnboardingRecords(
     includedServices: company.included_services,
     serviceType: company.service_type,
   });
+  const responsibleDepartmentName = input.responsibleDepartmentName ?? null;
+  const responsibleIsB2C = isMarketingB2CDepartment(responsibleDepartmentName);
 
   const mappingRows = await tx.serviceLeaderMapping.findMany({
     where: { workspace_id: company.workspace_id, active: true },
@@ -1028,7 +1153,7 @@ async function createOnboardingRecords(
   });
 
   let position = 50;
-  const b2bFormServices = contractedServices.filter(isMarketingB2BFormService);
+  const b2bFormServices = responsibleIsB2C ? [] : contractedServices.filter(isMarketingB2BFormService);
   const b2bFormServiceKeys = new Set(b2bFormServices.map(serviceKey));
   const b2bAssignments: Array<{
     service: string;
@@ -1119,8 +1244,101 @@ async function createOnboardingRecords(
     position += 10;
   }
 
+  const b2cFormServices = responsibleIsB2C
+    ? contractedServices
+    : contractedServices.filter((service) => isMarketingB2CFormService(service) && !isMarketingB2BFormService(service));
+  const b2cFormServiceKeys = new Set(b2cFormServices.map(serviceKey));
+  const b2cAssignments: Array<{
+    service: string;
+    leaderId: string | null;
+    departmentId: string | null;
+    departmentName: string | null;
+    needsMapping: boolean;
+  }> = [];
+
+  for (const service of b2cFormServices) {
+    const mapping = mappingByService.get(serviceKey(service));
+    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2c", adminFallback);
+    const fallbackDepartment = await departmentForRoute(tx, company.workspace_id, "marketing_b2c");
+    const leaderId = mapping?.leader_id ?? fallbackLeader?.id ?? null;
+    const departmentId = mapping?.department_id ?? fallbackDepartment?.id ?? null;
+    const departmentName = mapping?.department?.name ?? fallbackDepartment?.name ?? "Marketing B2C";
+    const needsMapping = !mapping?.leader_id;
+    if (needsMapping) missingMappings.push(service);
+
+    await tx.onboardingServiceAssignment.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        service,
+        leader_id: leaderId,
+        department_id: departmentId,
+        department_name: departmentName,
+        status: needsMapping ? "needs_mapping" : "assigned",
+        notes: needsMapping ? "Needs service leader mapping. Fallback owner was assigned for continuity." : null,
+      },
+    });
+    b2cAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
+  }
+
+  if (b2cFormServices.length > 0) {
+    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2c", adminFallback);
+    const formOwnerId = b2cAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
+    const b2cProjectId = await resolveMarketingB2COnboardingProjectId(tx, {
+      workspaceId: company.workspace_id,
+      companyId: company.id,
+      companyName: company.name,
+      ownerId: input.actorId,
+    });
+    const b2cTask = await createTask({
+      project_id: b2cProjectId,
+      route: "marketing_b2c",
+      title: "Marketing B2C onboarding form",
+      description: `Marketing B2C queue action: complete the client onboarding form for ${b2cFormServices.join(", ")}. Fields are optional and autosaved. Click Finalize onboarding B2C to update the central onboarding progress.`,
+      status: "todo",
+      priority: "high",
+      assignee_id: formOwnerId,
+      position,
+    });
+    const b2cItem = await tx.onboardingChecklistItem.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: b2cTask.id,
+        department: "Marketing B2C",
+        title: "Marketing B2C onboarding form completed",
+        owner_id: formOwnerId,
+        notes: b2cAssignments.some((assignment) => assignment.needsMapping)
+          ? "One or more B2C services are using fallback owners and need service leader mapping."
+          : null,
+        sort_order: position,
+      },
+    });
+    await tx.marketingB2COnboardingForm.create({
+      data: {
+        workspace_id: company.workspace_id,
+        onboarding_id: onboarding.id,
+        checklist_item_id: b2cItem.id,
+        task_id: b2cTask.id,
+        company_id: company.id,
+        project_id: b2cProjectId,
+        values: {},
+      },
+    });
+    notificationTargets.push({
+      userId: formOwnerId,
+      taskId: b2cTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Complete Marketing B2C onboarding form for ${company.name}`,
+      companyId: company.id,
+    });
+    position += 10;
+  }
+
   for (const service of contractedServices) {
-    if (b2bFormServiceKeys.has(serviceKey(service))) continue;
+    if (b2bFormServiceKeys.has(serviceKey(service)) || b2cFormServiceKeys.has(serviceKey(service))) continue;
     const route = routeForService(service);
     const assignmentRoute = route ?? "commercial";
     const mapping = mappingByService.get(serviceKey(service));
@@ -1273,6 +1491,8 @@ export async function createClientOnboardingFromWizard(
       expectedStartDate: input.expectedStartDate ?? null,
       initialNotes: input.initialNotes ?? input.notes ?? null,
       responsibleSalespersonId: input.responsibleSalespersonId ?? input.ownerId ?? input.actorId,
+      responsibleDepartmentId: input.responsibleDepartmentId ?? null,
+      responsibleDepartmentName: input.responsibleDepartmentName ?? null,
     });
 
     return { company, ...onboardingResult };
@@ -1407,6 +1627,7 @@ export function onboardingSelect() {
         completer: { select: { id: true, name: true, email: true } },
         task: { select: { id: true, title: true, status: true, project_id: true } },
         marketing_b2b_form: { select: { id: true, status: true, completed_at: true, task_id: true } },
+        marketing_b2c_form: { select: { id: true, status: true, completed_at: true, task_id: true } },
       },
     },
     service_assignments: {
@@ -1434,6 +1655,10 @@ export function onboardingSelect() {
       },
     },
     marketing_b2b_forms: {
+      orderBy: [{ created_at: "asc" as const }],
+      select: { id: true, status: true, completed_at: true, task_id: true, checklist_item_id: true },
+    },
+    marketing_b2c_forms: {
       orderBy: [{ created_at: "asc" as const }],
       select: { id: true, status: true, completed_at: true, task_id: true, checklist_item_id: true },
     },

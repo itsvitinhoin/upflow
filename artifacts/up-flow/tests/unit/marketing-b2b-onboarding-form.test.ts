@@ -35,7 +35,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /folder_id: clientFolder\.id/);
   assert.match(helper, /b2bFormServices/);
   assert.match(helper, /marketingB2BOnboardingForm\.create/);
-  assert.match(helper, /if \(b2bFormServiceKeys\.has\(serviceKey\(service\)\)\) continue/);
+  assert.match(helper, /b2bFormServiceKeys\.has\(serviceKey\(service\)\)/);
 
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
   assert.match(route, /finalize/);

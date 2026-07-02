@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
 import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
+import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
 import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
@@ -249,6 +250,19 @@ export default function ProjectPage() {
 
       {selectedTask?.marketing_b2b_onboarding_form ? (
         <MarketingB2BOnboardingForm
+          taskId={selectedTask.id}
+          onClose={() => {
+            setSelectedTask(null);
+            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+          }}
+          onUpdate={() => {
+            setSelectedTask(null);
+            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+            loadData();
+          }}
+        />
+      ) : selectedTask?.marketing_b2c_onboarding_form ? (
+        <MarketingB2COnboardingForm
           taskId={selectedTask.id}
           onClose={() => {
             setSelectedTask(null);

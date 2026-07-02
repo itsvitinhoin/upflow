@@ -74,6 +74,9 @@ async function getHandler(req: NextRequest) {
       marketing_b2b_onboarding_form: {
         select: { id: true, status: true, completed_at: true },
       },
+      marketing_b2c_onboarding_form: {
+        select: { id: true, status: true, completed_at: true },
+      },
       _count: { select: { comments: true, subtasks: true } },
     },
   });
@@ -236,6 +239,9 @@ async function postHandler(req: NextRequest) {
         assignee: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, name: true } },
         marketing_b2b_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
+        marketing_b2c_onboarding_form: {
           select: { id: true, status: true, completed_at: true },
         },
       },

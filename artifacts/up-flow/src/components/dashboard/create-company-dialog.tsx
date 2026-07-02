@@ -97,6 +97,10 @@ const BILLING_OPTIONS = [
 const SERVICE_OPTIONS: SelectOption[] = [
   { value: "Meta Ads", labelKey: "companyDialog.service.metaAds" },
   { value: "Google Ads", labelKey: "companyDialog.service.googleAds" },
+  { value: "E-Commerce", labelKey: "companyDialog.service.ecommerce" },
+  { value: "Nuvemshop", labelKey: "companyDialog.service.nuvemshop" },
+  { value: "Google Shopping", labelKey: "companyDialog.service.googleShopping" },
+  { value: "Influencers / UGC", labelKey: "companyDialog.service.influencersUgc" },
   { value: "Creative approvals", labelKey: "companyDialog.service.creativeApprovals" },
   { value: "Monthly report", labelKey: "companyDialog.service.monthlyReport" },
   { value: "Social Media", labelKey: "companyDialog.service.socialMedia" },

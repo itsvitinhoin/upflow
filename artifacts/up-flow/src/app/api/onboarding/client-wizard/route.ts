@@ -25,6 +25,8 @@ const WizardSchema = z.object({
   closing_date: z.string().trim().nullable().optional(),
   initial_notes: z.string().trim().nullable().optional(),
   responsible_salesperson_id: z.string().trim().nullable().optional(),
+  responsible_department_id: z.string().trim().nullable().optional(),
+  responsible_department_name: z.string().trim().nullable().optional(),
   contract_value: z.number().nullable().optional(),
 });
 
@@ -70,6 +72,18 @@ async function ensureWorkspaceUser(userId: string | null | undefined, workspaceI
   return member.user_id;
 }
 
+async function ensureWorkspaceDepartment(departmentId: string | null | undefined, workspaceId: string) {
+  if (!departmentId) return null;
+  const department = await prisma.department.findFirst({
+    where: { id: departmentId, workspace_id: workspaceId },
+    select: { id: true, name: true },
+  });
+  if (!department) {
+    throw new Error("Selected responsible department is not available in this workspace.");
+  }
+  return department;
+}
+
 async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
@@ -104,6 +118,10 @@ async function POST_handler(req: NextRequest) {
       workspaceId,
       "Selected salesperson",
     );
+    const responsibleDepartment = await ensureWorkspaceDepartment(
+      parsed.data.responsible_department_id || null,
+      workspaceId,
+    );
     const result = await createClientOnboardingFromWizard({
       workspaceId,
       actorId: auth.prismaUser.id,
@@ -125,6 +143,9 @@ async function POST_handler(req: NextRequest) {
       closingDate: parseDate(parsed.data.closing_date ?? null, "closing date"),
       initialNotes: parsed.data.initial_notes ?? parsed.data.notes ?? null,
       responsibleSalespersonId: salespersonId ?? ownerId ?? auth.prismaUser.id,
+      responsibleDepartmentId: responsibleDepartment?.id ?? null,
+      responsibleDepartmentName:
+        responsibleDepartment?.name ?? parsed.data.responsible_department_name ?? null,
       contractValue: parsed.data.contract_value ?? null,
     });
     return NextResponse.json(result, { status: 201 });

@@ -8,6 +8,7 @@ import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } fr
 import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
+import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CustomFieldChip from "@/components/projects/custom-field-chip";
 import { PriorityBadge } from "@/components/projects/priority-ui";
@@ -339,6 +340,15 @@ export default function KanbanBoard({
 
       {selectedTask?.marketing_b2b_onboarding_form ? (
         <MarketingB2BOnboardingForm
+          taskId={selectedTask.id}
+          onClose={() => setSelectedTask(null)}
+          onUpdate={() => {
+            setSelectedTask(null);
+            onUpdate();
+          }}
+        />
+      ) : selectedTask?.marketing_b2c_onboarding_form ? (
+        <MarketingB2COnboardingForm
           taskId={selectedTask.id}
           onClose={() => setSelectedTask(null)}
           onUpdate={() => {

@@ -111,11 +111,20 @@ export interface Task {
   subtasks?: Subtask[];
   onboarding_link?: TaskOnboardingLink | null;
   marketing_b2b_onboarding_form?: MarketingB2BOnboardingFormSummary | null;
+  marketing_b2c_onboarding_form?: MarketingB2COnboardingFormSummary | null;
   custom_field_values?: TaskCustomFieldValue[];
   _count?: { comments: number; subtasks: number };
 }
 
 export interface MarketingB2BOnboardingFormSummary {
+  id: string;
+  status: string;
+  completed_at: string | null;
+  task_id?: string;
+  checklist_item_id?: string;
+}
+
+export interface MarketingB2COnboardingFormSummary {
   id: string;
   status: string;
   completed_at: string | null;
@@ -448,6 +457,7 @@ export interface ClientOnboarding {
   contracts?: ClientContract[];
   support_group?: SupportGroup | null;
   marketing_b2b_forms?: MarketingB2BOnboardingFormSummary[];
+  marketing_b2c_forms?: MarketingB2COnboardingFormSummary[];
 }
 
 export interface OnboardingChecklistItem {
@@ -469,6 +479,7 @@ export interface OnboardingChecklistItem {
   completer?: { id: string; name: string; email: string } | null;
   task?: { id: string; title: string; status: string; project_id?: string | null } | null;
   marketing_b2b_form?: MarketingB2BOnboardingFormSummary | null;
+  marketing_b2c_form?: MarketingB2COnboardingFormSummary | null;
 }
 
 export interface OnboardingServiceAssignment {
