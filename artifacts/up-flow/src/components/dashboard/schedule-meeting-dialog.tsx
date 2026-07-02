@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CalendarPlus, X, Video } from "lucide-react";
+import { CalendarPlus, Users, X, Video } from "lucide-react";
 import type { CalendarEvent } from "@/lib/types";
 import { APP_TIME_ZONE, formatLongDate, mergeAppDateAndTime } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
 
 const COLORS = [
   "bg-primary/20 text-primary",
@@ -13,6 +14,12 @@ const COLORS = [
   "bg-upflow-warning/20 text-upflow-warning",
   "bg-upflow-danger/20 text-upflow-danger",
 ];
+
+type SelectableUser = {
+  id: string;
+  name: string | null;
+  email: string;
+};
 
 function buildStartsAt(time: string, date?: Date) {
   return mergeAppDateAndTime(date ?? new Date(), time);
@@ -38,11 +45,16 @@ export default function ScheduleMeetingDialog({
   defaultType?: "meeting" | "reminder";
 }) {
   const { t } = useLanguage();
+  const user = useAppUser();
   const [title, setTitle] = useState("");
   const [time, setTime] = useState(initialTime);
   const [withWho, setWithWho] = useState("");
   const [eventType, setEventType] = useState<"meeting" | "reminder">(defaultType);
   const [colorIdx, setColorIdx] = useState(0);
+  const [attendeeOptions, setAttendeeOptions] = useState<SelectableUser[]>([]);
+  const [attendees, setAttendees] = useState<SelectableUser[]>([]);
+  const [selectedAttendeeId, setSelectedAttendeeId] = useState("");
+  const [attendeesLoading, setAttendeesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -51,7 +63,45 @@ export default function ScheduleMeetingDialog({
     setEventType(defaultType);
   }, [defaultType, initialTime, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    setAttendees([]);
+    setSelectedAttendeeId("");
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !user?.currentWorkspaceId) return;
+    const controller = new AbortController();
+    setAttendeesLoading(true);
+    fetch(`/api/users?workspace_id=${user.currentWorkspaceId}&status=active`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) return { items: [] };
+        return (await res.json()) as { items?: SelectableUser[] };
+      })
+      .then((data) => setAttendeeOptions(data.items ?? []))
+      .catch((err) => {
+        if ((err as Error).name !== "AbortError") setAttendeeOptions([]);
+      })
+      .finally(() => setAttendeesLoading(false));
+
+    return () => controller.abort();
+  }, [open, user?.currentWorkspaceId]);
+
   if (!open) return null;
+
+  const availableAttendees = attendeeOptions.filter(
+    (person) =>
+      person.id !== user?.id && !attendees.some((item) => item.id === person.id),
+  );
+
+  const addAttendee = () => {
+    const person = attendeeOptions.find((item) => item.id === selectedAttendeeId);
+    if (!person) return;
+    setAttendees((prev) => [...prev, person]);
+    setSelectedAttendeeId("");
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +112,7 @@ export default function ScheduleMeetingDialog({
 
     const startsAt = buildStartsAt(time, initialDate);
     const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
+    const attendeeIds = attendees.map((attendee) => attendee.id);
     setSubmitting(true);
     try {
       const res = await fetch("/api/calendar/events", {
@@ -76,6 +127,7 @@ export default function ScheduleMeetingDialog({
           timezone: APP_TIME_ZONE,
           color: COLORS[colorIdx],
           ...(defaultProjectId ? { project_id: defaultProjectId } : {}),
+          ...(attendeeIds.length ? { attendee_ids: attendeeIds } : {}),
         }),
       });
       if (!res.ok) throw new Error("Failed to schedule meeting");
@@ -88,6 +140,8 @@ export default function ScheduleMeetingDialog({
       onScheduled?.(meeting);
       setTitle("");
       setWithWho("");
+      setAttendees([]);
+      setSelectedAttendeeId("");
       onClose();
     } catch {
       toast.error(t("calendar.couldNotSchedule"));
@@ -159,6 +213,67 @@ export default function ScheduleMeetingDialog({
               className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
+        </div>
+        <div className="mt-4">
+          <label className="mb-1.5 block text-xs font-medium text-foreground">
+            {t("calendar.attendees")}
+          </label>
+          <div className="flex gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Users className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
+              <select
+                value={selectedAttendeeId}
+                onChange={(e) => setSelectedAttendeeId(e.target.value)}
+                disabled={attendeesLoading || availableAttendees.length === 0}
+                className="h-10 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+              >
+                <option value="">
+                  {attendeesLoading ? t("common.loading") : t("calendar.chooseAttendee")}
+                </option>
+                {availableAttendees.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name || person.email}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              onClick={addAttendee}
+              disabled={!selectedAttendeeId}
+              className="h-10 rounded-lg border border-white/10 px-3 text-xs font-semibold text-foreground transition hover:bg-white/10 disabled:opacity-40"
+            >
+              {t("calendar.addAttendee")}
+            </button>
+          </div>
+          {attendees.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {attendees.map((person) => (
+                <span
+                  key={person.id}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary"
+                >
+                  <span className="min-w-0 truncate">{person.name || person.email}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setAttendees((prev) =>
+                        prev.filter((attendee) => attendee.id !== person.id),
+                      )
+                    }
+                    aria-label={`${t("common.delete")} ${person.name || person.email}`}
+                    className="shrink-0 rounded-full hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {t("calendar.noAttendees")}
+            </p>
+          )}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
           <button

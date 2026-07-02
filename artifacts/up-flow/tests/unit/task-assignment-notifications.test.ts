@@ -53,6 +53,36 @@ test("task assignment notifications navigate to the exact assigned task", () => 
   assert.match(projectPage, /setSelectedTask\(task\)/);
 });
 
+test("calendar attendee assignments create notifications and navigate to calendar", () => {
+  const createRoute = read("src/app/api/calendar/events/route.ts");
+  const updateRoute = read("src/app/api/calendar/events/[id]/route.ts");
+  const helper = read("src/lib/calendar-notifications.ts");
+  const notificationLinks = read("src/lib/notification-links.ts");
+  const scheduleDialog = read("src/components/dashboard/schedule-meeting-dialog.tsx");
+
+  assert.match(createRoute, /notifyCalendarEventAssignees/);
+  assert.match(updateRoute, /newlyAddedAttendees/);
+  assert.match(helper, /source:\s*"calendar_event_assigned"/);
+  assert.match(helper, /type:\s*"assigned"/);
+  assert.match(helper, /broadcastNotification\(userId\)/);
+  assert.match(notificationLinks, /source === "calendar_event_assigned"/);
+  assert.match(notificationLinks, /\/calendar\?\$\{params\.toString\(\)\}/);
+  assert.match(scheduleDialog, /attendee_ids/);
+});
+
+test("global assistant pop-up listens for assignment broadcasts", () => {
+  const header = read("src/components/layout/header.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
+
+  assert.match(header, /assistantNotification/);
+  assert.match(header, /channel\(`notifications:\$\{user\.id\}`\)/);
+  assert.match(header, /event:\s*"new_notification"/);
+  assert.match(header, /shouldShowAssistantPopup/);
+  assert.match(header, /handleOpenNotification\(notification\)/);
+  assert.match(translations, /header\.assistantTitle/);
+  assert.match(translations, /calendar\.attendees/);
+});
+
 test("task creation dialog prevents duplicate submits and explains project context", () => {
   const newTaskDialog = read("src/components/projects/new-task-dialog.tsx");
   const createTaskPanel = read("src/components/projects/create-task-panel.tsx");

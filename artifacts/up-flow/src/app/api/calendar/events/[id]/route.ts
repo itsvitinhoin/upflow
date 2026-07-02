@@ -5,6 +5,7 @@ import { canAccessWorkspace, isWorkspaceAdminFor, type AuthUser } from "@/lib/au
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
+import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
 
 const UpdateEventSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -111,6 +112,9 @@ async function PATCH_handler(
   const attendeeIds = body.attendee_ids
     ? Array.from(new Set(body.attendee_ids))
     : undefined;
+  const previousAttendeeIds = new Set(
+    existing.attendees.map((attendee) => attendee.user_id),
+  );
   if (attendeeIds && attendeeIds.length > 0) {
     const members = await prisma.workspaceMember.findMany({
       where: { workspace_id: existing.workspace_id, user_id: { in: attendeeIds } },
@@ -158,6 +162,17 @@ async function PATCH_handler(
     task_id: updated.task_id,
     metadata: { title: updated.title },
   });
+
+  if (attendeeIds) {
+    const newlyAddedAttendees = attendeeIds.filter(
+      (userId) => !previousAttendeeIds.has(userId),
+    );
+    await notifyCalendarEventAssignees({
+      event: updated,
+      attendeeIds: newlyAddedAttendees,
+      actor: auth.prismaUser,
+    });
+  }
 
   return NextResponse.json(updated);
 }

@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseDateParam } from "@/lib/time-range";
+import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
 
 const EventSchema = z.object({
   title: z.string().trim().min(1),
@@ -144,6 +145,12 @@ async function POST_handler(req: NextRequest) {
     project_id: event.project_id,
     task_id: event.task_id,
     metadata: { title: event.title, starts_at: event.starts_at.toISOString() },
+  });
+
+  await notifyCalendarEventAssignees({
+    event,
+    attendeeIds,
+    actor: auth.prismaUser,
   });
 
   return NextResponse.json(event, { status: 201 });

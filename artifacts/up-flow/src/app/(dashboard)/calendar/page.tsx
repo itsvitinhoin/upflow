@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
@@ -28,6 +29,14 @@ function isSameDay(a: Date, b: Date) {
 
 function dateKey(input: Date | string) {
   return appDateKey(input);
+}
+
+function dateFromQueryParam(value: string | null) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map((part) => Number(part));
+  if (year && month && day) return new Date(year, month - 1, day);
+  const fallback = new Date(value);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
 }
 
 function startOfMonthGrid(year: number, month: number) {
@@ -92,6 +101,7 @@ function eventDisplayState(event: CalendarEvent, now: Date) {
 
 export default function CalendarPage() {
   const { language, t } = useLanguage();
+  const searchParams = useSearchParams();
   const [today, setToday] = useState(() => new Date());
   const [cursor, setCursor] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -107,6 +117,13 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [manageEvents, setManageEvents] = useState(false);
   const [eventMenu, setEventMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const linkedDate = dateFromQueryParam(searchParams?.get("date") ?? null);
+    if (!linkedDate) return;
+    setSelected(linkedDate);
+    setCursor(new Date(linkedDate.getFullYear(), linkedDate.getMonth(), 1));
+  }, [searchParams]);
 
   useEffect(() => {
     const refreshToday = () => setToday(new Date());
@@ -151,6 +168,15 @@ export default function CalendarPage() {
     loadCalendar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cursor]);
+
+  useEffect(() => {
+    const linkedEventId = searchParams?.get("event");
+    if (!linkedEventId) return;
+    const linkedEvent = events.find((event) => event.id === linkedEventId);
+    if (!linkedEvent) return;
+    setSelected(new Date(linkedEvent.starts_at));
+    setEditingEvent(linkedEvent);
+  }, [events, searchParams]);
 
   const days = Array.from({ length: 42 }, (_, i) => {
     const d = new Date(gridStart);

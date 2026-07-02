@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages } from "lucide-react";
+import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
@@ -19,6 +19,7 @@ interface HeaderProps {
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 30_000;
+const ASSISTANT_POPUP_TTL_MS = 12_000;
 let notificationCache: { items: Notification[]; loadedAt: number } | null = null;
 let notificationRequest: Promise<Notification[]> | null = null;
 
@@ -73,23 +74,94 @@ function notificationIcon(type: string) {
   return <Clock className="w-3.5 h-3.5 text-upflow-warning" />;
 }
 
+function notificationData(n: Notification): Record<string, unknown> {
+  return n.data && typeof n.data === "object"
+    ? (n.data as Record<string, unknown>)
+    : {};
+}
+
+function getStringData(data: Record<string, unknown>, key: string) {
+  const value = data[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function calendarAssignmentLabel(
+  type: string | undefined,
+  language: "en" | "pt" | "pt-BR",
+) {
+  const isMeeting = type === "meeting";
+  if (language === "en") return isMeeting ? "meeting" : "calendar event";
+  return isMeeting ? "reuniao" : "evento";
+}
+
+function notificationContext(n: Notification, language: "en" | "pt" | "pt-BR") {
+  const data = notificationData(n);
+  if (data.source === "calendar_event_assigned") {
+    const startsAt = getStringData(data, "starts_at");
+    if (startsAt) {
+      const date = new Date(startsAt);
+      if (!Number.isNaN(date.getTime())) {
+        return new Intl.DateTimeFormat(language, {
+          dateStyle: "short",
+          timeStyle: "short",
+        }).format(date);
+      }
+    }
+    return n.workspace?.name ?? (language === "en" ? "Calendar" : "Calendario");
+  }
+
+  return n.task?.project?.name ?? n.workspace?.name ?? null;
+}
+
+function shouldShowAssistantPopup(n: Notification) {
+  if (n.read || n.type !== "assigned") return false;
+  const data = notificationData(n);
+  if (!n.task?.id && data.source !== "calendar_event_assigned") return false;
+
+  const createdAt = new Date(n.created_at).getTime();
+  return Number.isFinite(createdAt) && Date.now() - createdAt <= 5 * 60 * 1000;
+}
+
 function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "en") {
   if (n.type === "member_joined") {
     return memberJoinedNotificationLabel(n, language);
   }
-  const data = (n.data ?? {}) as { task_title?: string; new_status?: string; actor_name?: string };
-  const taskTitle = n.task?.title || data.task_title || "a task";
-  if (n.type === "assigned") return `Assigned to "${taskTitle}"`;
-  if (n.type === "commented") return `New comment on "${taskTitle}"`;
-  if (n.type === "due_soon") return `"${taskTitle}" is due soon`;
+  const data = notificationData(n);
+  if (data.source === "calendar_event_assigned") {
+    const eventTitle = getStringData(data, "calendar_event_title") ?? "event";
+    const eventType = calendarAssignmentLabel(
+      getStringData(data, "calendar_event_type"),
+      language,
+    );
+    return language === "en"
+      ? `Assigned to ${eventType} "${eventTitle}"`
+      : `Atribuido a ${eventType} "${eventTitle}"`;
+  }
+  const taskTitle = n.task?.title || getStringData(data, "task_title") || "a task";
+  if (n.type === "assigned") {
+    return language === "en"
+      ? `Assigned to "${taskTitle}"`
+      : `Atribuido a "${taskTitle}"`;
+  }
+  if (n.type === "commented") {
+    return language === "en"
+      ? `New comment on "${taskTitle}"`
+      : `Novo comentario em "${taskTitle}"`;
+  }
+  if (n.type === "due_soon") {
+    return language === "en"
+      ? `"${taskTitle}" is due soon`
+      : `"${taskTitle}" vence em breve`;
+  }
   if (n.type === "status_changed") {
-    const actor = data.actor_name || "Someone";
-    const newLabel = data.new_status ? STATUS_LABEL[data.new_status] ?? data.new_status : "a new status";
+    const actor = getStringData(data, "actor_name") || (language === "en" ? "Someone" : "Alguem");
+    const newStatus = getStringData(data, "new_status");
+    const newLabel = newStatus ? STATUS_LABEL[newStatus] ?? newStatus : "a new status";
     return `${actor} moved "${taskTitle}" to ${newLabel}`;
   }
   if (n.type === "mentioned") {
-    const data = (n.data ?? {}) as { actor_name?: string };
-    const actor = data.actor_name || "Someone";
+    const data = notificationData(n);
+    const actor = getStringData(data, "actor_name") || (language === "en" ? "Someone" : "Alguem");
     return `${actor} mentioned you on "${taskTitle}"`;
   }
   return taskTitle;
@@ -104,17 +176,34 @@ export default function Header({ title }: HeaderProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [assistantNotification, setAssistantNotification] = useState<Notification | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const shownAssistantIdsRef = useRef<Set<string>>(new Set());
+  const assistantTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canCreateProject =
     user?.isSuperAdmin ||
     user?.currentRole === "owner" ||
     user?.currentRole === "admin";
 
-  const fetchNotifications = useCallback(async (force = false) => {
+  const fetchNotifications = useCallback(async (
+    force = false,
+    options?: { showAssistant?: boolean },
+  ) => {
     const items = await fetchNotificationItems(force);
     setNotifications(items);
     setUnreadCount(items.filter((n) => !n.read).length);
+    if (options?.showAssistant) {
+      const nextNotification = items.find(
+        (item) =>
+          shouldShowAssistantPopup(item) &&
+          !shownAssistantIdsRef.current.has(item.id),
+      );
+      if (nextNotification) {
+        shownAssistantIdsRef.current.add(nextNotification.id);
+        setAssistantNotification(nextNotification);
+      }
+    }
   }, []);
 
   const refreshUnreadCount = useCallback(async (force = false) => {
@@ -126,7 +215,11 @@ export default function Header({ title }: HeaderProps) {
     if (!user?.id) return;
     refreshUnreadCount();
     const supabase = createSupabaseBrowserClient();
-    const channel = supabase
+    const handleIncomingNotification = (showAssistant: boolean) => {
+      refreshUnreadCount(true);
+      fetchNotifications(true, { showAssistant });
+    };
+    const dbChannel = supabase
       .channel(`db-notifications:${user.id}`)
       .on(
         "postgres_changes",
@@ -136,16 +229,33 @@ export default function Header({ title }: HeaderProps) {
           table: "notifications",
           filter: `user_id=eq.${user.id}`,
         },
-        () => {
-          refreshUnreadCount(true);
-          if (panelOpen) fetchNotifications(true);
-        }
+        (payload) => {
+          handleIncomingNotification(payload.eventType === "INSERT");
+        },
       )
       .subscribe();
+    const broadcastChannel = supabase
+      .channel(`notifications:${user.id}`)
+      .on("broadcast", { event: "new_notification" }, () => {
+        handleIncomingNotification(true);
+      })
+      .subscribe();
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(dbChannel);
+      supabase.removeChannel(broadcastChannel);
     };
-  }, [user?.id, fetchNotifications, panelOpen, refreshUnreadCount]);
+  }, [user?.id, fetchNotifications, refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!assistantNotification) return;
+    if (assistantTimerRef.current) clearTimeout(assistantTimerRef.current);
+    assistantTimerRef.current = setTimeout(() => {
+      setAssistantNotification(null);
+    }, ASSISTANT_POPUP_TTL_MS);
+    return () => {
+      if (assistantTimerRef.current) clearTimeout(assistantTimerRef.current);
+    };
+  }, [assistantNotification]);
 
   useEffect(() => {
     if (panelOpen) fetchNotifications();
@@ -226,6 +336,10 @@ export default function Header({ title }: HeaderProps) {
     },
     [search, router]
   );
+
+  const assistantContext = assistantNotification
+    ? notificationContext(assistantNotification, language)
+    : null;
 
   return (
     <>
@@ -318,9 +432,9 @@ export default function Header({ title }: HeaderProps) {
                           <p className="text-xs text-foreground leading-snug">
                             {notificationLabel(n, language)}
                           </p>
-                          {n.task?.project?.name && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {n.task.project.name}
+                          {notificationContext(n, language) && (
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {notificationContext(n, language)}
                             </p>
                           )}
                         </div>
@@ -347,6 +461,66 @@ export default function Header({ title }: HeaderProps) {
           )}
         </div>
       </header>
+
+      {assistantNotification && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-24 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-sky-400/30 bg-[#071024]/95 p-4 text-foreground shadow-[0_24px_80px_rgba(37,99,235,0.35)] backdrop-blur-xl"
+        >
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">
+                  {t("header.assistantEyebrow")}
+                </p>
+                <p className="truncate text-sm font-semibold">
+                  {t("header.assistantTitle")}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAssistantNotification(null)}
+              aria-label={t("header.assistantDismiss")}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="text-sm font-medium leading-snug">
+            {notificationLabel(assistantNotification, language)}
+          </p>
+          {assistantContext && (
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {assistantContext}
+            </p>
+          )}
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setAssistantNotification(null)}
+              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+            >
+              {t("header.assistantDismiss")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const notification = assistantNotification;
+                setAssistantNotification(null);
+                if (notification) void handleOpenNotification(notification);
+              }}
+              className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+            >
+              {t("header.assistantOpen")}
+            </button>
+          </div>
+        </div>
+      )}
 
       <NewProjectDialog
         open={showNewProject}
