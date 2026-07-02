@@ -32,14 +32,17 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES/);
   assert.match(helper, /isMarketingB2CFormService/);
   assert.match(helper, /isMarketingB2CDepartment/);
+  assert.match(helper, /routeForResponsibleDepartment/);
   assert.match(helper, /resolveMarketingB2COnboardingProjectId/);
   assert.match(helper, /Marketing B2C Onboarding/);
   assert.match(helper, /b2cFormServices/);
   assert.match(helper, /marketingB2COnboardingForm\.create/);
   assert.match(helper, /b2cFormServiceKeys\.has\(serviceKey\(service\)\)/);
+  assert.match(helper, /input\.responsibleDepartmentId[\s\S]*tx\.department\.findFirst/);
   assert.match(helper, /space:\s*\{\s*select:\s*\{\s*id:\s*true,\s*name:\s*true\s*\}\s*\}/);
   assert.match(helper, /sourceProjectSpaceName = sourceProject\?\.space\?\.name/);
-  assert.match(helper, /responsibleDepartmentName = input\.responsibleDepartmentName \?\? sourceProjectSpaceName/);
+  assert.match(helper, /responsibleDepartmentName = input\.responsibleDepartmentName \?\? responsibleDepartment\?\.name \?\? sourceProjectSpaceName/);
+  assert.match(helper, /responsibleDepartmentRoute === "marketing_b2c"/);
   assert.match(helper, /key\.includes\("content calendar"\)/);
   assert.match(helper, /key\.includes\("campanhas"\)/);
 

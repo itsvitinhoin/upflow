@@ -436,6 +436,17 @@ function isMarketingB2CDepartment(value: string | null | undefined) {
   return key.includes("marketing b2c") || key === "b2c" || key.includes("consumer marketing");
 }
 
+function routeForResponsibleDepartment(value: string | null | undefined): OnboardingTaskRoute | null {
+  if (isMarketingB2CDepartment(value)) return "marketing_b2c";
+  if (isMarketingB2BDepartment(value)) return "marketing_b2b";
+  const key = normalizedName(value ?? "");
+  if (key.includes("creative") || key.includes("design")) return "creative_design";
+  if (key.includes("finance") || key.includes("financeiro")) return "finance";
+  if (key.includes("support") || key.includes("suporte")) return "support";
+  if (key.includes("commercial") || key.includes("comercial") || key.includes("sales")) return "commercial";
+  return null;
+}
+
 export function routeForService(service: string): OnboardingTaskRoute | null {
   const key = normalizedName(service);
   if (
@@ -930,9 +941,18 @@ async function createOnboardingRecords(
     includedServices: company.included_services,
     serviceType: company.service_type,
   });
+  const responsibleDepartment = input.responsibleDepartmentName
+    ? null
+    : input.responsibleDepartmentId
+      ? await tx.department.findFirst({
+          where: { id: input.responsibleDepartmentId, workspace_id: company.workspace_id },
+          select: { name: true },
+        })
+      : null;
   const sourceProjectSpaceName = sourceProject?.space?.name ?? null;
-  const responsibleDepartmentName = input.responsibleDepartmentName ?? sourceProjectSpaceName ?? null;
-  const responsibleIsB2C = isMarketingB2CDepartment(responsibleDepartmentName);
+  const responsibleDepartmentName = input.responsibleDepartmentName ?? responsibleDepartment?.name ?? sourceProjectSpaceName ?? null;
+  const responsibleDepartmentRoute = routeForResponsibleDepartment(responsibleDepartmentName);
+  const responsibleIsB2C = responsibleDepartmentRoute === "marketing_b2c";
 
   const mappingRows = await tx.serviceLeaderMapping.findMany({
     where: { workspace_id: company.workspace_id, active: true },
