@@ -37,6 +37,11 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /b2cFormServices/);
   assert.match(helper, /marketingB2COnboardingForm\.create/);
   assert.match(helper, /b2cFormServiceKeys\.has\(serviceKey\(service\)\)/);
+  assert.match(helper, /space:\s*\{\s*select:\s*\{\s*id:\s*true,\s*name:\s*true\s*\}\s*\}/);
+  assert.match(helper, /sourceProjectSpaceName = sourceProject\?\.space\?\.name/);
+  assert.match(helper, /responsibleDepartmentName = input\.responsibleDepartmentName \?\? sourceProjectSpaceName/);
+  assert.match(helper, /key\.includes\("content calendar"\)/);
+  assert.match(helper, /key\.includes\("campanhas"\)/);
 
   assert.match(route, /marketingB2COnboardingForm\.findUnique/);
   assert.match(route, /marketingB2COnboardingForm\.update/);
@@ -55,6 +60,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
 
   assert.match(panel, /marketing_b2c_form/);
   assert.match(panel, /marketingB2CForm\.centralHint/);
+  assert.match(panel, /upflow:sidebar-refresh/);
   assert.match(taskListRoute, /marketing_b2c_onboarding_form/);
   assert.match(taskDetailRoute, /marketing_b2c_onboarding_form/);
   assert.match(kanbanBoard, /MarketingB2COnboardingForm/);

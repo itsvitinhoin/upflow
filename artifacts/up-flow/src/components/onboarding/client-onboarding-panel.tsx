@@ -217,6 +217,9 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
         throw new Error(data.error || t("onboardingWorkflow.startFailed"));
       }
       toast.success(t("onboardingWorkflow.started"));
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      }
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.startFailed"));

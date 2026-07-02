@@ -91,6 +91,10 @@ type SourceProjectSnapshot = {
   onboarding_start_date: Date | null;
   responsible_salesperson_id: string | null;
   initial_notes: string | null;
+  space?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 type CreatedOnboardingTask = {
@@ -409,7 +413,16 @@ export function isMarketingB2CFormService(service: string) {
     key.includes("influencer") ||
     key.includes("ugc") ||
     key.includes("marketing b2c") ||
-    key.includes("consumer marketing")
+    key.includes("consumer marketing") ||
+    key.includes("content calendar") ||
+    key.includes("calendario de conteudo") ||
+    key.includes("promotions") ||
+    key.includes("promocoes") ||
+    key.includes("campaigns") ||
+    key.includes("campanhas") ||
+    key === "ads" ||
+    key.includes("trafego") ||
+    key.includes("midia")
   );
 }
 
@@ -431,7 +444,16 @@ export function routeForService(service: string): OnboardingTaskRoute | null {
     key.includes("influencer") ||
     key.includes("ugc") ||
     key.includes("marketing b2c") ||
-    key.includes("consumer marketing")
+    key.includes("consumer marketing") ||
+    key.includes("content calendar") ||
+    key.includes("calendario de conteudo") ||
+    key.includes("promotions") ||
+    key.includes("promocoes") ||
+    key.includes("campaigns") ||
+    key.includes("campanhas") ||
+    key === "ads" ||
+    key.includes("trafego") ||
+    key.includes("midia")
   ) {
     return "marketing_b2c";
   }
@@ -908,7 +930,8 @@ async function createOnboardingRecords(
     includedServices: company.included_services,
     serviceType: company.service_type,
   });
-  const responsibleDepartmentName = input.responsibleDepartmentName ?? null;
+  const sourceProjectSpaceName = sourceProject?.space?.name ?? null;
+  const responsibleDepartmentName = input.responsibleDepartmentName ?? sourceProjectSpaceName ?? null;
   const responsibleIsB2C = isMarketingB2CDepartment(responsibleDepartmentName);
 
   const mappingRows = await tx.serviceLeaderMapping.findMany({
@@ -1562,6 +1585,7 @@ export async function startClientOnboarding(input: {
         onboarding_start_date: true,
         responsible_salesperson_id: true,
         initial_notes: true,
+        space: { select: { id: true, name: true } },
         company: {
           select: {
             id: true,
