@@ -9,17 +9,14 @@ import {
   CheckCircle2,
   ClipboardCheck,
   ExternalLink,
-  FileLock2,
   Loader2,
-  Lock,
   RefreshCcw,
   Send,
   ShieldCheck,
-  Upload,
   Users,
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
-import type { ClientOnboarding, Company, Department, OnboardingChecklistItem, OnboardingMeeting, OnboardingServiceAssignment, TeamMember } from "@/lib/types";
+import type { ClientOnboarding, Company, Department, OnboardingChecklistItem, OnboardingServiceAssignment, TeamMember } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
 type Props = {
@@ -47,14 +44,6 @@ function statusClass(status: string) {
   if (status === "onboarding_complete" || status === "complete") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
   if (status === "onboarding_in_progress" || status === "in_progress") return "border-blue-400/30 bg-blue-400/10 text-blue-100";
   return "border-amber-400/25 bg-amber-400/10 text-amber-100";
-}
-
-function localDateTimeValue(value: string | null | undefined) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 const MARKETING_B2B_SUMMARY_SECTIONS = [
@@ -92,11 +81,92 @@ const MARKETING_B2B_PROGRESS_FIELDS = [
   "physicalStoreAddress",
 ];
 
+const MARKETING_B2C_SUMMARY_SECTIONS = [
+  {
+    key: "brand",
+    fields: ["brandName", "officialSite", "instagram", "brandSince", "digitalSince", "brandDescription"],
+  },
+  {
+    key: "currentMoment",
+    fields: ["currentMoment", "topProducts", "averageTicket", "monthlyRevenue", "monthlyBudget"],
+  },
+  {
+    key: "audience",
+    fields: ["targetAudience", "ageRange", "regions", "purchaseMotivation"],
+  },
+  {
+    key: "ecommerce",
+    fields: ["ecommercePlatform", "storeUrl", "catalogStatus", "feedStockStatus", "checkoutPaymentNotes"],
+  },
+  {
+    key: "traffic",
+    fields: ["metaPixelStatus", "googleAdsStatus", "mediaBudgetMeta", "mediaBudgetGoogle", "campaignGoals"],
+  },
+  {
+    key: "people",
+    fields: ["marketingResponsible", "ecommerceResponsible", "creativeApprover", "whatsapp", "email"],
+  },
+];
+
+const MARKETING_B2C_PROGRESS_FIELDS = MARKETING_B2C_SUMMARY_SECTIONS.flatMap((section) => section.fields);
+
 function countFilled(values: Record<string, string> | null | undefined, fields: string[]) {
   return fields.filter((field) => String(values?.[field] ?? "").trim()).length;
 }
 
-export default function ClientOnboardingPanel({ companyId, projectId, company, onChanged }: Props) {
+function checklistSearchText(item: OnboardingChecklistItem) {
+  return [
+    item.department,
+    item.title,
+    item.task?.title,
+    item.task?.description,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function isFinanceChecklistItem(item: OnboardingChecklistItem) {
+  const text = checklistSearchText(item);
+  return (
+    text.includes("finance") ||
+    text.includes("financeiro") ||
+    text.includes("cadastro") ||
+    text.includes("billing") ||
+    text.includes("faturamento") ||
+    text.includes("cnpj")
+  );
+}
+
+function isContractChecklistItem(item: OnboardingChecklistItem) {
+  const text = checklistSearchText(item);
+  return text.includes("contract") || text.includes("contrato");
+}
+
+function isSchedulingChecklistItem(item: OnboardingChecklistItem) {
+  const text = checklistSearchText(item);
+  return (
+    text.includes("schedule") ||
+    text.includes("meeting") ||
+    text.includes("reuni") ||
+    text.includes("visita") ||
+    text.includes("agenda")
+  );
+}
+
+function taskFormHref(item: OnboardingChecklistItem) {
+  const task = item.task;
+  const taskId = item.task_id ?? task?.id;
+  return task?.project_id && taskId ? `/projects/${task.project_id}?view=form&task=${taskId}` : null;
+}
+
+function scheduleTaskHref(item: OnboardingChecklistItem, onboarding: ClientOnboarding) {
+  const task = item.task;
+  const taskId = item.task_id ?? task?.id;
+  if (!task?.project_id || !taskId) return null;
+  const title = encodeURIComponent(task.title ?? item.title);
+  const description = encodeURIComponent(`${onboarding.company?.name ?? ""} - ${item.department}`);
+  return `/calendar?create=meeting&task=${taskId}&project=${task.project_id}&title=${title}&description=${description}`;
+}
+
+export default function ClientOnboardingPanel({ companyId, projectId, onChanged }: Props) {
   const { t } = useLanguage();
   const [onboarding, setOnboarding] = useState<ClientOnboarding | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,21 +177,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     departments: Department[];
     isAdmin: boolean;
   }>({ members: [], departments: [], isAdmin: false });
-  const [finance, setFinance] = useState({
-    legal_name: company?.legal_name ?? "",
-    cnpj: company?.cnpj ?? "",
-    billing_email: company?.billing_email ?? "",
-    main_contact_email: company?.main_contact_email ?? "",
-    phone: company?.phone ?? "",
-    whatsapp: company?.whatsapp ?? "",
-    address: company?.address ?? "",
-    billing_notes: company?.billing_notes ?? "",
-    contract_value: company?.contract_value != null ? String(company.contract_value) : "",
-    payment_terms: company?.payment_terms ?? "",
-    contract_start_date: company?.contract_start_date ? localDateTimeValue(company.contract_start_date) : "",
-  });
   const [support, setSupport] = useState({ group_link: "", notes: "" });
-  const [meetings, setMeetings] = useState<Record<string, { scheduled_at: string; meeting_url: string; notes: string }>>({});
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
   const [overrideReason, setOverrideReason] = useState("");
 
@@ -140,20 +196,6 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
           group_link: first.support_group.group_link ?? "",
           notes: first.support_group.notes ?? "",
         });
-      }
-      if (first?.meetings) {
-        setMeetings(
-          Object.fromEntries(
-            first.meetings.map((meeting) => [
-              meeting.service,
-              {
-                scheduled_at: localDateTimeValue(meeting.scheduled_at),
-                meeting_url: meeting.meeting_url ?? "",
-                notes: meeting.notes ?? "",
-              },
-            ]),
-          ),
-        );
       }
       setAssignmentDrafts(
         Object.fromEntries(
@@ -203,22 +245,6 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     };
   }, []);
 
-  useEffect(() => {
-    setFinance({
-      legal_name: company?.legal_name ?? "",
-      cnpj: company?.cnpj ?? "",
-      billing_email: company?.billing_email ?? "",
-      main_contact_email: company?.main_contact_email ?? "",
-      phone: company?.phone ?? "",
-      whatsapp: company?.whatsapp ?? "",
-      address: company?.address ?? "",
-      billing_notes: company?.billing_notes ?? "",
-      contract_value: company?.contract_value != null ? String(company.contract_value) : "",
-      payment_terms: company?.payment_terms ?? "",
-      contract_start_date: company?.contract_start_date ? localDateTimeValue(company.contract_start_date) : "",
-    });
-  }, [company]);
-
   const groupedItems = useMemo(() => {
     const groups = new Map<string, OnboardingChecklistItem[]>();
     for (const item of onboarding?.checklist_items ?? []) {
@@ -260,6 +286,40 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
       missingSections,
     };
   }, [onboarding, t]);
+
+  const marketingB2CSummary = useMemo(() => {
+    const item = onboarding?.checklist_items?.find((checklistItem) => checklistItem.marketing_b2c_form) ?? null;
+    const form = item?.marketing_b2c_form ?? onboarding?.marketing_b2c_forms?.[0] ?? null;
+    if (!form) return null;
+    const values = form.values ?? {};
+    const filled = countFilled(values, MARKETING_B2C_PROGRESS_FIELDS);
+    const progress = MARKETING_B2C_PROGRESS_FIELDS.length > 0
+      ? Math.round((filled / MARKETING_B2C_PROGRESS_FIELDS.length) * 100)
+      : 0;
+    const missingSections = MARKETING_B2C_SUMMARY_SECTIONS
+      .filter((section) => countFilled(values, section.fields) < section.fields.length)
+      .map((section) => t(`marketingB2CForm.section.${section.key}`));
+    const task = form.task ?? item?.task ?? null;
+    return {
+      form,
+      item,
+      href: task?.project_id && task.id ? `/projects/${task.project_id}?view=form&task=${task.id}` : null,
+      owner: task?.assignee?.name ?? item?.owner?.name ?? t("companyDialog.notAssigned"),
+      progress: form.status === "complete" ? 100 : progress,
+      updatedAt: form.updated_at ?? form.completed_at ?? null,
+      missingSections,
+    };
+  }, [onboarding, t]);
+
+  const schedulingItems = useMemo(
+    () => (onboarding?.checklist_items ?? []).filter(isSchedulingChecklistItem),
+    [onboarding],
+  );
+
+  const financeRoutingItems = useMemo(
+    () => (onboarding?.checklist_items ?? []).filter((item) => isFinanceChecklistItem(item) || isContractChecklistItem(item)),
+    [onboarding],
+  );
 
   const refresh = async () => {
     await load({ silent: true });
@@ -313,35 +373,6 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     }
   };
 
-  const saveFinance = async () => {
-    if (!onboarding) return;
-    setSaving("finance");
-    try {
-      const contractValue = finance.contract_value.trim() ? Number(finance.contract_value) : null;
-      const res = await fetch(`/api/onboarding/${onboarding.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          finance: {
-            ...finance,
-            contract_value: Number.isFinite(contractValue) ? contractValue : null,
-            contract_start_date: finance.contract_start_date ? new Date(finance.contract_start_date).toISOString() : null,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || t("onboardingWorkflow.financeFailed"));
-      }
-      toast.success(t("onboardingWorkflow.financeSaved"));
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.financeFailed"));
-    } finally {
-      setSaving(null);
-    }
-  };
-
   const saveSupport = async () => {
     if (!onboarding) return;
     setSaving("support");
@@ -365,37 +396,6 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
       await refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.supportFailed"));
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  const saveMeeting = async (meeting: OnboardingMeeting) => {
-    if (!onboarding) return;
-    const form = meetings[meeting.service] ?? { scheduled_at: "", meeting_url: "", notes: "" };
-    setSaving(`meeting:${meeting.id}`);
-    try {
-      const res = await fetch(`/api/onboarding/${onboarding.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          meeting: {
-            service: meeting.service,
-            scheduled: Boolean(form.scheduled_at || form.meeting_url),
-            scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
-            meeting_url: form.meeting_url || null,
-            notes: form.notes || null,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || t("onboardingWorkflow.meetingFailed"));
-      }
-      toast.success(t("onboardingWorkflow.meetingSaved"));
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.meetingFailed"));
     } finally {
       setSaving(null);
     }
@@ -537,44 +537,6 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
     </div>
   );
 
-  const uploadContract = async (file: File | undefined) => {
-    if (!onboarding || !file) return;
-    setSaving("contract");
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(`/api/onboarding/${onboarding.id}/contract`, {
-        method: "POST",
-        body: form,
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || t("onboardingWorkflow.contractFailed"));
-      }
-      toast.success(t("onboardingWorkflow.contractUploaded"));
-      await refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.contractFailed"));
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  const openContract = async (contractId: string) => {
-    if (!onboarding) return;
-    try {
-      const res = await fetch(`/api/onboarding/${onboarding.id}/contract/${contractId}/download`);
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || t("onboardingWorkflow.contractAccessDenied"));
-      }
-      const data = (await res.json()) as { url?: string };
-      if (data.url) window.open(data.url, "_blank", "noopener,noreferrer");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.contractAccessDenied"));
-    }
-  };
-
   if (loading) {
     return (
       <section className="rounded-2xl border border-blue-300/10 bg-[#050a18]/50 p-5">
@@ -706,6 +668,60 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
         </a>
       )}
 
+      {marketingB2CSummary && (
+        <a
+          href={marketingB2CSummary.href ?? undefined}
+          className={cn(
+            "group block rounded-2xl border border-blue-300/18 bg-gradient-to-br from-blue-500/12 via-[#0b1325] to-cyan-500/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition",
+            marketingB2CSummary.href && "hover:border-sky-300/35 hover:bg-blue-400/10",
+          )}
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300">
+                {t("marketingB2CForm.summaryEyebrow")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h3 className="text-lg font-bold text-foreground">{t("marketingB2CForm.summaryTitle")}</h3>
+                <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(marketingB2CSummary.form.status))}>
+                  {marketingB2CSummary.form.status === "complete"
+                    ? t("marketingB2CForm.status.complete")
+                    : t("marketingB2CForm.status.draft")}
+                </span>
+              </div>
+            </div>
+            {marketingB2CSummary.href && (
+              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-3 py-2 text-xs font-semibold text-blue-100 group-hover:bg-blue-400/15">
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t("marketingB2CForm.openShort")}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <Metric icon={<ClipboardCheck className="h-4 w-4" />} label={t("marketingB2CForm.summaryProgress")} value={`${marketingB2CSummary.progress}%`} />
+            <Metric icon={<Users className="h-4 w-4" />} label={t("marketingB2CForm.summaryOwner")} value={marketingB2CSummary.owner} />
+            <Metric
+              icon={<CalendarClock className="h-4 w-4" />}
+              label={t("marketingB2CForm.summaryLastUpdated")}
+              value={marketingB2CSummary.updatedAt ? formatDate(marketingB2CSummary.updatedAt) : "-"}
+            />
+            <Metric
+              icon={<ShieldCheck className="h-4 w-4" />}
+              label={t("marketingB2CForm.summaryMissing")}
+              value={marketingB2CSummary.missingSections.length > 0 ? marketingB2CSummary.missingSections.join(", ") : t("marketingB2CForm.missingNone")}
+            />
+          </div>
+
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all"
+              style={{ width: `${marketingB2CSummary.progress}%` }}
+            />
+          </div>
+        </a>
+      )}
+
       {teamOptions.isAdmin && onboarding.status !== "onboarding_complete" && (
         <div className="grid gap-3 rounded-xl border border-blue-300/12 bg-white/[0.03] p-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="space-y-1">
@@ -754,9 +770,21 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                       const marketingFormHint = isMarketingB2CFormItem
                         ? t("marketingB2CForm.centralHint")
                         : t("marketingB2BForm.centralHint");
-                      const formHref = item.task?.project_id
-                        ? `/projects/${item.task.project_id}${isMarketingB2BFormItem ? "?view=form&" : "?"}task=${item.task_id ?? item.task.id}`
-                        : null;
+                      const financeOrContractItem = isFinanceChecklistItem(item) || isContractChecklistItem(item);
+                      const formHref = isMarketingFormItem || financeOrContractItem ? taskFormHref(item) : null;
+                      const scheduleHref = !formHref && isSchedulingChecklistItem(item) ? scheduleTaskHref(item, onboarding) : null;
+                      const routedHref = formHref ?? scheduleHref;
+                      const isRoutedTaskItem = Boolean(routedHref);
+                      const routedOpenLabel = isMarketingFormItem
+                        ? marketingFormOpenLabel
+                        : scheduleHref
+                          ? t("calendar.quickMeeting")
+                          : t("onboardingWorkflow.openRoutedTask");
+                      const routedHint = isMarketingFormItem
+                        ? marketingFormHint
+                        : scheduleHref
+                          ? t("onboardingWorkflow.schedulingRoutedHint")
+                          : t("onboardingWorkflow.financeRoutedHint");
                       const showAssignmentControls =
                         department.toLowerCase().includes("internal") &&
                         (normalizedTitle.includes("service leaders") || normalizedTitle.includes("lider") || normalizedTitle.includes("líder"));
@@ -771,16 +799,16 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
                               <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>{statusLabel(item.status, t)}</span>
-                              {isMarketingFormItem && formHref && (
+                              {routedHref && (
                                 <a
-                                  href={formHref}
+                                  href={routedHref}
                                   className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-2.5 py-1 text-xs font-semibold text-blue-100 hover:bg-blue-400/15"
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
-                                  {marketingFormOpenLabel}
+                                  {routedOpenLabel}
                                 </a>
                               )}
-                              {item.status !== "complete" && !showAssignmentControls && !isMarketingFormItem && (
+                              {item.status !== "complete" && !showAssignmentControls && !isRoutedTaskItem && (
                                 <button
                                   onClick={() => updateItem(item, "complete")}
                                   disabled={saving === item.id}
@@ -791,9 +819,9 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                               )}
                             </div>
                           </div>
-                          {isMarketingFormItem && (
+                          {isRoutedTaskItem && (
                             <p className="mt-2 rounded-lg border border-blue-300/10 bg-blue-400/5 px-3 py-2 text-xs text-blue-100/78">
-                              {marketingFormHint}
+                              {routedHint}
                             </p>
                           )}
                           {showAssignmentControls && renderServiceAssignmentControls(true)}
@@ -808,95 +836,85 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
 
           <Panel title={t("onboardingWorkflow.serviceMeetings")} icon={<CalendarClock className="h-4 w-4" />}>
             <div className="space-y-3">
-              {(onboarding.meetings ?? []).map((meeting) => {
-                const form = meetings[meeting.service] ?? { scheduled_at: "", meeting_url: "", notes: "" };
+              {schedulingItems.map((item) => {
+                const href = scheduleTaskHref(item, onboarding);
                 return (
-                  <div key={meeting.id} className="rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">{meeting.service}</p>
-                        <p className="text-xs text-muted-foreground">{meeting.leader?.name ?? t("companyDialog.notAssigned")}</p>
+                  <a
+                    key={item.id}
+                    href={href ?? undefined}
+                    className={cn(
+                      "block rounded-xl border border-blue-300/10 bg-white/[0.03] p-3 transition",
+                      href && "hover:border-blue-300/25 hover:bg-blue-400/8",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{item.task?.title ?? item.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.department} - {item.owner?.name ?? item.task?.assignee?.name ?? t("companyDialog.notAssigned")}
+                        </p>
                       </div>
-                      <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(meeting.scheduled ? "complete" : "pending"))}>
-                        {meeting.scheduled ? t("onboardingWorkflow.scheduled") : t("onboardingWorkflow.notScheduled")}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>
+                          {statusLabel(item.status, t)}
+                        </span>
+                        {href && <ExternalLink className="h-4 w-4 text-blue-200/70" />}
+                      </div>
                     </div>
-                    <div className="grid gap-2 md:grid-cols-[180px_1fr_auto]">
-                      <input
-                        type="datetime-local"
-                        value={form.scheduled_at}
-                        onChange={(e) => setMeetings((current) => ({ ...current, [meeting.service]: { ...form, scheduled_at: e.target.value } }))}
-                        className="rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
-                      />
-                      <input
-                        value={form.meeting_url}
-                        onChange={(e) => setMeetings((current) => ({ ...current, [meeting.service]: { ...form, meeting_url: e.target.value } }))}
-                        placeholder={t("onboardingWorkflow.meetingUrl")}
-                        className="rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
-                      />
-                      <button
-                        onClick={() => saveMeeting(meeting)}
-                        disabled={saving === `meeting:${meeting.id}`}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
-                      >
-                        <Send className="h-4 w-4" /> {t("common.save")}
-                      </button>
-                    </div>
-                  </div>
+                    <p className="mt-2 text-xs text-blue-100/70">{t("onboardingWorkflow.schedulingRoutedHint")}</p>
+                  </a>
                 );
               })}
+              {schedulingItems.length === 0 && (
+                <p className="rounded-xl border border-white/8 bg-[#070d1c]/70 px-3 py-4 text-sm text-muted-foreground">
+                  {t("onboardingWorkflow.noSchedulingTasks")}
+                </p>
+              )}
             </div>
           </Panel>
         </div>
 
         <div className="space-y-4">
           <Panel title={t("onboardingWorkflow.finance")} icon={<BriefcaseBusiness className="h-4 w-4" />}>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <SmallInput label={t("onboardingWorkflow.legalName")} value={finance.legal_name} onChange={(legal_name) => setFinance((f) => ({ ...f, legal_name }))} />
-              <SmallInput label="CNPJ" value={finance.cnpj} onChange={(cnpj) => setFinance((f) => ({ ...f, cnpj }))} />
-              <SmallInput label={t("onboardingWorkflow.billingEmail")} value={finance.billing_email} onChange={(billing_email) => setFinance((f) => ({ ...f, billing_email }))} />
-              <SmallInput label={t("onboardingWorkflow.mainContactEmail")} value={finance.main_contact_email} onChange={(main_contact_email) => setFinance((f) => ({ ...f, main_contact_email }))} />
-              <SmallInput label={t("companyDialog.phone")} value={finance.phone} onChange={(phone) => setFinance((f) => ({ ...f, phone }))} />
-              <SmallInput label="WhatsApp" value={finance.whatsapp} onChange={(whatsapp) => setFinance((f) => ({ ...f, whatsapp }))} />
-              <SmallInput label={t("clients.contract")} value={finance.contract_value} onChange={(contract_value) => setFinance((f) => ({ ...f, contract_value }))} />
-              <SmallInput label={t("onboardingWorkflow.paymentTerms")} value={finance.payment_terms} onChange={(payment_terms) => setFinance((f) => ({ ...f, payment_terms }))} />
-              <SmallInput
-                label={t("onboardingWorkflow.contractStartDate")}
-                type="datetime-local"
-                value={finance.contract_start_date}
-                onChange={(contract_start_date) => setFinance((f) => ({ ...f, contract_start_date }))}
-              />
-              <SmallInput label={t("onboardingWorkflow.address")} value={finance.address} onChange={(address) => setFinance((f) => ({ ...f, address }))} />
-            </div>
-            <SmallTextarea label={t("onboardingWorkflow.billingNotes")} value={finance.billing_notes} onChange={(billing_notes) => setFinance((f) => ({ ...f, billing_notes }))} />
-            <button
-              onClick={saveFinance}
-              disabled={saving === "finance"}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
-            >
-              {saving === "finance" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {t("onboardingWorkflow.saveFinance")}
-            </button>
-          </Panel>
-
-          <Panel title={t("onboardingWorkflow.privateContract")} icon={<FileLock2 className="h-4 w-4" />}>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-blue-300/25 bg-blue-400/5 px-3 py-3 text-sm font-semibold text-blue-100 hover:bg-blue-400/10">
-              {saving === "contract" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {t("onboardingWorkflow.uploadContract")}
-              <input type="file" className="hidden" onChange={(e) => void uploadContract(e.target.files?.[0])} />
-            </label>
-            <div className="mt-3 space-y-2">
-              {(onboarding.contracts ?? []).map((contract) => (
-                <button
-                  key={contract.id}
-                  onClick={() => openContract(contract.id)}
-                  className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-[#070d1c]/75 px-3 py-2 text-left text-sm text-foreground hover:bg-white/8"
-                >
-                  <span className="min-w-0 truncate">{contract.file_name}</span>
-                  <Lock className="h-4 w-4 shrink-0 text-blue-200/70" />
-                </button>
-              ))}
-              {(onboarding.contracts ?? []).length === 0 && <p className="text-sm text-muted-foreground">{t("onboardingWorkflow.noContract")}</p>}
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">{t("onboardingWorkflow.financeRoutedBody")}</p>
+              {financeRoutingItems.map((item) => {
+                const href = taskFormHref(item);
+                return (
+                  <a
+                    key={item.id}
+                    href={href ?? undefined}
+                    className={cn(
+                      "block rounded-xl border border-blue-300/10 bg-white/[0.03] p-3 transition",
+                      href && "hover:border-blue-300/25 hover:bg-blue-400/8",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{item.task?.title ?? item.title}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {item.owner?.name ?? item.task?.assignee?.name ?? t("companyDialog.notAssigned")}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>
+                          {statusLabel(item.status, t)}
+                        </span>
+                        {href && <ExternalLink className="h-4 w-4 text-blue-200/70" />}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-blue-100/70">{t("onboardingWorkflow.financeRoutedHint")}</p>
+                  </a>
+                );
+              })}
+              {financeRoutingItems.length === 0 && (
+                <p className="rounded-xl border border-white/8 bg-[#070d1c]/70 px-3 py-4 text-sm text-muted-foreground">
+                  {t("onboardingWorkflow.noRoutedFinanceTasks")}
+                </p>
+              )}
+              <div className="rounded-xl border border-white/8 bg-[#070d1c]/70 px-3 py-3 text-sm text-blue-100/75">
+                {t("onboardingWorkflow.contractCount", { count: onboarding.contracts?.length ?? 0 })}
+              </div>
             </div>
           </Panel>
 
@@ -946,32 +964,5 @@ function Panel({ title, icon, children }: { title: string; icon: ReactNode; chil
       <div className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">{icon}{title}</div>
       {children}
     </div>
-  );
-}
-
-function SmallInput({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100/55">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="h-9 w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 text-sm text-foreground outline-none focus:border-blue-400"
-      />
-    </label>
-  );
-}
-
-function SmallTextarea({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="mt-2 block">
-      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100/55">{label}</span>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="min-h-20 w-full resize-none rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
-      />
-    </label>
   );
 }

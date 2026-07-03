@@ -127,6 +127,7 @@ export interface MarketingB2BOnboardingFormSummary {
   task?: {
     id: string;
     title: string;
+    description?: string | null;
     status: string;
     project_id?: string | null;
     assignee?: { id: string; name: string; email: string } | null;
@@ -137,8 +138,18 @@ export interface MarketingB2COnboardingFormSummary {
   id: string;
   status: string;
   completed_at: string | null;
+  updated_at?: string | null;
+  values?: Record<string, string> | null;
   task_id?: string;
   checklist_item_id?: string;
+  task?: {
+    id: string;
+    title: string;
+    description?: string | null;
+    status: string;
+    project_id?: string | null;
+    assignee?: { id: string; name: string; email: string } | null;
+  } | null;
 }
 
 export interface TaskOnboardingLink {
@@ -489,6 +500,7 @@ export interface OnboardingChecklistItem {
   task?: {
     id: string;
     title: string;
+    description?: string | null;
     status: string;
     project_id?: string | null;
     assignee?: { id: string; name: string; email: string } | null;

@@ -22,6 +22,11 @@ function cleanFileName(name: string) {
   return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "contract";
 }
 
+function isContractItemText(value: string) {
+  const text = value.toLowerCase();
+  return text.includes("contract") || text.includes("contrato");
+}
+
 async function POST_handler(
   req: NextRequest,
   { params }: { params: { id: string } },
@@ -98,6 +103,28 @@ async function POST_handler(
       where: { onboarding_id: access.onboarding.id, department: "Contract" },
       data: { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
     });
+    const contractItems = await tx.onboardingChecklistItem.findMany({
+      where: { onboarding_id: access.onboarding.id },
+      select: { id: true, task_id: true, title: true, department: true },
+    });
+    const routedContractItems = contractItems.filter((item) =>
+      isContractItemText(`${item.department} ${item.title}`),
+    );
+    if (routedContractItems.length > 0) {
+      await tx.onboardingChecklistItem.updateMany({
+        where: { id: { in: routedContractItems.map((item) => item.id) } },
+        data: { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
+      });
+      const taskIds = routedContractItems
+        .map((item) => item.task_id)
+        .filter((taskId): taskId is string => Boolean(taskId));
+      if (taskIds.length > 0) {
+        await tx.task.updateMany({
+          where: { id: { in: taskIds } },
+          data: { status: "done" },
+        });
+      }
+    }
     const onboarding = await recomputeOnboardingProgress(tx, access.onboarding.id);
     return { onboarding, contract };
   });

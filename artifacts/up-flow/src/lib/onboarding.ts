@@ -783,6 +783,101 @@ export async function resolveMarketingB2COnboardingProjectId(
   return createdProject.id;
 }
 
+async function resolveDepartmentClientOnboardingProjectId(
+  db: Db,
+  input: {
+    workspaceId: string;
+    companyId: string;
+    companyName: string;
+    ownerId: string;
+    route: "finance" | "creative_design";
+    rootFolderName: string;
+    fallbackProjectName: string;
+    description: string;
+  },
+): Promise<string> {
+  const targetSpace = await ensureTargetSpace(db, input.workspaceId, input.route, input.ownerId);
+  const onboardingFolder = await ensureFolder(db, {
+    workspaceId: input.workspaceId,
+    spaceId: targetSpace.id,
+    ownerId: input.ownerId,
+    name: input.rootFolderName,
+    parentId: null,
+    icon: "folder",
+  });
+  const clientFolder = await ensureFolder(db, {
+    workspaceId: input.workspaceId,
+    spaceId: targetSpace.id,
+    ownerId: input.ownerId,
+    name: input.companyName,
+    parentId: onboardingFolder.id,
+    icon: "folder",
+  });
+
+  const projectName = input.companyName.trim() || input.fallbackProjectName;
+  const existingProject = await db.project.findFirst({
+    where: {
+      workspace_id: input.workspaceId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: projectName,
+    },
+    select: { id: true },
+  });
+  if (existingProject) return existingProject.id;
+
+  const createdProject = await db.project.create({
+    data: {
+      workspace_id: input.workspaceId,
+      owner_id: input.ownerId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: projectName,
+      description: input.description,
+    },
+    select: { id: true },
+  });
+  return createdProject.id;
+}
+
+export async function resolveFinanceOnboardingProjectId(
+  db: Db,
+  input: {
+    workspaceId: string;
+    companyId: string;
+    companyName: string;
+    ownerId: string;
+  },
+): Promise<string> {
+  return resolveDepartmentClientOnboardingProjectId(db, {
+    ...input,
+    route: "finance",
+    rootFolderName: "Client Onboarding",
+    fallbackProjectName: "Finance Onboarding",
+    description: "Finance onboarding form, contract attachment, and billing setup for this client.",
+  });
+}
+
+export async function resolveCreativeDesignOnboardingProjectId(
+  db: Db,
+  input: {
+    workspaceId: string;
+    companyId: string;
+    companyName: string;
+    ownerId: string;
+  },
+): Promise<string> {
+  return resolveDepartmentClientOnboardingProjectId(db, {
+    ...input,
+    route: "creative_design",
+    rootFolderName: "Client Onboarding",
+    fallbackProjectName: "Creative Onboarding",
+    description: "Creative and design onboarding scheduling tasks for this client.",
+  });
+}
+
 export async function sendOnboardingAssignmentNotifications(targets: OnboardingAssignmentNotificationTarget[]) {
   const uniqueTargets = new Map<string, OnboardingAssignmentNotificationTarget>();
   for (const target of targets) {
@@ -1035,6 +1130,7 @@ async function createOnboardingRecords(
   const financeOwner = await ownerForRoute(tx, company.workspace_id, "finance", adminFallback);
   const supportOwner = await ownerForRoute(tx, company.workspace_id, "support", adminFallback);
   const commercialOwner = await ownerForRoute(tx, company.workspace_id, "commercial", adminFallback);
+  const creativeOwner = await ownerForRoute(tx, company.workspace_id, "creative_design", adminFallback);
   const salespersonId =
     input.responsibleSalespersonId ??
     sourceProject?.responsible_salesperson_id ??
@@ -1061,8 +1157,19 @@ async function createOnboardingRecords(
   };
 
   const commercialProjectId = await queueProjectId("commercial");
-  const financeProjectId = await queueProjectId("finance");
+  const financeProjectId = await resolveFinanceOnboardingProjectId(tx, {
+    workspaceId: company.workspace_id,
+    companyId: company.id,
+    companyName: company.name,
+    ownerId: input.actorId,
+  });
   const supportProjectId = await queueProjectId("support");
+  const creativeProjectId = await resolveCreativeDesignOnboardingProjectId(tx, {
+    workspaceId: company.workspace_id,
+    companyId: company.id,
+    companyName: company.name,
+    ownerId: input.actorId,
+  });
 
   const onboarding = await tx.clientOnboarding.create({
     data: {
@@ -1148,11 +1255,11 @@ async function createOnboardingRecords(
     position: 1,
   });
   const contractTask = await createTask({
-    project_id: commercialProjectId,
-    route: "commercial",
+    project_id: financeProjectId,
+    route: "finance",
     title: "Onboarding: upload signed contract",
     description:
-      "Commercial/Finance queue action: upload the signed contract privately so only Finance/Admin can access the file. When this task is marked done, the onboarding checklist and progress update automatically.",
+      "Finance queue action: upload the signed contract inside the finance onboarding form so only Finance/Admin can access the file. When this task is marked done, the onboarding checklist and progress update automatically.",
     status: "todo",
     priority: "high",
     assignee_id: financeOwner?.id ?? null,
@@ -1168,6 +1275,28 @@ async function createOnboardingRecords(
     priority: "medium",
     assignee_id: supportOwner?.id ?? null,
     position: 3,
+  });
+  const creativeBrandMeetingTask = await createTask({
+    project_id: creativeProjectId,
+    route: "creative_design",
+    title: "Onboarding: schedule brand guidelines meeting",
+    description:
+      "Creative & Design queue action: schedule the first client meeting to discuss brand guidelines, visual direction, references, assets, and creative handoff.",
+    status: "todo",
+    priority: "medium",
+    assignee_id: creativeOwner?.id ?? null,
+    position: 4,
+  });
+  const creativeTechnicalVisitTask = await createTask({
+    project_id: creativeProjectId,
+    route: "creative_design",
+    title: "Onboarding: schedule visita tecnica",
+    description:
+      "Creative & Design queue action: schedule the visita tecnica with the client and link the calendar event back to onboarding.",
+    status: "todo",
+    priority: "medium",
+    assignee_id: creativeOwner?.id ?? null,
+    position: 5,
   });
 
   notificationTargets.push(
@@ -1196,6 +1325,24 @@ async function createOnboardingRecords(
       onboardingId: onboarding.id,
       actorId: input.actorId,
       label: `Create support group for ${company.name}`,
+      companyId: company.id,
+    },
+    {
+      userId: creativeOwner?.id,
+      taskId: creativeBrandMeetingTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Schedule brand guidelines meeting for ${company.name}`,
+      companyId: company.id,
+    },
+    {
+      userId: creativeOwner?.id,
+      taskId: creativeTechnicalVisitTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Schedule visita tecnica for ${company.name}`,
       companyId: company.id,
     },
   );
@@ -1253,6 +1400,24 @@ async function createOnboardingRecords(
         owner_id: supportOwner?.id ?? null,
         sort_order: 40,
       },
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: creativeBrandMeetingTask.id,
+        department: "Creative & Design",
+        title: "Brand guidelines meeting scheduled",
+        owner_id: creativeOwner?.id ?? null,
+        sort_order: 50,
+      },
+      {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: creativeTechnicalVisitTask.id,
+        department: "Creative & Design",
+        title: "Visita tecnica scheduled",
+        owner_id: creativeOwner?.id ?? null,
+        sort_order: 60,
+      },
     ],
   });
 
@@ -1264,7 +1429,7 @@ async function createOnboardingRecords(
     },
   });
 
-  let position = 50;
+  let position = 70;
   const b2bFormServices = responsibleIsB2C ? [] : contractedServices.filter(isMarketingB2BFormService);
   const b2bFormServiceKeys = new Set(b2bFormServices.map(serviceKey));
   const b2bAssignments: Array<{
@@ -1353,7 +1518,47 @@ async function createOnboardingRecords(
       label: `Complete Marketing B2B onboarding form for ${company.name}`,
       companyId: company.id,
     });
-    position += 10;
+    const b2bMeetingTask = await createTask({
+      project_id: b2bProjectId,
+      route: "marketing_b2b",
+      title: "Onboarding: schedule Marketing B2B kickoff meeting",
+      description:
+        "Marketing B2B queue action: schedule the onboarding kickoff meeting with the client and link the calendar event back to this onboarding workflow.",
+      status: "todo",
+      priority: "medium",
+      assignee_id: formOwnerId,
+      position: position + 1,
+    });
+    const b2bMeetingItem = await tx.onboardingChecklistItem.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: b2bMeetingTask.id,
+        department: "Marketing B2B",
+        title: "Marketing B2B kickoff meeting scheduled",
+        owner_id: formOwnerId,
+        sort_order: position + 1,
+      },
+    });
+    await tx.onboardingMeeting.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        service: "Marketing B2B kickoff",
+        checklist_item_id: b2bMeetingItem.id,
+        leader_id: formOwnerId,
+      },
+    });
+    notificationTargets.push({
+      userId: formOwnerId,
+      taskId: b2bMeetingTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Schedule Marketing B2B kickoff meeting for ${company.name}`,
+      companyId: company.id,
+    });
+    position += 20;
   }
 
   const b2cFormServices = responsibleIsB2C
@@ -1446,7 +1651,47 @@ async function createOnboardingRecords(
       label: `Complete Marketing B2C onboarding form for ${company.name}`,
       companyId: company.id,
     });
-    position += 10;
+    const b2cMeetingTask = await createTask({
+      project_id: b2cProjectId,
+      route: "marketing_b2c",
+      title: "Onboarding: schedule Marketing B2C kickoff meeting",
+      description:
+        "Marketing B2C queue action: schedule the onboarding kickoff meeting with the client and link the calendar event back to this onboarding workflow.",
+      status: "todo",
+      priority: "medium",
+      assignee_id: formOwnerId,
+      position: position + 1,
+    });
+    const b2cMeetingItem = await tx.onboardingChecklistItem.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        task_id: b2cMeetingTask.id,
+        department: "Marketing B2C",
+        title: "Marketing B2C kickoff meeting scheduled",
+        owner_id: formOwnerId,
+        sort_order: position + 1,
+      },
+    });
+    await tx.onboardingMeeting.create({
+      data: {
+        onboarding_id: onboarding.id,
+        workspace_id: company.workspace_id,
+        service: "Marketing B2C kickoff",
+        checklist_item_id: b2cMeetingItem.id,
+        leader_id: formOwnerId,
+      },
+    });
+    notificationTargets.push({
+      userId: formOwnerId,
+      taskId: b2cMeetingTask.id,
+      workspaceId: company.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `Schedule Marketing B2C kickoff meeting for ${company.name}`,
+      companyId: company.id,
+    });
+    position += 20;
   }
 
   for (const service of contractedServices) {
@@ -1759,7 +2004,26 @@ export function onboardingSelect() {
             },
           },
         },
-        marketing_b2c_form: { select: { id: true, status: true, completed_at: true, task_id: true } },
+        marketing_b2c_form: {
+          select: {
+            id: true,
+            status: true,
+            completed_at: true,
+            updated_at: true,
+            values: true,
+            task_id: true,
+            checklist_item_id: true,
+            task: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                project_id: true,
+                assignee: { select: { id: true, name: true, email: true } },
+              },
+            },
+          },
+        },
       },
     },
     service_assignments: {
@@ -1809,7 +2073,24 @@ export function onboardingSelect() {
     },
     marketing_b2c_forms: {
       orderBy: [{ created_at: "asc" as const }],
-      select: { id: true, status: true, completed_at: true, task_id: true, checklist_item_id: true },
+      select: {
+        id: true,
+        status: true,
+        completed_at: true,
+        updated_at: true,
+        values: true,
+        task_id: true,
+        checklist_item_id: true,
+        task: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            project_id: true,
+            assignee: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
     },
   };
 }

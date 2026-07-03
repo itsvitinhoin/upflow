@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import FinanceOnboardingForm from "@/components/onboarding/finance-onboarding-form";
 import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
 import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
 import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
@@ -36,6 +37,64 @@ const DEFAULT_TOOLBAR: ToolbarState = {
   filterPriority: "all",
   filterAssignee: "all",
 };
+
+type WorkflowFormKind = "marketing_b2b" | "marketing_b2c" | "finance";
+
+function taskSearchText(task: Task) {
+  return [
+    task.title,
+    task.description,
+    task.onboarding_link?.department,
+    task.onboarding_link?.title,
+    task.onboarding_link?.company_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function isFinanceOnboardingTask(task: Task) {
+  const text = taskSearchText(task);
+  return (
+    text.includes("finance") ||
+    text.includes("financial") ||
+    text.includes("cadastro financeiro") ||
+    text.includes("billing") ||
+    text.includes("faturamento") ||
+    text.includes("contract") ||
+    text.includes("contrato")
+  );
+}
+
+function isSchedulingOnboardingTask(task: Task) {
+  const text = taskSearchText(task);
+  return (
+    text.includes("schedule") ||
+    text.includes("meeting") ||
+    text.includes("reuni") ||
+    text.includes("visita") ||
+    text.includes("agenda")
+  );
+}
+
+function workflowFormKind(task: Task): WorkflowFormKind | null {
+  if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
+  if (task.marketing_b2c_onboarding_form) return "marketing_b2c";
+  if (isFinanceOnboardingTask(task)) return "finance";
+  return null;
+}
+
+function calendarHrefForTask(task: Task, fallbackProjectId: string) {
+  const params = new URLSearchParams({
+    create: "meeting",
+    task: task.id,
+    project: task.project_id ?? fallbackProjectId,
+    title: task.title,
+  });
+  const context = task.onboarding_link?.company_name ?? task.description ?? "";
+  if (context) params.set("description", context);
+  return `/calendar?${params.toString()}`;
+}
 
 export default function ProjectPage() {
   const params = useParams();
@@ -99,21 +158,29 @@ export default function ProjectPage() {
     if (!focusedTaskId || loading) return;
     const task = tasks.find((item) => item.id === focusedTaskId);
     if (!task) return;
-    if (task.marketing_b2b_onboarding_form) {
+    const kind = workflowFormKind(task);
+    if (kind) {
       setSelectedTask(null);
       if (viewParam !== "form") {
         router.replace(`/projects/${id}?view=form&task=${task.id}`, { scroll: false });
       }
       return;
     }
+    if (isSchedulingOnboardingTask(task)) {
+      setSelectedTask(null);
+      router.replace(calendarHrefForTask(task, id), { scroll: false });
+      return;
+    }
     setSelectedTask(task);
   }, [focusedTaskId, id, loading, router, tasks, viewParam]);
 
-  const b2bFormTask = useMemo(
-    () => tasks.find((task) => task.marketing_b2b_onboarding_form) ?? null,
-    [tasks],
-  );
-  const showB2BFormFirst = Boolean(b2bFormTask && viewParam !== "kanban");
+  const workflowFormTask = useMemo(() => {
+    const focused = focusedTaskId ? tasks.find((task) => task.id === focusedTaskId) : null;
+    if (focused && workflowFormKind(focused)) return focused;
+    return tasks.find((task) => workflowFormKind(task)) ?? null;
+  }, [focusedTaskId, tasks]);
+  const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
+  const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
 
   const canManageFields = useMemo(() => {
     if (!me) return false;
@@ -143,13 +210,25 @@ export default function ProjectPage() {
   };
 
   const handleOpenTask = (task: Task) => {
-    if (task.marketing_b2b_onboarding_form) {
+    if (workflowFormKind(task)) {
       setSelectedTask(null);
       router.replace(`/projects/${id}?view=form&task=${task.id}`, { scroll: false });
       return;
     }
+    if (isSchedulingOnboardingTask(task)) {
+      setSelectedTask(null);
+      router.replace(calendarHrefForTask(task, id), { scroll: false });
+      return;
+    }
     setSelectedTask(task);
   };
+
+  const workflowFormTabLabel =
+    currentWorkflowKind === "finance"
+      ? "Cadastro financeiro"
+      : currentWorkflowKind === "marketing_b2c"
+        ? t("marketingB2CForm.formTab")
+        : t("marketingB2BForm.formTab");
 
   return (
     <>
@@ -214,28 +293,28 @@ export default function ProjectPage() {
           <ClientOnboardingPanel projectId={id} companyId={project.company_id} onChanged={loadData} />
         </div>
 
-        {b2bFormTask && (
+        {workflowFormTask && currentWorkflowKind && (
           <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-blue-300/10">
             <button
               type="button"
-              onClick={() => router.replace(`/projects/${id}?view=form&task=${b2bFormTask.id}`, { scroll: false })}
-              aria-pressed={showB2BFormFirst}
+              onClick={() => router.replace(`/projects/${id}?view=form&task=${workflowFormTask.id}`, { scroll: false })}
+              aria-pressed={showWorkflowFormFirst}
               className={cn(
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
-                showB2BFormFirst
+                showWorkflowFormFirst
                   ? "border-blue-400 text-blue-100"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
-              {t("marketingB2BForm.formTab")}
+              {workflowFormTabLabel}
             </button>
             <button
               type="button"
               onClick={() => router.replace(`/projects/${id}?view=kanban`, { scroll: false })}
-              aria-pressed={!showB2BFormFirst}
+              aria-pressed={!showWorkflowFormFirst}
               className={cn(
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
-                !showB2BFormFirst
+                !showWorkflowFormFirst
                   ? "border-blue-400 text-blue-100"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
@@ -245,8 +324,14 @@ export default function ProjectPage() {
           </div>
         )}
 
-        {showB2BFormFirst && b2bFormTask ? (
-          <MarketingB2BOnboardingForm taskId={b2bFormTask.id} embedded onUpdate={loadData} />
+        {showWorkflowFormFirst && workflowFormTask && currentWorkflowKind ? (
+          currentWorkflowKind === "finance" ? (
+            <FinanceOnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
+          ) : currentWorkflowKind === "marketing_b2c" ? (
+            <MarketingB2COnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
+          ) : (
+            <MarketingB2BOnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
+          )
         ) : (
           <>
             <ProjectToolbar
@@ -310,32 +395,47 @@ export default function ProjectPage() {
         />
       )}
 
-      {selectedTask?.marketing_b2b_onboarding_form ? (
-        <MarketingB2BOnboardingForm
-          taskId={selectedTask.id}
-          onClose={() => {
-            setSelectedTask(null);
-            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
-          }}
-          onUpdate={() => {
-            setSelectedTask(null);
-            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
-            loadData();
-          }}
-        />
-      ) : selectedTask?.marketing_b2c_onboarding_form ? (
-        <MarketingB2COnboardingForm
-          taskId={selectedTask.id}
-          onClose={() => {
-            setSelectedTask(null);
-            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
-          }}
-          onUpdate={() => {
-            setSelectedTask(null);
-            if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
-            loadData();
-          }}
-        />
+      {selectedTask && workflowFormKind(selectedTask) ? (
+        workflowFormKind(selectedTask) === "finance" ? (
+          <FinanceOnboardingForm
+            taskId={selectedTask.id}
+            onClose={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+            }}
+            onUpdate={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+              loadData();
+            }}
+          />
+        ) : workflowFormKind(selectedTask) === "marketing_b2c" ? (
+          <MarketingB2COnboardingForm
+            taskId={selectedTask.id}
+            onClose={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+            }}
+            onUpdate={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+              loadData();
+            }}
+          />
+        ) : (
+          <MarketingB2BOnboardingForm
+            taskId={selectedTask.id}
+            onClose={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+            }}
+            onUpdate={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+              loadData();
+            }}
+          />
+        )
       ) : selectedTask ? (
         <TaskDetailSheet
           task={selectedTask}

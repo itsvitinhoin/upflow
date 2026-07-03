@@ -193,11 +193,12 @@ function cleanValues(values: Partial<Record<FieldKey, string>> | undefined) {
 
 type Props = {
   taskId: string;
-  onClose: () => void;
-  onUpdate: () => void;
+  onClose?: () => void;
+  onUpdate?: () => void | Promise<void>;
+  embedded?: boolean;
 };
 
-export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate }: Props) {
+export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, embedded = false }: Props) {
   const { t } = useLanguage();
   const [form, setForm] = useState<B2CFormResponse | null>(null);
   const [values, setValues] = useState<Record<FieldKey, string>>(() => cleanValues(undefined));
@@ -230,7 +231,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate }
       setValues(normalizedValues);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("marketingB2CForm.loadFailed"));
-      onClose();
+      onClose?.();
     } finally {
       setLoading(false);
     }
@@ -317,7 +318,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate }
     try {
       await savePatch({ values: valuesRef.current, finalize: true });
       toast.success(t("marketingB2CForm.finalized"));
-      onUpdate();
+      await onUpdate?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("marketingB2CForm.finalizeFailed"));
     } finally {
@@ -329,9 +330,17 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate }
   const fieldPlaceholder = (key: FieldKey) => t(`marketingB2CForm.placeholder.${key}`);
 
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto bg-[#020617]/85 px-3 py-5 backdrop-blur-md sm:px-6">
-      <div className="mx-auto w-full max-w-[1480px] rounded-2xl border border-blue-300/25 bg-[#050a18] shadow-[0_30px_120px_rgba(37,99,235,0.22)]">
-        <div className="sticky top-0 z-10 border-b border-blue-300/10 bg-[#050a18]/95 px-4 py-4 backdrop-blur sm:px-6">
+    <div className={cn(
+      embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-[#020617]/85 px-3 py-5 backdrop-blur-md sm:px-6",
+    )}>
+      <div className={cn(
+        "w-full rounded-2xl border border-blue-300/25 bg-[#050a18] shadow-[0_30px_120px_rgba(37,99,235,0.22)]",
+        !embedded && "mx-auto max-w-[1480px]",
+      )}>
+        <div className={cn(
+          "border-b border-blue-300/10 bg-[#050a18]/95 px-4 py-4 backdrop-blur sm:px-6",
+          !embedded && "sticky top-0 z-10",
+        )}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
@@ -371,13 +380,15 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate }
                   <div className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" style={{ width: `${fieldProgress}%` }} />
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
-                title={t("common.close")}
-              >
-                <X className="h-5 w-5" />
-              </button>
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  title={t("common.close")}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -494,7 +505,10 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate }
               </section>
             </div>
 
-            <div className="sticky bottom-0 flex flex-col gap-3 border-t border-blue-300/10 bg-[#050a18]/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className={cn(
+              "flex flex-col gap-3 border-t border-blue-300/10 bg-[#050a18]/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6",
+              !embedded && "sticky bottom-0",
+            )}>
               <p className="text-xs text-muted-foreground">
                 {form?.can_edit ? t("marketingB2CForm.autosaveHint") : t("marketingB2CForm.viewOnlyHint")}
               </p>

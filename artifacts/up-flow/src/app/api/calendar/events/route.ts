@@ -7,6 +7,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseDateParam } from "@/lib/time-range";
 import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
+import { recomputeOnboardingProgress } from "@/lib/onboarding";
 
 const EventSchema = z.object({
   title: z.string().trim().min(1),
@@ -22,6 +23,17 @@ const EventSchema = z.object({
   meeting_url: z.string().trim().url().optional().nullable(),
   color: z.string().trim().optional().nullable(),
 });
+
+function isSchedulingText(value: string) {
+  const text = value.toLowerCase();
+  return (
+    text.includes("schedule") ||
+    text.includes("meeting") ||
+    text.includes("reuni") ||
+    text.includes("visita") ||
+    text.includes("agenda")
+  );
+}
 
 async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
@@ -69,9 +81,6 @@ async function POST_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
-  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const parsed = EventSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -84,23 +93,69 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: "ends_at must be after starts_at" }, { status: 400 });
   }
 
-  if (body.project_id) {
+  const linkedTask = body.task_id
+    ? await prisma.task.findFirst({
+        where: { id: body.task_id, project: { workspace_id: auth.currentWorkspaceId } },
+        select: {
+          id: true,
+          title: true,
+          project_id: true,
+          assignee_id: true,
+          project: { select: { id: true, workspace_id: true, owner_id: true } },
+        },
+      })
+    : null;
+  if (body.task_id && !linkedTask) return NextResponse.json({ error: "Task not found" }, { status: 400 });
+
+  const linkedSchedulingItem = linkedTask
+    ? await prisma.onboardingChecklistItem.findFirst({
+        where: { task_id: linkedTask.id },
+        select: {
+          id: true,
+          onboarding_id: true,
+          owner_id: true,
+          department: true,
+          title: true,
+          status: true,
+        },
+      })
+    : null;
+  const isLinkedSchedulingItem = Boolean(
+    linkedTask &&
+      linkedSchedulingItem &&
+      isSchedulingText(`${linkedSchedulingItem.department} ${linkedSchedulingItem.title} ${linkedTask.title}`),
+  );
+
+  const admin = isWorkspaceAdminFor(auth, auth.currentWorkspaceId);
+  const canCreateLinkedSchedule = Boolean(
+    linkedTask &&
+      linkedSchedulingItem &&
+      isLinkedSchedulingItem &&
+      (linkedTask.assignee_id === auth.prismaUser.id ||
+        linkedTask.project.owner_id === auth.prismaUser.id ||
+        linkedSchedulingItem.owner_id === auth.prismaUser.id),
+  );
+  if (!admin && !canCreateLinkedSchedule) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const eventProjectId = body.project_id || linkedTask?.project_id || null;
+  if (body.project_id && linkedTask && body.project_id !== linkedTask.project_id) {
+    return NextResponse.json({ error: "Task does not belong to the selected project" }, { status: 400 });
+  }
+
+  if (eventProjectId) {
     const project = await prisma.project.findFirst({
-      where: { id: body.project_id, workspace_id: auth.currentWorkspaceId },
+      where: { id: eventProjectId, workspace_id: auth.currentWorkspaceId },
       select: { id: true },
     });
     if (!project) return NextResponse.json({ error: "Project not found" }, { status: 400 });
   }
 
-  if (body.task_id) {
-    const task = await prisma.task.findFirst({
-      where: { id: body.task_id, project: { workspace_id: auth.currentWorkspaceId } },
-      select: { id: true, project_id: true },
-    });
-    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 400 });
-  }
-
-  const attendeeIds = Array.from(new Set(body.attendee_ids ?? []));
+  const attendeeIds = Array.from(new Set([
+    ...(body.attendee_ids ?? []),
+    ...(linkedTask?.assignee_id ? [linkedTask.assignee_id] : []),
+  ]));
   if (attendeeIds.length > 0) {
     const members = await prisma.workspaceMember.findMany({
       where: { workspace_id: auth.currentWorkspaceId, user_id: { in: attendeeIds } },
@@ -121,7 +176,7 @@ async function POST_handler(req: NextRequest) {
       ends_at: endsAt,
       timezone: body.timezone || "America/Sao_Paulo",
       created_by: auth.prismaUser.id,
-      project_id: body.project_id || null,
+      project_id: eventProjectId,
       task_id: body.task_id || null,
       location: body.location || null,
       meeting_url: body.meeting_url || null,
@@ -152,6 +207,33 @@ async function POST_handler(req: NextRequest) {
     attendeeIds,
     actor: auth.prismaUser,
   });
+
+  if (linkedTask && linkedSchedulingItem && isLinkedSchedulingItem) {
+    await prisma.$transaction(async (tx) => {
+      await tx.task.update({
+        where: { id: linkedTask.id },
+        data: { status: "done" },
+      });
+      await tx.onboardingChecklistItem.update({
+        where: { id: linkedSchedulingItem.id },
+        data: {
+          status: "complete",
+          completed_at: new Date(),
+          completed_by: auth.prismaUser.id,
+        },
+      });
+      await tx.onboardingMeeting.updateMany({
+        where: { checklist_item_id: linkedSchedulingItem.id },
+        data: {
+          scheduled: true,
+          scheduled_at: startsAt,
+          meeting_url: body.meeting_url || null,
+          notes: body.description || null,
+        },
+      });
+      await recomputeOnboardingProgress(tx, linkedSchedulingItem.onboarding_id);
+    });
+  }
 
   return NextResponse.json(event, { status: 201 });
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
@@ -90,6 +90,15 @@ type SelectableUser = {
   email: string;
 };
 
+type ScheduleDefaults = {
+  type: "meeting" | "reminder";
+  title?: string;
+  description?: string;
+  taskId?: string | null;
+  projectId?: string | null;
+  time?: string;
+};
+
 function eventColor(event: CalendarEvent) {
   return event.color || DEFAULT_EVENT_COLOR;
 }
@@ -127,6 +136,7 @@ function eventUserIds(event: CalendarEvent) {
 export default function CalendarPage() {
   const { language, t } = useLanguage();
   const user = useAppUser();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [today, setToday] = useState(() => new Date());
   const [cursor, setCursor] = useState(
@@ -145,14 +155,36 @@ export default function CalendarPage() {
   const [eventMenu, setEventMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
   const [people, setPeople] = useState<SelectableUser[]>([]);
   const [peopleLoading, setPeopleLoading] = useState(false);
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const selectedUserIds = useMemo(() => (selectedUserId ? new Set([selectedUserId]) : new Set<string>()), [selectedUserId]);
+  const [scheduleDefaults, setScheduleDefaults] = useState<ScheduleDefaults | null>(null);
 
   useEffect(() => {
     const linkedDate = dateFromQueryParam(searchParams?.get("date") ?? null);
-    if (!linkedDate) return;
-    setSelected(linkedDate);
-    setCursor(new Date(linkedDate.getFullYear(), linkedDate.getMonth(), 1));
-  }, [searchParams]);
+    if (linkedDate) {
+      setSelected(linkedDate);
+      setCursor(new Date(linkedDate.getFullYear(), linkedDate.getMonth(), 1));
+    }
+
+    const create = searchParams?.get("create");
+    if (create !== "meeting" && create !== "event" && create !== "reminder") return;
+
+    const type = create === "reminder" ? "reminder" : "meeting";
+    const openDate = linkedDate ?? new Date();
+    setScheduleType(type);
+    setScheduleDefaults({
+      type,
+      title: searchParams?.get("title") ?? undefined,
+      description: searchParams?.get("description") ?? undefined,
+      taskId: searchParams?.get("task"),
+      projectId: searchParams?.get("project"),
+      time: searchParams?.get("time") ?? "09:00",
+    });
+    setSelected(openDate);
+    setCursor(new Date(openDate.getFullYear(), openDate.getMonth(), 1));
+    setShowSchedule(true);
+    router.replace("/calendar", { scroll: false });
+  }, [router, searchParams]);
 
   useEffect(() => {
     const refreshToday = () => setToday(new Date());
@@ -293,6 +325,10 @@ export default function CalendarPage() {
     month: "long",
     year: "numeric",
   }).format(cursor);
+  const selectedPerson = useMemo(
+    () => people.find((person) => person.id === selectedUserId) ?? null,
+    [people, selectedUserId],
+  );
 
   const goPrev = () => setCursor(new Date(year, month - 1, 1));
   const goNext = () => setCursor(new Date(year, month + 1, 1));
@@ -306,21 +342,13 @@ export default function CalendarPage() {
   const openSchedule = (type: "meeting" | "reminder") => {
     setQuickCreateOpen(false);
     setScheduleType(type);
+    setScheduleDefaults(null);
     setShowSchedule(true);
   };
 
   const openTaskDialog = () => {
     setQuickCreateOpen(false);
     setShowNewTask(true);
-  };
-
-  const toggleUserFilter = (userId: string) => {
-    setSelectedUserIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) next.delete(userId);
-      else next.add(userId);
-      return next;
-    });
   };
 
   const deleteEvent = async (event: CalendarEvent) => {
@@ -432,54 +460,37 @@ export default function CalendarPage() {
           </div>
 
           <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold text-foreground">
                   {t("calendar.peopleFilter")}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  {selectedUserIds.size === 0
-                    ? t("calendar.peopleFilterAll")
-                    : t("calendar.peopleFilterSelected", { count: selectedUserIds.size })}
+                  {selectedPerson ? selectedPerson.name || selectedPerson.email : t("calendar.peopleFilterAll")}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedUserIds(new Set())}
-                className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
-              >
-                {t("calendar.allSchedules")}
-              </button>
+              <label className="relative min-w-[220px]">
+                <span className="sr-only">{t("calendar.peopleFilter")}</span>
+                <select
+                  value={selectedUserId}
+                  onChange={(event) => setSelectedUserId(event.target.value)}
+                  disabled={peopleLoading}
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#080d1b] px-3 pr-9 text-xs font-medium text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                >
+                  <option value="">
+                    {peopleLoading ? t("common.loading") : t("calendar.allSchedules")}
+                  </option>
+                  {people.map((person) => (
+                    <option key={person.id} value={person.id}>
+                      {person.name || person.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-              {peopleLoading ? (
-                <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
-              ) : people.length === 0 ? (
-                <span className="text-xs text-muted-foreground">{t("calendar.noUsersToFilter")}</span>
-              ) : (
-                people.map((person, index) => {
-                  const selectedPerson = selectedUserIds.has(person.id);
-                  const tone = USER_EVENT_TONES[index % USER_EVENT_TONES.length];
-                  return (
-                    <button
-                      key={person.id}
-                      type="button"
-                      aria-pressed={selectedPerson}
-                      onClick={() => toggleUserFilter(person.id)}
-                      className={cn(
-                        "inline-flex max-w-[180px] shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
-                        selectedPerson
-                          ? tone.chip
-                          : "border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground",
-                      )}
-                    >
-                      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot)} />
-                      <span className="truncate">{person.name || person.email}</span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+            {!peopleLoading && people.length === 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">{t("calendar.noUsersToFilter")}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
@@ -792,13 +803,27 @@ export default function CalendarPage() {
 
       <ScheduleMeetingDialog
         open={showSchedule}
-        onClose={() => setShowSchedule(false)}
+        onClose={() => {
+          setShowSchedule(false);
+          setScheduleDefaults(null);
+        }}
         initialDate={selected}
-        title={scheduleType === "meeting" ? t("calendar.quickMeeting") : t("calendar.quickEvent")}
-        defaultType={scheduleType}
+        initialTime={scheduleDefaults?.time ?? "09:00"}
+        title={
+          (scheduleDefaults?.type ?? scheduleType) === "meeting"
+            ? t("calendar.quickMeeting")
+            : t("calendar.quickEvent")
+        }
+        defaultType={scheduleDefaults?.type ?? scheduleType}
+        defaultTitle={scheduleDefaults?.title}
+        defaultDescription={scheduleDefaults?.description}
+        defaultTaskId={scheduleDefaults?.taskId ?? null}
+        defaultProjectId={scheduleDefaults?.projectId ?? null}
         onScheduled={(event) => {
           setEvents((prev) => [...prev, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
           setSelected(new Date(event.starts_at));
+          setScheduleDefaults(null);
+          loadCalendar({ silent: true });
         }}
       />
 
