@@ -23,6 +23,7 @@ interface KanbanBoardProps {
   toolbar?: ToolbarState;
   onUpdate: () => void;
   onAddTask: (status: ColumnKey) => void;
+  onOpenTask?: (task: Task) => void;
 }
 
 const COLUMNS = [
@@ -52,6 +53,7 @@ export default function KanbanBoard({
   toolbar,
   onUpdate,
   onAddTask,
+  onOpenTask,
 }: KanbanBoardProps) {
   const { t } = useLanguage();
   const [columns, setColumns] = useState<Record<ColumnKey, Task[]>>({
@@ -116,6 +118,14 @@ export default function KanbanBoard({
 
   const handleDragStart = () => {
     isDraggingRef.current = true;
+  };
+
+  const openTask = (task: Task) => {
+    if (onOpenTask) {
+      onOpenTask(task);
+      return;
+    }
+    setSelectedTask(task);
   };
 
   const visibleCustomFields = customFields.filter(
@@ -217,7 +227,7 @@ export default function KanbanBoard({
                               style={draggableStyle as CSSProperties | undefined}
                               onClick={() => {
                                 if (isDraggingRef.current) return;
-                                setSelectedTask(task);
+                                openTask(task);
                               }}
                               className={cn(
                                 "upflow-task-card group relative cursor-pointer rounded-xl p-3 transition-all hover:-translate-y-0.5",
@@ -228,7 +238,7 @@ export default function KanbanBoard({
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedTask(task);
+                                    openTask(task);
                                   }}
                                     className="rounded p-1 text-muted-foreground hover:text-foreground"
                                   title={t("common.open")}

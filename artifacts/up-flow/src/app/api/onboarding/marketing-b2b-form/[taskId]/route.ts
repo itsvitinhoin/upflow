@@ -189,6 +189,23 @@ async function PATCH_handler(
         },
       });
       await recomputeOnboardingProgress(tx, access.form.onboarding_id);
+    } else if (access.form.status !== "complete") {
+      await tx.marketingB2BOnboardingForm.update({
+        where: { id: access.form.id },
+        data: { status: "in_progress" },
+      });
+      if (access.form.task.status === "todo") {
+        await tx.task.update({
+          where: { id: access.form.task_id },
+          data: { status: "in_progress" },
+        });
+      }
+      if (access.form.checklist_item.status === "pending") {
+        await tx.onboardingChecklistItem.update({
+          where: { id: access.form.checklist_item_id },
+          data: { status: "in_progress" },
+        });
+      }
     }
 
     return tx.marketingB2BOnboardingForm.findUniqueOrThrow({

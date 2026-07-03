@@ -120,8 +120,17 @@ export interface MarketingB2BOnboardingFormSummary {
   id: string;
   status: string;
   completed_at: string | null;
+  updated_at?: string | null;
+  values?: Record<string, string> | null;
   task_id?: string;
   checklist_item_id?: string;
+  task?: {
+    id: string;
+    title: string;
+    status: string;
+    project_id?: string | null;
+    assignee?: { id: string; name: string; email: string } | null;
+  } | null;
 }
 
 export interface MarketingB2COnboardingFormSummary {
@@ -477,7 +486,13 @@ export interface OnboardingChecklistItem {
   sort_order: number;
   owner?: { id: string; name: string; email: string } | null;
   completer?: { id: string; name: string; email: string } | null;
-  task?: { id: string; title: string; status: string; project_id?: string | null } | null;
+  task?: {
+    id: string;
+    title: string;
+    status: string;
+    project_id?: string | null;
+    assignee?: { id: string; name: string; email: string } | null;
+  } | null;
   marketing_b2b_form?: MarketingB2BOnboardingFormSummary | null;
   marketing_b2c_form?: MarketingB2COnboardingFormSummary | null;
 }

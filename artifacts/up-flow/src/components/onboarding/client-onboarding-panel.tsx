@@ -57,6 +57,45 @@ function localDateTimeValue(value: string | null | undefined) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+const MARKETING_B2B_SUMMARY_SECTIONS = [
+  {
+    key: "brand",
+    fields: ["brandName", "officialSite", "instagram", "marketYears", "brandDescription"],
+  },
+  {
+    key: "commercialRules",
+    fields: ["minimumOrder", "paymentMethods", "discountPolicy", "commercialRestrictions", "allowedAudience"],
+  },
+  {
+    key: "contacts",
+    fields: ["trafficResponsibleName", "trafficResponsibleRole", "whatsapp", "email", "creativeApprovalResponsible"],
+  },
+  {
+    key: "access",
+    fields: [
+      "metaAdsAccess",
+      "ga4Access",
+      "ecommercePlatformAccess",
+      "ecommercePlatformUser",
+      "domainAccess",
+      "domainAccessType",
+      "dashboardAccess",
+    ],
+  },
+];
+
+const MARKETING_B2B_PROGRESS_FIELDS = [
+  ...MARKETING_B2B_SUMMARY_SECTIONS.flatMap((section) => section.fields),
+  "targetAudience",
+  "purchaseChannels",
+  "physicalStore",
+  "physicalStoreAddress",
+];
+
+function countFilled(values: Record<string, string> | null | undefined, fields: string[]) {
+  return fields.filter((field) => String(values?.[field] ?? "").trim()).length;
+}
+
 export default function ClientOnboardingPanel({ companyId, projectId, company, onChanged }: Props) {
   const { t } = useLanguage();
   const [onboarding, setOnboarding] = useState<ClientOnboarding | null>(null);
@@ -197,6 +236,30 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
       ),
     [onboarding],
   );
+
+  const marketingB2BSummary = useMemo(() => {
+    const item = onboarding?.checklist_items?.find((checklistItem) => checklistItem.marketing_b2b_form) ?? null;
+    const form = item?.marketing_b2b_form ?? onboarding?.marketing_b2b_forms?.[0] ?? null;
+    if (!form) return null;
+    const values = form.values ?? {};
+    const filled = countFilled(values, MARKETING_B2B_PROGRESS_FIELDS);
+    const progress = MARKETING_B2B_PROGRESS_FIELDS.length > 0
+      ? Math.round((filled / MARKETING_B2B_PROGRESS_FIELDS.length) * 100)
+      : 0;
+    const missingSections = MARKETING_B2B_SUMMARY_SECTIONS
+      .filter((section) => countFilled(values, section.fields) < section.fields.length)
+      .map((section) => t(`marketingB2BForm.section.${section.key}`));
+    const task = form.task ?? item?.task ?? null;
+    return {
+      form,
+      item,
+      href: task?.project_id && task.id ? `/projects/${task.project_id}?view=form&task=${task.id}` : null,
+      owner: task?.assignee?.name ?? item?.owner?.name ?? t("companyDialog.notAssigned"),
+      progress: form.status === "complete" ? 100 : progress,
+      updatedAt: form.updated_at ?? form.completed_at ?? null,
+      missingSections,
+    };
+  }, [onboarding, t]);
 
   const refresh = async () => {
     await load({ silent: true });
@@ -589,6 +652,60 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
         </div>
       )}
 
+      {marketingB2BSummary && (
+        <a
+          href={marketingB2BSummary.href ?? undefined}
+          className={cn(
+            "group block rounded-2xl border border-blue-300/18 bg-gradient-to-br from-blue-500/12 via-[#0b1325] to-cyan-500/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition",
+            marketingB2BSummary.href && "hover:border-sky-300/35 hover:bg-blue-400/10",
+          )}
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-300">
+                {t("marketingB2BForm.summaryEyebrow")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h3 className="text-lg font-bold text-foreground">{t("marketingB2BForm.summaryTitle")}</h3>
+                <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(marketingB2BSummary.form.status))}>
+                  {marketingB2BSummary.form.status === "complete"
+                    ? t("marketingB2BForm.status.complete")
+                    : t("marketingB2BForm.status.draft")}
+                </span>
+              </div>
+            </div>
+            {marketingB2BSummary.href && (
+              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-3 py-2 text-xs font-semibold text-blue-100 group-hover:bg-blue-400/15">
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t("marketingB2BForm.openShort")}
+              </span>
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-4">
+            <Metric icon={<ClipboardCheck className="h-4 w-4" />} label={t("marketingB2BForm.summaryProgress")} value={`${marketingB2BSummary.progress}%`} />
+            <Metric icon={<Users className="h-4 w-4" />} label={t("marketingB2BForm.summaryOwner")} value={marketingB2BSummary.owner} />
+            <Metric
+              icon={<CalendarClock className="h-4 w-4" />}
+              label={t("marketingB2BForm.summaryLastUpdated")}
+              value={marketingB2BSummary.updatedAt ? formatDate(marketingB2BSummary.updatedAt) : "-"}
+            />
+            <Metric
+              icon={<ShieldCheck className="h-4 w-4" />}
+              label={t("marketingB2BForm.summaryMissing")}
+              value={marketingB2BSummary.missingSections.length > 0 ? marketingB2BSummary.missingSections.join(", ") : t("marketingB2BForm.missingNone")}
+            />
+          </div>
+
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all"
+              style={{ width: `${marketingB2BSummary.progress}%` }}
+            />
+          </div>
+        </a>
+      )}
+
       {teamOptions.isAdmin && onboarding.status !== "onboarding_complete" && (
         <div className="grid gap-3 rounded-xl border border-blue-300/12 bg-white/[0.03] p-3 md:grid-cols-[1fr_auto] md:items-end">
           <label className="space-y-1">
@@ -638,7 +755,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                         ? t("marketingB2CForm.centralHint")
                         : t("marketingB2BForm.centralHint");
                       const formHref = item.task?.project_id
-                        ? `/projects/${item.task.project_id}?task=${item.task_id ?? item.task.id}`
+                        ? `/projects/${item.task.project_id}${isMarketingB2BFormItem ? "?view=form&" : "?"}task=${item.task_id ?? item.task.id}`
                         : null;
                       const showAssignmentControls =
                         department.toLowerCase().includes("internal") &&

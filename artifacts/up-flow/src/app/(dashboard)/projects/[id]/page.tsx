@@ -44,6 +44,7 @@ export default function ProjectPage() {
   const { t } = useLanguage();
   const id = (params?.id ?? "") as string;
   const focusedTaskId = searchParams?.get("task") ?? "";
+  const viewParam = searchParams?.get("view") ?? "";
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<TaskAssignee[]>([]);
@@ -97,8 +98,22 @@ export default function ProjectPage() {
   useEffect(() => {
     if (!focusedTaskId || loading) return;
     const task = tasks.find((item) => item.id === focusedTaskId);
-    if (task) setSelectedTask(task);
-  }, [focusedTaskId, loading, tasks]);
+    if (!task) return;
+    if (task.marketing_b2b_onboarding_form) {
+      setSelectedTask(null);
+      if (viewParam !== "form") {
+        router.replace(`/projects/${id}?view=form&task=${task.id}`, { scroll: false });
+      }
+      return;
+    }
+    setSelectedTask(task);
+  }, [focusedTaskId, id, loading, router, tasks, viewParam]);
+
+  const b2bFormTask = useMemo(
+    () => tasks.find((task) => task.marketing_b2b_onboarding_form) ?? null,
+    [tasks],
+  );
+  const showB2BFormFirst = Boolean(b2bFormTask && viewParam !== "kanban");
 
   const canManageFields = useMemo(() => {
     if (!me) return false;
@@ -125,6 +140,15 @@ export default function ProjectPage() {
   const handleAddTask = (status?: string) => {
     const s = (status === "in_progress" || status === "done" ? status : "todo") as ColumnKey;
     setCreateOpen(s);
+  };
+
+  const handleOpenTask = (task: Task) => {
+    if (task.marketing_b2b_onboarding_form) {
+      setSelectedTask(null);
+      router.replace(`/projects/${id}?view=form&task=${task.id}`, { scroll: false });
+      return;
+    }
+    setSelectedTask(task);
   };
 
   return (
@@ -190,36 +214,74 @@ export default function ProjectPage() {
           <ClientOnboardingPanel projectId={id} companyId={project.company_id} onChanged={loadData} />
         </div>
 
-        <ProjectToolbar
-          state={toolbar}
-          onChange={setToolbar}
-          customFields={customFields}
-          onManageFields={() => setManageOpen(true)}
-          canManage={canManageFields}
-          users={users}
-        />
+        {b2bFormTask && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-blue-300/10">
+            <button
+              type="button"
+              onClick={() => router.replace(`/projects/${id}?view=form&task=${b2bFormTask.id}`, { scroll: false })}
+              aria-pressed={showB2BFormFirst}
+              className={cn(
+                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
+                showB2BFormFirst
+                  ? "border-blue-400 text-blue-100"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t("marketingB2BForm.formTab")}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.replace(`/projects/${id}?view=kanban`, { scroll: false })}
+              aria-pressed={!showB2BFormFirst}
+              className={cn(
+                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
+                !showB2BFormFirst
+                  ? "border-blue-400 text-blue-100"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t("marketingB2BForm.kanbanTab")}
+            </button>
+          </div>
+        )}
 
-        {toolbar.view === "board" ? (
-          <KanbanBoard
-            projectId={id}
-            tasks={tasks}
-            customFields={customFields}
-            users={users}
-            toolbar={toolbar}
-            onUpdate={loadData}
-            onAddTask={(status) => setCreateOpen(status)}
-          />
+        {showB2BFormFirst && b2bFormTask ? (
+          <MarketingB2BOnboardingForm taskId={b2bFormTask.id} embedded onUpdate={loadData} />
         ) : (
-          <ListView
-            projectId={id}
-            tasks={tasks}
-            customFields={customFields}
-            users={users}
-            toolbar={toolbar}
-            onTaskClick={setSelectedTask}
-            onAddTask={handleAddTask}
-            onUpdate={loadData}
-          />
+          <>
+            <ProjectToolbar
+              state={toolbar}
+              onChange={setToolbar}
+              customFields={customFields}
+              onManageFields={() => setManageOpen(true)}
+              canManage={canManageFields}
+              users={users}
+            />
+
+            {toolbar.view === "board" ? (
+              <KanbanBoard
+                projectId={id}
+                tasks={tasks}
+                customFields={customFields}
+                users={users}
+                toolbar={toolbar}
+                onUpdate={loadData}
+                onAddTask={(status) => setCreateOpen(status)}
+                onOpenTask={handleOpenTask}
+              />
+            ) : (
+              <ListView
+                projectId={id}
+                tasks={tasks}
+                customFields={customFields}
+                users={users}
+                toolbar={toolbar}
+                onTaskClick={handleOpenTask}
+                onAddTask={handleAddTask}
+                onUpdate={loadData}
+              />
+            )}
+          </>
         )}
       </div>
 

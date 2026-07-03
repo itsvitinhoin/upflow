@@ -657,7 +657,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
     icon: "folder",
   });
 
-  const projectName = "Marketing B2B Onboarding";
+  const projectName = input.companyName.trim() || "Marketing B2B Onboarding";
   const existingProject = await db.project.findFirst({
     where: {
       workspace_id: input.workspaceId,
@@ -669,6 +669,25 @@ export async function resolveMarketingB2BOnboardingProjectId(
     select: { id: true },
   });
   if (existingProject) return existingProject.id;
+
+  const legacyProject = await db.project.findFirst({
+    where: {
+      workspace_id: input.workspaceId,
+      space_id: targetSpace.id,
+      folder_id: clientFolder.id,
+      company_id: input.companyId,
+      name: "Marketing B2B Onboarding",
+    },
+    select: { id: true },
+  });
+  if (legacyProject) {
+    const renamed = await db.project.update({
+      where: { id: legacyProject.id },
+      data: { name: projectName },
+      select: { id: true },
+    });
+    return renamed.id;
+  }
 
   const createdProject = await db.project.create({
     data: {
@@ -1720,7 +1739,26 @@ export function onboardingSelect() {
         owner: { select: { id: true, name: true, email: true } },
         completer: { select: { id: true, name: true, email: true } },
         task: { select: { id: true, title: true, status: true, project_id: true } },
-        marketing_b2b_form: { select: { id: true, status: true, completed_at: true, task_id: true } },
+        marketing_b2b_form: {
+          select: {
+            id: true,
+            status: true,
+            completed_at: true,
+            updated_at: true,
+            values: true,
+            task_id: true,
+            checklist_item_id: true,
+            task: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                project_id: true,
+                assignee: { select: { id: true, name: true, email: true } },
+              },
+            },
+          },
+        },
         marketing_b2c_form: { select: { id: true, status: true, completed_at: true, task_id: true } },
       },
     },
@@ -1750,7 +1788,24 @@ export function onboardingSelect() {
     },
     marketing_b2b_forms: {
       orderBy: [{ created_at: "asc" as const }],
-      select: { id: true, status: true, completed_at: true, task_id: true, checklist_item_id: true },
+      select: {
+        id: true,
+        status: true,
+        completed_at: true,
+        updated_at: true,
+        values: true,
+        task_id: true,
+        checklist_item_id: true,
+        task: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            project_id: true,
+            assignee: { select: { id: true, name: true, email: true } },
+          },
+        },
+      },
     },
     marketing_b2c_forms: {
       orderBy: [{ created_at: "asc" as const }],

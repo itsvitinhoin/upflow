@@ -39,6 +39,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
 
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
   assert.match(route, /finalize/);
+  assert.match(route, /status: "in_progress"/);
   assert.match(route, /task\.update[\s\S]*status: "done"/);
   assert.match(route, /onboardingChecklistItem\.update[\s\S]*status: "complete"/);
   assert.match(route, /recomputeOnboardingProgress/);
@@ -49,15 +50,24 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /finalizeAction/);
   assert.match(form, /brandName/);
   assert.match(form, /metaAdsAccess/);
+  assert.match(form, /embedded = false/);
   assert.match(panel, /marketing_b2b_form/);
   assert.match(panel, /marketingB2BForm\.centralHint/);
+  assert.match(panel, /marketingB2BSummary/);
+  assert.match(panel, /marketingB2BForm\.summaryTitle/);
+  assert.match(panel, /\?view=form&/);
 
   assert.match(taskListRoute, /marketing_b2b_onboarding_form/);
   assert.match(taskDetailRoute, /marketing_b2b_onboarding_form/);
   assert.match(kanbanBoard, /MarketingB2BOnboardingForm/);
+  assert.match(kanbanBoard, /onOpenTask/);
   assert.match(projectPage, /MarketingB2BOnboardingForm/);
+  assert.match(projectPage, /viewParam !== "kanban"/);
+  assert.match(projectPage, /\?view=form&task=/);
+  assert.match(projectPage, /embedded onUpdate=\{loadData\}/);
 
   assert.match(translations, /marketingB2BForm\.field\.brandName/);
   assert.match(translations, /marketingB2BForm\.field\.metaAdsAccess/);
   assert.match(translations, /marketingB2BForm\.finalizeAction/);
+  assert.match(translations, /marketingB2BForm\.summaryTitle/);
 });
