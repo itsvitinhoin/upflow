@@ -80,3 +80,28 @@ test("calendar month cells support dense event days without a two-item cap", () 
   assert.doesNotMatch(page, /dayEvents\.slice\(0,\s*2\)/);
   assert.doesNotMatch(page, /dayTasks\.slice\(0,\s*2\)/);
 });
+
+test("calendar month view filters events by selected users", () => {
+  const page = source("src/app/(dashboard)/calendar/page.tsx");
+  const translations = source("src/lib/i18n/translations.ts");
+
+  assert.match(page, /useAppUser/);
+  assert.match(page, /selectedUserIds/);
+  assert.match(page, /eventUserIds/);
+  assert.match(page, /event\.created_by/);
+  assert.match(page, /attendee\.user_id/);
+  assert.match(page, /filteredEvents/);
+  assert.match(page, /filteredEvents\.forEach/);
+  assert.match(page, /filteredTasks/);
+  assert.match(page, /task\.assignee_id && selectedUserIds\.has\(task\.assignee_id\)/);
+  assert.match(page, /eventUserTone/);
+  assert.match(page, /eventVisualClass/);
+  assert.match(page, /calendar\.peopleFilter/);
+  assert.match(page, /calendar\.allSchedules/);
+
+  assert.match(translations, /"calendar.peopleFilter"/);
+  assert.match(translations, /"calendar.peopleFilterAll"/);
+  assert.match(translations, /"calendar.peopleFilterSelected"/);
+  assert.match(translations, /"calendar.allSchedules"/);
+  assert.match(translations, /"calendar.noUsersToFilter"/);
+});

@@ -12,6 +12,7 @@ import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import NewTaskDialog from "@/components/projects/new-task-dialog";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
 
 const WEEKDAY_KEYS = [
   "time.day.mon",
@@ -74,6 +75,21 @@ const EVENT_COLOR_OPTIONS = [
   { key: "red", color: "bg-upflow-danger/30 text-upflow-danger border-l-upflow-danger", className: "bg-upflow-danger/30 text-upflow-danger border-l-upflow-danger", labelKey: "calendar.colorUrgent" },
 ] as const;
 
+const USER_EVENT_TONES = [
+  { chip: "border-sky-400/40 bg-sky-400/10 text-sky-100", dot: "bg-sky-400", event: "bg-sky-400/20 text-sky-100 border-l-sky-400" },
+  { chip: "border-violet-400/40 bg-violet-400/10 text-violet-100", dot: "bg-violet-400", event: "bg-violet-400/20 text-violet-100 border-l-violet-400" },
+  { chip: "border-emerald-400/40 bg-emerald-400/10 text-emerald-100", dot: "bg-emerald-400", event: "bg-emerald-400/20 text-emerald-100 border-l-emerald-400" },
+  { chip: "border-amber-400/40 bg-amber-400/10 text-amber-100", dot: "bg-amber-400", event: "bg-amber-400/20 text-amber-100 border-l-amber-400" },
+  { chip: "border-rose-400/40 bg-rose-400/10 text-rose-100", dot: "bg-rose-400", event: "bg-rose-400/20 text-rose-100 border-l-rose-400" },
+  { chip: "border-cyan-400/40 bg-cyan-400/10 text-cyan-100", dot: "bg-cyan-400", event: "bg-cyan-400/20 text-cyan-100 border-l-cyan-400" },
+] as const;
+
+type SelectableUser = {
+  id: string;
+  name: string | null;
+  email: string;
+};
+
 function eventColor(event: CalendarEvent) {
   return event.color || DEFAULT_EVENT_COLOR;
 }
@@ -99,8 +115,18 @@ function eventDisplayState(event: CalendarEvent, now: Date) {
   };
 }
 
+function eventUserIds(event: CalendarEvent) {
+  return Array.from(
+    new Set([
+      event.created_by,
+      ...(event.attendees ?? []).map((attendee) => attendee.user_id),
+    ].filter(Boolean)),
+  );
+}
+
 export default function CalendarPage() {
   const { language, t } = useLanguage();
+  const user = useAppUser();
   const searchParams = useSearchParams();
   const [today, setToday] = useState(() => new Date());
   const [cursor, setCursor] = useState(
@@ -117,6 +143,9 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [manageEvents, setManageEvents] = useState(false);
   const [eventMenu, setEventMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
+  const [people, setPeople] = useState<SelectableUser[]>([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const linkedDate = dateFromQueryParam(searchParams?.get("date") ?? null);
@@ -149,7 +178,7 @@ export default function CalendarPage() {
     const from = mergeAppDateAndTime(gridStart, "00:00").toISOString();
     const to = mergeAppDateAndTime(gridEnd, "23:59").toISOString();
     Promise.all([
-      fetch("/api/tasks?mine=true").then((r) => r.json()),
+      fetch("/api/tasks").then((r) => r.json()),
       fetch(`/api/calendar/events?from=${from}&to=${to}`).then((r) => r.json()),
     ])
       .then(([taskData, eventData]) => {
@@ -170,6 +199,26 @@ export default function CalendarPage() {
   }, [cursor]);
 
   useEffect(() => {
+    if (!user?.currentWorkspaceId) return;
+    const controller = new AbortController();
+    setPeopleLoading(true);
+    fetch(`/api/users?workspace_id=${user.currentWorkspaceId}&status=active`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) return { items: [] };
+        return (await res.json()) as { items?: SelectableUser[] };
+      })
+      .then((data) => setPeople(data.items ?? []))
+      .catch((err) => {
+        if ((err as Error).name !== "AbortError") setPeople([]);
+      })
+      .finally(() => setPeopleLoading(false));
+
+    return () => controller.abort();
+  }, [user?.currentWorkspaceId]);
+
+  useEffect(() => {
     const linkedEventId = searchParams?.get("event");
     if (!linkedEventId) return;
     const linkedEvent = events.find((event) => event.id === linkedEventId);
@@ -184,24 +233,57 @@ export default function CalendarPage() {
     return d;
   });
 
+  const filteredTasks = useMemo(() => {
+    if (selectedUserIds.size === 0) return tasks;
+    return tasks.filter((task) => task.assignee_id && selectedUserIds.has(task.assignee_id));
+  }, [selectedUserIds, tasks]);
+
   const tasksByDay = useMemo(() => {
     const map = new Map<string, Task[]>();
-    tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!task.due_date) return;
       const key = dateKey(task.due_date);
       map.set(key, [...(map.get(key) ?? []), task]);
     });
     return map;
-  }, [tasks]);
+  }, [filteredTasks]);
+
+  const userToneById = useMemo(() => {
+    return new Map(
+      people.map((person, index) => [
+        person.id,
+        USER_EVENT_TONES[index % USER_EVENT_TONES.length],
+      ]),
+    );
+  }, [people]);
+
+  const filteredEvents = useMemo(() => {
+    if (selectedUserIds.size === 0) return events;
+    return events.filter((event) =>
+      eventUserIds(event).some((id) => selectedUserIds.has(id)),
+    );
+  }, [events, selectedUserIds]);
+
+  const eventUserTone = (event: CalendarEvent) => {
+    const ids = eventUserIds(event);
+    const selectedMatch = ids.find((id) => selectedUserIds.has(id));
+    const id = selectedMatch ?? ids[0];
+    return id ? userToneById.get(id) : null;
+  };
+
+  const eventVisualClass = (event: CalendarEvent, display: ReturnType<typeof eventDisplayState>) => {
+    if (display.isComplete) return display.color;
+    return eventUserTone(event)?.event ?? display.color;
+  };
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    events.forEach((event) => {
+    filteredEvents.forEach((event) => {
       const key = dateKey(event.starts_at);
       map.set(key, [...(map.get(key) ?? []), event]);
     });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const selectedKey = dateKey(selected);
   const selectedTasks = tasksByDay.get(selectedKey) ?? [];
@@ -230,6 +312,15 @@ export default function CalendarPage() {
   const openTaskDialog = () => {
     setQuickCreateOpen(false);
     setShowNewTask(true);
+  };
+
+  const toggleUserFilter = (userId: string) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
   };
 
   const deleteEvent = async (event: CalendarEvent) => {
@@ -340,6 +431,57 @@ export default function CalendarPage() {
             </div>
           </div>
 
+          <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold text-foreground">
+                  {t("calendar.peopleFilter")}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {selectedUserIds.size === 0
+                    ? t("calendar.peopleFilterAll")
+                    : t("calendar.peopleFilterSelected", { count: selectedUserIds.size })}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedUserIds(new Set())}
+                className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+              >
+                {t("calendar.allSchedules")}
+              </button>
+            </div>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {peopleLoading ? (
+                <span className="text-xs text-muted-foreground">{t("common.loading")}</span>
+              ) : people.length === 0 ? (
+                <span className="text-xs text-muted-foreground">{t("calendar.noUsersToFilter")}</span>
+              ) : (
+                people.map((person, index) => {
+                  const selectedPerson = selectedUserIds.has(person.id);
+                  const tone = USER_EVENT_TONES[index % USER_EVENT_TONES.length];
+                  return (
+                    <button
+                      key={person.id}
+                      type="button"
+                      aria-pressed={selectedPerson}
+                      onClick={() => toggleUserFilter(person.id)}
+                      className={cn(
+                        "inline-flex max-w-[180px] shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition",
+                        selectedPerson
+                          ? tone.chip
+                          : "border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground",
+                      )}
+                    >
+                      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot)} />
+                      <span className="truncate">{person.name || person.email}</span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
             {WEEKDAY_KEYS.map((dayKey) => (
               <div key={dayKey} className="text-center py-1">{t(dayKey)}</div>
@@ -398,7 +540,7 @@ export default function CalendarPage() {
                             e.stopPropagation();
                             setEditingEvent(event);
                           }}
-                          className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", display.color)}
+                          className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", eventVisualClass(event, display))}
                         >
                           {display.isComplete && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
                           {eventTime(event)} {event.title}
@@ -514,6 +656,7 @@ export default function CalendarPage() {
                 <ul className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
                   {selectedEvents.map((event) => {
                     const display = eventDisplayState(event, today);
+                    const tone = eventUserTone(event);
 
                     return (
                       <li
@@ -524,9 +667,12 @@ export default function CalendarPage() {
                         onDoubleClick={() => setEditingEvent(event)}
                         className={cn(
                           "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
-                          display.color,
+                          eventVisualClass(event, display),
                         )}
                       >
+                        {tone && !display.isComplete && (
+                          <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot)} />
+                        )}
                         <div
                           className={cn(
                             "min-w-0 flex-1 text-left",

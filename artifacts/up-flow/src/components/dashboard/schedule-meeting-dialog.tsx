@@ -32,6 +32,10 @@ export default function ScheduleMeetingDialog({
   initialDate,
   initialTime = "09:00",
   title: dialogTitle,
+  defaultTitle,
+  defaultDescription,
+  defaultAttendeeIds = [],
+  defaultTaskId,
   defaultProjectId,
   defaultType = "meeting",
 }: {
@@ -41,6 +45,10 @@ export default function ScheduleMeetingDialog({
   initialDate?: Date;
   initialTime?: string;
   title?: string;
+  defaultTitle?: string;
+  defaultDescription?: string;
+  defaultAttendeeIds?: string[];
+  defaultTaskId?: string | null;
   defaultProjectId?: string | null;
   defaultType?: "meeting" | "reminder";
 }) {
@@ -61,13 +69,21 @@ export default function ScheduleMeetingDialog({
     if (!open) return;
     setTime(initialTime);
     setEventType(defaultType);
-  }, [defaultType, initialTime, open]);
+    setTitle(defaultTitle ?? "");
+    setWithWho(defaultDescription ?? "");
+  }, [defaultDescription, defaultTitle, defaultType, initialTime, open]);
 
   useEffect(() => {
     if (!open) return;
     setAttendees([]);
     setSelectedAttendeeId("");
   }, [open]);
+
+  useEffect(() => {
+    if (!open || defaultAttendeeIds.length === 0 || attendeeOptions.length === 0) return;
+    const selectedIds = new Set(defaultAttendeeIds);
+    setAttendees(attendeeOptions.filter((person) => selectedIds.has(person.id) && person.id !== user?.id));
+  }, [attendeeOptions, defaultAttendeeIds, open, user?.id]);
 
   useEffect(() => {
     if (!open || !user?.currentWorkspaceId) return;
@@ -127,6 +143,7 @@ export default function ScheduleMeetingDialog({
           timezone: APP_TIME_ZONE,
           color: COLORS[colorIdx],
           ...(defaultProjectId ? { project_id: defaultProjectId } : {}),
+          ...(defaultTaskId ? { task_id: defaultTaskId } : {}),
           ...(attendeeIds.length ? { attendee_ids: attendeeIds } : {}),
         }),
       });
@@ -138,8 +155,8 @@ export default function ScheduleMeetingDialog({
           : t("calendar.eventScheduled"),
       );
       onScheduled?.(meeting);
-      setTitle("");
-      setWithWho("");
+      setTitle(defaultTitle ?? "");
+      setWithWho(defaultDescription ?? "");
       setAttendees([]);
       setSelectedAttendeeId("");
       onClose();
