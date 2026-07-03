@@ -5,23 +5,18 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
-  AlertCircle,
-  Box,
-  BriefcaseBusiness,
   Building2,
-  Calendar,
   CheckCircle2,
-  ChevronRight,
-  Clock3,
-  DollarSign,
+  Crown,
+  Edit3,
   HeartPulse,
-  Info,
   PackageCheck,
   Plus,
   RefreshCcw,
-  Timer,
+  Sparkles,
   Trash2,
-  Users,
+  UserRound,
+  MoreHorizontal,
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
@@ -29,10 +24,8 @@ import { useLanguage } from "@/components/language-provider";
 import type { Company } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-type ClientHealthStatus = "healthy" | "attention" | "risk" | "not_enough_data" | null | undefined;
-
 export default function ClientsPage() {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -146,176 +139,121 @@ export default function ClientsPage() {
             </button>
           </section>
         ) : (
-          <section className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
-            {companies.map((company) => (
-              <div
-                key={company.id}
-                className="group relative min-w-0 overflow-hidden rounded-xl border border-blue-500/30 bg-[#07101f]/95 shadow-[0_0_0_1px_rgba(59,130,246,0.06),0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-400/55 hover:bg-[#091426] hover:shadow-[0_0_0_1px_rgba(59,130,246,0.14),0_20px_56px_rgba(0,0,0,0.32)]"
-              >
-                <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(37,99,235,0.18),transparent_32%),radial-gradient(circle_at_100%_0%,rgba(14,165,233,0.11),transparent_24%)]" />
+          <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            {companies.map((company) => {
+              const services = company.included_services ?? [];
+              const visibleServices = services.slice(0, 4);
+              const remainingServices = Math.max(0, services.length - visibleServices.length);
+              const manager = managerName(company, t);
 
-                <Link href={`/clients/${company.id}`} className="relative block p-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-blue-300/35 bg-gradient-to-br from-blue-600/80 via-indigo-700/70 to-blue-950 text-2xl font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_0_24px_rgba(37,99,235,0.22)]">
-                    {company.name.trim().charAt(0).toUpperCase() || "C"}
-                  </span>
-                  <div className="min-w-0 flex-1 pr-24">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <h3 className="truncate text-lg font-bold text-white">
-                        {company.name}
-                      </h3>
-                    </div>
-                    <p className="mt-1 truncate text-sm text-blue-100/58">
-                      {company.industry || company.commercial_status || company.status}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {company.summary?.risk_reasons.length ? (
-                        <span className="inline-flex items-center gap-1 rounded-lg border border-rose-400/45 bg-rose-500/12 px-2 py-0.5 text-xs font-semibold text-rose-300">
-                          <AlertCircle className="h-3.5 w-3.5" />
-                          {healthLabel(company.summary?.health_status, t)}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 bg-emerald-500/12 px-2 py-0.5 text-xs font-semibold text-emerald-300">
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          {healthLabel(company.summary?.health_status, t)}
-                        </span>
-                      )}
-                      <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        {company.commercial_status || company.status}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/12 text-primary ring-1 ring-blue-300/10">
-                      <Box className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-white">
-                        {company.plan_name || t("clients.planNotSet")}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-blue-100/55">
-                        {company.service_type || t("clients.serviceTypeNotSet")}
-                        {company.billing_cycle ? ` - ${formatBillingCycle(company.billing_cycle, t)}` : ""}
-                      </p>
-                    </div>
-                  </div>
-                  {company.included_services?.length ? (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {company.included_services.slice(0, 3).map((service) => (
-                        <span
-                          key={service}
-                          className="max-w-full truncate rounded-lg bg-blue-500/14 px-2 py-0.5 text-xs font-medium text-blue-300"
-                        >
-                          {service}
-                        </span>
-                      ))}
-                      {company.included_services.length > 3 ? (
-                        <span className="rounded-lg bg-white/10 px-2 py-0.5 text-xs text-blue-100/55">
-                          +{company.included_services.length - 3}
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="relative mt-3 grid grid-cols-2 gap-2">
-                  <MetricTile icon={<BriefcaseBusiness className="h-4 w-4" />} label={t("clients.activeProjects")} value={company.summary?.active_project_count ?? company.summary?.project_count ?? 0} />
-                  <MetricTile icon={<Clock3 className="h-4 w-4" />} label={t("clients.open")} value={company.summary?.open_task_count ?? 0} />
-                  <MetricTile icon={<PackageCheck className="h-4 w-4" />} label={t("clients.contract")} value={money(company.contract_value, language, t)} />
-                  <MetricTile icon={<Timer className="h-4 w-4" />} label={t("clients.linkedTime")} value={formatSeconds(company.summary?.tracked_seconds ?? 0)} />
-                  <MetricTile
-                    icon={<DollarSign className="h-4 w-4" />}
-                    label={t("clients.valuePerHour")}
-                    value={
-                      company.summary?.contract_value_per_tracked_hour != null
-                        ? money(company.summary.contract_value_per_tracked_hour, language, t)
-                        : t("clients.noTimeValue")
-                    }
-                  />
-                </div>
-
-                <div className="relative mt-3 grid gap-2">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <DetailChip icon={<Users className="h-3.5 w-3.5" />}>
-                      {t("clients.contacts", { count: company.summary?.contact_count ?? 0 })}
-                    </DetailChip>
-                    <DetailChip icon={<Calendar className="h-3.5 w-3.5" />}>
-                      {t("clients.meetings", { count: company.summary?.meeting_count ?? 0 })}
-                    </DetailChip>
-                    <DetailChip icon={<DollarSign className="h-3.5 w-3.5" />}>
-                      {t("clients.commission", { value: money(company.commission, language, t) })}
-                    </DetailChip>
-                    <DetailChip icon={<Info className="h-3.5 w-3.5" />}>
-                      {activityLabel(company.summary?.latest_activity, t)}
-                    </DetailChip>
-                  </div>
-                  <DetailChip icon={<Users className="h-3.5 w-3.5" />}>
-                    {t("clients.owner", { name: company.owner?.name || t("clients.ownerNotAssigned") })}
-                  </DetailChip>
-                </div>
-
-                <div className="relative mt-3 flex min-w-0 items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/10 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-blue-100/45">{t("clients.assignedTeam")}</p>
-                    {company.summary?.assigned_members?.length ? (
-                      <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
-                        {company.summary.assigned_members.slice(0, 2).map((member) => (
-                          <AssignedMember key={member.id} name={member.name} />
-                        ))}
-                        {company.summary.assigned_members.length > 2 ? (
-                          <span className="inline-flex items-center rounded-full bg-white/[0.06] px-2 py-1 text-xs text-blue-100/60">
-                            +{company.summary.assigned_members.length - 2}
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : company.owner?.name ? (
-                      <div className="mt-1">
-                        <AssignedMember name={company.owner.name} />
-                      </div>
-                    ) : (
-                      <p className="mt-1 truncate text-xs text-blue-100/55">{t("clients.noAssignedTeam")}</p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-xs text-blue-100/50">
-                    {deadlineLabel(company.summary?.next_deadline, t)}
-                  </span>
-                </div>
-
-                {company.summary?.risk_reasons.length ? (
-                  <div className="relative mt-3 flex items-center justify-between gap-2 rounded-xl border border-rose-400/20 bg-rose-500/12 px-3 py-2.5 text-rose-300">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span className="truncate text-xs font-semibold">
-                        {company.summary.risk_reasons.slice(0, 2).join(" - ")}
-                      </span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-rose-200/75 transition group-hover:translate-x-0.5" />
-                  </div>
-                ) : (
-                  <div className="relative mt-3 flex items-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-500/10 px-3 py-2.5 text-emerald-300">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span className="truncate text-xs font-semibold">{t("clients.noTraceableIssues")}</span>
-                  </div>
-                )}
-              </Link>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteCompany(company);
-                  }}
-                  className="absolute right-4 top-4 z-10 inline-flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 opacity-85 transition hover:border-rose-300/60 hover:bg-rose-500/15 hover:opacity-100"
-                  title={t("clients.deleteClient")}
+              return (
+                <article
+                  key={company.id}
+                  className="group relative min-w-0 overflow-hidden rounded-xl border border-blue-400/35 bg-[#07101f]/95 shadow-[0_0_0_1px_rgba(59,130,246,0.08),0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-300/65 hover:bg-[#091426] hover:shadow-[0_0_0_1px_rgba(59,130,246,0.16),0_20px_56px_rgba(0,0,0,0.32)]"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {t("common.delete")}
-                </button>
-              </div>
-            ))}
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(59,130,246,0.24),transparent_30%),radial-gradient(circle_at_100%_4%,rgba(99,102,241,0.16),transparent_28%)]" />
+                  <span className="pointer-events-none absolute right-0 top-0 h-28 w-44 rounded-bl-full bg-blue-500/10 blur-2xl" />
+
+                  <div className="relative p-4">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <Link href={`/clients/${company.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/45 bg-gradient-to-br from-blue-600/85 via-indigo-700/75 to-blue-950 text-3xl font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_26px_rgba(37,99,235,0.32)]">
+                          {company.name.trim().charAt(0).toUpperCase() || "C"}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-200/55">
+                            {t("clients.brandName")}
+                          </p>
+                          <h3 className="mt-1 truncate text-2xl font-bold text-white">
+                            {company.name}
+                          </h3>
+                          <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            {company.commercial_status || company.status}
+                          </span>
+                        </div>
+                      </Link>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Link
+                          href={`/clients/${company.id}`}
+                          aria-label={t("clients.openClient")}
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200/15 bg-white/[0.05] text-blue-100/80 transition hover:border-blue-300/45 hover:bg-blue-500/15 hover:text-white"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Link>
+                        <Link
+                          href={`/clients/${company.id}`}
+                          aria-label={t("clients.editClient")}
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200/15 bg-white/[0.05] text-blue-100/80 transition hover:border-blue-300/45 hover:bg-blue-500/15 hover:text-white"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => deleteCompany(company)}
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-300/20 bg-rose-500/10 text-rose-300 transition hover:border-rose-300/55 hover:bg-rose-500/15"
+                          title={t("clients.deleteClient")}
+                          aria-label={t("clients.deleteClient")}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <Link href={`/clients/${company.id}`} className="mt-5 block space-y-4">
+                      <div className="grid gap-3 rounded-xl border border-blue-200/14 bg-white/[0.04] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:grid-cols-2">
+                        <ClientFact
+                          icon={<Building2 className="h-5 w-5" />}
+                          label={t("clients.brandType")}
+                          value={brandTypeValue(company, t)}
+                        />
+                        <ClientFact
+                          icon={<Crown className="h-5 w-5" />}
+                          label={t("clients.contractedPlan")}
+                          value={company.plan_name || t("clients.planNotSet")}
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <PackageCheck className="h-4 w-4 text-blue-400" />
+                          <p className="text-sm font-bold text-white">{t("clients.planServices")}</p>
+                        </div>
+                        {visibleServices.length > 0 ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {visibleServices.map((service) => (
+                              <PlanServiceTile key={service} service={service} />
+                            ))}
+                            {remainingServices > 0 ? (
+                              <span className="flex min-w-0 items-center justify-center rounded-xl border border-blue-200/12 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-blue-100/70">
+                                {t("clients.moreServices", { count: remainingServices })}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-blue-200/12 bg-white/[0.04] px-3 py-3 text-sm text-blue-100/55">
+                            {t("clients.noIncludedServices")}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex min-w-0 items-center gap-3 rounded-xl border border-blue-200/12 bg-black/10 px-3 py-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/12 text-blue-300 ring-1 ring-blue-300/10">
+                          <UserRound className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-200/55">
+                            {t("clients.responsibleManager")}
+                          </p>
+                          <p className="mt-0.5 truncate text-sm font-bold text-white">{manager}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </section>
         )}
 
@@ -342,124 +280,85 @@ export default function ClientsPage() {
   );
 }
 
-function MetricTile({
+function ClientFact({
   icon,
   label,
   value,
 }: {
   icon: ReactNode;
   label: string;
-  value: string | number;
+  value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-300 ring-1 ring-blue-300/10">
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-[11px] text-blue-100/55">{label}</p>
-          <p className="truncate text-sm font-bold text-white">{value}</p>
-        </div>
+    <div className="flex min-w-0 items-center gap-3 border-blue-200/10 sm:first:border-r sm:first:pr-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/12 text-blue-300 ring-1 ring-blue-300/10">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-200/55">
+          {label}
+        </p>
+        <p className="mt-1 truncate text-base font-bold text-white">{value}</p>
       </div>
     </div>
   );
 }
 
-function DetailChip({
-  icon,
-  children,
-  className,
-}: {
-  icon: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
+function PlanServiceTile({ service }: { service: string }) {
   return (
-    <span className={cn("inline-flex min-w-0 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-blue-100/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]", className)}>
-      <span className="shrink-0 text-blue-100/60">{icon}</span>
-      <span className="truncate">{children}</span>
-    </span>
-  );
-}
-
-function AssignedMember({ name }: { name: string }) {
-  return (
-    <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-white/[0.055] py-1 pl-1 pr-2.5 text-xs font-semibold text-white ring-1 ring-white/10">
-      <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-200 via-rose-300 to-sky-300 text-[10px] font-bold text-slate-950">
-        {name.trim().charAt(0).toUpperCase() || "U"}
-        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[#111827] bg-emerald-400" />
+    <span className="flex min-w-0 items-center gap-2 rounded-xl border border-blue-200/14 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/12 text-xs font-bold text-blue-300 ring-1 ring-blue-300/10">
+        {serviceInitials(service)}
       </span>
-      <span className="max-w-[8rem] truncate">{name}</span>
+      <span className={cn("truncate", service.length > 18 && "text-xs")}>
+        {service}
+      </span>
     </span>
   );
 }
 
-function formatBillingCycle(
-  value: string,
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  const labels: Record<string, string> = {
-    monthly: t("companyDialog.billing.monthly"),
-    quarterly: t("companyDialog.billing.quarterly"),
-    annual: t("companyDialog.billing.annual"),
-    project: t("companyDialog.billing.perProject"),
+function serviceInitials(service: string) {
+  const normalized = service.trim();
+  if (!normalized) return "S";
+  const known: Record<string, string> = {
+    "meta ads": "M",
+    "google ads": "G",
+    "tiktok ads": "T",
+    "pinterest ads": "P",
+    "up motion v.1": "U",
+    "up motion v.2": "U",
+    "social media": "S",
+    "implantacao ia": "AI",
+    "up zero": "Z",
   };
-  return labels[value] ?? value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
+  const match = known[normalized.toLowerCase()];
+  if (match) return match;
+  return normalized
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
-function money(value: number | null | undefined, language: string, t: (key: string, vars?: Record<string, string | number>) => string) {
-  if (value == null) return t("clients.noValue");
-  return new Intl.NumberFormat(language, {
-    style: "currency",
-    currency: language === "pt-BR" ? "BRL" : "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-function shortDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-  }).format(new Date(value));
-}
-
-function deadlineLabel(
-  value: string | null | undefined,
+function brandTypeValue(
+  company: Company,
   t: (key: string, vars?: Record<string, string | number>) => string,
 ) {
-  if (!value) return t("clients.nextDeadlineNotSet");
-  const date = new Date(value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return date < today
-    ? t("clients.overdueSince", { date: shortDate(value) })
-    : t("clients.nextDeadline", { date: shortDate(value) });
+  const raw = company.service_type?.trim();
+  if (!raw) return company.industry || t("clients.serviceTypeNotSet");
+  const normalized = raw.replace(/\s+/g, "").toUpperCase();
+  if (normalized === "B2B" || normalized === "B2C") return normalized;
+  return raw;
 }
 
-function formatSeconds(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
-
-function healthLabel(
-  status: ClientHealthStatus,
+function managerName(
+  company: Company,
   t: (key: string, vars?: Record<string, string | number>) => string,
 ) {
-  if (status === "healthy") return t("clients.health.healthy");
-  if (status === "attention") return t("clients.health.attention");
-  if (status === "risk") return t("clients.health.risk");
-  return t("clients.health.notEnough");
-}
-
-function activityLabel(
-  activity: NonNullable<Company["summary"]>["latest_activity"] | null | undefined,
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  if (!activity) return t("clients.noActivity");
-  const label = activity.type.replaceAll("_", " ");
-  return `${label} - ${shortDate(activity.created_at)}`;
+  return (
+    company.owner?.name ||
+    company.summary?.assigned_members?.[0]?.name ||
+    t("clients.ownerNotAssigned")
+  );
 }

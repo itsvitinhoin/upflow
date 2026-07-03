@@ -9,7 +9,7 @@ function read(rel: string) {
   return readFileSync(join(ROOT, rel), "utf8");
 }
 
-test("workspace members can read projects while only admins can contribute", () => {
+test("active workspace members can read and contribute while guests stay view-only", () => {
   const helper = read("src/lib/project-access.ts");
   const projectsRoute = read("src/app/api/projects/route.ts");
   const projectRoute = read("src/app/api/projects/[id]/route.ts");
@@ -21,10 +21,14 @@ test("workspace members can read projects while only admins can contribute", () 
 
   assert.match(helper, /return \{ workspace_id: workspaceId \}/);
   assert.match(helper, /return canAccessWorkspace\(auth,\s*project\.workspace_id\)/);
-  assert.match(helper, /return isWorkspaceAdminFor\(auth,\s*project\.workspace_id\)/);
+  assert.match(helper, /isWorkspaceAdminFor\(auth,\s*project\.workspace_id\)/);
+  assert.match(helper, /workspaceMember\.findFirst/);
+  assert.match(helper, /status:\s*"active"/);
+  assert.match(helper, /role:\s*\{\s*not:\s*"guest"\s*\}/);
   assert.doesNotMatch(helper, /project_members:\s*\{\s*none:\s*\{\s*\}/);
   assert.match(helper, /project_id_user_id/);
   assert.match(helper, /hasExplicitMembers/);
+  assert.match(helper, /project\.owner_id === userId/);
   assert.match(projectsRoute, /readableProjectWhere\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(projectRoute, /canReadProject\(auth,\s*project\)/);
   assert.match(tasksRoute, /readableProjectWhere\(auth,\s*auth\.currentWorkspaceId\)/);

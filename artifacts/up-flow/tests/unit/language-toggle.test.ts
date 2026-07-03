@@ -82,7 +82,7 @@ test("core rollout surfaces are wired to the language provider", () => {
   const notFoundPage = read("src/app/not-found.tsx");
 
   assert.match(translations, /"calendar\.manage": "Gerenciar"/);
-  assert.match(translations, /"clients\.assignedTeam": "Equipe atribuída"/);
+  assert.match(translations, /"clients\.responsibleManager": "Gestor responsável"/);
   assert.match(translations, /"clients\.healthCenter": "Central de saúde"/);
   assert.match(translations, /"companyDialog\.title": "Criar empresa"/);
   assert.match(translations, /"companyDialog\.responsibleDepartment": "Departamento responsável"/);
@@ -101,7 +101,7 @@ test("core rollout surfaces are wired to the language provider", () => {
   assert.match(calendar, /t\("calendar\.newEvent"\)/);
   assert.match(calendar, /Intl\.DateTimeFormat\(language/);
   assert.match(clients, /t\("clients\.planNotSet"\)/);
-  assert.match(clients, /t\("clients\.assignedTeam"\)/);
+  assert.match(clients, /t\("clients\.responsibleManager"\)/);
   assert.match(clients, /t\("clients\.healthCenter"\)/);
   assert.match(clients, /t\("clients\.deleteConfirm"/);
   assert.match(createCompanyDialog, /useLanguage/);

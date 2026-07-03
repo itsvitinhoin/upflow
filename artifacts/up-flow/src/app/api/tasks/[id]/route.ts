@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import type { TaskPriority, TaskStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import {
-  isWorkspaceAdminFor,
-} from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -186,7 +183,7 @@ async function PATCH_handler(
   };
   const { title, description, status, priority, assignee_id, cover_image_url, due_date, position } = body;
   const canContribute = await canContributeToProject(auth, oldTask.project);
-  const isWorkspaceAdmin = canContribute;
+  const canReassignTask = canContribute;
   const onboardingItem = await prisma.onboardingChecklistItem.findFirst({
     where: { task_id: params.id },
     select: { id: true, onboarding_id: true, department: true, owner_id: true, title: true },
@@ -215,8 +212,8 @@ async function PATCH_handler(
     );
   }
 
-  if (assignee_id !== undefined && !isWorkspaceAdmin) {
-    return NextResponse.json({ error: "Only workspace admins can reassign tasks" }, { status: 403 });
+  if (assignee_id !== undefined && !canReassignTask) {
+    return NextResponse.json({ error: "Only project contributors can reassign tasks" }, { status: 403 });
   }
 
   if (assignee_id) {
@@ -352,11 +349,6 @@ async function DELETE_handler(
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!(await canContributeToProject(auth, task.project))) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  void prismaUser;
-  if (!isWorkspaceAdminFor(auth, task.project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

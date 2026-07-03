@@ -19,7 +19,6 @@ interface HeaderProps {
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 30_000;
-const ASSISTANT_POPUP_TTL_MS = 12_000;
 let notificationCache: { items: Notification[]; loadedAt: number } | null = null;
 let notificationRequest: Promise<Notification[]> | null = null;
 
@@ -180,7 +179,6 @@ export default function Header({ title }: HeaderProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const shownAssistantIdsRef = useRef<Set<string>>(new Set());
-  const assistantTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canCreateProject =
     user?.isSuperAdmin ||
     user?.currentRole === "owner" ||
@@ -245,17 +243,6 @@ export default function Header({ title }: HeaderProps) {
       supabase.removeChannel(broadcastChannel);
     };
   }, [user?.id, fetchNotifications, refreshUnreadCount]);
-
-  useEffect(() => {
-    if (!assistantNotification) return;
-    if (assistantTimerRef.current) clearTimeout(assistantTimerRef.current);
-    assistantTimerRef.current = setTimeout(() => {
-      setAssistantNotification(null);
-    }, ASSISTANT_POPUP_TTL_MS);
-    return () => {
-      if (assistantTimerRef.current) clearTimeout(assistantTimerRef.current);
-    };
-  }, [assistantNotification]);
 
   useEffect(() => {
     if (panelOpen) fetchNotifications();
@@ -464,13 +451,16 @@ export default function Header({ title }: HeaderProps) {
 
       {assistantNotification && (
         <div
-          role="status"
-          aria-live="polite"
-          className="fixed right-4 top-24 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-sky-400/30 bg-[#071024]/95 p-4 text-foreground shadow-[0_24px_80px_rgba(37,99,235,0.35)] backdrop-blur-xl"
+          role="alert"
+          aria-live="assertive"
+          className="fixed right-4 top-24 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-sky-300/60 bg-[#071024]/95 p-4 text-foreground shadow-[0_0_0_1px_rgba(125,211,252,0.25),0_24px_90px_rgba(37,99,235,0.52)] backdrop-blur-xl"
         >
+          <span className="pointer-events-none absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_12%_0%,rgba(96,165,250,0.32),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(14,165,233,0.26),transparent_32%)]" />
+          <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 animate-ping rounded-full bg-sky-400/20" />
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary ring-1 ring-sky-300/40">
+                <span className="absolute inset-0 animate-ping rounded-xl bg-sky-400/20" />
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="min-w-0">
@@ -499,6 +489,9 @@ export default function Header({ title }: HeaderProps) {
               {assistantContext}
             </p>
           )}
+          <p className="relative mt-3 rounded-lg border border-sky-300/15 bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-100">
+            {t("header.assistantStickyHint")}
+          </p>
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
               type="button"

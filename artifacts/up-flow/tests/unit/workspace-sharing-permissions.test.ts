@@ -41,7 +41,7 @@ test("workspace share dialog renders outside sidebar stacking contexts", () => {
   assert.match(inviteDialog, /mounted/);
 });
 
-test("members and guests can read workspace records but cannot mutate them", () => {
+test("members can contribute to project tasks while guests remain view-only elsewhere", () => {
   const projectAccess = read("src/lib/project-access.ts");
   const spacesRoute = read("src/app/api/spaces/route.ts");
   const foldersRoute = read("src/app/api/folders/route.ts");
@@ -61,7 +61,9 @@ test("members and guests can read workspace records but cannot mutate them", () 
   const header = read("src/components/layout/header.tsx");
 
   assert.match(projectAccess, /return canAccessWorkspace\(auth, project\.workspace_id\)/);
-  assert.match(projectAccess, /return isWorkspaceAdminFor\(auth, project\.workspace_id\)/);
+  assert.match(projectAccess, /isWorkspaceAdminFor\(auth, project\.workspace_id\)/);
+  assert.match(projectAccess, /role:\s*\{\s*not:\s*"guest"\s*\}/);
+  assert.match(projectAccess, /status:\s*"active"/);
   for (const route of [
     spacesRoute,
     foldersRoute,

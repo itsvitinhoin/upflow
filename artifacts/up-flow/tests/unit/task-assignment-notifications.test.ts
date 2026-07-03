@@ -79,7 +79,13 @@ test("global assistant pop-up listens for assignment broadcasts", () => {
   assert.match(header, /event:\s*"new_notification"/);
   assert.match(header, /shouldShowAssistantPopup/);
   assert.match(header, /handleOpenNotification\(notification\)/);
+  assert.match(header, /role="alert"/);
+  assert.match(header, /aria-live="assertive"/);
+  assert.match(header, /header\.assistantStickyHint/);
+  assert.doesNotMatch(header, /ASSISTANT_POPUP_TTL_MS/);
+  assert.doesNotMatch(header, /setTimeout\(\(\) => \{\s*setAssistantNotification\(null\)/);
   assert.match(translations, /header\.assistantTitle/);
+  assert.match(translations, /header\.assistantStickyHint/);
   assert.match(translations, /calendar\.attendees/);
 });
 

@@ -47,7 +47,20 @@ export async function canContributeToProject(
   auth: AuthUser,
   project: ProjectAccessTarget,
 ): Promise<boolean> {
-  return isWorkspaceAdminFor(auth, project.workspace_id);
+  if (isWorkspaceAdminFor(auth, project.workspace_id)) return true;
+  const userId = auth.prismaUser.id;
+  const activeWorkspaceMember = await prisma.workspaceMember.findFirst({
+    where: {
+      workspace_id: project.workspace_id,
+      user_id: userId,
+      status: "active",
+      role: { not: "guest" },
+    },
+    select: { id: true },
+  });
+  if (!activeWorkspaceMember) return false;
+  if (!(await hasExplicitMembers(project.id))) return true;
+  return project.owner_id === userId || (await isProjectMember(project.id, userId));
 }
 
 export async function canAssignUserToProject(
