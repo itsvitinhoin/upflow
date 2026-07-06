@@ -263,7 +263,7 @@ async function PATCH_handler(
         })
       : null;
 
-  if (assignee_id && assignee_id !== prismaUser.id && assignee_id !== oldTask.assignee_id) {
+  if (assignee_id && assignee_id !== oldTask.assignee_id) {
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
       .catch((err) => logError("api:tasks:PATCH:notify", err, { task_id: task.id }));

@@ -20,9 +20,7 @@ export async function notifyCalendarEventAssignees({
   attendeeIds: string[];
   actor: { id: string; name?: string | null; email?: string | null };
 }) {
-  const targets = Array.from(new Set(attendeeIds)).filter(
-    (userId) => userId && userId !== actor.id,
-  );
+  const targets = Array.from(new Set(attendeeIds)).filter(Boolean);
   if (targets.length === 0) return 0;
 
   await prisma.notification.createMany({

@@ -882,7 +882,7 @@ export async function resolveCreativeDesignOnboardingProjectId(
 export async function sendOnboardingAssignmentNotifications(targets: OnboardingAssignmentNotificationTarget[]) {
   const uniqueTargets = new Map<string, OnboardingAssignmentNotificationTarget>();
   for (const target of targets) {
-    if (!target.userId || target.userId === target.actorId) continue;
+    if (!target.userId) continue;
     uniqueTargets.set(`${target.userId}:${target.taskId}`, target);
   }
 

@@ -166,8 +166,6 @@ async function postHandler(req: NextRequest) {
     }
   }
 
-  const userId = auth.prismaUser.id;
-
   const lastTask = await prisma.task.findFirst({
     where: { project_id, status: status ?? "todo" },
     orderBy: { position: "desc" },
@@ -271,7 +269,7 @@ async function postHandler(req: NextRequest) {
     return created;
   });
 
-  if (assignee_id && assignee_id !== userId) {
+  if (assignee_id) {
     await prisma.notification
       .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
       .catch((err) => logError("api:tasks:POST:notify", err, { task_id: task.id }));

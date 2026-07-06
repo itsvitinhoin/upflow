@@ -116,10 +116,7 @@ function notificationContext(n: Notification, language: "en" | "pt" | "pt-BR") {
 function shouldShowAssistantPopup(n: Notification) {
   if (n.read || n.type !== "assigned") return false;
   const data = notificationData(n);
-  if (!n.task?.id && data.source !== "calendar_event_assigned") return false;
-
-  const createdAt = new Date(n.created_at).getTime();
-  return Number.isFinite(createdAt) && Date.now() - createdAt <= 5 * 60 * 1000;
+  return Boolean(n.task?.id || data.source === "calendar_event_assigned");
 }
 
 function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "en") {
@@ -214,12 +211,15 @@ export default function Header({ title }: HeaderProps) {
 
   useEffect(() => {
     if (!user?.id) return;
-    refreshUnreadCount();
+    fetchNotifications(true, { showAssistant: true });
     const supabase = createSupabaseBrowserClient();
     const handleIncomingNotification = (showAssistant: boolean) => {
       refreshUnreadCount(true);
       fetchNotifications(true, { showAssistant });
     };
+    const fallbackPoll = window.setInterval(() => {
+      fetchNotifications(true, { showAssistant: true });
+    }, 30_000);
     const dbChannel = supabase
       .channel(`db-notifications:${user.id}`)
       .on(
@@ -242,6 +242,7 @@ export default function Header({ title }: HeaderProps) {
       })
       .subscribe();
     return () => {
+      window.clearInterval(fallbackPoll);
       supabase.removeChannel(dbChannel);
       supabase.removeChannel(broadcastChannel);
     };
