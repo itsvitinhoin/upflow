@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { startOfToday, startOfWeekMonday } from "@/lib/time-range";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { attachTaskOnboardingLink, loadTaskOnboardingLinkMap } from "@/lib/task-onboarding-links";
 
 export const dynamic = "force-dynamic";
 
@@ -52,14 +53,14 @@ async function GET_handler(req: NextRequest) {
       };
 
   const [
-    tasks,
+    userTasks,
     projects,
     users,
     calendarEvents,
     activity,
     runningEntry,
     weekTimeEntries,
-    workspaceOpenTasks,
+    workspaceOpenTaskRows,
     todayTimeEntries,
     recentProjectActivity,
     activeClientCount,
@@ -88,6 +89,12 @@ async function GET_handler(req: NextRequest) {
         assignee: { select: { id: true, name: true, email: true } },
         project: { select: { id: true, name: true } },
         custom_field_values: { select: { definition_id: true, value: true } },
+        marketing_b2b_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
+        marketing_b2c_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
         _count: { select: { comments: true, subtasks: true } },
       },
     }),
@@ -197,6 +204,12 @@ async function GET_handler(req: NextRequest) {
             space: { select: { id: true, name: true, icon: true } },
             company: { select: { id: true, name: true } },
           },
+        },
+        marketing_b2b_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
+        marketing_b2c_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
         },
         _count: { select: { comments: true, subtasks: true } },
       },
@@ -341,6 +354,17 @@ async function GET_handler(req: NextRequest) {
     };
   });
 
+
+  const onboardingLinkByTaskId = await loadTaskOnboardingLinkMap([
+    ...userTasks.map((task) => task.id),
+    ...workspaceOpenTaskRows.map((task) => task.id),
+  ]);
+  const tasks = userTasks.map((task) =>
+    attachTaskOnboardingLink(task, onboardingLinkByTaskId),
+  );
+  const workspaceOpenTasks = workspaceOpenTaskRows.map((task) =>
+    attachTaskOnboardingLink(task, onboardingLinkByTaskId),
+  );
   const urgentActions = workspaceOpenTasks.filter((task) => {
     const due = task.due_date ? new Date(task.due_date) : null;
     return (

@@ -71,6 +71,7 @@ import {
   sameLocalDate,
   taskStatusLabel,
 } from "@/components/dashboard/dashboard-utils";
+import { getOnboardingTaskAction } from "@/lib/onboarding-task-routing";
 
 export default function DashboardPage() {
   const user = useAppUser();
@@ -123,6 +124,7 @@ export default function DashboardPage() {
         setCalendarEvents(data.calendar_events?.items ?? []);
         setActivity(data.activity?.items ?? []);
         setRunningEntry(data.time?.running ?? null);
+
         setTimeEntries(data.time?.week_entries ?? []);
         setCommandCenter(data.command_center ?? null);
         setLoading(false);
@@ -136,6 +138,15 @@ export default function DashboardPage() {
   useEffect(() => {
     loadData();
   }, []);
+  const handleOpenTask = (task: Task) => {
+    const action = getOnboardingTaskAction(task, task.project_id);
+    if (action) {
+      setActiveTask(null);
+      router.push(action.href);
+      return;
+    }
+    setActiveTask(task);
+  };
 
   const doneCount = tasks.filter((t) => t.status === "done").length;
   const inProgressCount = tasks.filter((t) => t.status === "in_progress").length;
@@ -501,7 +512,7 @@ export default function DashboardPage() {
           <AgencyOperationsPanel
             data={commandCenterData}
             onOpenDrawer={setCommandDrawer}
-            onOpenTask={setActiveTask}
+            onOpenTask={handleOpenTask}
           />
 
           <section className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
@@ -509,7 +520,7 @@ export default function DashboardPage() {
               loading={loading}
               tasks={todayFocusTasks}
               meetings={commandCenterData.meetings_today.items}
-              onOpenTask={setActiveTask}
+              onOpenTask={handleOpenTask}
               onMarkDone={(task) => handleStatusChange(task, "done")}
               onCreateTask={() => setShowNewTask(true)}
               onOpenMeetings={() => setCommandDrawer("meetings_today")}
@@ -656,7 +667,7 @@ export default function DashboardPage() {
           onClose={() => {
             setDrawerStatus(null);
           }}
-          onOpenTask={setActiveTask}
+          onOpenTask={handleOpenTask}
           onStatusChange={handleStatusChange}
           onDelete={handleDeleteTask}
         />
@@ -667,7 +678,7 @@ export default function DashboardPage() {
           kind={commandDrawer}
           data={commandCenterData}
           onClose={() => setCommandDrawer(null)}
-          onOpenTask={setActiveTask}
+          onOpenTask={handleOpenTask}
           onCreateTask={() => setShowNewTask(true)}
           onCreateMeeting={() => setShowSchedule(true)}
           onCreateCompany={() => setShowCompany(true)}

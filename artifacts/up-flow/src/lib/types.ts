@@ -562,11 +562,16 @@ export interface SupportGroup {
   onboarding_id: string;
   workspace_id: string;
   group_created: boolean;
+  group_name: string | null;
   group_link: string | null;
+  main_client_contact: string | null;
+  commercial_responsible: string | null;
+  account_responsible: string | null;
   group_created_at: string | null;
   created_by: string | null;
   internal_participants: string[] | null;
   client_participants: string[] | null;
+  status: string;
   notes: string | null;
   creator?: { id: string; name: string; email: string } | null;
 }

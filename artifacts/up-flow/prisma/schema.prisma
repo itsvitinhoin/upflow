@@ -664,11 +664,16 @@ model SupportGroup {
   onboarding_id         String    @unique
   workspace_id          String
   group_created         Boolean   @default(false)
+  group_name            String?
   group_link            String?
+  main_client_contact   String?
+  commercial_responsible String?
+  account_responsible   String?
   group_created_at      DateTime?
   created_by            String?
   internal_participants Json?
   client_participants   Json?
+  status                String    @default("not_created")
   notes                 String?
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt

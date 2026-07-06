@@ -16,6 +16,7 @@ import {
   canReadProject,
   readableProjectWhere,
 } from "@/lib/project-access";
+import { attachTaskOnboardingLink, loadTaskOnboardingLinkMap } from "@/lib/task-onboarding-links";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -81,7 +82,12 @@ async function getHandler(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(buildPage(rows, limit));
+  const onboardingLinkByTaskId = await loadTaskOnboardingLinkMap(
+    rows.map((task) => task.id),
+  );
+  const items = rows.map((task) => attachTaskOnboardingLink(task, onboardingLinkByTaskId));
+
+  return NextResponse.json(buildPage(items, limit));
 }
 
 async function postHandler(req: NextRequest) {

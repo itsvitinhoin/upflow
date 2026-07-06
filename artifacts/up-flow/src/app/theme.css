@@ -180,3 +180,164 @@ html.light .upflow-workspace-control {
   border-color: rgba(148, 163, 184, 0.34) !important;
   color: #475569 !important;
 }
+
+html.light .command-dashboard-shell::before {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(37, 99, 235, 0.1), transparent 28%),
+    radial-gradient(circle at 84% 10%, rgba(16, 185, 129, 0.08), transparent 28%),
+    radial-gradient(circle at 48% 46%, rgba(14, 165, 233, 0.06), transparent 34%);
+  opacity: 0.7;
+}
+
+html.light .command-hero,
+html.light .command-pulse-card,
+html.light .command-metric-card,
+html.light .command-section-panel,
+html.light .upflow-card,
+html.light .upflow-kanban-column,
+html.light .upflow-task-card {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(37, 99, 235, 0.08), transparent 32%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9)) !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+  color: #0f172a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 20px 58px rgba(15, 23, 42, 0.08) !important;
+}
+
+html.light .command-hero::before,
+html.light .command-metric-card::after,
+html.light .command-section-panel::before,
+html.light .upflow-panel::before {
+  opacity: 0.18;
+}
+
+html.light .command-metric-card:hover,
+html.light .upflow-card-hover:hover,
+html.light .upflow-task-card:hover {
+  border-color: rgba(37, 99, 235, 0.38) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 24px 62px rgba(37, 99, 235, 0.12) !important;
+}
+
+html.light .command-hero .text-white,
+html.light .command-pulse-card .text-white,
+html.light .command-metric-card .text-white,
+html.light .command-section-panel .text-white,
+html.light .upflow-card .text-white,
+html.light .upflow-kanban-column .text-white,
+html.light .upflow-task-card .text-white {
+  color: #0f172a !important;
+}
+
+html.light .command-hero [class*="text-blue-100"],
+html.light .command-hero [class*="text-blue-200"],
+html.light .command-pulse-card [class*="text-blue-100"],
+html.light .command-pulse-card [class*="text-blue-200"],
+html.light .command-metric-card [class*="text-blue-100"],
+html.light .command-metric-card [class*="text-blue-200"],
+html.light .command-section-panel [class*="text-blue-100"],
+html.light .command-section-panel [class*="text-blue-200"],
+html.light .upflow-card [class*="text-blue-100"],
+html.light .upflow-card [class*="text-blue-200"],
+html.light .upflow-kanban-column [class*="text-blue-100"],
+html.light .upflow-kanban-column [class*="text-blue-200"],
+html.light .upflow-task-card [class*="text-blue-100"],
+html.light .upflow-task-card [class*="text-blue-200"] {
+  color: #64748b !important;
+}
+
+html.light .command-pulse-card [class*="bg-[#"],
+html.light .command-section-panel [class*="bg-[#"],
+html.light .command-metric-card [class*="bg-[#"],
+html.light .upflow-card [class*="bg-[#"],
+html.light .upflow-kanban-column [class*="bg-[#"],
+html.light .upflow-task-card [class*="bg-[#"] {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+html.light .command-pulse-card [class*="bg-white"],
+html.light .command-section-panel [class*="bg-white"],
+html.light .command-metric-card [class*="bg-white"],
+html.light .upflow-card [class*="bg-white"],
+html.light .upflow-kanban-column [class*="bg-white"],
+html.light .upflow-task-card [class*="bg-white"] {
+  background-color: rgba(241, 245, 249, 0.82) !important;
+}
+
+html.light .command-pulse-card [class*="border-white"],
+html.light .command-section-panel [class*="border-white"],
+html.light .command-metric-card [class*="border-white"],
+html.light .upflow-card [class*="border-white"],
+html.light .upflow-kanban-column [class*="border-white"],
+html.light .upflow-task-card [class*="border-white"] {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+html.light .upflow-client-card {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(37, 99, 235, 0.08), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.93)) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
+  color: #0f172a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 16px 44px rgba(15, 23, 42, 0.08) !important;
+}
+
+html.light .upflow-client-card:hover {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(37, 99, 235, 0.1), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 1), rgba(241, 245, 249, 0.94)) !important;
+  border-color: rgba(37, 99, 235, 0.42) !important;
+  box-shadow: 0 20px 54px rgba(37, 99, 235, 0.12) !important;
+}
+
+html.light .upflow-client-card-glow {
+  opacity: 0.35;
+}
+
+html.light .upflow-client-card-accent {
+  background-color: rgba(14, 165, 233, 0.12) !important;
+}
+
+html.light .upflow-client-title,
+html.light .upflow-client-service {
+  color: #0f172a !important;
+}
+
+html.light .upflow-client-muted,
+html.light .upflow-client-card [class*="text-blue-100"],
+html.light .upflow-client-card [class*="text-blue-200"] {
+  color: #64748b !important;
+}
+
+html.light .upflow-client-card [class*="text-emerald-200"] {
+  color: #047857 !important;
+}
+
+html.light .upflow-client-surface,
+html.light .upflow-client-service,
+html.light .upflow-client-action {
+  background-color: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(148, 163, 184, 0.32) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+html.light .upflow-client-action {
+  color: #475569 !important;
+}
+
+html.light .upflow-client-action:hover {
+  background-color: #ffffff !important;
+  border-color: rgba(37, 99, 235, 0.42) !important;
+  color: #1d4ed8 !important;
+}
+
+html.light .upflow-client-mini-icon {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  color: #2563eb !important;
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12) !important;
+}

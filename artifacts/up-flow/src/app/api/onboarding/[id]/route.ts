@@ -33,10 +33,15 @@ const PatchSchema = z.object({
   }).optional(),
   support_group: z.object({
     group_created: z.boolean().optional(),
+    group_name: z.string().trim().nullable().optional(),
     group_link: z.string().trim().nullable().optional(),
+    main_client_contact: z.string().trim().nullable().optional(),
+    commercial_responsible: z.string().trim().nullable().optional(),
+    account_responsible: z.string().trim().nullable().optional(),
     internal_participants: z.array(z.string()).nullable().optional(),
     client_participants: z.array(z.string()).nullable().optional(),
     notes: z.string().trim().nullable().optional(),
+    status: z.enum(["not_created", "created", "waiting_for_client", "not_necessary"]).optional(),
   }).optional(),
   meeting: z.object({
     service: z.string().trim().min(1),
@@ -127,21 +132,27 @@ async function PATCH_handler(
 
     if (parsed.data.support_group) {
       if (!access.canUpdateSupport) return null;
+      const supportPayload = parsed.data.support_group;
+      const groupCreated =
+        supportPayload.group_created === true || supportPayload.status === "created";
       const support = await tx.supportGroup.update({
         where: { onboarding_id: params.id },
         data: {
-          ...parsed.data.support_group,
-          ...(parsed.data.support_group.group_created
+          ...supportPayload,
+          ...(supportPayload.group_created !== undefined || supportPayload.status !== undefined
+            ? { group_created: groupCreated }
+            : {}),
+          ...(groupCreated
             ? { group_created_at: new Date(), created_by: auth.prismaUser.id }
             : {}),
           internal_participants:
-            parsed.data.support_group.internal_participants === undefined
+            supportPayload.internal_participants === undefined
               ? undefined
-              : (parsed.data.support_group.internal_participants as Prisma.InputJsonValue),
+              : (supportPayload.internal_participants as Prisma.InputJsonValue),
           client_participants:
-            parsed.data.support_group.client_participants === undefined
+            supportPayload.client_participants === undefined
               ? undefined
-              : (parsed.data.support_group.client_participants as Prisma.InputJsonValue),
+              : (supportPayload.client_participants as Prisma.InputJsonValue),
         },
       });
       if (support.group_created) {

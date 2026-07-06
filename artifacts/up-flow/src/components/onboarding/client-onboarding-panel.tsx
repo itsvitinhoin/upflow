@@ -161,11 +161,40 @@ function scheduleTaskHref(item: OnboardingChecklistItem, onboarding: ClientOnboa
   const task = item.task;
   const taskId = item.task_id ?? task?.id;
   if (!task?.project_id || !taskId) return null;
-  const title = encodeURIComponent(task.title ?? item.title);
-  const description = encodeURIComponent(`${onboarding.company?.name ?? ""} - ${item.department}`);
-  return `/calendar?create=meeting&task=${taskId}&project=${task.project_id}&title=${title}&description=${description}`;
+  const title = encodeURIComponent(`${onboarding.company?.name ?? "Client"} - ${item.department} onboarding meeting`);
+  const description = encodeURIComponent(`Client: ${onboarding.company?.name ?? ""}` + "\n" + `Department: ${item.department}`);
+  const attendees = item.owner_id ? `&attendees=${encodeURIComponent(item.owner_id)}` : "";
+  return `/calendar?create=meeting&task=${taskId}&project=${task.project_id}&title=${title}&description=${description}${attendees}`;
+}
+const SUPPORT_STATUS_OPTIONS = [
+  { value: "not_created", labelKey: "onboardingWorkflow.supportStatusNotCreated" },
+  { value: "created", labelKey: "onboardingWorkflow.supportStatusCreated" },
+  { value: "waiting_for_client", labelKey: "onboardingWorkflow.supportStatusWaiting" },
+  { value: "not_necessary", labelKey: "onboardingWorkflow.supportStatusNotNecessary" },
+] as const;
+
+type SupportStatus = (typeof SUPPORT_STATUS_OPTIONS)[number]["value"];
+
+function supportStatusValue(value: string | null | undefined): SupportStatus {
+  return SUPPORT_STATUS_OPTIONS.some((option) => option.value === value)
+    ? (value as SupportStatus)
+    : "not_created";
 }
 
+function listToInput(value: string[] | null | undefined) {
+  return Array.isArray(value) ? value.join(", ") : "";
+}
+
+function inputToList(value: string) {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function nullableList(value: string[]) {
+  return value.length > 0 ? value : null;
+}
 export default function ClientOnboardingPanel({ companyId, projectId, onChanged }: Props) {
   const { t } = useLanguage();
   const [onboarding, setOnboarding] = useState<ClientOnboarding | null>(null);
@@ -177,7 +206,17 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
     departments: Department[];
     isAdmin: boolean;
   }>({ members: [], departments: [], isAdmin: false });
-  const [support, setSupport] = useState({ group_link: "", notes: "" });
+  const [support, setSupport] = useState({
+    group_name: "",
+    group_link: "",
+    main_client_contact: "",
+    client_participants: "",
+    internal_participants: "",
+    commercial_responsible: "",
+    account_responsible: "",
+    status: "not_created" as SupportStatus,
+    notes: "",
+  });
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
   const [overrideReason, setOverrideReason] = useState("");
 
@@ -191,12 +230,19 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
       const payload = (await res.json()) as OnboardingResponse;
       const first = payload.items?.[0] ?? null;
       setOnboarding(first);
-      if (first?.support_group) {
-        setSupport({
-          group_link: first.support_group.group_link ?? "",
-          notes: first.support_group.notes ?? "",
-        });
-      }
+      const supportGroup = first?.support_group;
+      const companyName = first?.company?.name ?? "";
+      setSupport({
+        group_name: supportGroup?.group_name ?? (companyName ? `${companyName} - WhatsApp` : ""),
+        group_link: supportGroup?.group_link ?? "",
+        main_client_contact: supportGroup?.main_client_contact ?? "",
+        client_participants: listToInput(supportGroup?.client_participants),
+        internal_participants: listToInput(supportGroup?.internal_participants),
+        commercial_responsible: supportGroup?.commercial_responsible ?? first?.salesperson?.name ?? "",
+        account_responsible: supportGroup?.account_responsible ?? "",
+        status: supportStatusValue(supportGroup?.status ?? (supportGroup?.group_created ? "created" : "not_created")),
+        notes: supportGroup?.notes ?? "",
+      });
       setAssignmentDrafts(
         Object.fromEntries(
           (first?.service_assignments ?? []).map((assignment) => [
@@ -375,6 +421,11 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
 
   const saveSupport = async () => {
     if (!onboarding) return;
+    const clientParticipants = inputToList(support.client_participants);
+    const mainContact = support.main_client_contact.trim();
+    if (mainContact && !clientParticipants.includes(mainContact)) {
+      clientParticipants.unshift(mainContact);
+    }
     setSaving("support");
     try {
       const res = await fetch(`/api/onboarding/${onboarding.id}`, {
@@ -382,8 +433,15 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           support_group: {
-            group_created: true,
+            group_created: support.status === "created",
+            status: support.status,
+            group_name: support.group_name || null,
             group_link: support.group_link || null,
+            main_client_contact: mainContact || null,
+            internal_participants: nullableList(inputToList(support.internal_participants)),
+            client_participants: nullableList(clientParticipants),
+            commercial_responsible: support.commercial_responsible || null,
+            account_responsible: support.account_responsible || null,
             notes: support.notes || null,
           },
         }),
@@ -918,31 +976,102 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
             </div>
           </Panel>
 
-          <Panel title={t("onboardingWorkflow.supportGroup")} icon={<Users className="h-4 w-4" />}>
-            <div className="space-y-2">
-              <input
-                value={support.group_link}
-                onChange={(e) => setSupport((current) => ({ ...current, group_link: e.target.value }))}
-                placeholder={t("onboardingWorkflow.groupLink")}
-                className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
-              />
-              <textarea
-                value={support.notes}
-                onChange={(e) => setSupport((current) => ({ ...current, notes: e.target.value }))}
-                placeholder={t("onboardingWorkflow.supportNotes")}
-                rows={3}
-                className="w-full resize-none rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
-              />
-              <button
-                onClick={saveSupport}
-                disabled={saving === "support"}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
-              >
-                {saving === "support" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                {t("onboardingWorkflow.markGroupCreated")}
-              </button>
-            </div>
-          </Panel>
+          <div id="support-group" className="scroll-mt-24">
+            <Panel title={t("onboardingWorkflow.supportGroup")} icon={<Users className="h-4 w-4" />}>
+              <div className="space-y-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label={t("onboardingWorkflow.groupName")}>
+                    <input
+                      value={support.group_name}
+                      onChange={(e) => setSupport((current) => ({ ...current, group_name: e.target.value }))}
+                      placeholder={t("onboardingWorkflow.groupName")}
+                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    />
+                  </Field>
+                  <Field label={t("onboardingWorkflow.supportStatus")}>
+                    <select
+                      value={support.status}
+                      onChange={(e) => setSupport((current) => ({ ...current, status: supportStatusValue(e.target.value) }))}
+                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    >
+                      {SUPPORT_STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+                <Field label={t("onboardingWorkflow.groupLink")}>
+                  <input
+                    value={support.group_link}
+                    onChange={(e) => setSupport((current) => ({ ...current, group_link: e.target.value }))}
+                    placeholder="https://chat.whatsapp.com/..."
+                    className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                  />
+                </Field>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label={t("onboardingWorkflow.mainClientContact")}>
+                    <input
+                      value={support.main_client_contact}
+                      onChange={(e) => setSupport((current) => ({ ...current, main_client_contact: e.target.value }))}
+                      placeholder={t("onboardingWorkflow.mainClientContact")}
+                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    />
+                  </Field>
+                  <Field label={t("onboardingWorkflow.internalParticipants")}>
+                    <input
+                      value={support.internal_participants}
+                      onChange={(e) => setSupport((current) => ({ ...current, internal_participants: e.target.value }))}
+                      placeholder={t("onboardingWorkflow.participantPlaceholder")}
+                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    />
+                  </Field>
+                </div>
+                <Field label={t("onboardingWorkflow.clientParticipants")}>
+                  <input
+                    value={support.client_participants}
+                    onChange={(e) => setSupport((current) => ({ ...current, client_participants: e.target.value }))}
+                    placeholder={t("onboardingWorkflow.participantPlaceholder")}
+                    className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                  />
+                </Field>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label={t("onboardingWorkflow.commercialResponsible")}>
+                    <input
+                      value={support.commercial_responsible}
+                      onChange={(e) => setSupport((current) => ({ ...current, commercial_responsible: e.target.value }))}
+                      placeholder={t("onboardingWorkflow.commercialResponsible")}
+                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    />
+                  </Field>
+                  <Field label={t("onboardingWorkflow.accountResponsible")}>
+                    <input
+                      value={support.account_responsible}
+                      onChange={(e) => setSupport((current) => ({ ...current, account_responsible: e.target.value }))}
+                      placeholder={t("onboardingWorkflow.accountResponsible")}
+                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    />
+                  </Field>
+                </div>
+                <Field label={t("onboardingWorkflow.supportNotes")}>
+                  <textarea
+                    value={support.notes}
+                    onChange={(e) => setSupport((current) => ({ ...current, notes: e.target.value }))}
+                    placeholder={t("onboardingWorkflow.supportNotes")}
+                    rows={3}
+                    className="w-full resize-none rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                  />
+                </Field>
+                <button
+                  onClick={saveSupport}
+                  disabled={saving === "support"}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
+                >
+                  {saving === "support" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  {support.status === "created" ? t("onboardingWorkflow.markGroupCreated") : t("onboardingWorkflow.saveSupportGroup")}
+                </button>
+              </div>
+            </Panel>
+          </div>
         </div>
       </div>
     </section>
@@ -955,6 +1084,15 @@ function Metric({ icon, label, value }: { icon: ReactNode; label: string; value:
       <div className="mb-2 flex items-center gap-2 text-blue-200/70">{icon}<span className="text-xs font-semibold uppercase tracking-[0.14em]">{label}</span></div>
       <p className="truncate text-lg font-bold text-foreground">{value}</p>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100/65">{label}</span>
+      {children}
+    </label>
   );
 }
 

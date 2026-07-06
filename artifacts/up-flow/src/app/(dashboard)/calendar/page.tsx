@@ -97,6 +97,7 @@ type ScheduleDefaults = {
   taskId?: string | null;
   projectId?: string | null;
   time?: string;
+  attendeeIds?: string[];
 };
 
 function eventColor(event: CalendarEvent) {
@@ -178,6 +179,7 @@ export default function CalendarPage() {
       description: searchParams?.get("description") ?? undefined,
       taskId: searchParams?.get("task"),
       projectId: searchParams?.get("project"),
+      attendeeIds: (searchParams?.get("attendees") ?? "").split(",").map((item) => item.trim()).filter(Boolean),
       time: searchParams?.get("time") ?? "09:00",
     });
     setSelected(openDate);
@@ -819,6 +821,7 @@ export default function CalendarPage() {
         defaultDescription={scheduleDefaults?.description}
         defaultTaskId={scheduleDefaults?.taskId ?? null}
         defaultProjectId={scheduleDefaults?.projectId ?? null}
+        defaultAttendeeIds={scheduleDefaults?.attendeeIds ?? []}
         onScheduled={(event) => {
           setEvents((prev) => [...prev, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
           setSelected(new Date(event.starts_at));

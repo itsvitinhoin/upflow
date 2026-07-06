@@ -18,6 +18,7 @@ import CustomFieldsManager from "@/components/projects/custom-fields-manager";
 import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
+import { getOnboardingTaskAction, workflowFormKind } from "@/lib/onboarding-task-routing";
 import type {
   AppUser,
   CustomFieldDefinition,
@@ -38,63 +39,6 @@ const DEFAULT_TOOLBAR: ToolbarState = {
   filterAssignee: "all",
 };
 
-type WorkflowFormKind = "marketing_b2b" | "marketing_b2c" | "finance";
-
-function taskSearchText(task: Task) {
-  return [
-    task.title,
-    task.description,
-    task.onboarding_link?.department,
-    task.onboarding_link?.title,
-    task.onboarding_link?.company_name,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
-
-function isFinanceOnboardingTask(task: Task) {
-  const text = taskSearchText(task);
-  return (
-    text.includes("finance") ||
-    text.includes("financial") ||
-    text.includes("cadastro financeiro") ||
-    text.includes("billing") ||
-    text.includes("faturamento") ||
-    text.includes("contract") ||
-    text.includes("contrato")
-  );
-}
-
-function isSchedulingOnboardingTask(task: Task) {
-  const text = taskSearchText(task);
-  return (
-    text.includes("schedule") ||
-    text.includes("meeting") ||
-    text.includes("reuni") ||
-    text.includes("visita") ||
-    text.includes("agenda")
-  );
-}
-
-function workflowFormKind(task: Task): WorkflowFormKind | null {
-  if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
-  if (task.marketing_b2c_onboarding_form) return "marketing_b2c";
-  if (isFinanceOnboardingTask(task)) return "finance";
-  return null;
-}
-
-function calendarHrefForTask(task: Task, fallbackProjectId: string) {
-  const params = new URLSearchParams({
-    create: "meeting",
-    task: task.id,
-    project: task.project_id ?? fallbackProjectId,
-    title: task.title,
-  });
-  const context = task.onboarding_link?.company_name ?? task.description ?? "";
-  if (context) params.set("description", context);
-  return `/calendar?${params.toString()}`;
-}
 
 export default function ProjectPage() {
   const params = useParams();
@@ -158,17 +102,17 @@ export default function ProjectPage() {
     if (!focusedTaskId || loading) return;
     const task = tasks.find((item) => item.id === focusedTaskId);
     if (!task) return;
-    const kind = workflowFormKind(task);
-    if (kind) {
+    const action = getOnboardingTaskAction(task, id);
+    if (action?.kind === "form") {
       setSelectedTask(null);
       if (viewParam !== "form") {
-        router.replace(`/projects/${id}?view=form&task=${task.id}`, { scroll: false });
+        router.replace(action.href, { scroll: false });
       }
       return;
     }
-    if (isSchedulingOnboardingTask(task)) {
+    if (action) {
       setSelectedTask(null);
-      router.replace(calendarHrefForTask(task, id), { scroll: false });
+      router.replace(action.href, { scroll: false });
       return;
     }
     setSelectedTask(task);
@@ -210,14 +154,10 @@ export default function ProjectPage() {
   };
 
   const handleOpenTask = (task: Task) => {
-    if (workflowFormKind(task)) {
+    const action = getOnboardingTaskAction(task, id);
+    if (action) {
       setSelectedTask(null);
-      router.replace(`/projects/${id}?view=form&task=${task.id}`, { scroll: false });
-      return;
-    }
-    if (isSchedulingOnboardingTask(task)) {
-      setSelectedTask(null);
-      router.replace(calendarHrefForTask(task, id), { scroll: false });
+      router.replace(action.href, { scroll: false });
       return;
     }
     setSelectedTask(task);
