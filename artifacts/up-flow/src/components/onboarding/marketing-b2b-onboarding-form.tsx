@@ -463,7 +463,7 @@ export default function MarketingB2BOnboardingForm({
                 <TabButton active={activeTab === "kanban"} onClick={() => setActiveTab("kanban")} icon={BarChart3} label="Kanban / Tarefas" />
               </div>
               {activeTab === "form" ? (
-                <div className="grid gap-5 xl:grid-cols-2">
+                <div className="space-y-3">
                   {sections.map((section, index) => (
                     <FormSection
                       key={section.id}
@@ -600,7 +600,7 @@ function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; on
 
 function SectionShell({ index, title, accent, open, onToggle, children, done, total }: { index: number; title: string; accent: keyof typeof accentClasses; open: boolean; onToggle: () => void; children: ReactNode; done: number; total: number }) {
   return (
-    <section className={cn("marketing-b2b-form-card rounded-2xl border bg-card p-4 text-card-foreground shadow-sm dark:bg-[#06101f] dark:shadow-[0_18px_60px_rgba(0,0,0,0.25)]", accentClasses[accent])}>
+    <section className={cn("marketing-b2b-form-card w-full overflow-hidden rounded-2xl border bg-card p-4 text-card-foreground shadow-sm dark:bg-[#06101f] dark:shadow-[0_18px_60px_rgba(0,0,0,0.25)]", accentClasses[accent])}>
       <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 border-b border-border pb-3 text-left dark:border-slate-800/80">
         <div className="flex min-w-0 items-center gap-3">
           <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-black", accentClasses[accent])}>{index}</span>
@@ -620,7 +620,7 @@ function FormSection({ index, section, values, open, canEdit, onToggle, onChange
   const done = section.fields.filter((field) => isFilled(values, field.key)).length;
   return (
     <SectionShell index={index} title={section.title} accent={section.accent} open={open} onToggle={onToggle} done={done} total={section.fields.length}>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
         {section.fields.map((field) => (
           <FieldControl key={field.key} field={field} value={getValue(values, field.key)} disabled={!canEdit} onChange={(value) => onChange(field.key, value)} />
         ))}
@@ -636,7 +636,7 @@ function FieldControl({ field, value, disabled, onChange }: { field: FieldConfig
   const Icon = field.icon;
   const inputClass = "mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600";
   return (
-    <label className={cn("min-w-0", field.span === "full" && "md:col-span-2")}>
+    <label className={cn("min-w-0", field.span === "full" && "sm:col-span-2 xl:col-span-4")}>
       <span className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
         <Icon className="h-3.5 w-3.5 text-blue-300" /> {field.label}
       </span>
@@ -657,15 +657,15 @@ function FieldControl({ field, value, disabled, onChange }: { field: FieldConfig
 function ResponsibleBrandSection({ open, values, canEdit, onToggle, onChange }: { open: boolean; values: FormValues; canEdit: boolean; onToggle: () => void; onChange: (field: string, value: string) => void }) {
   const done = brandResponsibleRows.filter(([rowKey]) => responsibleColumns.some(([columnKey]) => isFilled(values, `brandResponsible.${rowKey}.${columnKey}`))).length;
   return (
-    <div className="xl:col-span-2">
+    <div className="w-full">
       <SectionShell index={4} title="Responsaveis da marca" accent="pink" open={open} onToggle={onToggle} done={done} total={brandResponsibleRows.length}>
         <div className="overflow-x-auto rounded-xl border border-border dark:border-slate-800">
-          <div className="grid min-w-[900px] grid-cols-[1.1fr_repeat(5,minmax(120px,1fr))] gap-2 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
+          <div className="grid min-w-[1040px] grid-cols-[160px_repeat(5,minmax(140px,1fr))] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
             <span>Area</span>
             {responsibleColumns.map(([, label]) => <span key={label}>{label}</span>)}
           </div>
           {brandResponsibleRows.map(([rowKey, label]) => (
-            <div key={rowKey} className="grid min-w-[900px] grid-cols-[1.1fr_repeat(5,minmax(120px,1fr))] gap-2 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+            <div key={rowKey} className="grid min-w-[1040px] grid-cols-[160px_repeat(5,minmax(140px,1fr))] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
               <span className="self-center text-sm font-bold text-foreground dark:text-white">{label}</span>
               {responsibleColumns.map(([columnKey]) => (
                 <input key={columnKey} value={getValue(values, `brandResponsible.${rowKey}.${columnKey}`)} disabled={!canEdit} onChange={(event) => onChange(`brandResponsible.${rowKey}.${columnKey}`, event.target.value)} className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white" />
@@ -684,17 +684,17 @@ function UpResponsibleSection({ open, assignments, teamUsers, canEdit, contracte
     : contractedServices.map((service) => ({ id: service, service, leader_id: null, department_id: null, department_name: "Marketing B2B", status: "needs_mapping", notes: null, leader: null, department: null }));
   const done = rows.filter((row) => Boolean(row.leader_id)).length;
   return (
-    <div className="xl:col-span-2">
+    <div className="w-full">
       <SectionShell index={5} title="Responsaveis UP por servico" accent="cyan" open={open} onToggle={onToggle} done={done} total={Math.max(rows.length, 1)}>
         <div className="overflow-x-auto rounded-xl border border-border dark:border-slate-800">
-          <div className="grid min-w-[780px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-2 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
+          <div className="grid min-w-[860px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
             <span>Servico</span>
             <span>Departamento UP</span>
             <span>Responsavel UP</span>
             <span>Status</span>
           </div>
           {rows.map((assignment) => (
-            <div key={assignment.id} className="grid min-w-[780px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-2 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+            <div key={assignment.id} className="grid min-w-[860px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
               <span className="self-center text-sm font-bold text-foreground dark:text-white">{assignment.service}</span>
               <span className="self-center text-sm text-muted-foreground dark:text-slate-300">{assignment.department?.name ?? assignment.department_name ?? "Marketing B2B"}</span>
               <select value={assignment.leader_id ?? ""} disabled={!canEdit || !assignment.id} onChange={(event) => onChange(assignment, event.target.value)} className="h-9 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white">
@@ -715,9 +715,9 @@ function UpResponsibleSection({ open, assignments, teamUsers, canEdit, contracte
 function AccessSection({ open, values, canEdit, onToggle, onChange }: { open: boolean; values: FormValues; canEdit: boolean; onToggle: () => void; onChange: (field: string, value: string) => void }) {
   const done = accessRows.filter(([rowKey]) => isFilled(values, `access.${rowKey}.status`)).length;
   return (
-    <div className="xl:col-span-2">
+    <div className="w-full">
       <SectionShell index={6} title="Acessos" accent="teal" open={open} onToggle={onToggle} done={done} total={accessRows.length}>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-2">
           {accessRows.map(([rowKey, label]) => (
             <div key={rowKey} className="rounded-xl border border-border bg-background/70 p-3 dark:border-slate-800 dark:bg-slate-950/45">
               <p className="mb-2 text-sm font-black text-foreground dark:text-white">{label}</p>
