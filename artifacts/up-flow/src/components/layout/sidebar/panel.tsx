@@ -32,6 +32,7 @@ interface PanelProps {
   }>;
   currentWorkspaceId: string;
   currentRole: "owner" | "admin" | "member" | "guest" | null;
+  userName?: string | null;
   isSuperAdmin?: boolean;
   onNavigate?: () => void;
   onRequestClose?: () => void;
@@ -48,6 +49,7 @@ export default function Panel({
   workspaces,
   currentWorkspaceId,
   currentRole,
+  userName,
   isSuperAdmin = false,
   onNavigate,
   onRequestClose,
@@ -245,6 +247,7 @@ export default function Panel({
                 current_role: currentRole,
                 is_super_admin: isSuperAdmin,
               }}
+              userName={userName}
             />
             <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 pb-2">
               <Link

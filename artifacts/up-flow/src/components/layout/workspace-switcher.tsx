@@ -32,8 +32,10 @@ interface ListResponse {
 
 export default function WorkspaceSwitcher({
   initialData,
+  userName,
 }: {
   initialData?: ListResponse;
+  userName?: string | null;
 }) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
@@ -67,8 +69,10 @@ export default function WorkspaceSwitcher({
   const current = data?.workspaces.find(
     (w) => w.id === data.current_workspace_id,
   );
-  const initial =
-    (current?.name ?? "U").trim().charAt(0).toUpperCase() || "U";
+  const userDisplayName = userName?.trim() || current?.name || "-";
+  const userInitial =
+    userDisplayName.trim().charAt(0).toUpperCase() || "U";
+  const roleLabel = data?.current_role ?? current?.role ?? "member";
   const canShareCurrent =
     data?.is_super_admin ||
     data?.current_role === "owner" ||
@@ -210,14 +214,14 @@ export default function WorkspaceSwitcher({
           className="relative mt-1 flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-400/35"
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-500 text-sm font-bold text-white shadow-[0_0_24px_rgba(59,130,246,0.42)] ring-1 ring-white/15">
-            {initial}
+            {userInitial}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-semibold text-white">
-              {current?.name ?? "-"}
+              {userDisplayName}
             </span>
             <span className="mt-0.5 block truncate text-[11px] capitalize text-blue-100/52">
-              {data.current_role ?? current?.role ?? "member"}
+              {roleLabel}
             </span>
           </span>
           <ChevronDown
