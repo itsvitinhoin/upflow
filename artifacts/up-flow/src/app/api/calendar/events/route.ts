@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { isWorkspaceAdminFor, type AuthUser } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
@@ -33,6 +33,22 @@ function isSchedulingText(value: string) {
     text.includes("visita") ||
     text.includes("agenda")
   );
+}
+
+async function canCreateCalendarEvent(auth: AuthUser, workspaceId: string) {
+  if (isWorkspaceAdminFor(auth, workspaceId)) return true;
+
+  const member = await prisma.workspaceMember.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      user_id: auth.prismaUser.id,
+      status: "active",
+      role: { not: "guest" },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(member);
 }
 
 async function GET_handler(req: NextRequest) {
@@ -135,7 +151,8 @@ async function POST_handler(req: NextRequest) {
         linkedTask.project.owner_id === auth.prismaUser.id ||
         linkedSchedulingItem.owner_id === auth.prismaUser.id),
   );
-  if (!admin && !canCreateLinkedSchedule) {
+  const canCreateWorkspaceEvent = await canCreateCalendarEvent(auth, auth.currentWorkspaceId);
+  if (!canCreateWorkspaceEvent && !canCreateLinkedSchedule) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -208,7 +225,7 @@ async function POST_handler(req: NextRequest) {
     actor: auth.prismaUser,
   });
 
-  if (linkedTask && linkedSchedulingItem && isLinkedSchedulingItem) {
+  if (linkedTask && linkedSchedulingItem && isLinkedSchedulingItem && (admin || canCreateLinkedSchedule)) {
     await prisma.$transaction(async (tx) => {
       await tx.task.update({
         where: { id: linkedTask.id },
