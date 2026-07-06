@@ -238,6 +238,7 @@ export default function MarketingB2BOnboardingForm({
     validation: true,
   });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valuesRef = useRef<FormValues>({});
 
   const loadForm = useCallback(async () => {
     setLoading(true);
@@ -245,6 +246,7 @@ export default function MarketingB2BOnboardingForm({
       const res = await fetch(`/api/onboarding/marketing-b2b-form/${taskId}`);
       if (!res.ok) throw new Error(t("marketingB2BForm.loadFailed"));
       const data = (await res.json()) as B2BFormResponse;
+      valuesRef.current = data.values ?? {};
       setForm(data);
       if (data.onboarding.workspace_id) {
         const usersRes = await fetch(`/api/users?workspace_id=${data.onboarding.workspace_id}&status=active&limit=500`);
@@ -329,9 +331,14 @@ export default function MarketingB2BOnboardingForm({
           throw new Error(data.error || t("marketingB2BForm.saveFailed"));
         }
         const data = (await res.json()) as B2BFormResponse;
-        setForm(data);
+        const responseValues =
+          payload.values && payload.values !== valuesRef.current
+            ? valuesRef.current
+            : data.values ?? {};
+        valuesRef.current = responseValues;
+        setForm({ ...data, values: responseValues });
         setSaveState("saved");
-        onUpdate?.();
+        if (payload.finalize) onUpdate?.();
       } catch (err) {
         setSaveState("idle");
         toast.error(err instanceof Error ? err.message : t("marketingB2BForm.saveFailed"));
@@ -343,16 +350,17 @@ export default function MarketingB2BOnboardingForm({
   );
 
   const updateField = (field: string, value: string) => {
-    setForm((current) => (current ? { ...current, values: { ...current.values, [field]: value } } : current));
+    const nextValues = { ...valuesRef.current, [field]: value };
+    valuesRef.current = nextValues;
+    setForm((current) => (current ? { ...current, values: nextValues } : current));
     if (!form?.can_edit) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    setSaveState("saving");
-    saveTimer.current = setTimeout(() => void savePatch({ field, value }), 650);
+    saveTimer.current = setTimeout(() => void savePatch({ values: valuesRef.current }), 900);
   };
 
   const finalize = async () => {
     if (!form?.can_edit) return;
-    await savePatch({ values: form.values, finalize: true });
+    await savePatch({ values: valuesRef.current, finalize: true });
     toast.success("Onboarding B2B finalizado");
   };
 
@@ -563,7 +571,7 @@ export default function MarketingB2BOnboardingForm({
                 <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">{saveState === "saving" ? "Salvando" : "Tudo salvo"}</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void savePatch({ values: form.values })} disabled={!form.can_edit || saving} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200">
+                <button type="button" onClick={() => void savePatch({ values: valuesRef.current })} disabled={!form.can_edit || saving} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200">
                   <Save className="h-4 w-4" /> Salvar resumo
                 </button>
                 <button type="button" onClick={finalize} disabled={!form.can_edit || saving} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-2 text-sm font-black text-white shadow-[0_14px_34px_rgba(37,99,235,0.35)] disabled:opacity-50">

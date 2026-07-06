@@ -288,7 +288,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
     if (timers.current[field]) clearTimeout(timers.current[field]);
     timers.current[field] = window.setTimeout(() => {
       void saveField(field);
-    }, 550);
+    }, 900);
   };
 
   const saveAllNow = async () => {

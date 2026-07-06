@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
-import FinanceOnboardingForm from "@/components/onboarding/finance-onboarding-form";
-import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
-import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
-import SupportOnboardingForm from "@/components/onboarding/support-onboarding-form";
 import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
@@ -39,6 +36,34 @@ const DEFAULT_TOOLBAR: ToolbarState = {
   filterPriority: "all",
   filterAssignee: "all",
 };
+
+function OnboardingFormLoader() {
+  return (
+    <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-border bg-card p-6" aria-label="Loading onboarding form">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+    </div>
+  );
+}
+
+const FinanceOnboardingForm = dynamic(() => import("@/components/onboarding/finance-onboarding-form"), {
+  ssr: false,
+  loading: OnboardingFormLoader,
+});
+
+const MarketingB2BOnboardingForm = dynamic(() => import("@/components/onboarding/marketing-b2b-onboarding-form"), {
+  ssr: false,
+  loading: OnboardingFormLoader,
+});
+
+const MarketingB2COnboardingForm = dynamic(() => import("@/components/onboarding/marketing-b2c-onboarding-form"), {
+  ssr: false,
+  loading: OnboardingFormLoader,
+});
+
+const SupportOnboardingForm = dynamic(() => import("@/components/onboarding/support-onboarding-form"), {
+  ssr: false,
+  loading: OnboardingFormLoader,
+});
 
 
 export default function ProjectPage() {
