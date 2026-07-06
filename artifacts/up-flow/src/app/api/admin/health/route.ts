@@ -256,7 +256,7 @@ async function checkLatestMigration(): Promise<HealthCheck> {
       SELECT migration_name
       FROM "_prisma_migrations"
       WHERE finished_at IS NOT NULL
-      ORDER BY finished_at DESC
+      ORDER BY migration_name DESC
       LIMIT 1
     `;
     const latest = rows[0]?.migration_name;
