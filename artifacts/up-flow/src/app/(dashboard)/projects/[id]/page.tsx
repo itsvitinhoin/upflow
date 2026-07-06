@@ -9,6 +9,7 @@ import Header from "@/components/layout/header";
 import FinanceOnboardingForm from "@/components/onboarding/finance-onboarding-form";
 import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
 import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
+import SupportOnboardingForm from "@/components/onboarding/support-onboarding-form";
 import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
@@ -166,6 +167,8 @@ export default function ProjectPage() {
   const workflowFormTabLabel =
     currentWorkflowKind === "finance"
       ? "Cadastro financeiro"
+      : currentWorkflowKind === "support"
+        ? "Setup de suporte"
       : currentWorkflowKind === "marketing_b2c"
         ? t("marketingB2CForm.formTab")
         : t("marketingB2BForm.formTab");
@@ -267,6 +270,8 @@ export default function ProjectPage() {
         {showWorkflowFormFirst && workflowFormTask && currentWorkflowKind ? (
           currentWorkflowKind === "finance" ? (
             <FinanceOnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
+          ) : currentWorkflowKind === "support" ? (
+            <SupportOnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
           ) : currentWorkflowKind === "marketing_b2c" ? (
             <MarketingB2COnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
           ) : (
@@ -338,6 +343,19 @@ export default function ProjectPage() {
       {selectedTask && workflowFormKind(selectedTask) ? (
         workflowFormKind(selectedTask) === "finance" ? (
           <FinanceOnboardingForm
+            taskId={selectedTask.id}
+            onClose={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+            }}
+            onUpdate={() => {
+              setSelectedTask(null);
+              if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+              loadData();
+            }}
+          />
+        ) : workflowFormKind(selectedTask) === "support" ? (
+          <SupportOnboardingForm
             taskId={selectedTask.id}
             onClose={() => {
               setSelectedTask(null);

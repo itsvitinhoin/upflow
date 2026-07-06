@@ -1,11 +1,10 @@
 import type { Task } from "@/lib/types";
 
-export type WorkflowFormKind = "marketing_b2b" | "marketing_b2c" | "finance";
+export type WorkflowFormKind = "marketing_b2b" | "marketing_b2c" | "finance" | "support";
 
 export type OnboardingTaskAction =
   | { kind: "form"; href: string; formKind: WorkflowFormKind }
-  | { kind: "calendar"; href: string }
-  | { kind: "support"; href: string };
+  | { kind: "calendar"; href: string };
 
 function taskSearchText(task: Task) {
   return [
@@ -50,12 +49,18 @@ function isSchedulingOnboardingTask(task: Task) {
 
 function isSupportGroupOnboardingTask(task: Task) {
   const text = taskSearchText(task);
-  return (
-    text.includes("technical support") ||
-    text.includes("support") ||
+  const hasGroupSignal =
+    text.includes("client channels") ||
+    text.includes("client communication") ||
     text.includes("communication group") ||
+    text.includes("support group") ||
     text.includes("whatsapp") ||
-    text.includes("grupo")
+    text.includes("grupo");
+  return Boolean(
+    hasGroupSignal ||
+      (text.includes("technical support") &&
+        text.includes("onboarding") &&
+        !isSchedulingOnboardingTask(task)),
   );
 }
 
@@ -63,6 +68,7 @@ export function workflowFormKind(task: Task): WorkflowFormKind | null {
   if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
   if (task.marketing_b2c_onboarding_form) return "marketing_b2c";
   if (isFinanceOnboardingTask(task)) return "finance";
+  if (isSupportGroupOnboardingTask(task)) return "support";
   return null;
 }
 
@@ -118,11 +124,6 @@ export function calendarHrefForTask(task: Task, fallbackProjectId?: string | nul
   return `/calendar?${params.toString()}`;
 }
 
-function supportGroupHrefForTask(task: Task) {
-  const href = task.onboarding_link?.href ?? (task.company_id ? `/clients/${task.company_id}` : null);
-  return href ? `${href}#support-group` : null;
-}
-
 export function getOnboardingTaskAction(
   task: Task,
   fallbackProjectId?: string | null,
@@ -134,10 +135,6 @@ export function getOnboardingTaskAction(
   }
   if (isSchedulingOnboardingTask(task)) {
     return { kind: "calendar", href: calendarHrefForTask(task, fallbackProjectId) };
-  }
-  if (isSupportGroupOnboardingTask(task)) {
-    const href = supportGroupHrefForTask(task);
-    return href ? { kind: "support", href } : null;
   }
   return null;
 }

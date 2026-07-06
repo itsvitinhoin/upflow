@@ -15,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   MessageSquare,
+  Palette,
   RefreshCcw,
   Rocket,
   UserRound,
@@ -43,6 +44,7 @@ const stageDefinitions = [
   { key: "assignment", label: "Internal Assignment", department: "Internal Assignment" },
   { key: "support", label: "Support Setup", department: "Support" },
   { key: "department", label: "Department Onboarding", department: "Marketing" },
+  { key: "creative", label: "Creative & Design", department: "Creative & Design" },
   { key: "meeting", label: "First Meeting", department: "Meeting" },
   { key: "ready", label: "Ready to Start", department: "Ready" },
 ];
@@ -136,7 +138,7 @@ export default function OnboardingQueuePage() {
   return (
     <>
       <Header title={t("onboardingQueue.title")} />
-      <main className="min-h-screen space-y-5 bg-[#020817] p-4 text-slate-100 sm:p-6">
+      <main className="onboarding-queue-shell min-h-screen space-y-5 bg-background p-4 text-foreground dark:bg-[#020817] dark:text-slate-100 sm:p-6">
         <section className="rounded-2xl border border-blue-500/25 bg-[#06101f] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -196,6 +198,10 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
   const totalSteps = Math.max((item.checklist_items ?? []).length, 1);
   const owner = item.service_assignments?.find((assignment) => assignment.leader)?.leader ?? item.salesperson ?? null;
   const services = item.contracted_services?.slice(0, 4).join(", ") || "Servicos em definicao";
+  const creativeItems = (item.checklist_items ?? []).filter((entry) => {
+    const text = `${entry.department} ${entry.title}`.toLowerCase();
+    return text.includes("creative") || text.includes("design") || text.includes("visita");
+  });
 
   return (
     <article className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -234,7 +240,7 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
         </section>
 
         <section className="rounded-2xl border border-blue-500/25 bg-[#07152b] p-4">
-          <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+          <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-[repeat(9,minmax(0,1fr))]">
             {stageDefinitions.map((stage, index) => {
               const check = findStageItem(item.checklist_items ?? [], stage.department, stage.key);
               const state = check?.status === "complete" ? "done" : check?.status === "in_progress" ? "review" : index > completeSteps ? "locked" : "pending";
@@ -250,7 +256,8 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
           <WorkflowRow index={4} icon={Users} title="Service Leader Assignment" status={missingMappings(item).length ? "Precisa de mapeamento" : "Assigned"} tone={missingMappings(item).length ? "amber" : "green"} meta={(item.service_assignments ?? []).slice(0, 4).map((assignment) => `${assignment.service}: ${assignment.leader?.name ?? "Sem responsavel"}`)} action="Salvar" />
           <WorkflowRow index={5} icon={MessageSquare} title="Support Setup" status={item.support_group?.group_created ? "Grupo criado" : "Pendente"} tone={item.support_group?.group_created ? "green" : "blue"} meta={[item.support_group?.group_name ?? "Grupo de comunicacao", item.support_group?.group_link ?? "Link pendente"]} action="Save group link" />
           <WorkflowRow index={6} icon={ClipboardCheck} title="Marketing B2B Onboarding" status={statusFromDepartment(item, "Marketing B2B")} tone="purple" meta={["Open form", "Request missing info", "Mark as complete"]} action="Open form" />
-          <WorkflowRow index={7} icon={CalendarDays} title="Meetings" status={(item.meetings ?? []).every((meeting) => meeting.scheduled) ? "Agendadas" : "Nao agendada"} tone="rose" meta={(item.meetings ?? []).slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? "Agendada" : "Nao agendada"}`)} action="Save" />
+          <WorkflowRow index={7} icon={Palette} title="Creative & Design" status={statusFromDepartment(item, "Creative")} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${entry.title}: ${entry.status === "complete" ? "Concluido" : "Pendente"}`) : ["Brand guideline meeting", "Visita tecnica"]} action="Open creative tasks" />
+          <WorkflowRow index={8} icon={CalendarDays} title="Meetings" status={(item.meetings ?? []).every((meeting) => meeting.scheduled) ? "Agendadas" : "Nao agendada"} tone="rose" meta={(item.meetings ?? []).slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? "Agendada" : "Nao agendada"}`)} action="Save" />
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
@@ -294,7 +301,13 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
 }
 
 function findStageItem(items: OnboardingChecklistItem[], department: string, key: string) {
-  if (key === "department") return items.find((item) => item.department.includes("Marketing") || item.department.includes("Creative"));
+  if (key === "department") return items.find((item) => item.department.includes("Marketing") || item.title.toLowerCase().includes("marketing"));
+  if (key === "creative") {
+    return items.find((item) => {
+      const text = `${item.department} ${item.title}`.toLowerCase();
+      return text.includes("creative") || text.includes("design") || text.includes("visita");
+    });
+  }
   if (key === "meeting") return items.find((item) => item.title.toLowerCase().includes("meeting") || item.title.toLowerCase().includes("kickoff"));
   if (key === "ready") return items.every((item) => item.status === "complete") ? items[items.length - 1] : null;
   return items.find((item) => item.department === department || item.title.toLowerCase().includes(department.toLowerCase()));

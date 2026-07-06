@@ -387,7 +387,7 @@ export default function MarketingB2BOnboardingForm({
 
   if (loading) {
     return (
-      <div className={cn("flex min-h-[420px] items-center justify-center bg-[#020817] text-slate-200", !embedded && "fixed inset-0 z-50")}>
+      <div className={cn("marketing-b2b-form-shell flex min-h-[420px] items-center justify-center bg-background text-foreground dark:bg-[#020817] dark:text-slate-200", !embedded && "fixed inset-0 z-50")}>
         <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
       </div>
     );
@@ -398,19 +398,19 @@ export default function MarketingB2BOnboardingForm({
   const updatedAt = form.updated_at ?? form.completed_at;
 
   return (
-    <div className={cn(!embedded && "fixed inset-0 z-50 overflow-y-auto bg-[#020817]", embedded && "w-full")}>
-      <div className="min-h-screen bg-[#020817] px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
+    <div className={cn("marketing-b2b-form-shell", !embedded && "fixed inset-0 z-50 overflow-y-auto bg-background dark:bg-[#020817]", embedded && "w-full")}>
+      <div className="min-h-screen bg-background px-4 py-5 text-foreground dark:bg-[#020817] dark:text-slate-100 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1560px]">
-          <div className="mb-4 flex items-center gap-3 rounded-2xl border border-slate-800 bg-[#06101f] px-4 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
+          <div className="marketing-b2b-form-card mb-4 flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 text-blue-300">
               <Sparkles className="h-5 w-5" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm text-slate-400">Buscar marketing b2b onboarding, projetos, tarefas, docs...</p>
+              <p className="truncate text-sm text-muted-foreground dark:text-slate-400">Buscar marketing b2b onboarding, projetos, tarefas, docs...</p>
             </div>
-            <span className="rounded-full border border-slate-700 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Ctrl K</span>
+            <span className="rounded-full border border-border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground dark:border-slate-700 dark:text-slate-400">Ctrl K</span>
             {onClose && (
-              <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800" title="Fechar">
+              <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground hover:bg-muted dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" title="Fechar">
                 <X className="h-4 w-4" />
               </button>
             )}
@@ -418,22 +418,22 @@ export default function MarketingB2BOnboardingForm({
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
             <main className="min-w-0 space-y-5">
-              <section className="rounded-2xl border border-slate-800 bg-[#06101f] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+              <section className="marketing-b2b-form-card rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
-                    <button onClick={onClose} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-blue-300" type="button">
+                    <button onClick={onClose} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-300" type="button">
                       <ArrowLeft className="h-4 w-4" /> Voltar para Marketing B2B
                     </button>
                     <div className="flex flex-wrap items-center gap-3">
-                      <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">Marketing B2B Onboarding</h1>
+                      <h1 className="text-2xl font-black tracking-tight text-foreground dark:text-white sm:text-3xl">Marketing B2B Onboarding</h1>
                       <span className="rounded-full border border-emerald-400/25 bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">
                         {form.status === "complete" ? "Concluido" : "Active"}
                       </span>
                     </div>
-                    <p className="mt-2 max-w-3xl text-sm text-slate-400">Formulario e execucao do onboarding para novos clientes de Marketing B2B.</p>
+                    <p className="mt-2 max-w-3xl text-sm text-muted-foreground dark:text-slate-400">Formulario e execucao do onboarding para novos clientes de Marketing B2B.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2 text-sm font-bold text-slate-200 hover:border-blue-400/60">
+                    <button type="button" className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200">
                       <FileText className="h-4 w-4" /> Docs
                     </button>
                     <button type="button" className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.35)]">
@@ -442,28 +442,28 @@ export default function MarketingB2BOnboardingForm({
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-4 border-t border-slate-800 pt-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="mt-5 grid gap-4 border-t border-border pt-4 dark:border-slate-800 sm:grid-cols-2 xl:grid-cols-4">
                   <InfoBlock label="Cliente" value={form.company.name} />
                   <InfoBlock label="Responsavel" value={assigneeName} avatar={initials(assigneeName)} />
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-slate-500">Progresso geral</p>
+                    <p className="text-xs font-semibold text-muted-foreground dark:text-slate-500">Progresso geral</p>
                     <div className="mt-2 flex items-center gap-3">
-                      <div className="h-2 min-w-0 flex-1 rounded-full bg-slate-800">
+                      <div className="h-2 min-w-0 flex-1 rounded-full bg-muted dark:bg-slate-800">
                         <div className="h-full rounded-full bg-blue-500" style={{ width: `${progress}%` }} />
                       </div>
-                      <span className="text-sm font-black text-white">{progress}%</span>
+                      <span className="text-sm font-black text-foreground dark:text-white">{progress}%</span>
                     </div>
                   </div>
                   <InfoBlock label="Ultima atualizacao" value={updatedAt ? formatDate(updatedAt) : "-"} />
                 </div>
               </section>
 
-              <div className="flex border-b border-slate-800">
+              <div className="flex border-b border-border dark:border-slate-800">
                 <TabButton active={activeTab === "form"} onClick={() => setActiveTab("form")} icon={ClipboardCheck} label="Formulario de Onboarding" />
                 <TabButton active={activeTab === "kanban"} onClick={() => setActiveTab("kanban")} icon={BarChart3} label="Kanban / Tarefas" />
               </div>
               {activeTab === "form" ? (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-5 xl:grid-cols-2">
                   {sections.map((section, index) => (
                     <FormSection
                       key={section.id}
@@ -492,12 +492,12 @@ export default function MarketingB2BOnboardingForm({
                   />
                 </div>
               ) : (
-                <section className="rounded-2xl border border-slate-800 bg-[#06101f] p-6 text-slate-300">
+                <section className="marketing-b2b-form-card rounded-2xl border border-border bg-card p-6 text-muted-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:text-slate-300">
                   <div className="flex items-center gap-3">
                     <BarChart3 className="h-5 w-5 text-blue-300" />
                     <div>
-                      <h2 className="text-lg font-black text-white">Kanban / Tarefas</h2>
-                      <p className="text-sm text-slate-400">As tarefas continuam no board, mas o clique abre este formulario primeiro.</p>
+                      <h2 className="text-lg font-black text-foreground dark:text-white">Kanban / Tarefas</h2>
+                      <p className="text-sm text-muted-foreground dark:text-slate-400">As tarefas continuam no board, mas o clique abre este formulario primeiro.</p>
                     </div>
                   </div>
                 </section>
@@ -505,28 +505,28 @@ export default function MarketingB2BOnboardingForm({
             </main>
 
             <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
-              <section className="rounded-2xl border border-slate-800 bg-[#06101f] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+              <section className="marketing-b2b-form-card rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
                 <div className="mb-5 flex items-center justify-between">
-                  <h2 className="text-sm font-black uppercase tracking-[0.18em] text-slate-300">Resumo do onboarding</h2>
+                  <h2 className="text-sm font-black uppercase tracking-[0.18em] text-foreground dark:text-slate-300">Resumo do onboarding</h2>
                   <Sparkles className="h-4 w-4 text-blue-300" />
                 </div>
                 <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-full" style={{ background: `conic-gradient(#1463ff ${progress * 3.6}deg, #12213a 0deg)` }}>
-                  <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full bg-[#071327]">
-                    <span className="text-3xl font-black text-white">{progress}%</span>
-                    <span className="text-xs text-slate-400">concluido</span>
+                  <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full bg-background dark:bg-[#071327]">
+                    <span className="text-3xl font-black text-foreground dark:text-white">{progress}%</span>
+                    <span className="text-xs text-muted-foreground dark:text-slate-400">concluido</span>
                   </div>
                 </div>
-                <p className="mt-4 text-center text-sm text-slate-300"><span className="font-bold text-blue-300">{completedFields}</span> de {totalFields} campos preenchidos</p>
-                <div className="mt-5 border-t border-slate-800 pt-4">
-                  <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">Secoes</p>
+                <p className="mt-4 text-center text-sm text-muted-foreground dark:text-slate-300"><span className="font-bold text-blue-500 dark:text-blue-300">{completedFields}</span> de {totalFields} campos preenchidos</p>
+                <div className="mt-5 border-t border-border pt-4 dark:border-slate-800">
+                  <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Secoes</p>
                   <div className="space-y-3">
                     {sectionProgress.map((section) => (
                       <div key={section.id}>
-                        <div className="mb-1 flex justify-between text-xs font-semibold text-slate-300">
+                        <div className="mb-1 flex justify-between text-xs font-semibold text-muted-foreground dark:text-slate-300">
                           <span>{section.title}</span>
                           <span>{section.done}/{section.total}</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-slate-800">
+                        <div className="h-1.5 rounded-full bg-muted dark:bg-slate-800">
                           <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.round((section.done / section.total) * 100)}%` }} />
                         </div>
                       </div>
@@ -537,15 +537,15 @@ export default function MarketingB2BOnboardingForm({
 
               <section className="rounded-2xl border border-blue-500/25 bg-blue-500/10 p-5">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-200">Proxima acao recomendada</p>
-                <h3 className="mt-3 font-black text-white">{nextAction ? nextAction.title : "Finalizar onboarding"}</h3>
-                <p className="mt-1 text-sm text-slate-300">
+                <h3 className="mt-3 font-black text-foreground dark:text-white">{nextAction ? nextAction.title : "Finalizar onboarding"}</h3>
+                <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
                   {nextAction ? "Complete os campos pendentes desta secao para destravar a validacao final." : "Todas as secoes principais estao preenchidas."}
                 </p>
               </section>
 
-              <section className="rounded-2xl border border-slate-800 bg-[#06101f] p-5">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Atividade recente</p>
-                <div className="mt-4 space-y-3 text-sm text-slate-300">
+              <section className="marketing-b2b-form-card rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f]">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Atividade recente</p>
+                <div className="mt-4 space-y-3 text-sm text-muted-foreground dark:text-slate-300">
                   <ActivityLine icon={CheckCircle2} title={saveState === "saving" ? "Salvando alteracoes" : "Alteracoes salvas"} subtitle={updatedAt ? formatDate(updatedAt) : "Agora"} />
                   <ActivityLine icon={ClipboardCheck} title={form.status === "complete" ? "Onboarding finalizado" : "Onboarding iniciado"} subtitle={form.task.assignee?.name ?? "UP Flow"} />
                 </div>
@@ -553,9 +553,9 @@ export default function MarketingB2BOnboardingForm({
             </aside>
           </div>
 
-          <div className="sticky bottom-4 z-10 mt-5 rounded-2xl border border-slate-800 bg-[#06101f]/95 p-4 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur">
+          <div className="marketing-b2b-form-card sticky bottom-4 z-10 mt-5 rounded-2xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur dark:border-slate-800 dark:bg-[#06101f]/95 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-3 text-sm text-slate-300">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground dark:text-slate-300">
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-300">
                   {saveState === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 </span>
@@ -563,7 +563,7 @@ export default function MarketingB2BOnboardingForm({
                 <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300">{saveState === "saving" ? "Salvando" : "Tudo salvo"}</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => void savePatch({ values: form.values })} disabled={!form.can_edit || saving} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-200 hover:border-blue-400/60 disabled:opacity-50">
+                <button type="button" onClick={() => void savePatch({ values: form.values })} disabled={!form.can_edit || saving} className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200">
                   <Save className="h-4 w-4" /> Salvar resumo
                 </button>
                 <button type="button" onClick={finalize} disabled={!form.can_edit || saving} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-2 text-sm font-black text-white shadow-[0_14px_34px_rgba(37,99,235,0.35)] disabled:opacity-50">
@@ -580,11 +580,11 @@ export default function MarketingB2BOnboardingForm({
 
 function InfoBlock({ label, value, avatar }: { label: string; value: string; avatar?: string }) {
   return (
-    <div className="min-w-0 border-slate-800 sm:border-r sm:last:border-r-0">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
+    <div className="min-w-0 border-border dark:border-slate-800 sm:border-r sm:last:border-r-0">
+      <p className="text-xs font-semibold text-muted-foreground dark:text-slate-500">{label}</p>
       <div className="mt-2 flex items-center gap-2">
         {avatar && <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white">{avatar}</span>}
-        <p className="truncate text-sm font-bold text-white">{value}</p>
+        <p className="truncate text-sm font-bold text-foreground dark:text-white">{value}</p>
       </div>
     </div>
   );
@@ -592,7 +592,7 @@ function InfoBlock({ label, value, avatar }: { label: string; value: string; ava
 
 function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: ComponentType<{ className?: string }>; label: string }) {
   return (
-    <button type="button" onClick={onClick} className={cn("inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-black", active ? "border-blue-500 text-white" : "border-transparent text-slate-400 hover:text-white")}>
+    <button type="button" onClick={onClick} className={cn("inline-flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-black", active ? "border-blue-500 text-foreground dark:text-white" : "border-transparent text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white")}>
       <Icon className="h-4 w-4" /> {label}
     </button>
   );
@@ -600,15 +600,15 @@ function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; on
 
 function SectionShell({ index, title, accent, open, onToggle, children, done, total }: { index: number; title: string; accent: keyof typeof accentClasses; open: boolean; onToggle: () => void; children: ReactNode; done: number; total: number }) {
   return (
-    <section className={cn("rounded-2xl border bg-[#06101f] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.25)]", accentClasses[accent])}>
-      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 border-b border-slate-800/80 pb-3 text-left">
+    <section className={cn("marketing-b2b-form-card rounded-2xl border bg-card p-4 text-card-foreground shadow-sm dark:bg-[#06101f] dark:shadow-[0_18px_60px_rgba(0,0,0,0.25)]", accentClasses[accent])}>
+      <button type="button" onClick={onToggle} className="flex w-full items-center justify-between gap-3 border-b border-border pb-3 text-left dark:border-slate-800/80">
         <div className="flex min-w-0 items-center gap-3">
           <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-black", accentClasses[accent])}>{index}</span>
-          <h2 className="truncate text-sm font-black uppercase tracking-[0.04em] text-white">{title}</h2>
+          <h2 className="truncate text-sm font-black uppercase tracking-[0.04em] text-foreground dark:text-white">{title}</h2>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-black text-slate-300">{done}/{total}</span>
-          <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", open && "rotate-180")} />
+          <span className="text-sm font-black text-muted-foreground dark:text-slate-300">{done}/{total}</span>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform dark:text-slate-400", open && "rotate-180")} />
         </div>
       </button>
       {open && <div className="mt-4">{children}</div>}
@@ -620,12 +620,12 @@ function FormSection({ index, section, values, open, canEdit, onToggle, onChange
   const done = section.fields.filter((field) => isFilled(values, field.key)).length;
   return (
     <SectionShell index={index} title={section.title} accent={section.accent} open={open} onToggle={onToggle} done={done} total={section.fields.length}>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         {section.fields.map((field) => (
           <FieldControl key={field.key} field={field} value={getValue(values, field.key)} disabled={!canEdit} onChange={(value) => onChange(field.key, value)} />
         ))}
       </div>
-      <button type="button" onClick={onToggle} className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950/50 text-sm font-black text-slate-200 hover:border-blue-400/60">
+      <button type="button" onClick={onToggle} className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background/70 text-sm font-black text-foreground hover:border-blue-400/60 dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-200">
         Editar secao <ChevronDown className="h-4 w-4 -rotate-90" />
       </button>
     </SectionShell>
@@ -634,10 +634,10 @@ function FormSection({ index, section, values, open, canEdit, onToggle, onChange
 
 function FieldControl({ field, value, disabled, onChange }: { field: FieldConfig; value: string; disabled: boolean; onChange: (value: string) => void }) {
   const Icon = field.icon;
-  const inputClass = "mt-1 w-full rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2 text-sm font-semibold text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:opacity-60";
+  const inputClass = "mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600";
   return (
-    <label className={cn("min-w-0", field.span === "full" && "sm:col-span-2")}>
-      <span className="flex items-center gap-2 text-xs font-semibold text-slate-400">
+    <label className={cn("min-w-0", field.span === "full" && "md:col-span-2")}>
+      <span className="flex items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
         <Icon className="h-3.5 w-3.5 text-blue-300" /> {field.label}
       </span>
       {field.type === "textarea" ? (
@@ -657,18 +657,18 @@ function FieldControl({ field, value, disabled, onChange }: { field: FieldConfig
 function ResponsibleBrandSection({ open, values, canEdit, onToggle, onChange }: { open: boolean; values: FormValues; canEdit: boolean; onToggle: () => void; onChange: (field: string, value: string) => void }) {
   const done = brandResponsibleRows.filter(([rowKey]) => responsibleColumns.some(([columnKey]) => isFilled(values, `brandResponsible.${rowKey}.${columnKey}`))).length;
   return (
-    <div className="lg:col-span-2">
+    <div className="xl:col-span-2">
       <SectionShell index={4} title="Responsaveis da marca" accent="pink" open={open} onToggle={onToggle} done={done} total={brandResponsibleRows.length}>
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
-          <div className="grid min-w-[880px] grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] border-b border-slate-800 bg-slate-950/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+        <div className="overflow-x-auto rounded-xl border border-border dark:border-slate-800">
+          <div className="grid min-w-[900px] grid-cols-[1.1fr_repeat(5,minmax(120px,1fr))] gap-2 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
             <span>Area</span>
             {responsibleColumns.map(([, label]) => <span key={label}>{label}</span>)}
           </div>
           {brandResponsibleRows.map(([rowKey, label]) => (
-            <div key={rowKey} className="grid min-w-[880px] grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr] gap-2 border-b border-slate-800 px-3 py-2 last:border-b-0">
-              <span className="self-center text-sm font-bold text-white">{label}</span>
+            <div key={rowKey} className="grid min-w-[900px] grid-cols-[1.1fr_repeat(5,minmax(120px,1fr))] gap-2 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+              <span className="self-center text-sm font-bold text-foreground dark:text-white">{label}</span>
               {responsibleColumns.map(([columnKey]) => (
-                <input key={columnKey} value={getValue(values, `brandResponsible.${rowKey}.${columnKey}`)} disabled={!canEdit} onChange={(event) => onChange(`brandResponsible.${rowKey}.${columnKey}`, event.target.value)} className="h-9 min-w-0 rounded-lg border border-slate-800 bg-slate-950/70 px-2 text-xs font-semibold text-white outline-none focus:border-blue-500 disabled:opacity-60" />
+                <input key={columnKey} value={getValue(values, `brandResponsible.${rowKey}.${columnKey}`)} disabled={!canEdit} onChange={(event) => onChange(`brandResponsible.${rowKey}.${columnKey}`, event.target.value)} className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white" />
               ))}
             </div>
           ))}
@@ -684,20 +684,20 @@ function UpResponsibleSection({ open, assignments, teamUsers, canEdit, contracte
     : contractedServices.map((service) => ({ id: service, service, leader_id: null, department_id: null, department_name: "Marketing B2B", status: "needs_mapping", notes: null, leader: null, department: null }));
   const done = rows.filter((row) => Boolean(row.leader_id)).length;
   return (
-    <div className="lg:col-span-2">
+    <div className="xl:col-span-2">
       <SectionShell index={5} title="Responsaveis UP por servico" accent="cyan" open={open} onToggle={onToggle} done={done} total={Math.max(rows.length, 1)}>
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
-          <div className="grid min-w-[760px] grid-cols-[1fr_1fr_1.2fr_0.8fr] border-b border-slate-800 bg-slate-950/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+        <div className="overflow-x-auto rounded-xl border border-border dark:border-slate-800">
+          <div className="grid min-w-[780px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-2 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
             <span>Servico</span>
             <span>Departamento UP</span>
             <span>Responsavel UP</span>
             <span>Status</span>
           </div>
           {rows.map((assignment) => (
-            <div key={assignment.id} className="grid min-w-[760px] grid-cols-[1fr_1fr_1.2fr_0.8fr] gap-2 border-b border-slate-800 px-3 py-2 last:border-b-0">
-              <span className="self-center text-sm font-bold text-white">{assignment.service}</span>
-              <span className="self-center text-sm text-slate-300">{assignment.department?.name ?? assignment.department_name ?? "Marketing B2B"}</span>
-              <select value={assignment.leader_id ?? ""} disabled={!canEdit || !assignment.id} onChange={(event) => onChange(assignment, event.target.value)} className="h-9 rounded-lg border border-slate-800 bg-slate-950/70 px-2 text-sm font-semibold text-white outline-none focus:border-blue-500 disabled:opacity-60">
+            <div key={assignment.id} className="grid min-w-[780px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-2 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+              <span className="self-center text-sm font-bold text-foreground dark:text-white">{assignment.service}</span>
+              <span className="self-center text-sm text-muted-foreground dark:text-slate-300">{assignment.department?.name ?? assignment.department_name ?? "Marketing B2B"}</span>
+              <select value={assignment.leader_id ?? ""} disabled={!canEdit || !assignment.id} onChange={(event) => onChange(assignment, event.target.value)} className="h-9 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white">
                 <option value="">Selecionar responsavel</option>
                 {teamUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
               </select>
@@ -715,18 +715,18 @@ function UpResponsibleSection({ open, assignments, teamUsers, canEdit, contracte
 function AccessSection({ open, values, canEdit, onToggle, onChange }: { open: boolean; values: FormValues; canEdit: boolean; onToggle: () => void; onChange: (field: string, value: string) => void }) {
   const done = accessRows.filter(([rowKey]) => isFilled(values, `access.${rowKey}.status`)).length;
   return (
-    <div className="lg:col-span-2">
+    <div className="xl:col-span-2">
       <SectionShell index={6} title="Acessos" accent="teal" open={open} onToggle={onToggle} done={done} total={accessRows.length}>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {accessRows.map(([rowKey, label]) => (
-            <div key={rowKey} className="rounded-xl border border-slate-800 bg-slate-950/45 p-3">
-              <p className="mb-2 text-sm font-black text-white">{label}</p>
+            <div key={rowKey} className="rounded-xl border border-border bg-background/70 p-3 dark:border-slate-800 dark:bg-slate-950/45">
+              <p className="mb-2 text-sm font-black text-foreground dark:text-white">{label}</p>
               <div className="grid gap-2 sm:grid-cols-[0.9fr_1.1fr]">
-                <select value={getValue(values, `access.${rowKey}.status`)} disabled={!canEdit} onChange={(event) => onChange(`access.${rowKey}.status`, event.target.value)} className="h-9 rounded-lg border border-slate-800 bg-slate-950/70 px-2 text-xs font-bold text-white outline-none focus:border-blue-500 disabled:opacity-60">
+                <select value={getValue(values, `access.${rowKey}.status`)} disabled={!canEdit} onChange={(event) => onChange(`access.${rowKey}.status`, event.target.value)} className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white">
                   <option value="">Status</option>
                   {accessStatusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
-                <input value={getValue(values, `access.${rowKey}.notes`)} disabled={!canEdit} onChange={(event) => onChange(`access.${rowKey}.notes`, event.target.value)} placeholder="Link, usuario ou observacao" className="h-9 rounded-lg border border-slate-800 bg-slate-950/70 px-2 text-xs font-semibold text-white outline-none placeholder:text-slate-600 focus:border-blue-500 disabled:opacity-60" />
+                <input value={getValue(values, `access.${rowKey}.notes`)} disabled={!canEdit} onChange={(event) => onChange(`access.${rowKey}.notes`, event.target.value)} placeholder="Link, usuario ou observacao" className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600" />
               </div>
             </div>
           ))}
@@ -756,9 +756,9 @@ function ValidationSection({ open, progress, pendingSections, serviceAssignments
 
 function ValidationItem({ label, value, ok }: { label: string; value: string; ok: boolean }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+    <div className="rounded-xl border border-border bg-background/70 p-3 dark:border-slate-800 dark:bg-slate-950/50">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold text-slate-300">{label}</span>
+        <span className="text-sm font-semibold text-muted-foreground dark:text-slate-300">{label}</span>
         <span className={cn("rounded-full px-2.5 py-1 text-xs font-black", ok ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300")}>{value}</span>
       </div>
     </div>
@@ -772,8 +772,8 @@ function ActivityLine({ icon: Icon, title, subtitle }: { icon: ComponentType<{ c
         <Icon className="h-3.5 w-3.5" />
       </span>
       <div>
-        <p className="font-bold text-white">{title}</p>
-        <p className="text-xs text-slate-500">{subtitle}</p>
+        <p className="font-bold text-foreground dark:text-white">{title}</p>
+        <p className="text-xs text-muted-foreground dark:text-slate-500">{subtitle}</p>
       </div>
     </div>
   );

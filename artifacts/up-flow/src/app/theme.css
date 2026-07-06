@@ -341,3 +341,60 @@ html.light .upflow-client-mini-icon {
   color: #2563eb !important;
   box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12) !important;
 }
+
+html.light .onboarding-queue-shell,
+html.light .marketing-b2b-form-shell,
+html.light .support-onboarding-form-shell {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%) !important;
+  color: #0f172a !important;
+}
+
+html.light .onboarding-queue-shell :is(section, article),
+html.light .marketing-b2b-form-shell .marketing-b2b-form-card,
+html.light .support-onboarding-form-shell .support-onboarding-form-card {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(148, 163, 184, 0.42) !important;
+  color: #0f172a !important;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08) !important;
+}
+
+html.light .onboarding-queue-shell [class*="bg-[#"],
+html.light .marketing-b2b-form-shell [class*="bg-[#"],
+html.light .support-onboarding-form-shell [class*="bg-[#"] {
+  background-color: rgba(255, 255, 255, 0.86) !important;
+}
+
+html.light .onboarding-queue-shell :is(.text-white, .text-slate-100, .text-slate-200),
+html.light .marketing-b2b-form-shell :is(.text-white, .text-slate-100, .text-slate-200),
+html.light .support-onboarding-form-shell :is(.text-white, .text-slate-100, .text-slate-200) {
+  color: #0f172a !important;
+}
+
+html.light .onboarding-queue-shell :is(.text-slate-300, .text-slate-400, .text-slate-500),
+html.light .marketing-b2b-form-shell :is(.text-slate-300, .text-slate-400, .text-slate-500),
+html.light .support-onboarding-form-shell :is(.text-slate-300, .text-slate-400, .text-slate-500) {
+  color: #475569 !important;
+}
+
+html.light .marketing-b2b-form-shell :is(input, textarea, select),
+html.light .support-onboarding-form-shell :is(input, textarea, select) {
+  background-color: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.55) !important;
+  color: #0f172a !important;
+}
+
+html.light .marketing-b2b-form-shell :is(input, textarea)::placeholder,
+html.light .support-onboarding-form-shell :is(input, textarea)::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.light .marketing-b2b-form-shell .bg-gradient-to-r,
+html.light .support-onboarding-form-shell .bg-gradient-to-r {
+  color: #ffffff !important;
+}
+
+html.light .marketing-b2b-form-shell [class*="border-slate"],
+html.light .support-onboarding-form-shell [class*="border-slate"],
+html.light .onboarding-queue-shell [class*="border-slate"] {
+  border-color: rgba(148, 163, 184, 0.38) !important;
+}
