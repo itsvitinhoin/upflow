@@ -3,6 +3,7 @@ import type { AuthUser } from "@/lib/auth-helpers";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
 import { logError } from "@/lib/log-error";
+import { ownerKeyForDepartmentLabel, ownerKeyForTaskRoute } from "@/lib/onboarding-department-owners";
 import { prisma } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/supabase-server";
 
@@ -1125,12 +1126,24 @@ async function createOnboardingRecords(
       leader: { select: { id: true, name: true, email: true } },
     },
   });
-  const mappingByService = new Map(mappingRows.map((mapping) => [serviceKey(mapping.service), mapping]));
+  const departmentMappingByKey = new Map<string, (typeof mappingRows)[number]>();
+  for (const mapping of mappingRows) {
+    const key = ownerKeyForDepartmentLabel(mapping.service);
+    if (key) departmentMappingByKey.set(key, mapping);
+  }
+  const departmentMappingForRoute = (route: OnboardingTaskRoute) => departmentMappingByKey.get(ownerKeyForTaskRoute(route));
+  const ownerForDepartmentRoute = async (route: OnboardingTaskRoute, fallback: UserRef | null) =>
+    departmentMappingForRoute(route)?.leader ?? ownerForRoute(tx, company.workspace_id, route, fallback);
+  const departmentForDepartmentRoute = async (route: OnboardingTaskRoute) =>
+    departmentMappingForRoute(route)?.department ?? departmentForRoute(tx, company.workspace_id, route);
+
   const adminFallback = await findAdminFallback(tx, company.workspace_id);
-  const financeOwner = await ownerForRoute(tx, company.workspace_id, "finance", adminFallback);
-  const supportOwner = await ownerForRoute(tx, company.workspace_id, "support", adminFallback);
-  const commercialOwner = await ownerForRoute(tx, company.workspace_id, "commercial", adminFallback);
-  const creativeOwner = await ownerForRoute(tx, company.workspace_id, "creative_design", adminFallback);
+  const financeOwner = await ownerForDepartmentRoute("finance", adminFallback);
+  const supportOwner = await ownerForDepartmentRoute("support", adminFallback);
+  const commercialOwner = await ownerForDepartmentRoute("commercial", adminFallback);
+  const creativeOwner = await ownerForDepartmentRoute("creative_design", adminFallback);
+  const productionOwner = departmentMappingByKey.get("production")?.leader ?? null;
+  const technicalVisitOwner = productionOwner ?? creativeOwner;
   const salespersonId =
     input.responsibleSalespersonId ??
     sourceProject?.responsible_salesperson_id ??
@@ -1295,7 +1308,7 @@ async function createOnboardingRecords(
       "Creative & Design queue action: schedule the visita tecnica with the client and link the calendar event back to onboarding.",
     status: "todo",
     priority: "medium",
-    assignee_id: creativeOwner?.id ?? null,
+    assignee_id: technicalVisitOwner?.id ?? null,
     position: 5,
   });
 
@@ -1337,7 +1350,7 @@ async function createOnboardingRecords(
       companyId: company.id,
     },
     {
-      userId: creativeOwner?.id,
+      userId: technicalVisitOwner?.id,
       taskId: creativeTechnicalVisitTask.id,
       workspaceId: company.workspace_id,
       onboardingId: onboarding.id,
@@ -1347,7 +1360,10 @@ async function createOnboardingRecords(
     },
   );
 
-  const allMapped = contractedServices.every((service) => mappingByService.get(serviceKey(service))?.leader_id);
+  const allMapped = contractedServices.every((service) => {
+    const route = routeForService(service) ?? "commercial";
+    return Boolean(departmentMappingForRoute(route)?.leader_id);
+  });
   await tx.onboardingChecklistItem.createMany({
     data: [
       {
@@ -1388,7 +1404,7 @@ async function createOnboardingRecords(
         status: allMapped ? "complete" : "pending",
         completed_at: allMapped ? new Date() : null,
         completed_by: allMapped ? input.actorId : null,
-        notes: allMapped ? null : "One or more services are using fallback owners and need service leader mapping.",
+        notes: allMapped ? null : "One or more departments are using fallback owners and need department responsible mapping.",
         sort_order: 30,
       },
       {
@@ -1415,7 +1431,7 @@ async function createOnboardingRecords(
         task_id: creativeTechnicalVisitTask.id,
         department: "Creative & Design",
         title: "Visita tecnica scheduled",
-        owner_id: creativeOwner?.id ?? null,
+        owner_id: technicalVisitOwner?.id ?? null,
         sort_order: 60,
       },
     ],
@@ -1441,14 +1457,14 @@ async function createOnboardingRecords(
   }> = [];
 
   for (const service of b2bFormServices) {
-    const mapping = mappingByService.get(serviceKey(service));
-    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2b", adminFallback);
-    const fallbackDepartment = await departmentForRoute(tx, company.workspace_id, "marketing_b2b");
+    const mapping = departmentMappingForRoute("marketing_b2b");
+    const fallbackLeader = await ownerForDepartmentRoute("marketing_b2b", adminFallback);
+    const fallbackDepartment = await departmentForDepartmentRoute("marketing_b2b");
     const leaderId = mapping?.leader_id ?? fallbackLeader?.id ?? null;
     const departmentId = mapping?.department_id ?? fallbackDepartment?.id ?? null;
     const departmentName = mapping?.department?.name ?? fallbackDepartment?.name ?? "Marketing B2B";
     const needsMapping = !mapping?.leader_id;
-    if (needsMapping) missingMappings.push(service);
+    if (needsMapping) missingMappings.push("Marketing B2B");
 
     await tx.onboardingServiceAssignment.create({
       data: {
@@ -1459,14 +1475,14 @@ async function createOnboardingRecords(
         department_id: departmentId,
         department_name: departmentName,
         status: needsMapping ? "needs_mapping" : "assigned",
-        notes: needsMapping ? "Needs service leader mapping. Fallback owner was assigned for continuity." : null,
+        notes: needsMapping ? "Needs Marketing B2B department responsible mapping. Fallback owner was assigned for continuity." : null,
       },
     });
     b2bAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
   }
 
   if (b2bFormServices.length > 0) {
-    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2b", adminFallback);
+    const fallbackLeader = await ownerForDepartmentRoute("marketing_b2b", adminFallback);
     const formOwnerId = b2bAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
     const b2bProjectId = await resolveMarketingB2BOnboardingProjectId(tx, {
       workspaceId: company.workspace_id,
@@ -1493,7 +1509,7 @@ async function createOnboardingRecords(
         title: "Marketing B2B onboarding form completed",
         owner_id: formOwnerId,
         notes: b2bAssignments.some((assignment) => assignment.needsMapping)
-          ? "One or more B2B services are using fallback owners and need service leader mapping."
+          ? "Marketing B2B department responsible is missing; fallback owner assigned until mapping is completed."
           : null,
         sort_order: position,
       },
@@ -1574,14 +1590,14 @@ async function createOnboardingRecords(
   }> = [];
 
   for (const service of b2cFormServices) {
-    const mapping = mappingByService.get(serviceKey(service));
-    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2c", adminFallback);
-    const fallbackDepartment = await departmentForRoute(tx, company.workspace_id, "marketing_b2c");
+    const mapping = departmentMappingForRoute("marketing_b2c");
+    const fallbackLeader = await ownerForDepartmentRoute("marketing_b2c", adminFallback);
+    const fallbackDepartment = await departmentForDepartmentRoute("marketing_b2c");
     const leaderId = mapping?.leader_id ?? fallbackLeader?.id ?? null;
     const departmentId = mapping?.department_id ?? fallbackDepartment?.id ?? null;
     const departmentName = mapping?.department?.name ?? fallbackDepartment?.name ?? "Marketing B2C";
     const needsMapping = !mapping?.leader_id;
-    if (needsMapping) missingMappings.push(service);
+    if (needsMapping) missingMappings.push("Marketing B2C");
 
     await tx.onboardingServiceAssignment.create({
       data: {
@@ -1592,14 +1608,14 @@ async function createOnboardingRecords(
         department_id: departmentId,
         department_name: departmentName,
         status: needsMapping ? "needs_mapping" : "assigned",
-        notes: needsMapping ? "Needs service leader mapping. Fallback owner was assigned for continuity." : null,
+        notes: needsMapping ? "Needs Marketing B2C department responsible mapping. Fallback owner was assigned for continuity." : null,
       },
     });
     b2cAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
   }
 
   if (b2cFormServices.length > 0) {
-    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, "marketing_b2c", adminFallback);
+    const fallbackLeader = await ownerForDepartmentRoute("marketing_b2c", adminFallback);
     const formOwnerId = b2cAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
     const b2cProjectId = await resolveMarketingB2COnboardingProjectId(tx, {
       workspaceId: company.workspace_id,
@@ -1626,7 +1642,7 @@ async function createOnboardingRecords(
         title: "Marketing B2C onboarding form completed",
         owner_id: formOwnerId,
         notes: b2cAssignments.some((assignment) => assignment.needsMapping)
-          ? "One or more B2C services are using fallback owners and need service leader mapping."
+          ? "Marketing B2C department responsible is missing; fallback owner assigned until mapping is completed."
           : null,
         sort_order: position,
       },
@@ -1698,14 +1714,14 @@ async function createOnboardingRecords(
     if (b2bFormServiceKeys.has(serviceKey(service)) || b2cFormServiceKeys.has(serviceKey(service))) continue;
     const route = routeForService(service);
     const assignmentRoute = route ?? "commercial";
-    const mapping = mappingByService.get(serviceKey(service));
-    const fallbackLeader = await ownerForRoute(tx, company.workspace_id, assignmentRoute, adminFallback);
-    const fallbackDepartment = await departmentForRoute(tx, company.workspace_id, assignmentRoute);
+    const mapping = departmentMappingForRoute(assignmentRoute);
+    const fallbackLeader = await ownerForDepartmentRoute(assignmentRoute, adminFallback);
+    const fallbackDepartment = await departmentForDepartmentRoute(assignmentRoute);
     const leaderId = mapping?.leader_id ?? fallbackLeader?.id ?? null;
     const departmentId = mapping?.department_id ?? fallbackDepartment?.id ?? null;
     const departmentName = mapping?.department?.name ?? fallbackDepartment?.name ?? null;
     const needsMapping = !mapping?.leader_id;
-    if (needsMapping) missingMappings.push(service);
+    if (needsMapping) missingMappings.push(mapping?.department?.name ?? fallbackDepartment?.name ?? service);
 
     const serviceProjectId = await queueProjectId(route);
     const serviceTask = await createTask({
@@ -1726,7 +1742,7 @@ async function createOnboardingRecords(
         department: "Service Onboarding",
         title: `${service} onboarding meeting scheduled`,
         owner_id: leaderId,
-        notes: needsMapping ? "Service leader mapping missing; fallback owner assigned." : null,
+        notes: needsMapping ? "Department responsible mapping missing; fallback owner assigned." : null,
         sort_order: position,
       },
     });
@@ -1739,7 +1755,7 @@ async function createOnboardingRecords(
         department_id: departmentId,
         department_name: departmentName,
         status: needsMapping ? "needs_mapping" : "assigned",
-        notes: needsMapping ? "Needs service leader mapping. Fallback owner was assigned for continuity." : null,
+        notes: needsMapping ? "Needs department responsible mapping. Fallback owner was assigned for continuity." : null,
       },
     });
     await tx.onboardingMeeting.create({

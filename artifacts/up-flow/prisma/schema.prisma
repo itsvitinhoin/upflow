@@ -125,6 +125,7 @@ model User {
   onboarding_contracts     ClientContract[]        @relation("ClientContractUploader")
   support_groups_created   SupportGroup[]          @relation("SupportGroupCreator")
   service_leader_mappings  ServiceLeaderMapping[]  @relation("ServiceLeaderMappingLeader")
+  service_backup_mappings  ServiceLeaderMapping[]  @relation("ServiceLeaderMappingBackupLeader")
   marketing_b2b_onboarding_forms_completed MarketingB2BOnboardingForm[] @relation("MarketingB2BOnboardingFormCompleter")
   marketing_b2c_onboarding_forms_completed MarketingB2COnboardingForm[] @relation("MarketingB2COnboardingFormCompleter")
 }
@@ -690,16 +691,19 @@ model ServiceLeaderMapping {
   workspace_id  String
   service       String
   leader_id     String?
+  backup_leader_id String?
   department_id String?
   active        Boolean   @default(true)
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt
   workspace     Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   leader        User?     @relation("ServiceLeaderMappingLeader", fields: [leader_id], references: [id], onDelete: SetNull)
+  backup_leader User?     @relation("ServiceLeaderMappingBackupLeader", fields: [backup_leader_id], references: [id], onDelete: SetNull)
   department    Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
 
   @@unique([workspace_id, service])
   @@index([leader_id])
+  @@index([backup_leader_id])
   @@index([department_id])
 }
 

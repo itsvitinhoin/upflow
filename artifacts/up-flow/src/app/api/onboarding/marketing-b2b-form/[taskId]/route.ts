@@ -50,7 +50,20 @@ async function loadForm(taskId: string) {
           status: true,
           progress: true,
           contracted_services: true,
-        },
+          service_assignments: {
+            orderBy: [{ service: "asc" }],
+            select: {
+              id: true,
+              service: true,
+              leader_id: true,
+              department_id: true,
+              department_name: true,
+              status: true,
+              notes: true,
+              leader: { select: { id: true, name: true, email: true } },
+              department: { select: { id: true, name: true } },
+            },
+          },        },
       },
       checklist_item: {
         select: {
@@ -83,6 +96,7 @@ function responseBody(
     status: form.status,
     values: valuesObject(form.values),
     completed_at: form.completed_at,
+    updated_at: form.updated_at,
     completed_by: form.completed_by,
     completer: form.completer,
     can_edit: canEdit,
@@ -220,7 +234,20 @@ async function PATCH_handler(
             status: true,
             progress: true,
             contracted_services: true,
-          },
+          service_assignments: {
+            orderBy: [{ service: "asc" }],
+            select: {
+              id: true,
+              service: true,
+              leader_id: true,
+              department_id: true,
+              department_name: true,
+              status: true,
+              notes: true,
+              leader: { select: { id: true, name: true, email: true } },
+              department: { select: { id: true, name: true } },
+            },
+          },          },
         },
         checklist_item: {
           select: {
