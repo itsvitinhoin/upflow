@@ -34,11 +34,24 @@ async function loadEvent(id: string) {
   });
 }
 
-function canManageEvent(
+async function canManageEvent(
   auth: AuthUser,
   event: { workspace_id: string; created_by: string },
 ) {
-  return isWorkspaceAdminFor(auth, event.workspace_id) || event.created_by === auth.prismaUser.id;
+  if (event.created_by === auth.prismaUser.id) return true;
+  if (isWorkspaceAdminFor(auth, event.workspace_id)) return true;
+
+  const membership = await prisma.workspaceMember.findFirst({
+    where: {
+      workspace_id: event.workspace_id,
+      user_id: auth.prismaUser.id,
+      status: "active",
+      role: { in: ["owner", "admin"] },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(membership);
 }
 
 async function GET_handler(
@@ -71,7 +84,7 @@ async function PATCH_handler(
   if (!canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canManageEvent(auth, existing)) {
+  if (!(await canManageEvent(auth, existing))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -190,7 +203,7 @@ async function DELETE_handler(
   if (!canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canManageEvent(auth, existing)) {
+  if (!(await canManageEvent(auth, existing))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
