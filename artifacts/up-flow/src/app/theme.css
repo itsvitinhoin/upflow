@@ -1,0 +1,93 @@
+.light {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 224 86% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 214 32% 91%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 214 32% 91%;
+  --muted-foreground: 215 16% 40%;
+  --accent: 214 32% 91%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 350 75% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 86%;
+  --input: 214 32% 86%;
+  --ring: 224 86% 55%;
+  --sidebar: 0 0% 100%;
+  --sidebar-foreground: 222 47% 11%;
+  --sidebar-border: 214 32% 86%;
+  --sidebar-primary: 224 86% 55%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 214 32% 92%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-ring: 224 86% 55%;
+  --upflow-accent: 224 86% 55%;
+  --upflow-success: 152 54% 35%;
+  --upflow-warning: 32 86% 44%;
+  --upflow-danger: 350 75% 48%;
+  --upflow-stat-1-from: 152 45% 45%;
+  --upflow-stat-1-to: 210 40% 96%;
+  --upflow-stat-2-from: 220 70% 58%;
+  --upflow-stat-2-to: 210 40% 96%;
+  --upflow-stat-3-from: 18 78% 58%;
+  --upflow-stat-3-to: 210 40% 96%;
+  --chart-1: 245 76% 58%;
+  --chart-2: 159 72% 36%;
+  --chart-3: 36 86% 45%;
+  --chart-4: 348 76% 55%;
+  --chart-5: 271 65% 50%;
+}
+
+html.light {
+  color-scheme: light;
+  background-color: hsl(var(--background));
+}
+
+html.light body {
+  background:
+    radial-gradient(circle at 14% -12%, rgba(37, 99, 235, 0.12), transparent 36%),
+    radial-gradient(circle at 90% -10%, rgba(124, 58, 237, 0.1), transparent 34%),
+    linear-gradient(180deg, #f8fafc 0%, #eef4ff 48%, #f8fafc 100%);
+}
+
+html.light select {
+  color-scheme: light;
+}
+
+html.light input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
+html.light .glass,
+html.light .glass-strong,
+html.light .glass-rail,
+html.light .glass-header {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(37, 99, 235, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9));
+  border-color: rgba(37, 99, 235, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 18px 50px rgba(15, 23, 42, 0.08);
+}
+
+html.light .glass-rail {
+  border-right-color: rgba(37, 99, 235, 0.18);
+}
+
+html.light .glass-header {
+  border-bottom-color: rgba(37, 99, 235, 0.14);
+}
+
+html.light .upflow-panel {
+  background:
+    radial-gradient(circle at 4% 0%, rgba(37, 99, 235, 0.1), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.9));
+  border-color: rgba(37, 99, 235, 0.14);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.1);
+}

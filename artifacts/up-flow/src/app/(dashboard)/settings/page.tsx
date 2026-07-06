@@ -1,16 +1,25 @@
 "use client";
 
+import { type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, KeyRound, RefreshCcw, ShieldCheck, SlidersHorizontal, UserRound } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Activity,
+  KeyRound,
+  Loader2,
+  Mail,
+  Phone,
+  RefreshCcw,
+  Save,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserRound,
+} from "lucide-react";
+import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
 
 const settingsCards = [
-  {
-    icon: UserRound,
-    titleKey: "settings.accountTitle",
-    descriptionKey: "settings.accountDescription",
-  },
   {
     icon: SlidersHorizontal,
     titleKey: "settings.workspaceTitle",
@@ -41,8 +50,106 @@ const settingsCards = [
   },
 ];
 
+type ProfileState = {
+  name: string;
+  email: string;
+  phone: string;
+};
+
+const emptyProfile: ProfileState = {
+  name: "",
+  email: "",
+  phone: "",
+};
+
 export default function SettingsPage() {
   const { t } = useLanguage();
+  const router = useRouter();
+  const [profile, setProfile] = useState<ProfileState>(emptyProfile);
+  const [initialEmail, setInitialEmail] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfile() {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || "Could not load your profile");
+        }
+        if (!active) return;
+        const nextProfile = {
+          name: data.name ?? "",
+          email: data.email ?? "",
+          phone: data.phone ?? "",
+        };
+        setProfile(nextProfile);
+        setInitialEmail(nextProfile.email);
+        setProfileError(null);
+      } catch (err) {
+        if (!active) return;
+        const message = err instanceof Error ? err.message : "Could not load your profile";
+        setProfileError(message);
+      } finally {
+        if (active) setLoadingProfile(false);
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingProfile(true);
+    setProfileError(null);
+
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: profile.name,
+          email: profile.email,
+          phone: profile.phone.trim() ? profile.phone : null,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Could not update your profile");
+      }
+
+      const nextProfile = {
+        name: data.name ?? "",
+        email: data.email ?? "",
+        phone: data.phone ?? "",
+      };
+      setProfile(nextProfile);
+      setInitialEmail(nextProfile.email);
+      toast.success(
+        initialEmail && initialEmail !== nextProfile.email
+          ? "Profile updated. Use the new email the next time you sign in."
+          : "Profile updated.",
+      );
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not update your profile";
+      setProfileError(message);
+      toast.error(message);
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  const inputClassName =
+    "h-11 w-full rounded-xl border border-border bg-background/70 px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
     <>
@@ -61,7 +168,91 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <section className="rounded-2xl border border-border bg-card/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-primary">
+                <UserRound className="h-4 w-4" />
+                Account
+              </div>
+              <h2 className="mt-2 text-xl font-semibold text-foreground">Profile settings</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
+                Update the name, login email, and phone number attached to your account.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleProfileSubmit} className="mt-5 space-y-5">
+            {profileError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {profileError}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="space-y-2 text-sm font-medium text-foreground">
+                <span className="flex items-center gap-2">
+                  <UserRound className="h-4 w-4 text-muted-foreground" />
+                  Name
+                </span>
+                <input
+                  value={profile.name}
+                  onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))}
+                  className={inputClassName}
+                  disabled={loadingProfile || savingProfile}
+                  placeholder="Your name"
+                  required
+                />
+              </label>
+
+              <label className="space-y-2 text-sm font-medium text-foreground">
+                <span className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  Email
+                </span>
+                <input
+                  type="email"
+                  value={profile.email}
+                  onChange={(event) => setProfile((current) => ({ ...current, email: event.target.value }))}
+                  className={inputClassName}
+                  disabled={loadingProfile || savingProfile}
+                  placeholder="you@example.com"
+                  required
+                />
+              </label>
+
+              <label className="space-y-2 text-sm font-medium text-foreground md:col-span-2">
+                <span className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  Phone
+                </span>
+                <input
+                  value={profile.phone}
+                  onChange={(event) => setProfile((current) => ({ ...current, phone: event.target.value }))}
+                  className={inputClassName}
+                  disabled={loadingProfile || savingProfile}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-5 text-muted-foreground">
+                Your email is used for login. Updating it also updates your Supabase Auth account.
+              </p>
+              <button
+                type="submit"
+                disabled={loadingProfile || savingProfile}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save profile
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {settingsCards.map((card) => {
             const Icon = card.icon;
             const content = (
@@ -73,20 +264,16 @@ export default function SettingsPage() {
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   {t(card.descriptionKey)}
                 </p>
-                {card.actionKey ? (
-                  <p className="mt-4 text-xs font-semibold text-primary group-hover:text-blue-200">
-                    {t(card.actionKey)}
-                  </p>
-                ) : null}
+                <p className="mt-4 text-xs font-semibold text-primary group-hover:text-blue-200">
+                  {t(card.actionKey)}
+                </p>
               </div>
             );
 
-            return card.href ? (
+            return (
               <Link key={card.titleKey} href={card.href}>
                 {content}
               </Link>
-            ) : (
-              <div key={card.titleKey}>{content}</div>
             );
           })}
         </section>

@@ -5,6 +5,7 @@ import { canAccessWorkspace, isSuperAdmin, isWorkspaceAdminFor } from "@/lib/aut
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { deleteAppUserPreservingWorkspaceData, deleteSupabaseUsersByEmail } from "@/lib/user-deletion";
 
 const UpdateMemberSchema = z.object({
   role: z.enum(["owner", "admin", "member", "guest"]).optional(),
@@ -149,21 +150,62 @@ async function DELETE_handler(
     );
   }
 
-  await prisma.workspaceMember.delete({
-    where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },
+  const otherMemberships = await prisma.workspaceMember.count({
+    where: {
+      user_id: params.memberId,
+      workspace_id: { not: params.id },
+    },
   });
 
-  await recordActivity({
-    workspace_id: params.id,
-    actor_id: auth.prismaUser.id,
-    type: "workspace_member_removed",
-    entity_type: "user",
-    entity_id: params.memberId,
-    metadata: { name: membership.user.name, email: membership.user.email },
+  if (otherMemberships > 0) {
+    await prisma.workspaceMember.delete({
+      where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },
+    });
+
+    await recordActivity({
+      workspace_id: params.id,
+      actor_id: auth.prismaUser.id,
+      type: "workspace_member_removed",
+      entity_type: "user",
+      entity_id: params.memberId,
+      metadata: { name: membership.user.name, email: membership.user.email, account_deleted: false },
+    });
+
+    return NextResponse.json({ success: true, account_deleted: false });
+  }
+
+  const authDeletion = await deleteSupabaseUsersByEmail(membership.user.email);
+  if (authDeletion.error) {
+    return NextResponse.json(
+      { error: authDeletion.error },
+      { status: authDeletion.attempted ? 502 : 503 },
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await deleteAppUserPreservingWorkspaceData(tx, {
+      userId: params.memberId,
+      email: membership.user.email,
+      replacementUserId: auth.prismaUser.id,
+    });
+
+    await tx.activityEvent.create({
+      data: {
+        workspace_id: params.id,
+        actor_id: auth.prismaUser.id,
+        type: "workspace_member_removed",
+        entity_type: "user",
+        entity_id: null,
+        metadata: { account_deleted: true, supabase_auth_deleted: authDeletion.deleted },
+      },
+    });
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    account_deleted: true,
+    supabase_auth_deleted: authDeletion.deleted,
+  });
 }
-
 export const PATCH = withErrorReporting("api:workspaces/members:PATCH", PATCH_handler);
 export const DELETE = withErrorReporting("api:workspaces/members:DELETE", DELETE_handler);
