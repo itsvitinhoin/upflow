@@ -11,19 +11,16 @@ import {
   Kanban,
   Building2,
   Activity,
-  Moon,
   ClipboardCheck,
   HelpCircle,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
-  Sun,
   type LucideIcon,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
-import { useTheme } from "@/components/theme-provider";
 import type { AppUser } from "@/lib/types";
 
 export interface NavItem {
@@ -68,8 +65,6 @@ export function Rail({
   onNavigate,
 }: RailProps) {
   const { t } = useLanguage();
-  const { theme, setTheme } = useTheme();
-  const isDark = theme !== "light";
   return (
     <div className="flex h-full w-full flex-col items-center glass-rail">
       <div className="flex h-20 w-full shrink-0 items-center justify-center border-b border-blue-300/10">
@@ -140,15 +135,6 @@ export function Rail({
       </nav>
 
       <div className="flex flex-col items-center gap-2 w-full px-1 pb-1">
-        <button
-          type="button"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]"
-        >
-          {isDark ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
-        </button>
         <Link
           href="/settings"
           onClick={onNavigate}

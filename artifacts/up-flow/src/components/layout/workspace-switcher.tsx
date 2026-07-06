@@ -171,7 +171,7 @@ export default function WorkspaceSwitcher({
 
   if (!data) {
     return (
-      <div className="mx-3 mb-3 mt-3 overflow-hidden rounded-[18px] border border-blue-300/15 bg-[#071024]/80 p-3 text-xs text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_34px_rgba(37,99,235,0.12)]">
+      <div className="upflow-workspace-card mx-3 mb-3 mt-3 overflow-hidden rounded-[18px] border border-blue-300/15 bg-[#071024]/80 p-3 text-xs text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_34px_rgba(37,99,235,0.12)]">
         <div className="h-3 w-20 rounded-full bg-white/10" />
         <div className="mt-3 flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-blue-500/15" />
@@ -186,8 +186,8 @@ export default function WorkspaceSwitcher({
 
   return (
     <div ref={wrapRef} className="relative mx-3 mb-3 mt-3">
-      <div className="group relative overflow-hidden rounded-[20px] border border-blue-300/15 bg-[#071024]/80 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_42px_rgba(0,0,0,0.24),0_0_34px_rgba(37,99,235,0.12)] backdrop-blur-xl transition-all hover:border-blue-300/30 hover:bg-[#0a1430]/90 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_18px_48px_rgba(0,0,0,0.28),0_0_42px_rgba(59,130,246,0.18)]">
-        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_8%,rgba(59,130,246,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(139,92,246,0.18),transparent_28%)]" />
+      <div className="upflow-workspace-card group relative overflow-hidden rounded-[20px] border border-blue-300/15 bg-[#071024]/80 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_42px_rgba(0,0,0,0.24),0_0_34px_rgba(37,99,235,0.12)] backdrop-blur-xl transition-all hover:border-blue-300/30 hover:bg-[#0a1430]/90 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_18px_48px_rgba(0,0,0,0.28),0_0_42px_rgba(59,130,246,0.18)]">
+        <span className="upflow-workspace-glow pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_8%,rgba(59,130,246,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(139,92,246,0.18),transparent_28%)]" />
         <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/35 to-transparent" />
         <div className="relative flex items-start justify-between gap-2 px-2 pt-1">
           <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-blue-100/55">
@@ -198,7 +198,7 @@ export default function WorkspaceSwitcher({
             onClick={() => setOpen((v) => !v)}
             disabled={busy}
             aria-label={t("workspace.options")}
-            className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-blue-100/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-blue-300/35 hover:bg-blue-400/10 hover:text-blue-50"
+            className="upflow-workspace-control flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-blue-100/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-blue-300/35 hover:bg-blue-400/10 hover:text-blue-50"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
           </button>
@@ -230,7 +230,7 @@ export default function WorkspaceSwitcher({
       </div>
 
       {open && (
-        <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-[18px] border border-blue-300/20 bg-[#070b18]/95 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_42px_rgba(37,99,235,0.18)] backdrop-blur-xl">
+        <div className="upflow-workspace-menu absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-[18px] border border-blue-300/20 bg-[#070b18]/95 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_42px_rgba(37,99,235,0.18)] backdrop-blur-xl">
           <ul className="max-h-64 overflow-y-auto py-1">
             {data.workspaces.map((w) => {
               const active = w.id === data.current_workspace_id;

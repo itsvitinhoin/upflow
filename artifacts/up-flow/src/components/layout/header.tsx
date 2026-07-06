@@ -2,11 +2,12 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X } from "lucide-react";
+import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X, Moon, Sun } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
+import { useTheme } from "@/components/theme-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getCachedJson } from "@/lib/client-cache";
 import { getNotificationHref } from "@/lib/notification-links";
@@ -170,6 +171,8 @@ export default function Header({ title }: HeaderProps) {
   const router = useRouter();
   const user = useAppUser();
   const { language, toggleLanguage, t } = useLanguage();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme !== "light";
   const [search, setSearch] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -346,9 +349,9 @@ export default function Header({ title }: HeaderProps) {
               placeholder={t("header.searchPlaceholder", {
                 title: title.toLowerCase(),
               })}
-              className="upflow-focus-glow h-10 w-full rounded-full border border-blue-300/10 bg-[#050a18]/80 pl-11 pr-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] backdrop-blur-md transition placeholder:text-muted-foreground hover:border-blue-300/25 hover:bg-[#070d1f]/90 focus:border-sky-400/70 sm:h-11 md:pr-16"
+              className="upflow-shell-search upflow-focus-glow h-10 w-full rounded-full border border-blue-300/10 bg-[#050a18]/80 pl-11 pr-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] backdrop-blur-md transition placeholder:text-muted-foreground hover:border-blue-300/25 hover:bg-[#070d1f]/90 focus:border-sky-400/70 sm:h-11 md:pr-16"
             />
-            <kbd className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-blue-300/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
+            <kbd className="upflow-shell-kbd absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-blue-300/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
               Ctrl K
             </kbd>
           </div>
@@ -364,16 +367,25 @@ export default function Header({ title }: HeaderProps) {
                 ? t("language.portugueseBrazil")
                 : t("language.english")
             }`}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-blue-300/10 bg-[#071024]/80 px-2.5 text-xs font-semibold text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
+            className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-blue-300/10 bg-[#071024]/80 px-2.5 text-xs font-semibold text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
           >
             <Languages className="h-4 w-4" />
             <span>{language === "en" ? "EN" : "PT"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-blue-300/10 bg-[#071024]/80 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
+          >
+            {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
           </button>
           <div className="relative" ref={panelRef}>
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label={t("header.notifications")}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-300/10 bg-[#071024]/80 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
+              className="upflow-shell-control relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-300/10 bg-[#071024]/80 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (

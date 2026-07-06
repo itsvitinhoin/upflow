@@ -233,7 +233,7 @@ export default function Panel({
 
   return (
     <>
-      <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-blue-300/10 bg-[#050816] text-sidebar-foreground shadow-[inset_-1px_0_0_rgba(96,165,250,0.06)]">
+      <div className="upflow-sidebar-panel relative flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-blue-300/10 bg-[#050816] text-sidebar-foreground shadow-[inset_-1px_0_0_rgba(96,165,250,0.06)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_8%,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_95%_34%,rgba(139,92,246,0.12),transparent_28%)]" />
         <div className="pointer-events-none absolute right-0 top-0 h-full w-px bg-gradient-to-b from-blue-400/30 via-violet-400/18 to-transparent" />
         <div className="relative z-10 flex h-full min-h-0 flex-1 flex-col">
@@ -298,7 +298,7 @@ export default function Panel({
             />
 
             <div className="space-y-1 px-2">
-              <div className="sticky top-0 z-10 -mx-2 bg-[#050816]/92 px-2 pb-2 pt-1 backdrop-blur-md">
+              <div className="upflow-sidebar-sticky sticky top-0 z-10 -mx-2 bg-[#050816]/92 px-2 pb-2 pt-1 backdrop-blur-md">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -306,7 +306,7 @@ export default function Panel({
                     value={sidebarQuery}
                     onChange={(event) => setSidebarQuery(event.target.value)}
                     placeholder={t("sidebar.searchSpaces")}
-                    className="h-9 w-full rounded-xl border border-blue-300/10 bg-[#071024]/80 pl-8 pr-8 text-xs text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_22px_rgba(37,99,235,0.06)] outline-none transition placeholder:text-muted-foreground hover:border-blue-300/25 focus:border-sky-400/55 focus:ring-2 focus:ring-sky-400/20"
+                    className="upflow-sidebar-search h-9 w-full rounded-xl border border-blue-300/10 bg-[#071024]/80 pl-8 pr-8 text-xs text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_22px_rgba(37,99,235,0.06)] outline-none transition placeholder:text-muted-foreground hover:border-blue-300/25 focus:border-sky-400/55 focus:ring-2 focus:ring-sky-400/20"
                   />
                   {sidebarQuery && (
                     <button
