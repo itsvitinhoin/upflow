@@ -28,6 +28,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(migration, /UNIQUE INDEX IF NOT EXISTS "MarketingB2BOnboardingForm_task_id_key"/);
 
   assert.match(helper, /MARKETING_B2B_FORM_SERVICES/);
+  assert.match(helper, /MARKETING_B2B_FORM_SERVICES[\s\S]*"Vesti"/);
   assert.match(helper, /isMarketingB2BFormService/);
   assert.match(helper, /resolveMarketingB2BOnboardingProjectId/);
   assert.match(helper, /name: "Onboarding"/);
@@ -45,11 +46,11 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /recomputeOnboardingProgress/);
   assert.match(route, /withErrorReporting\("api:onboarding\/marketing-b2b-form:PATCH"/);
 
-  assert.match(form, /scheduleFieldSave/);
+  assert.match(form, /updateField/);
   assert.match(form, /valuesRef\.current/);
-  assert.match(form, /finalizeAction/);
-  assert.match(form, /brandName/);
-  assert.match(form, /metaAdsAccess/);
+  assert.match(form, /const finalize = async/);
+  assert.match(form, /key: "brand\.name"/);
+  assert.match(form, /\["metaAds", "Meta Ads"\]/);
   assert.match(form, /embedded = false/);
   assert.match(panel, /marketing_b2b_form/);
   assert.match(panel, /marketingB2BForm\.centralHint/);

@@ -30,6 +30,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(migration, /UNIQUE INDEX IF NOT EXISTS "MarketingB2COnboardingForm_task_id_key"/);
 
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES/);
+  assert.match(helper, /MARKETING_B2C_FORM_SERVICES[\s\S]*"Vesti"/);
   assert.match(helper, /isMarketingB2CFormService/);
   assert.match(helper, /isMarketingB2CDepartment/);
   assert.match(helper, /routeForResponsibleDepartment/);
@@ -80,6 +81,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(wizardRoute, /responsible_department_id/);
   assert.match(wizardRoute, /responsibleDepartmentName/);
   assert.match(companyDialog, /companyDialog\.service\.nuvemshop/);
+  assert.match(companyDialog, /companyDialog\.service\.vesti/);
   assert.match(companyDialog, /companyDialog\.service\.googleShopping/);
   assert.match(companyDialog, /companyDialog\.service\.tiktokAds/);
   assert.match(companyDialog, /companyDialog\.service\.upMotionV1/);

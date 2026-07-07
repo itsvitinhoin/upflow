@@ -39,6 +39,8 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(createDialog, /SERVICE_TYPE_OPTIONS/);
   assert.match(createDialog, /PLAN_OPTIONS/);
   assert.match(createDialog, /SERVICE_OPTIONS/);
+  assert.match(createDialog, /value: "Vesti"/);
+  assert.match(createDialog, /companyDialog\.service\.vesti/);
   assert.match(createDialog, /BRAND_TYPE_OPTIONS/);
   assert.match(createDialog, /ONBOARDING_PLAN_OPTIONS/);
   assert.match(createDialog, /ONBOARDING_SERVICE_OPTIONS/);
