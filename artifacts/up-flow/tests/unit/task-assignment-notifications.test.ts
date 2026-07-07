@@ -53,6 +53,16 @@ test("task assignment notifications navigate to the exact assigned task", () => 
   assert.match(projectPage, /setSelectedTask\(task\)/);
 });
 
+test("onboarding assignment notifications prefer the department task over the client profile", () => {
+  const notificationLinks = read("src/lib/notification-links.ts");
+  const taskRouteIndex = notificationLinks.indexOf("notification.task?.project?.id");
+  const onboardingFallbackIndex = notificationLinks.indexOf('data?.source?.startsWith("client_onboarding")');
+
+  assert.notEqual(taskRouteIndex, -1);
+  assert.notEqual(onboardingFallbackIndex, -1);
+  assert.ok(taskRouteIndex < onboardingFallbackIndex);
+});
+
 test("calendar attendee assignments create notifications and navigate to calendar", () => {
   const createRoute = read("src/app/api/calendar/events/route.ts");
   const updateRoute = read("src/app/api/calendar/events/[id]/route.ts");
