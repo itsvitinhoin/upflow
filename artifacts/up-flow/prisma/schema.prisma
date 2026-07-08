@@ -164,6 +164,7 @@ model Workspace {
   onboarding_assignments OnboardingServiceAssignment[]
   onboarding_meetings  OnboardingMeeting[]
   client_contracts     ClientContract[]
+  client_addresses     ClientAddress[]
   support_groups       SupportGroup[]
   service_leader_mappings ServiceLeaderMapping[]
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
@@ -509,11 +510,38 @@ model Company {
   reports           ClientReport[]
   client_onboardings ClientOnboarding[]
   client_contracts  ClientContract[]
+  addresses         ClientAddress[]
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
 
   @@index([workspace_id])
   @@index([owner_id])
+}
+
+model ClientAddress {
+  id                   String   @id @default(uuid())
+  workspace_id          String
+  company_id            String
+  type                 String?
+  location_name        String?
+  full_address         String
+  zip_code             String?
+  city                 String?
+  state                String?
+  country              String?
+  maps_url             String?
+  local_contact_name   String?
+  local_contact_phone  String?
+  department_usage     Json?
+  is_primary           Boolean  @default(false)
+  notes                String?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  workspace            Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  company              Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id])
+  @@index([company_id])
 }
 
 model ClientOnboarding {

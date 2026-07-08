@@ -8,82 +8,280 @@ import { loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboard
 import { canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
-const FieldValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+type JsonFormValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonFormValue[]
+  | { [key: string]: JsonFormValue };
+
+const JsonFormValueSchema: z.ZodType<JsonFormValue> = z.lazy(() =>
+  z.union([
+    z.string().max(10_000),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonFormValueSchema),
+    z.record(JsonFormValueSchema),
+  ]),
+);
+
+const AddressSchema = z.object({
+  id: z.string().trim().min(1).max(120).optional(),
+  type: z.string().trim().max(80).optional(),
+  locationName: z.string().trim().max(180).optional(),
+  fullAddress: z.string().trim().max(2_000).optional(),
+  zipCode: z.string().trim().max(40).optional(),
+  city: z.string().trim().max(120).optional(),
+  state: z.string().trim().max(120).optional(),
+  country: z.string().trim().max(120).optional(),
+  mapsUrl: z.string().trim().max(2_000).optional(),
+  localContactName: z.string().trim().max(180).optional(),
+  localContactPhone: z.string().trim().max(80).optional(),
+  departmentUsage: z.array(z.string().trim().max(80)).optional(),
+  isPrimary: z.boolean().optional(),
+  notes: z.string().trim().max(4_000).optional(),
+});
 
 const PatchSchema = z.object({
   field: z.string().trim().min(1).max(120).optional(),
-  value: FieldValueSchema.optional(),
-  values: z.record(FieldValueSchema).optional(),
+  value: JsonFormValueSchema.optional(),
+  values: z.record(JsonFormValueSchema).optional(),
+  addresses: z.array(AddressSchema).optional(),
   finalize: z.boolean().optional(),
 });
 
-function valuesObject(value: Prisma.JsonValue | null | undefined): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const result: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(value)) {
-    if (raw === null || raw === undefined) {
-      result[key] = "";
-    } else if (typeof raw === "string") {
-      result[key] = raw;
-    } else {
-      result[key] = String(raw);
+const addressSelect = {
+  id: true,
+  type: true,
+  location_name: true,
+  full_address: true,
+  zip_code: true,
+  city: true,
+  state: true,
+  country: true,
+  maps_url: true,
+  local_contact_name: true,
+  local_contact_phone: true,
+  department_usage: true,
+  is_primary: true,
+  notes: true,
+  created_at: true,
+  updated_at: true,
+} satisfies Prisma.ClientAddressSelect;
+
+const formInclude = {
+  company: {
+    select: {
+      id: true,
+      name: true,
+      website: true,
+      industry: true,
+      addresses: {
+        orderBy: [{ is_primary: "desc" as const }, { created_at: "asc" as const }],
+        select: addressSelect,
+      },
+    },
+  },
+  onboarding: {
+    select: {
+      id: true,
+      workspace_id: true,
+      company_id: true,
+      status: true,
+      progress: true,
+      contracted_services: true,
+      service_assignments: {
+        orderBy: [{ service: "asc" as const }],
+        select: {
+          id: true,
+          service: true,
+          leader_id: true,
+          department_id: true,
+          department_name: true,
+          status: true,
+          notes: true,
+          leader: { select: { id: true, name: true, email: true } },
+          department: { select: { id: true, name: true } },
+        },
+      },
+    },
+  },
+  checklist_item: {
+    select: {
+      id: true,
+      onboarding_id: true,
+      department: true,
+      title: true,
+      status: true,
+      owner_id: true,
+      completed_at: true,
+    },
+  },
+  task: {
+    include: {
+      assignee: { select: { id: true, name: true, email: true } },
+      project: { select: { id: true, name: true, workspace_id: true, owner_id: true } },
+    },
+  },
+  completer: { select: { id: true, name: true, email: true } },
+} satisfies Prisma.MarketingB2BOnboardingFormInclude;
+
+function normalizeJsonValue(raw: unknown): JsonFormValue {
+  if (raw === null || typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    return raw.map((item) => normalizeJsonValue(item));
+  }
+  if (raw && typeof raw === "object") {
+    const result: Record<string, JsonFormValue> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      result[key] = normalizeJsonValue(value);
     }
+    return result;
+  }
+  return "";
+}
+
+function valuesObject(value: Prisma.JsonValue | null | undefined): Record<string, JsonFormValue> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: Record<string, JsonFormValue> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    result[key] = normalizeJsonValue(raw);
   }
   return result;
 }
 
-function cleanFieldValue(value: z.infer<typeof FieldValueSchema> | undefined) {
+function cleanJsonValue(value: JsonFormValue | undefined): Prisma.InputJsonValue {
   if (value === undefined || value === null) return "";
-  return String(value).slice(0, 4_000);
+  if (typeof value === "string") return value.slice(0, 10_000);
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanJsonValue(item)) as Prisma.InputJsonArray;
+  }
+
+  const result: Record<string, Prisma.InputJsonValue> = {};
+  for (const [key, raw] of Object.entries(value)) {
+    result[key.slice(0, 120)] = cleanJsonValue(raw);
+  }
+  return result as Prisma.InputJsonObject;
+}
+
+function cleanText(value: string | undefined | null, max = 2_000) {
+  const trimmed = (value ?? "").trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+function cleanAddressPayload(addresses: z.infer<typeof AddressSchema>[]) {
+  const meaningful = addresses
+    .map((address) => ({
+      id: cleanText(address.id, 120),
+      type: cleanText(address.type, 80),
+      locationName: cleanText(address.locationName, 180),
+      fullAddress: cleanText(address.fullAddress, 2_000),
+      zipCode: cleanText(address.zipCode, 40),
+      city: cleanText(address.city, 120),
+      state: cleanText(address.state, 120),
+      country: cleanText(address.country, 120),
+      mapsUrl: cleanText(address.mapsUrl, 2_000),
+      localContactName: cleanText(address.localContactName, 180),
+      localContactPhone: cleanText(address.localContactPhone, 80),
+      departmentUsage: (address.departmentUsage ?? []).filter(Boolean).slice(0, 12),
+      isPrimary: Boolean(address.isPrimary),
+      notes: cleanText(address.notes, 4_000),
+    }))
+    .filter((address) => Boolean(address.fullAddress));
+
+  const primaryIndex = meaningful.findIndex((address) => address.isPrimary);
+  return meaningful.map((address, index) => ({
+    ...address,
+    isPrimary: primaryIndex >= 0 ? index === primaryIndex : index === 0,
+  }));
+}
+
+async function syncClientAddresses(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  companyId: string,
+  addresses: z.infer<typeof AddressSchema>[],
+) {
+  const cleaned = cleanAddressPayload(addresses);
+  const existing = await tx.clientAddress.findMany({
+    where: { workspace_id: workspaceId, company_id: companyId },
+    select: { id: true },
+  });
+  const existingIds = new Set(existing.map((address) => address.id));
+  const submittedIds = cleaned.flatMap((address) => (address.id && existingIds.has(address.id) ? [address.id] : []));
+
+  await tx.clientAddress.deleteMany({
+    where: {
+      workspace_id: workspaceId,
+      company_id: companyId,
+      ...(submittedIds.length ? { id: { notIn: submittedIds } } : {}),
+    },
+  });
+
+  for (const address of cleaned) {
+    const data = {
+      type: address.type,
+      location_name: address.locationName,
+      full_address: address.fullAddress ?? "",
+      zip_code: address.zipCode,
+      city: address.city,
+      state: address.state,
+      country: address.country,
+      maps_url: address.mapsUrl,
+      local_contact_name: address.localContactName,
+      local_contact_phone: address.localContactPhone,
+      department_usage: address.departmentUsage as Prisma.InputJsonValue,
+      is_primary: address.isPrimary,
+      notes: address.notes,
+    };
+
+    if (address.id && existingIds.has(address.id)) {
+      await tx.clientAddress.update({
+        where: { id: address.id },
+        data,
+      });
+    } else {
+      await tx.clientAddress.create({
+        data: {
+          workspace_id: workspaceId,
+          company_id: companyId,
+          ...data,
+        },
+      });
+    }
+  }
+}
+
+function mapAddress(address: Prisma.ClientAddressGetPayload<{ select: typeof addressSelect }>) {
+  return {
+    id: address.id,
+    type: address.type ?? "",
+    locationName: address.location_name ?? "",
+    fullAddress: address.full_address ?? "",
+    zipCode: address.zip_code ?? "",
+    city: address.city ?? "",
+    state: address.state ?? "",
+    country: address.country ?? "",
+    mapsUrl: address.maps_url ?? "",
+    localContactName: address.local_contact_name ?? "",
+    localContactPhone: address.local_contact_phone ?? "",
+    departmentUsage: Array.isArray(address.department_usage)
+      ? address.department_usage.filter((item): item is string => typeof item === "string")
+      : [],
+    isPrimary: address.is_primary,
+    notes: address.notes ?? "",
+  };
 }
 
 async function loadForm(taskId: string) {
   return prisma.marketingB2BOnboardingForm.findUnique({
     where: { task_id: taskId },
-    include: {
-      company: { select: { id: true, name: true, website: true, industry: true } },
-      onboarding: {
-        select: {
-          id: true,
-          workspace_id: true,
-          company_id: true,
-          status: true,
-          progress: true,
-          contracted_services: true,
-          service_assignments: {
-            orderBy: [{ service: "asc" }],
-            select: {
-              id: true,
-              service: true,
-              leader_id: true,
-              department_id: true,
-              department_name: true,
-              status: true,
-              notes: true,
-              leader: { select: { id: true, name: true, email: true } },
-              department: { select: { id: true, name: true } },
-            },
-          },        },
-      },
-      checklist_item: {
-        select: {
-          id: true,
-          onboarding_id: true,
-          department: true,
-          title: true,
-          status: true,
-          owner_id: true,
-          completed_at: true,
-        },
-      },
-      task: {
-        include: {
-          assignee: { select: { id: true, name: true, email: true } },
-          project: { select: { id: true, name: true, workspace_id: true, owner_id: true } },
-        },
-      },
-      completer: { select: { id: true, name: true, email: true } },
-    },
+    include: formInclude,
   });
 }
 
@@ -107,7 +305,10 @@ function responseBody(
       assignee: form.task.assignee,
       project: form.task.project,
     },
-    company: form.company,
+    company: {
+      ...form.company,
+      addresses: form.company.addresses.map(mapAddress),
+    },
     onboarding: form.onboarding,
     checklist_item: form.checklist_item,
   };
@@ -164,13 +365,17 @@ async function PATCH_handler(
   }
 
   const currentValues = valuesObject(access.form.values);
-  const nextValues = { ...currentValues };
+  const nextValues: Record<string, Prisma.InputJsonValue> = {};
+  for (const [key, value] of Object.entries(currentValues)) {
+    nextValues[key] = cleanJsonValue(value);
+  }
+
   if (parsed.data.field) {
-    nextValues[parsed.data.field] = cleanFieldValue(parsed.data.value);
+    nextValues[parsed.data.field] = cleanJsonValue(parsed.data.value);
   }
   if (parsed.data.values) {
     for (const [key, value] of Object.entries(parsed.data.values)) {
-      nextValues[key] = cleanFieldValue(value);
+      nextValues[key] = cleanJsonValue(value);
     }
   }
 
@@ -185,9 +390,15 @@ async function PATCH_handler(
               completed_at: new Date(),
               completed_by: access.auth.prismaUser.id,
             }
-          : {}),
+          : access.form.status !== "complete"
+            ? { status: "in_progress" }
+            : {}),
       },
     });
+
+    if (parsed.data.addresses) {
+      await syncClientAddresses(tx, access.form.workspace_id, access.form.company_id, parsed.data.addresses);
+    }
 
     if (parsed.data.finalize) {
       await tx.task.update({
@@ -204,10 +415,6 @@ async function PATCH_handler(
       });
       await recomputeOnboardingProgress(tx, access.form.onboarding_id);
     } else if (access.form.status !== "complete") {
-      await tx.marketingB2BOnboardingForm.update({
-        where: { id: access.form.id },
-        data: { status: "in_progress" },
-      });
       if (access.form.task.status === "todo") {
         await tx.task.update({
           where: { id: access.form.task_id },
@@ -224,50 +431,7 @@ async function PATCH_handler(
 
     return tx.marketingB2BOnboardingForm.findUniqueOrThrow({
       where: { id: access.form.id },
-      include: {
-        company: { select: { id: true, name: true, website: true, industry: true } },
-        onboarding: {
-          select: {
-            id: true,
-            workspace_id: true,
-            company_id: true,
-            status: true,
-            progress: true,
-            contracted_services: true,
-          service_assignments: {
-            orderBy: [{ service: "asc" }],
-            select: {
-              id: true,
-              service: true,
-              leader_id: true,
-              department_id: true,
-              department_name: true,
-              status: true,
-              notes: true,
-              leader: { select: { id: true, name: true, email: true } },
-              department: { select: { id: true, name: true } },
-            },
-          },          },
-        },
-        checklist_item: {
-          select: {
-            id: true,
-            onboarding_id: true,
-            department: true,
-            title: true,
-            status: true,
-            owner_id: true,
-            completed_at: true,
-          },
-        },
-        task: {
-          include: {
-            assignee: { select: { id: true, name: true, email: true } },
-            project: { select: { id: true, name: true, workspace_id: true, owner_id: true } },
-          },
-        },
-        completer: { select: { id: true, name: true, email: true } },
-      },
+      include: formInclude,
     });
   });
 
