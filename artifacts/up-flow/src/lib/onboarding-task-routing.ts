@@ -64,8 +64,18 @@ function isSupportGroupOnboardingTask(task: Task) {
   );
 }
 
+function isMarketingB2BFormTask(task: Task) {
+  const text = taskSearchText(task);
+  return (
+    text.includes("marketing b2b") &&
+    (text.includes("form") || text.includes("formulario") || text.includes("formulário")) &&
+    !isSchedulingOnboardingTask(task)
+  );
+}
+
 export function workflowFormKind(task: Task): WorkflowFormKind | null {
   if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
+  if (isMarketingB2BFormTask(task)) return "marketing_b2b";
   if (task.marketing_b2c_onboarding_form) return "marketing_b2c";
   if (isFinanceOnboardingTask(task)) return "finance";
   if (isSupportGroupOnboardingTask(task)) return "support";
