@@ -39,6 +39,9 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /b2bFormServiceKeys\.has\(serviceKey\(service\)\)/);
 
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
+  assert.match(route, /ensureBackfilledB2BForm/);
+  assert.match(route, /onboardingChecklistItem\.findFirst/);
+  assert.match(route, /marketingB2BOnboardingForm\.create/);
   assert.match(route, /finalize/);
   assert.match(route, /status: "in_progress"/);
   assert.match(route, /task\.update[\s\S]*status: "done"/);
@@ -49,7 +52,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /updateField/);
   assert.match(form, /valuesRef\.current/);
   assert.match(form, /const finalize = async/);
-  assert.match(form, /key: "brand\.name"/);
+  assert.match(form, /textValue\(values, "brand\.name"\)/);
   assert.match(form, /\["metaAds", "Meta Ads"\]/);
   assert.match(form, /embedded = false/);
   assert.match(panel, /marketing_b2b_form/);

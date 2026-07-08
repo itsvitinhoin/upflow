@@ -285,6 +285,63 @@ async function loadForm(taskId: string) {
   });
 }
 
+function isBackfillableMarketingB2BFormTask(item: {
+  department: string;
+  title: string;
+  task: { title: string; description: string | null } | null;
+}) {
+  const text = [item.department, item.title, item.task?.title, item.task?.description]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return text.includes("marketing b2b") && text.includes("form");
+}
+
+async function ensureBackfilledB2BForm(taskId: string) {
+  const item = await prisma.onboardingChecklistItem.findFirst({
+    where: { task_id: taskId },
+    include: {
+      onboarding: {
+        select: {
+          id: true,
+          workspace_id: true,
+          company_id: true,
+        },
+      },
+      task: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          project_id: true,
+        },
+      },
+    },
+  });
+
+  if (!item?.task_id || !item.task || !isBackfillableMarketingB2BFormTask(item)) return null;
+
+  try {
+    return await prisma.marketingB2BOnboardingForm.create({
+      data: {
+        workspace_id: item.workspace_id,
+        onboarding_id: item.onboarding_id,
+        checklist_item_id: item.id,
+        task_id: item.task_id,
+        company_id: item.onboarding.company_id,
+        project_id: item.task.project_id,
+        values: {},
+      },
+      include: formInclude,
+    });
+  } catch (err) {
+    if (typeof err === "object" && err !== null && "code" in err && err.code === "P2002") {
+      return loadForm(taskId);
+    }
+    throw err;
+  }
+}
+
 function responseBody(
   form: NonNullable<Awaited<ReturnType<typeof loadForm>>>,
   canEdit: boolean,
@@ -318,7 +375,7 @@ async function getAccess(taskId: string) {
   const _r = await requireAuth();
   if (!_r.ok) return { ok: false as const, response: _r.response };
   const auth = _r.auth;
-  const form = await loadForm(taskId);
+  const form = (await loadForm(taskId)) ?? (await ensureBackfilledB2BForm(taskId));
   if (!form) {
     return { ok: false as const, response: NextResponse.json({ error: "Not found" }, { status: 404 }) };
   }

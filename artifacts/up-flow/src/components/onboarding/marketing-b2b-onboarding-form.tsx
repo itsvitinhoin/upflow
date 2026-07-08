@@ -612,11 +612,15 @@ export default function MarketingB2BOnboardingForm({
     };
   }, [loadForm]);
 
-  const assignments = form?.onboarding.service_assignments ?? [];
+  const currentValues = form?.values ?? valuesRef.current;
+  const assignments = useMemo(
+    () => form?.onboarding.service_assignments ?? [],
+    [form?.onboarding.service_assignments],
+  );
   const contractedServices = parseServices(form?.onboarding.contracted_services);
   const sectionProgress = useMemo(
-    () => calculateSectionProgress(valuesRef.current, addresses, assignments),
-    [addresses, assignments, form?.values],
+    () => calculateSectionProgress(currentValues, addresses, assignments),
+    [addresses, assignments, currentValues],
   );
   const totalRequired = sectionProgress.reduce((sum, section) => sum + section.total, 0);
   const completedRequired = sectionProgress.reduce((sum, section) => sum + section.done, 0);
