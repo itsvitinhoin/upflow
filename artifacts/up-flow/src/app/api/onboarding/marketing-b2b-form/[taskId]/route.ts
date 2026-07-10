@@ -297,6 +297,24 @@ function isBackfillableMarketingB2BFormTask(item: {
   return text.includes("marketing b2b") && text.includes("form");
 }
 
+function isUniqueConstraintError(err: unknown) {
+  return typeof err === "object" && err !== null && "code" in err && err.code === "P2002";
+}
+
+function isBackfillableMarketingB2BTaskText(input: {
+  department?: string | null;
+  checklistTitle?: string | null;
+  taskTitle?: string | null;
+  taskDescription?: string | null;
+  projectName?: string | null;
+}) {
+  const text = [input.department, input.checklistTitle, input.taskTitle, input.taskDescription, input.projectName]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return text.includes("marketing b2b") && text.includes("form") && !text.includes("meeting") && !text.includes("reuni");
+}
+
 async function ensureBackfilledB2BForm(taskId: string) {
   const item = await prisma.onboardingChecklistItem.findFirst({
     where: { task_id: taskId },
@@ -319,25 +337,116 @@ async function ensureBackfilledB2BForm(taskId: string) {
     },
   });
 
-  if (!item?.task_id || !item.task || !isBackfillableMarketingB2BFormTask(item)) return null;
+  if (item?.task_id && item.task && isBackfillableMarketingB2BFormTask(item)) {
+    try {
+      return await prisma.marketingB2BOnboardingForm.create({
+        data: {
+          workspace_id: item.workspace_id,
+          onboarding_id: item.onboarding_id,
+          checklist_item_id: item.id,
+          task_id: item.task_id,
+          company_id: item.onboarding.company_id,
+          project_id: item.task.project_id,
+          values: {},
+        },
+        include: formInclude,
+      });
+    } catch (err) {
+      if (isUniqueConstraintError(err)) return loadForm(taskId);
+      throw err;
+    }
+  }
+
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      project_id: true,
+      company_id: true,
+      assignee_id: true,
+      project: {
+        select: {
+          id: true,
+          name: true,
+          workspace_id: true,
+          owner_id: true,
+          company_id: true,
+        },
+      },
+    },
+  });
+  const companyId = task?.company_id ?? task?.project.company_id ?? null;
+  if (!task || !companyId) return null;
+  if (
+    !isBackfillableMarketingB2BTaskText({
+      taskTitle: task.title,
+      taskDescription: task.description,
+      projectName: task.project.name,
+    })
+  ) {
+    return null;
+  }
 
   try {
-    return await prisma.marketingB2BOnboardingForm.create({
-      data: {
-        workspace_id: item.workspace_id,
-        onboarding_id: item.onboarding_id,
-        checklist_item_id: item.id,
-        task_id: item.task_id,
-        company_id: item.onboarding.company_id,
-        project_id: item.task.project_id,
-        values: {},
-      },
-      include: formInclude,
+    return await prisma.$transaction(async (tx) => {
+      const existingOnboarding = await tx.clientOnboarding.findFirst({
+        where: {
+          workspace_id: task.project.workspace_id,
+          company_id: companyId,
+          status: { not: "onboarding_complete" },
+        },
+        orderBy: [{ created_at: "desc" }, { id: "asc" }],
+        select: { id: true, workspace_id: true, company_id: true },
+      });
+      const onboarding = existingOnboarding ?? await tx.clientOnboarding.create({
+        data: {
+          workspace_id: task.project.workspace_id,
+          company_id: companyId,
+          status: "pending_finance_registration",
+          progress: 0,
+          responsible_salesperson_id: task.assignee_id ?? task.project.owner_id,
+          contracted_services: ["Marketing B2B"] as Prisma.InputJsonValue,
+          created_by: task.project.owner_id,
+        },
+        select: { id: true, workspace_id: true, company_id: true },
+      });
+
+      const checklistItem = await tx.onboardingChecklistItem.findFirst({
+        where: {
+          onboarding_id: onboarding.id,
+          task_id: task.id,
+        },
+        select: { id: true },
+      }) ?? await tx.onboardingChecklistItem.create({
+        data: {
+          onboarding_id: onboarding.id,
+          workspace_id: task.project.workspace_id,
+          task_id: task.id,
+          department: "Marketing B2B",
+          title: "Marketing B2B onboarding form completed",
+          owner_id: task.assignee_id,
+          sort_order: 70,
+        },
+        select: { id: true },
+      });
+
+      return tx.marketingB2BOnboardingForm.create({
+        data: {
+          workspace_id: task.project.workspace_id,
+          onboarding_id: onboarding.id,
+          checklist_item_id: checklistItem.id,
+          task_id: task.id,
+          company_id: companyId,
+          project_id: task.project_id,
+          values: {},
+        },
+        include: formInclude,
+      });
     });
   } catch (err) {
-    if (typeof err === "object" && err !== null && "code" in err && err.code === "P2002") {
-      return loadForm(taskId);
-    }
+    if (isUniqueConstraintError(err)) return loadForm(taskId);
     throw err;
   }
 }

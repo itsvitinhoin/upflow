@@ -46,6 +46,10 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
 
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
   assert.match(route, /ensureBackfilledB2BForm/);
+  assert.match(route, /isBackfillableMarketingB2BTaskText/);
+  assert.match(route, /clientOnboarding\.findFirst/);
+  assert.match(route, /clientOnboarding\.create/);
+  assert.match(route, /task\?\.company_id \?\? task\?\.project\.company_id/);
   assert.match(route, /onboardingChecklistItem\.findFirst/);
   assert.match(route, /marketingB2BOnboardingForm\.create/);
   assert.match(route, /finalize/);
