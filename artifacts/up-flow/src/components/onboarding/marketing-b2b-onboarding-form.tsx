@@ -782,7 +782,9 @@ export default function MarketingB2BOnboardingForm({
   const updateField = (field: string, value: string) => {
     const nextValues = { ...valuesRef.current, [field]: value };
     valuesRef.current = nextValues;
-    setForm((current) => (current ? { ...current, values: nextValues } : current));
+    if (field.startsWith("brandResponsible.") || field.startsWith("upResponsible.") || field.startsWith("access.")) {
+      setForm((current) => (current ? { ...current, values: nextValues } : current));
+    }
     scheduleSave();
   };
 
@@ -888,7 +890,7 @@ export default function MarketingB2BOnboardingForm({
   const assigneeName = form.task.assignee?.name ?? "Sem responsável";
 
   return (
-    <div className={cn(!embedded && "fixed inset-0 z-50 overflow-y-auto bg-background dark:bg-[#020817]", embedded && "w-full")}>
+    <div className={cn("marketing-b2b-form-shell", !embedded && "fixed inset-0 z-50 overflow-y-auto bg-background dark:bg-[#020817]", embedded && "w-full")}>
       <div className="min-h-screen bg-background px-4 py-5 text-foreground dark:bg-[#020817] dark:text-slate-100 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[1560px]">
           <TopSearch onClose={onClose} />
@@ -1210,9 +1212,9 @@ function SectionShell({
       id={`b2b-section-${id}`}
       ref={sectionRef}
       className={cn(
-        "w-full scroll-mt-28 overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-all dark:bg-[#06101f] dark:shadow-[0_18px_60px_rgba(0,0,0,0.25)]",
+        "marketing-b2b-form-card w-full scroll-mt-28 overflow-hidden rounded-lg border bg-card text-card-foreground shadow-sm transition-colors dark:bg-[#06101f]",
         accentClass.ring,
-        editing && "border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.45),0_16px_50px_rgba(37,99,235,0.16)]",
+        editing && "border-blue-500 shadow-sm",
       )}
     >
       <button type="button" onClick={onToggle} className="flex w-full items-start justify-between gap-3 border-b border-border px-4 py-4 text-left dark:border-slate-800/80">
@@ -1278,7 +1280,9 @@ function TextInput({
   span?: "normal" | "full";
   onChange: (value: string) => void;
 }) {
-  const pending = required && !value.trim();
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const pending = required && !draft.trim();
   return (
     <label className={cn("min-w-0", span === "full" && "sm:col-span-2 xl:col-span-4")}>
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
@@ -1288,11 +1292,15 @@ function TextInput({
         {pending && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">Pendente</span>}
       </span>
       <input
-        value={value}
+        value={draft}
         disabled={disabled}
         type={type}
         placeholder={placeholder ?? "—"}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setDraft(nextValue);
+          onChange(nextValue);
+        }}
         className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-slate-900/60"
       />
       {helper && <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">{helper}</p>}
@@ -1321,6 +1329,8 @@ function TextAreaInput({
   rows?: number;
   onChange: (value: string) => void;
 }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
   return (
     <label className="sm:col-span-2 xl:col-span-4">
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
@@ -1330,10 +1340,14 @@ function TextAreaInput({
       </span>
       {helper && <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">{helper}</p>}
       <textarea
-        value={value}
+        value={draft}
         disabled={disabled}
         placeholder={placeholder ?? "—"}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setDraft(nextValue);
+          onChange(nextValue);
+        }}
         rows={rows}
         className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-slate-900/60"
       />
@@ -1360,7 +1374,9 @@ function SelectInput({
   options: Array<string | { value: string; label: string }>;
   onChange: (value: string) => void;
 }) {
-  const pending = required && !value.trim();
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  const pending = required && !draft.trim();
   return (
     <label className="min-w-0">
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
@@ -1369,9 +1385,13 @@ function SelectInput({
         {pending && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">Pendente</span>}
       </span>
       <select
-        value={value}
+        value={draft}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setDraft(nextValue);
+          onChange(nextValue);
+        }}
         className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
       >
         <option value="">Selecionar</option>

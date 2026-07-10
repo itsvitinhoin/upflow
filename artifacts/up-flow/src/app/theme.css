@@ -398,3 +398,108 @@ html.light .support-onboarding-form-shell [class*="border-slate"],
 html.light .onboarding-queue-shell [class*="border-slate"] {
   border-color: rgba(148, 163, 184, 0.38) !important;
 }
+
+/* Performance skin */
+body.upflow-performance {
+  background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background)) 100%) !important;
+}
+
+body.upflow-performance [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.upflow-performance [class*="blur-2xl"],
+body.upflow-performance [class*="blur-3xl"] {
+  display: none !important;
+}
+
+body.upflow-performance [class*="drop-shadow"] {
+  filter: none !important;
+}
+
+body.upflow-performance .glass,
+body.upflow-performance .glass-strong,
+body.upflow-performance .glass-rail,
+body.upflow-performance .glass-header,
+body.upflow-performance .upflow-panel,
+body.upflow-performance .command-hero,
+body.upflow-performance .command-pulse-card,
+body.upflow-performance .command-metric-card,
+body.upflow-performance .command-section-panel,
+body.upflow-performance .upflow-card,
+body.upflow-performance .upflow-kanban-column,
+body.upflow-performance .upflow-task-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 22px rgba(0,0,0,0.18) !important;
+}
+
+body.upflow-performance .glass,
+body.upflow-performance .glass-strong,
+body.upflow-performance .glass-header {
+  background: linear-gradient(145deg, rgba(14, 20, 36, 0.94), rgba(5, 9, 22, 0.92)) !important;
+}
+
+body.upflow-performance .glass-rail {
+  background: linear-gradient(180deg, rgba(4, 8, 20, 0.98), rgba(5, 8, 22, 0.96)) !important;
+}
+
+body.upflow-performance .upflow-panel,
+body.upflow-performance .command-hero,
+body.upflow-performance .command-pulse-card,
+body.upflow-performance .command-metric-card,
+body.upflow-performance .command-section-panel,
+body.upflow-performance .upflow-card,
+body.upflow-performance .upflow-kanban-column,
+body.upflow-performance .upflow-task-card {
+  background: linear-gradient(145deg, rgba(12, 18, 34, 0.94), rgba(4, 8, 20, 0.9)) !important;
+}
+
+body.upflow-performance .upflow-panel::before,
+body.upflow-performance .command-dashboard-shell::before,
+body.upflow-performance .command-hero::before,
+body.upflow-performance .command-metric-card::after,
+body.upflow-performance .command-section-panel::before {
+  display: none !important;
+}
+
+body.upflow-performance .command-metric-card:hover,
+body.upflow-performance .upflow-card-hover:hover,
+body.upflow-performance .upflow-task-card:hover,
+body.upflow-performance [class*="hover:-translate-y"]:hover {
+  transform: none !important;
+}
+
+body.upflow-performance .upflow-gradient-button {
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.22) !important;
+}
+
+body.upflow-performance .command-metric-card,
+body.upflow-performance .command-section-panel,
+body.upflow-performance .upflow-card,
+body.upflow-performance .upflow-client-card,
+body.upflow-performance .marketing-b2b-form-card,
+body.upflow-performance .support-onboarding-form-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 240px;
+}
+
+html.light body.upflow-performance {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef4ff 100%) !important;
+}
+
+html.light body.upflow-performance .glass,
+html.light body.upflow-performance .glass-strong,
+html.light body.upflow-performance .glass-header,
+html.light body.upflow-performance .upflow-panel,
+html.light body.upflow-performance .command-hero,
+html.light body.upflow-performance .command-pulse-card,
+html.light body.upflow-performance .command-metric-card,
+html.light body.upflow-performance .command-section-panel,
+html.light body.upflow-performance .upflow-card,
+html.light body.upflow-performance .upflow-kanban-column,
+html.light body.upflow-performance .upflow-task-card,
+html.light body.upflow-performance .upflow-client-card {
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.07) !important;
+}

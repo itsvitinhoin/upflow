@@ -23,6 +23,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   const kanbanBoard = read("src/components/projects/kanban-board.tsx");
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const translations = read("src/lib/i18n/translations.ts");
+  const layout = read("src/app/layout.tsx");
+  const theme = read("src/app/theme.css");
 
   assert.match(schema, /model MarketingB2BOnboardingForm/);
   assert.match(schema, /marketing_b2b_onboarding_form\s+MarketingB2BOnboardingForm\?/);
@@ -62,6 +64,14 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /loadError/);
   assert.match(form, /Tentar novamente/);
   assert.doesNotMatch(form, /if \(!form\) return null/);
+  assert.match(form, /marketing-b2b-form-shell/);
+  assert.match(form, /marketing-b2b-form-card/);
+  assert.match(form, /field\.startsWith\("brandResponsible\."\)/);
+  assert.match(form, /value=\{draft\}/);
+  assert.match(layout, /upflow-performance/);
+  assert.match(theme, /Performance skin/);
+  assert.match(theme, /content-visibility: auto/);
+  assert.match(theme, /backdrop-filter: none/);
   assert.match(panel, /marketing_b2b_form/);
   assert.match(panel, /marketingB2BForm\.centralHint/);
   assert.match(panel, /marketingB2BSummary/);
