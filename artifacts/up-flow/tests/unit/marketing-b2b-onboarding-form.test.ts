@@ -59,6 +59,9 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /textValue\(values, "brand\.name"\)/);
   assert.match(form, /\["metaAds", "Meta Ads"\]/);
   assert.match(form, /embedded = false/);
+  assert.match(form, /loadError/);
+  assert.match(form, /Tentar novamente/);
+  assert.doesNotMatch(form, /if \(!form\) return null/);
   assert.match(panel, /marketing_b2b_form/);
   assert.match(panel, /marketingB2BForm\.centralHint/);
   assert.match(panel, /marketingB2BSummary/);

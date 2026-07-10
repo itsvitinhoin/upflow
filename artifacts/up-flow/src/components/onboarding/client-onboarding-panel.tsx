@@ -224,8 +224,10 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
     if (!companyId && !projectId) return;
     if (!options?.silent) setLoading(true);
     try {
-      const query = projectId ? `project_id=${projectId}` : `company_id=${companyId}`;
-      const res = await fetch(`/api/onboarding?${query}`);
+      const params = new URLSearchParams();
+      if (companyId) params.set("company_id", companyId);
+      if (projectId) params.set("project_id", projectId);
+      const res = await fetch(`/api/onboarding?${params.toString()}`);
       if (!res.ok) throw new Error(t("onboardingWorkflow.loadFailed"));
       const payload = (await res.json()) as OnboardingResponse;
       const first = payload.items?.[0] ?? null;

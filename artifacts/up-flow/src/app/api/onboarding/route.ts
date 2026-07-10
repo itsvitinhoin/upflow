@@ -16,12 +16,27 @@ async function GET_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ items: [] });
   }
+  const project = projectId
+    ? await prisma.project.findFirst({
+        where: { id: projectId, workspace_id: auth.currentWorkspaceId },
+        select: { company_id: true },
+      })
+    : null;
+  const projectCompanyId = project?.company_id ?? null;
+  const scope = companyId || projectId
+    ? {
+        OR: [
+          ...(companyId ? [{ company_id: companyId }] : []),
+          ...(projectId ? [{ project_id: projectId }] : []),
+          ...(projectCompanyId && projectCompanyId !== companyId ? [{ company_id: projectCompanyId }] : []),
+        ],
+      }
+    : { status: { not: "onboarding_complete" as const } };
+
   const rows = await prisma.clientOnboarding.findMany({
     where: {
       workspace_id: auth.currentWorkspaceId,
-      ...(companyId ? { company_id: companyId } : {}),
-      ...(projectId ? { project_id: projectId } : {}),
-      ...(!companyId && !projectId ? { status: { not: "onboarding_complete" } } : {}),
+      ...scope,
     },
     orderBy: [
       { status: "asc" },
