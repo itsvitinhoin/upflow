@@ -414,6 +414,7 @@ export function isMarketingB2BFormService(service: string) {
     key === "pinterest ads" ||
     key === "e commerce" ||
     key === "ecommerce" ||
+    key === "vesti" ||
     key === "up zero" ||
     key === "up motion" ||
     key.startsWith("up motion ") ||
@@ -432,6 +433,7 @@ export function isMarketingB2CFormService(service: string) {
     key === "pinterest ads" ||
     key === "e commerce" ||
     key === "ecommerce" ||
+    key === "vesti" ||
     key === "nuvemshop" ||
     key === "google shopping" ||
     key === "social media" ||
@@ -513,6 +515,7 @@ export function routeForService(service: string): OnboardingTaskRoute | null {
     key.includes("google ads") ||
     key.includes("e commerce") ||
     key.includes("ecommerce") ||
+    key.includes("vesti") ||
     key.includes("up zero") ||
     key.includes("up motion") ||
     key.includes("paid media") ||
@@ -1045,12 +1048,14 @@ function onboardingServices(input: {
   includedServices?: Prisma.JsonValue | null;
   serviceType?: string | null;
 }) {
-  const services = uniqueStrings([
+  const selectedServices = uniqueStrings([
     ...(input.explicitServices ?? []),
     ...parseContractedServices(input.includedServices),
-    input.serviceType,
   ]);
-  return services.length ? services : ["General onboarding"];
+  if (selectedServices.length > 0) return selectedServices;
+
+  const fallbackServices = uniqueStrings([input.serviceType]);
+  return fallbackServices.length ? fallbackServices : ["General onboarding"];
 }
 
 function cleanNullable(value: string | null | undefined) {
@@ -1911,6 +1916,90 @@ export async function createClientOnboardingFromWizard(
     created_tasks: result.createdTasks,
     notifications: assignedNotificationCount + adminNotificationCount,
     missing_mappings: result.missingMappings,
+  };
+}
+
+export async function startClientOnboardingForCompany(input: {
+  companyId: string;
+  workspaceId?: string;
+  actorId: string;
+  services?: string[];
+  expectedStartDate?: Date | null;
+  initialNotes?: string | null;
+  responsibleSalespersonId?: string | null;
+  responsibleDepartmentId?: string | null;
+  responsibleDepartmentName?: string | null;
+  source?: string;
+}) {
+  const result = await prisma.$transaction(async (tx) => {
+    const company = await tx.company.findFirst({
+      where: {
+        id: input.companyId,
+        ...(input.workspaceId ? { workspace_id: input.workspaceId } : {}),
+      },
+      select: {
+        id: true,
+        workspace_id: true,
+        name: true,
+        owner_id: true,
+        included_services: true,
+        service_type: true,
+        plan_name: true,
+      },
+    });
+    if (!company) {
+      throw new Error("Client not found.");
+    }
+
+    return createOnboardingRecords(tx, {
+      company,
+      actorId: input.actorId,
+      services: input.services,
+      expectedStartDate: input.expectedStartDate ?? null,
+      initialNotes: input.initialNotes ?? null,
+      responsibleSalespersonId: input.responsibleSalespersonId ?? company.owner_id,
+      responsibleDepartmentId: input.responsibleDepartmentId ?? null,
+      responsibleDepartmentName: input.responsibleDepartmentName ?? null,
+    });
+  });
+
+  const assignedNotificationCount = await sendOnboardingAssignmentNotifications(result.notificationTargets);
+  const adminNotificationCount = await sendOnboardingAdminSummaryNotifications({
+    workspaceId: result.onboarding.workspace_id,
+    actorId: input.actorId,
+    onboardingId: result.onboarding.id,
+    companyId: result.onboarding.company_id,
+    companyName: result.onboarding.company?.name ?? "Client",
+    createdTaskCount: result.createdTasks.length,
+    missingMappings: result.missingMappings,
+  });
+
+  if (!result.reused) {
+    await recordActivity({
+      workspace_id: result.onboarding.workspace_id,
+      actor_id: input.actorId,
+      type: "client_onboarding_started",
+      entity_type: "client_onboarding",
+      entity_id: result.onboarding.id,
+      project_id: result.onboarding.project_id,
+      company_id: result.onboarding.company_id,
+      metadata: {
+        source: input.source ?? "company_card",
+        status: result.onboarding.status,
+        progress: result.onboarding.progress,
+        services: result.onboarding.contracted_services,
+        created_tasks: result.createdTasks.length,
+        missing_mappings: result.missingMappings,
+      },
+    });
+  }
+
+  return {
+    onboarding: result.onboarding,
+    createdTasks: result.createdTasks,
+    missingMappings: result.missingMappings,
+    reused: result.reused,
+    notifications: assignedNotificationCount + adminNotificationCount,
   };
 }
 

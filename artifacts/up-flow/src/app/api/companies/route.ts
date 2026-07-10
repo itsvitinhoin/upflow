@@ -5,6 +5,7 @@ import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
+import { startClientOnboardingForCompany } from "@/lib/onboarding";
 import { buildPage, parsePagination } from "@/lib/pagination";
 
 const CompanySchema = z.object({
@@ -20,6 +21,7 @@ const CompanySchema = z.object({
   plan_name: z.string().trim().optional().nullable(),
   billing_cycle: z.string().trim().optional().nullable(),
   included_services: z.array(z.string().trim().min(1)).max(50).optional().nullable(),
+  start_onboarding: z.boolean().optional(),
   plan_notes: z.string().trim().optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   legal_name: z.string().trim().optional().nullable(),
@@ -230,7 +232,32 @@ async function POST_handler(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(company, { status: 201 });
+  const onboardingResult = parsed.data.start_onboarding === false
+    ? null
+    : await startClientOnboardingForCompany({
+        companyId: company.id,
+        workspaceId: auth.currentWorkspaceId,
+        actorId: auth.prismaUser.id,
+        services: parsed.data.included_services ?? undefined,
+        expectedStartDate: parsed.data.contract_start_date ? new Date(parsed.data.contract_start_date) : null,
+        initialNotes: notes,
+        responsibleSalespersonId: ownerId,
+        responsibleDepartmentId: parsed.data.responsible_department_id ?? null,
+        responsibleDepartmentName: departmentName,
+        source: "company_card",
+      });
+
+  return NextResponse.json(
+    {
+      ...company,
+      onboarding_id: onboardingResult?.onboarding.id ?? null,
+      onboarding_created: onboardingResult ? !onboardingResult.reused : false,
+      created_onboarding_tasks: onboardingResult?.createdTasks ?? [],
+      missing_mappings: onboardingResult?.missingMappings ?? [],
+      onboarding_notifications: onboardingResult?.notifications ?? 0,
+    },
+    { status: 201 },
+  );
 }
 
 export const GET = withErrorReporting("api:companies:GET", GET_handler);

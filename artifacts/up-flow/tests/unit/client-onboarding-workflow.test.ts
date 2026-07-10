@@ -13,6 +13,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260701120000_streamlined_client_onboarding/migration.sql");
   const route = read("src/app/api/onboarding/client-wizard/route.ts");
+  const companiesRoute = read("src/app/api/companies/route.ts");
   const updateRoute = read("src/app/api/onboarding/[id]/route.ts");
   const itemRoute = read("src/app/api/onboarding/[id]/items/[itemId]/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
@@ -31,6 +32,9 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(migration, /ON DELETE SET NULL/);
 
   assert.match(route, /createClientOnboardingFromWizard/);
+  assert.match(companiesRoute, /startClientOnboardingForCompany/);
+  assert.match(companiesRoute, /start_onboarding: z\.boolean\(\)\.optional\(\)/);
+  assert.match(companiesRoute, /parsed\.data\.start_onboarding === false[\s\S]*startClientOnboardingForCompany/);
   assert.match(route, /included_services: z\.array\(z\.string/);
   assert.match(route, /expected_start_date/);
   assert.match(updateRoute, /completion_override/);
@@ -45,6 +49,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
 
   assert.match(helper, /const ONBOARDING_SAFE_SCALAR_SELECT = \{/);
   assert.match(helper, /export function onboardingSelect\(\)/);
+  assert.match(helper, /export async function startClientOnboardingForCompany/);
   assert.match(helper, /select: onboardingSelect\(\)/);
   assert.doesNotMatch(helper, /onboardingInclude/);
   assert.doesNotMatch(helper, /completion_override_reason/);

@@ -31,6 +31,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
 
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES/);
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES[\s\S]*"Vesti"/);
+  assert.match(helper, /isMarketingB2CFormService[\s\S]*key === "vesti"/);
   assert.match(helper, /isMarketingB2CFormService/);
   assert.match(helper, /isMarketingB2CDepartment/);
   assert.match(helper, /routeForResponsibleDepartment/);

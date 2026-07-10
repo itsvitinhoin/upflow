@@ -149,15 +149,13 @@ export default function ClientsPage() {
               return (
                 <article
                   key={company.id}
-                  className="upflow-client-card group relative min-w-0 overflow-hidden rounded-xl border border-blue-400/35 bg-[#07101f]/95 shadow-[0_0_0_1px_rgba(59,130,246,0.08),0_16px_42px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-300/65 hover:bg-[#091426] hover:shadow-[0_0_0_1px_rgba(59,130,246,0.16),0_20px_56px_rgba(0,0,0,0.32)]"
+                  className="upflow-client-card group relative min-w-0 overflow-hidden rounded-xl border border-blue-400/25 bg-[#07101f] shadow-sm transition-colors hover:border-blue-300/55 hover:bg-[#091426]"
                 >
-                  <span className="upflow-client-card-glow pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(59,130,246,0.24),transparent_30%),radial-gradient(circle_at_100%_4%,rgba(99,102,241,0.16),transparent_28%)]" />
-                  <span className="upflow-client-card-accent pointer-events-none absolute right-0 top-0 h-28 w-44 rounded-bl-full bg-blue-500/10 blur-2xl" />
 
                   <div className="relative p-4">
                     <div className="flex min-w-0 items-start justify-between gap-3">
                       <Link href={`/clients/${company.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="upflow-client-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/45 bg-gradient-to-br from-blue-600/85 via-indigo-700/75 to-blue-950 text-3xl font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_26px_rgba(37,99,235,0.32)]">
+                        <span className="upflow-client-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/35 bg-gradient-to-br from-blue-600/85 via-indigo-700/75 to-blue-950 text-3xl font-bold text-white shadow-sm">
                           {company.name.trim().charAt(0).toUpperCase() || "C"}
                         </span>
                         <div className="min-w-0">
@@ -202,7 +200,7 @@ export default function ClientsPage() {
                     </div>
 
                     <Link href={`/clients/${company.id}`} className="mt-5 block space-y-4">
-                      <div className="upflow-client-surface grid gap-3 rounded-xl border border-blue-200/14 bg-white/[0.04] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:grid-cols-2">
+                      <div className="upflow-client-surface grid gap-3 rounded-xl border border-blue-200/14 bg-white/[0.035] p-3 sm:grid-cols-2">
                         <ClientFact
                           icon={<Building2 className="h-5 w-5" />}
                           label={t("clients.brandType")}
@@ -306,7 +304,7 @@ function ClientFact({
 
 function PlanServiceTile({ service }: { service: string }) {
   return (
-    <span className="upflow-client-service flex min-w-0 items-center gap-2 rounded-xl border border-blue-200/14 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <span className="upflow-client-service flex min-w-0 items-center gap-2 rounded-xl border border-blue-200/14 bg-white/[0.035] px-3 py-2 text-sm font-semibold text-white">
       <span className="upflow-client-mini-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/12 text-xs font-bold text-blue-300 ring-1 ring-blue-300/10">
         {serviceInitials(service)}
       </span>

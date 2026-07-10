@@ -227,19 +227,17 @@ export default function SpaceContainerPage() {
       <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
         <section
           className={cn(
-            "relative overflow-hidden rounded-xl border p-5 shadow-2xl",
+            "relative overflow-hidden rounded-xl border p-5 shadow-sm",
             departmentTheme.container,
           )}
         >
           <div className={cn("absolute inset-x-0 top-0 h-1", departmentTheme.accent)} />
-          <div className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 left-1/4 h-48 w-48 rounded-full bg-black/20 blur-3xl" />
 
           <div className="relative flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-start gap-4 min-w-0">
               <div
                 className={cn(
-                  "flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border text-2xl shadow-lg",
+                  "flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border text-2xl shadow-sm",
                   departmentTheme.icon,
                 )}
               >
@@ -538,7 +536,7 @@ function SpaceDashboard({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,rgba(124,92,255,0.18),rgba(16,185,129,0.08),rgba(245,158,11,0.06))]">
+      <section className="overflow-hidden rounded-xl border border-white/10 bg-card/75 shadow-sm">
         <div className="grid gap-5 p-5 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -586,7 +584,7 @@ function SpaceDashboard({
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+          <div className="rounded-xl border border-white/10 bg-black/10 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase text-muted-foreground">
