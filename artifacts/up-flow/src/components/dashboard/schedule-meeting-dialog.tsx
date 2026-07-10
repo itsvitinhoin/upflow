@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CalendarPlus, Users, X, Video } from "lucide-react";
 import type { CalendarEvent } from "@/lib/types";
-import { APP_TIME_ZONE, formatLongDate, mergeAppDateAndTime } from "@/lib/utils";
+import { APP_TIME_ZONE, mergeAppDateAndTime } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import { useAppUser } from "@/components/user-provider";
 
@@ -23,6 +23,18 @@ type SelectableUser = {
 
 function buildStartsAt(time: string, date?: Date) {
   return mergeAppDateAndTime(date ?? new Date(), time);
+}
+
+function dateInputValue(date?: Date) {
+  const copy = new Date(date ?? new Date());
+  copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset());
+  return copy.toISOString().slice(0, 10);
+}
+
+function dateFromInput(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return new Date();
+  return new Date(year, month - 1, day);
 }
 
 export default function ScheduleMeetingDialog({
@@ -55,6 +67,7 @@ export default function ScheduleMeetingDialog({
   const { t } = useLanguage();
   const user = useAppUser();
   const [title, setTitle] = useState("");
+  const [date, setDate] = useState(dateInputValue(initialDate));
   const [time, setTime] = useState(initialTime);
   const [withWho, setWithWho] = useState("");
   const [eventType, setEventType] = useState<"meeting" | "reminder">(defaultType);
@@ -67,11 +80,12 @@ export default function ScheduleMeetingDialog({
 
   useEffect(() => {
     if (!open) return;
+    setDate(dateInputValue(initialDate));
     setTime(initialTime);
     setEventType(defaultType);
     setTitle(defaultTitle ?? "");
     setWithWho(defaultDescription ?? "");
-  }, [defaultDescription, defaultTitle, defaultType, initialTime, open]);
+  }, [defaultDescription, defaultTitle, defaultType, initialDate, initialTime, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -121,12 +135,12 @@ export default function ScheduleMeetingDialog({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !time) {
+    if (!title.trim() || !date || !time) {
       toast.error(t("calendar.titleAndTimeRequired"));
       return;
     }
 
-    const startsAt = buildStartsAt(time, initialDate);
+    const startsAt = buildStartsAt(time, dateFromInput(date));
     const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
     const attendeeIds = attendees.map((attendee) => attendee.id);
     setSubmitting(true);
@@ -156,6 +170,7 @@ export default function ScheduleMeetingDialog({
       );
       onScheduled?.(meeting);
       setTitle(defaultTitle ?? "");
+      setDate(dateInputValue(initialDate));
       setWithWho(defaultDescription ?? "");
       setAttendees([]);
       setSelectedAttendeeId("");
@@ -202,12 +217,16 @@ export default function ScheduleMeetingDialog({
           placeholder={t("calendar.titlePlaceholder")}
           className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
-        {initialDate && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {formatLongDate(initialDate)}
-          </p>
-        )}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="block text-xs font-medium text-foreground mb-1.5">Data</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
           <div>
             <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldTime")}</label>
             <input

@@ -64,6 +64,16 @@ type Competitor = {
   website: string;
 };
 
+type BrandResponsibleExtra = {
+  id: string;
+  area: string;
+  name: string;
+  role: string;
+  phone: string;
+  email: string;
+  note: string;
+};
+
 type ServiceAssignment = {
   id: string;
   service: string;
@@ -118,12 +128,13 @@ type SectionSummary = {
   accent: Accent;
   done: number;
   total: number;
+  required?: boolean;
 };
 
-const OPTIONAL_HELPER = "Opcional — use este campo para adicionar contexto extra.";
+const OPTIONAL_HELPER = "Opcional - use este campo para adicionar contexto extra.";
 
 const b2bFormLabels = {
-  brandSection: "Sobre a Marca",
+  brandSection: "Sobre a marca",
   brandName: "Nome da marca",
   brandOwner: "Proprietário / dono",
   cnpj: "CNPJ",
@@ -132,8 +143,8 @@ const b2bFormLabels = {
   competitors: "Concorrentes",
   generalNotes: "Observações gerais",
   addresses: "Endereços do cliente",
-  commercialRulesSection: "Regras Comerciais",
-  acceptedDocumentRule: "Regra de cadastro / documento aceito",
+  commercialRulesSection: "Regras comerciais",
+  acceptedDocumentRule: "Documento aceito",
   minimumOrder: "Pedido mínimo",
   paymentMethods: "Formas de pagamento",
   discountPolicy: "Política de desconto",
@@ -142,14 +153,14 @@ const b2bFormLabels = {
   ownManufacturing: "Fabricação própria?",
   nationalShipping: "Envio nacional?",
   commercialNotes: "Observações comerciais",
-  targetSection: "Público-Alvo e Posicionamento",
+  targetSection: "Público e posicionamento",
   positioning: "Posicionamento da marca",
   brandStyle: "Estilo da marca",
-  mainAudience: "Público-alvo principal",
-  researchLink: "Link de pesquisa / benchmarking",
-  behaviorNotes: "Observações de comportamento de compra",
-  brandResponsiblesSection: "Responsáveis da Marca",
-  brandResponsiblesNotes: "Observações sobre contatos e responsáveis",
+  mainAudience: "Público-alvo",
+  researchLink: "Benchmarking",
+  behaviorNotes: "Observações de compra",
+  brandResponsiblesSection: "Responsáveis da marca",
+  brandResponsiblesNotes: "Observações dos responsáveis",
   upResponsiblesSection: "Responsáveis UP por serviço",
   accessSection: "Acessos",
   accessNotes: "Observações de acesso",
@@ -166,23 +177,23 @@ const documentRuleOptions = [
   {
     value: "clothing_cnae",
     label: "CNAE de vestuário",
-    description: "Apenas empresas com CNAE relacionado a vestuário podem comprar.",
+    description: "Compra permitida para empresas com CNAE relacionado a vestuário.",
   },
   {
     value: "all_cnpjs",
     label: "Todos CNPJs",
-    description: "Qualquer empresa com CNPJ pode comprar.",
+    description: "Compra permitida para qualquer empresa com CNPJ.",
   },
   {
     value: "cnpj_or_cpf",
     label: "Aceita CNPJ e CPF",
-    description: "A marca aceita compras tanto de empresas quanto de pessoas físicas.",
+    description: "Compra permitida para empresas e pessoas físicas.",
   },
 ];
 
 const booleanishOptions = ["Sim", "Não", "Parcial"];
 const shippingOptions = ["Sim", "Não", "Algumas regiões"];
-const accessStatusOptions = ["Concedido", "Pendente", "Parcial", "Bloqueado", "Não se aplica"];
+const accessStatusOptions = ["Concedido", "Pendente", "Não se aplica"];
 
 const addressTypes = [
   "Loja",
@@ -208,10 +219,7 @@ const departmentUsageOptions = [
 const brandResponsibleRows = [
   ["finance", "Financeiro"],
   ["marketing", "Marketing"],
-  ["commercial", "Comercial"],
-  ["creativeApproval", "Aprovação de criativos"],
-  ["operations", "Operações"],
-  ["other", "Outros"],
+  ["manager", "Gerente"],
 ] as const;
 
 const responsibleColumns = [
@@ -225,15 +233,21 @@ const responsibleColumns = [
 const accessRows = [
   ["vestiUpZero", "Vesti / UP Zero"],
   ["dashboard", "Acesso ao dashboard"],
-  ["dashboardLink", "Link do dashboard"],
   ["metaAds", "Meta Ads"],
   ["googleAds", "Google Ads"],
   ["ga4Gtm", "GA4 / GTM"],
-  ["ecommercePlatform", "Plataforma de e-commerce"],
   ["domainDns", "Domínio / DNS"],
   ["driveFolder", "Drive / materiais"],
-  ["otherAccess", "Outros acessos"],
 ] as const;
+
+const upResponsibleServices = [
+  ["performance", "Performance"],
+  ["upMotion", "UP Motion"],
+  ["upZero", "UP Zero"],
+  ["socialMedia", "Social media"],
+] as const;
+
+const NO_UP_RESPONSIBLE = "__none__";
 
 const accentClasses: Record<Accent, { ring: string; badge: string; line: string; soft: string }> = {
   blue: {
@@ -448,6 +462,65 @@ function cleanCompetitors(competitors: Competitor[]): JsonFormValue[] {
     .filter((competitor) => competitor.name.length > 0);
 }
 
+
+function normalizeExtraBrandResponsibles(values: FormValues): BrandResponsibleExtra[] {
+  const raw = values["brandResponsible.extraRows"];
+  const rows: BrandResponsibleExtra[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const record = item as Record<string, JsonFormValue>;
+      rows.push({
+        id: typeof record.id === "string" ? record.id : createLocalId("brandResponsible"),
+        area: typeof record.area === "string" ? record.area : "",
+        name: typeof record.name === "string" ? record.name : "",
+        role: typeof record.role === "string" ? record.role : "",
+        phone: typeof record.phone === "string" ? record.phone : "",
+        email: typeof record.email === "string" ? record.email : "",
+        note: typeof record.note === "string" ? record.note : "",
+      });
+    }
+  }
+
+  const legacyRows = [
+    ["creativeApproval", "Aprovação de criativos"],
+    ["operations", "Operações"],
+    ["other", ""],
+  ] as const;
+  for (const [legacyKey, area] of legacyRows) {
+    const hasLegacyValue = responsibleColumns.some(([columnKey]) => isTextFilled(values, `brandResponsible.${legacyKey}.${columnKey}`));
+    const alreadyMigrated = rows.some((row) => row.id === `legacy:${legacyKey}`);
+    if (!hasLegacyValue || alreadyMigrated) continue;
+    rows.push({
+      id: `legacy:${legacyKey}`,
+      area,
+      name: textValue(values, `brandResponsible.${legacyKey}.name`),
+      role: textValue(values, `brandResponsible.${legacyKey}.role`),
+      phone: textValue(values, `brandResponsible.${legacyKey}.phone`),
+      email: textValue(values, `brandResponsible.${legacyKey}.email`),
+      note: textValue(values, `brandResponsible.${legacyKey}.note`),
+    });
+  }
+  return rows;
+}
+
+function cleanExtraBrandResponsibles(rows: BrandResponsibleExtra[]): JsonFormValue[] {
+  return rows
+    .map((row) => ({
+      id: row.id,
+      area: row.area.trim(),
+      name: row.name.trim(),
+      role: row.role.trim(),
+      phone: row.phone.trim(),
+      email: row.email.trim(),
+      note: row.note.trim(),
+    }))
+    .filter((row) => row.area.length > 0 || row.name.length > 0 || row.role.length > 0 || row.phone.length > 0 || row.email.length > 0 || row.note.length > 0);
+}
+
+function isUpResponsibleSelected(values: FormValues, serviceKey: string) {
+  return textValue(values, `upResponsible.${serviceKey}.leaderId`).trim().length > 0;
+}
 function cleanAddresses(addresses: ClientAddress[]) {
   return addresses.map((address) => ({
     ...address,
@@ -457,7 +530,7 @@ function cleanAddresses(addresses: ClientAddress[]) {
 
 function statusTone(status: string) {
   const normalized = status.toLowerCase();
-  if (normalized.includes("concedido") || normalized.includes("complete") || normalized.includes("assigned")) {
+  if (normalized.includes("concedido") || normalized.includes("complete") || normalized.includes("assigned") || normalized.includes("definido") || normalized.includes("não se aplica") || normalized.includes("nao se aplica")) {
     return "border-emerald-400/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300";
   }
   if (normalized.includes("bloqueado") || normalized.includes("needs")) {
@@ -471,8 +544,8 @@ function documentRuleLabel(value: string) {
   return documentRuleOptions.find((option) => option.value === value)?.label ?? value;
 }
 
-function calculateSectionProgress(values: FormValues, addresses: ClientAddress[], assignments: ServiceAssignment[]): SectionSummary[] {
-  const assignmentTotal = assignments.length;
+function calculateSectionProgress(values: FormValues, addresses: ClientAddress[], extraBrandResponsibles: BrandResponsibleExtra[]): SectionSummary[] {
+  const extraResponsibleTotal = extraBrandResponsibles.length;
   const sections: SectionSummary[] = [
     {
       id: "brand",
@@ -516,15 +589,18 @@ function calculateSectionProgress(values: FormValues, addresses: ClientAddress[]
       id: "brandResponsibles",
       title: b2bFormLabels.brandResponsiblesSection,
       accent: "pink",
-      total: brandResponsibleRows.length,
-      done: brandResponsibleRows.filter(([rowKey]) => isTextFilled(values, `brandResponsible.${rowKey}.name`)).length,
+      total: brandResponsibleRows.length + extraResponsibleTotal,
+      done:
+        brandResponsibleRows.filter(([rowKey]) => isTextFilled(values, `brandResponsible.${rowKey}.name`)).length +
+        extraBrandResponsibles.filter((row) => row.area.trim().length > 0 || row.name.trim().length > 0).length,
+      required: false,
     },
     {
       id: "upResponsibles",
       title: b2bFormLabels.upResponsiblesSection,
       accent: "cyan",
-      total: assignmentTotal,
-      done: assignments.filter((assignment) => Boolean(assignment.leader_id)).length,
+      total: upResponsibleServices.length,
+      done: upResponsibleServices.filter(([serviceKey]) => isUpResponsibleSelected(values, serviceKey)).length,
     },
     {
       id: "access",
@@ -552,6 +628,7 @@ export default function MarketingB2BOnboardingForm({
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [addresses, setAddresses] = useState<ClientAddress[]>([emptyAddress(true)]);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [extraBrandResponsibles, setExtraBrandResponsibles] = useState<BrandResponsibleExtra[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -571,6 +648,7 @@ export default function MarketingB2BOnboardingForm({
   const valuesRef = useRef<FormValues>({});
   const addressesRef = useRef<ClientAddress[]>([emptyAddress(true)]);
   const competitorsRef = useRef<Competitor[]>([]);
+  const extraBrandResponsiblesRef = useRef<BrandResponsibleExtra[]>([]);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const loadForm = useCallback(async () => {
@@ -582,14 +660,18 @@ export default function MarketingB2BOnboardingForm({
       const normalizedValues = normalizeInitialValues(data);
       const normalizedAddresses = normalizeAddresses(data, normalizedValues);
       const normalizedCompetitors = normalizeCompetitors(normalizedValues);
+      const normalizedExtraBrandResponsibles = normalizeExtraBrandResponsibles(normalizedValues);
 
       normalizedValues["brand.competitors"] = cleanCompetitors(normalizedCompetitors);
+      normalizedValues["brandResponsible.extraRows"] = cleanExtraBrandResponsibles(normalizedExtraBrandResponsibles);
       valuesRef.current = normalizedValues;
       addressesRef.current = normalizedAddresses;
       competitorsRef.current = normalizedCompetitors;
+      extraBrandResponsiblesRef.current = normalizedExtraBrandResponsibles;
       setForm({ ...data, values: normalizedValues });
       setAddresses(normalizedAddresses);
       setCompetitors(normalizedCompetitors);
+      setExtraBrandResponsibles(normalizedExtraBrandResponsibles);
 
       if (data.onboarding.workspace_id) {
         const usersRes = await fetch(`/api/users?workspace_id=${data.onboarding.workspace_id}&status=active&limit=500`);
@@ -613,19 +695,15 @@ export default function MarketingB2BOnboardingForm({
   }, [loadForm]);
 
   const currentValues = form?.values ?? valuesRef.current;
-  const assignments = useMemo(
-    () => form?.onboarding.service_assignments ?? [],
-    [form?.onboarding.service_assignments],
-  );
-  const contractedServices = parseServices(form?.onboarding.contracted_services);
   const sectionProgress = useMemo(
-    () => calculateSectionProgress(currentValues, addresses, assignments),
-    [addresses, assignments, currentValues],
+    () => calculateSectionProgress(currentValues, addresses, extraBrandResponsibles),
+    [addresses, currentValues, extraBrandResponsibles],
   );
-  const totalRequired = sectionProgress.reduce((sum, section) => sum + section.total, 0);
-  const completedRequired = sectionProgress.reduce((sum, section) => sum + section.done, 0);
+  const requiredSections = sectionProgress.filter((section) => section.required !== false);
+  const totalRequired = requiredSections.reduce((sum, section) => sum + section.total, 0);
+  const completedRequired = requiredSections.reduce((sum, section) => sum + section.done, 0);
   const progress = totalRequired > 0 ? Math.round((completedRequired / totalRequired) * 100) : 0;
-  const nextAction = sectionProgress.find((section) => section.done < section.total);
+  const nextAction = requiredSections.find((section) => section.done < section.total);
   const updatedAt = form?.updated_at ?? form?.completed_at ?? null;
   const canEdit = Boolean(form?.can_edit);
 
@@ -651,6 +729,7 @@ export default function MarketingB2BOnboardingForm({
     return {
       ...valuesRef.current,
       "brand.competitors": cleanCompetitors(competitorsRef.current),
+      "brandResponsible.extraRows": cleanExtraBrandResponsibles(extraBrandResponsiblesRef.current),
     } satisfies FormValues;
   }, []);
 
@@ -718,6 +797,14 @@ export default function MarketingB2BOnboardingForm({
     scheduleSave();
   };
 
+  const updateExtraBrandResponsibles = (nextRows: BrandResponsibleExtra[]) => {
+    extraBrandResponsiblesRef.current = nextRows;
+    setExtraBrandResponsibles(nextRows);
+    valuesRef.current = { ...valuesRef.current, "brandResponsible.extraRows": cleanExtraBrandResponsibles(nextRows) };
+    setForm((current) => (current ? { ...current, values: valuesRef.current } : current));
+    scheduleSave();
+  };
+
   const handleSectionAction = async (sectionId: string) => {
     if (!editingSections[sectionId]) {
       setEditingSections((current) => ({ ...current, [sectionId]: true }));
@@ -739,33 +826,6 @@ export default function MarketingB2BOnboardingForm({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     await savePatch({ finalize: true });
     toast.success("Onboarding B2B finalizado");
-  };
-
-  const updateServiceLeader = async (assignment: ServiceAssignment, leaderId: string) => {
-    if (!canEdit) return;
-    try {
-      const res = await fetch(`/api/onboarding/${form?.onboarding.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          service_assignment: {
-            service: assignment.service,
-            leader_id: leaderId || null,
-            department_id: assignment.department_id,
-            notes: assignment.notes,
-          },
-        }),
-      });
-      if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || "Não foi possível salvar o responsável do serviço");
-      }
-      toast.success("Responsável do serviço salvo");
-      await loadForm();
-      onUpdate?.();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o responsável do serviço");
-    }
   };
 
   const scrollToSection = (id: string) => {
@@ -807,6 +867,8 @@ export default function MarketingB2BOnboardingForm({
                 updatedAt={updatedAt}
                 status={form.status}
                 onClose={onClose}
+                docsHref={form.task.project?.id ? `/docs?project=${form.task.project.id}` : "/docs"}
+                onAddTask={() => setActiveTab("kanban")}
               />
 
               <div className="border-b border-border dark:border-slate-800">
@@ -870,22 +932,21 @@ export default function MarketingB2BOnboardingForm({
                     onToggle={() => toggleSection("brandResponsibles")}
                     onAction={() => void handleSectionAction("brandResponsibles")}
                     onFieldChange={updateField}
+                    extraRows={extraBrandResponsibles}
+                    onExtraRowsChange={updateExtraBrandResponsibles}
                   />
 
                   <UpResponsibleSection
                     sectionRef={(node) => {
                       sectionRefs.current.upResponsibles = node;
                     }}
-                    assignments={assignments}
                     teamUsers={teamUsers}
-                    contractedServices={contractedServices}
                     values={valuesRef.current}
                     canEdit={canEdit}
                     open={openSections.upResponsibles}
                     editing={Boolean(editingSections.upResponsibles)}
                     onToggle={() => toggleSection("upResponsibles")}
                     onAction={() => void handleSectionAction("upResponsibles")}
-                    onServiceLeaderChange={updateServiceLeader}
                     onFieldChange={updateField}
                   />
 
@@ -908,8 +969,8 @@ export default function MarketingB2BOnboardingForm({
                     }}
                     values={valuesRef.current}
                     progress={progress}
-                    pendingSections={sectionProgress.filter((section) => section.done < section.total).length}
-                    serviceAssignments={assignments}
+                    pendingSections={requiredSections.filter((section) => section.done < section.total).length}
+                    upResponsiblePending={upResponsibleServices.length - (sectionProgress.find((section) => section.id === "upResponsibles")?.done ?? 0)}
                     accessPending={accessRows.length - (sectionProgress.find((section) => section.id === "access")?.done ?? 0)}
                     canEdit={canEdit}
                     saving={saving}
@@ -983,6 +1044,8 @@ function HeaderCard({
   updatedAt,
   status,
   onClose,
+  docsHref,
+  onAddTask,
 }: {
   companyName: string;
   assigneeName: string;
@@ -990,6 +1053,8 @@ function HeaderCard({
   updatedAt: string | null;
   status: string;
   onClose?: () => void;
+  docsHref: string;
+  onAddTask: () => void;
 }) {
   return (
     <section className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
@@ -1007,8 +1072,11 @@ function HeaderCard({
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground dark:text-slate-400">Formulário e execução do onboarding para novos clientes de Marketing B2B.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button type="button" className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200">
+          <a href={docsHref} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200">
             <FileText className="h-4 w-4" /> Docs
+          </a>
+          <button type="button" onClick={onAddTask} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.25)] hover:brightness-110">
+            <Plus className="h-4 w-4" /> Adicionar tarefa
           </button>
         </div>
       </div>
@@ -1717,23 +1785,46 @@ function TargetSection({
 function ResponsibleBrandSection({
   sectionRef,
   values,
+  extraRows,
   canEdit,
   open,
   editing,
   onToggle,
   onAction,
   onFieldChange,
+  onExtraRowsChange,
 }: {
   sectionRef?: (node: HTMLElement | null) => void;
   values: FormValues;
+  extraRows: BrandResponsibleExtra[];
   canEdit: boolean;
   open: boolean;
   editing: boolean;
   onToggle: () => void;
   onAction: () => void;
   onFieldChange: (field: string, value: string) => void;
+  onExtraRowsChange: (rows: BrandResponsibleExtra[]) => void;
 }) {
-  const done = brandResponsibleRows.filter(([rowKey]) => isTextFilled(values, `brandResponsible.${rowKey}.name`)).length;
+  const disabled = !canEdit || !editing;
+  const fixedDone = brandResponsibleRows.filter(([rowKey]) => isTextFilled(values, `brandResponsible.${rowKey}.name`)).length;
+  const extraDone = extraRows.filter((row) => row.area.trim().length > 0 || row.name.trim().length > 0).length;
+  const total = brandResponsibleRows.length + extraRows.length;
+
+  const addExtraRow = () => {
+    onExtraRowsChange([
+      ...extraRows,
+      { id: createLocalId("brandResponsible"), area: "", name: "", role: "", phone: "", email: "", note: "" },
+    ]);
+  };
+
+  const updateExtraRow = (id: string, field: keyof Omit<BrandResponsibleExtra, "id">, value: string) => {
+    onExtraRowsChange(extraRows.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
+  };
+
+  const removeExtraRow = (id: string) => {
+    onExtraRowsChange(extraRows.filter((row) => row.id !== id));
+  };
+
   return (
     <SectionShell
       id="brandResponsibles"
@@ -1743,38 +1834,79 @@ function ResponsibleBrandSection({
       open={open}
       editing={editing}
       canEdit={canEdit}
-      done={done}
-      total={brandResponsibleRows.length}
+      done={fixedDone + extraDone}
+      total={total}
       sectionRef={sectionRef}
       onToggle={onToggle}
       onAction={onAction}
     >
       <div className="overflow-x-auto rounded-lg border border-border dark:border-slate-800">
-        <div className="grid min-w-[1040px] grid-cols-[160px_repeat(5,minmax(140px,1fr))] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
+        <div className="grid min-w-[1120px] grid-cols-[160px_repeat(5,minmax(140px,1fr))_44px] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
           <span>Área</span>
           {responsibleColumns.map(([, label]) => <span key={label}>{label}</span>)}
+          <span />
         </div>
         {brandResponsibleRows.map(([rowKey, label]) => (
-          <div key={rowKey} className="grid min-w-[1040px] grid-cols-[160px_repeat(5,minmax(140px,1fr))] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+          <div key={rowKey} className="grid min-w-[1120px] grid-cols-[160px_repeat(5,minmax(140px,1fr))_44px] gap-3 border-b border-border px-3 py-2 dark:border-slate-800">
             <span className="self-center text-sm font-bold text-foreground dark:text-white">{label}</span>
             {responsibleColumns.map(([columnKey]) => (
               <input
                 key={columnKey}
                 value={textValue(values, `brandResponsible.${rowKey}.${columnKey}`)}
-                disabled={!canEdit || !editing}
+                disabled={disabled}
                 onChange={(event) => onFieldChange(`brandResponsible.${rowKey}.${columnKey}`, event.target.value)}
                 className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
               />
             ))}
+            <span />
           </div>
         ))}
+        {extraRows.map((row) => (
+          <div key={row.id} className="grid min-w-[1120px] grid-cols-[160px_repeat(5,minmax(140px,1fr))_44px] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+            <input
+              value={row.area}
+              disabled={disabled}
+              placeholder="Nova área"
+              onChange={(event) => updateExtraRow(row.id, "area", event.target.value)}
+              className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-slate-900/60"
+            />
+            {responsibleColumns.map(([columnKey]) => (
+              <input
+                key={columnKey}
+                value={row[columnKey]}
+                disabled={disabled}
+                onChange={(event) => updateExtraRow(row.id, columnKey, event.target.value)}
+                className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
+              />
+            ))}
+            <button
+              type="button"
+              onClick={() => removeExtraRow(row.id)}
+              disabled={disabled}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-red-400 hover:text-red-500 disabled:opacity-40 dark:border-slate-800"
+              title="Remover responsável"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={addExtraRow}
+          disabled={disabled}
+          className="inline-flex h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-bold text-foreground hover:border-blue-400/60 disabled:opacity-40 dark:border-slate-800 dark:text-slate-100"
+        >
+          <Plus className="h-4 w-4" /> Adicionar responsável
+        </button>
       </div>
       <div className="mt-4">
         <TextAreaInput
           label={b2bFormLabels.brandResponsiblesNotes}
           value={textValue(values, "brandResponsible.notes")}
           icon={FileText}
-          disabled={!canEdit || !editing}
+          disabled={disabled}
           optional
           helper={OPTIONAL_HELPER}
           rows={2}
@@ -1784,48 +1916,30 @@ function ResponsibleBrandSection({
     </SectionShell>
   );
 }
-
 function UpResponsibleSection({
   sectionRef,
-  assignments,
   teamUsers,
-  contractedServices,
   values,
   canEdit,
   open,
   editing,
   onToggle,
   onAction,
-  onServiceLeaderChange,
   onFieldChange,
 }: {
   sectionRef?: (node: HTMLElement | null) => void;
-  assignments: ServiceAssignment[];
   teamUsers: TeamUser[];
-  contractedServices: string[];
   values: FormValues;
   canEdit: boolean;
   open: boolean;
   editing: boolean;
   onToggle: () => void;
   onAction: () => void;
-  onServiceLeaderChange: (assignment: ServiceAssignment, leaderId: string) => void;
   onFieldChange: (field: string, value: string) => void;
 }) {
-  const rows: ServiceAssignment[] = assignments.length
-    ? assignments
-    : contractedServices.map((service) => ({
-        id: service,
-        service,
-        leader_id: null,
-        department_id: null,
-        department_name: "Marketing B2B",
-        status: "needs_mapping",
-        notes: null,
-        leader: null,
-        department: null,
-      }));
-  const done = rows.filter((row) => Boolean(row.leader_id)).length;
+  const disabled = !canEdit || !editing;
+  const done = upResponsibleServices.filter(([rowKey]) => isUpResponsibleSelected(values, rowKey)).length;
+
   return (
     <SectionShell
       id="upResponsibles"
@@ -1836,43 +1950,46 @@ function UpResponsibleSection({
       editing={editing}
       canEdit={canEdit}
       done={done}
-      total={Math.max(rows.length, 1)}
+      total={upResponsibleServices.length}
       sectionRef={sectionRef}
       onToggle={onToggle}
       onAction={onAction}
     >
       <div className="overflow-x-auto rounded-lg border border-border dark:border-slate-800">
-        <div className="grid min-w-[860px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
+        <div className="grid min-w-[760px] grid-cols-[1fr_1.25fr_0.9fr] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
           <span>Serviço</span>
-          <span>Departamento UP</span>
           <span>Responsável UP</span>
           <span>Status</span>
         </div>
-        {rows.map((assignment) => (
-          <div key={assignment.id} className="grid min-w-[860px] grid-cols-[1fr_1fr_1.25fr_0.9fr] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
-            <span className="self-center text-sm font-bold text-foreground dark:text-white">{assignment.service}</span>
-            <span className="self-center text-sm text-muted-foreground dark:text-slate-300">{assignment.department?.name ?? assignment.department_name ?? "Marketing B2B"}</span>
-            <select
-              value={assignment.leader_id ?? ""}
-              disabled={!canEdit || !editing || !assignment.id}
-              onChange={(event) => onServiceLeaderChange(assignment, event.target.value)}
-              className="h-9 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
-            >
-              <option value="">Selecionar responsável</option>
-              {teamUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-            </select>
-            <span className={cn("self-center rounded-full px-2.5 py-1 text-xs font-black", statusTone(assignment.status))}>
-              {assignment.leader_id ? "Assigned" : "Precisa de mapeamento"}
-            </span>
-          </div>
-        ))}
+        {upResponsibleServices.map(([rowKey, label]) => {
+          const selected = textValue(values, `upResponsible.${rowKey}.leaderId`);
+          const status = selected === NO_UP_RESPONSIBLE ? "Não se aplica" : selected ? "Definido" : "Pendente";
+          return (
+            <div key={rowKey} className="grid min-w-[760px] grid-cols-[1fr_1.25fr_0.9fr] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
+              <span className="self-center text-sm font-bold text-foreground dark:text-white">{label}</span>
+              <select
+                value={selected}
+                disabled={disabled}
+                onChange={(event) => onFieldChange(`upResponsible.${rowKey}.leaderId`, event.target.value)}
+                className="h-9 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
+              >
+                <option value="">Selecionar responsável</option>
+                <option value={NO_UP_RESPONSIBLE}>Nenhum</option>
+                {teamUsers.map((user) => <option key={user.id} value={user.id}>{user.name || user.email}</option>)}
+              </select>
+              <span className={cn("self-center rounded-full px-2.5 py-1 text-xs font-black", statusTone(status))}>
+                {status}
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div className="mt-4">
         <TextAreaInput
           label="Observações sobre responsáveis UP"
           value={textValue(values, "upResponsible.notes")}
           icon={FileText}
-          disabled={!canEdit || !editing}
+          disabled={disabled}
           optional
           helper={OPTIONAL_HELPER}
           rows={2}
@@ -1882,7 +1999,6 @@ function UpResponsibleSection({
     </SectionShell>
   );
 }
-
 function AccessSection({
   sectionRef,
   values,
@@ -1964,7 +2080,7 @@ function ValidationSection({
   values,
   progress,
   pendingSections,
-  serviceAssignments,
+  upResponsiblePending,
   accessPending,
   canEdit,
   saving,
@@ -1979,7 +2095,7 @@ function ValidationSection({
   values: FormValues;
   progress: number;
   pendingSections: number;
-  serviceAssignments: ServiceAssignment[];
+  upResponsiblePending: number;
   accessPending: number;
   canEdit: boolean;
   saving: boolean;
@@ -1990,7 +2106,6 @@ function ValidationSection({
   onFieldChange: (field: string, value: string) => void;
   onFinalize: () => void;
 }) {
-  const missingServiceOwners = serviceAssignments.filter((assignment) => !assignment.leader_id).length;
   return (
     <SectionShell
       id="validation"
@@ -2009,7 +2124,7 @@ function ValidationSection({
       <div className="grid gap-3 sm:grid-cols-2">
         <ValidationItem label="Campos preenchidos" value={`${progress}%`} ok={progress >= 100} />
         <ValidationItem label="Seções pendentes" value={String(pendingSections)} ok={pendingSections === 0} />
-        <ValidationItem label="Responsáveis UP faltando" value={String(missingServiceOwners)} ok={missingServiceOwners === 0} />
+        <ValidationItem label="Responsáveis UP pendentes" value={String(upResponsiblePending)} ok={upResponsiblePending === 0} />
         <ValidationItem label="Acessos pendentes" value={String(accessPending)} ok={accessPending === 0} />
       </div>
       <div className="mt-4">
@@ -2069,7 +2184,7 @@ function ProgressSidebar({
   onFinalize: () => void;
 }) {
   return (
-    <aside className="space-y-4 xl:sticky xl:top-24 xl:max-h-[calc(100vh-120px)] xl:self-start xl:overflow-y-auto">
+    <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
       <section className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f]">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Resumo do Onboarding</p>
