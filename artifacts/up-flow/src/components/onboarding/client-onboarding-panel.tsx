@@ -324,10 +324,12 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
       .filter((section) => countFilled(values, section.fields) < section.fields.length)
       .map((section) => t(`marketingB2BForm.section.${section.key}`));
     const task = form.task ?? item?.task ?? null;
+    const formTaskId = form.task_id ?? task?.id ?? item?.task_id ?? null;
+    const formProjectId = form.task?.project_id ?? task?.project_id ?? null;
     return {
       form,
       item,
-      href: task?.project_id && task.id ? `/projects/${task.project_id}?view=form&task=${task.id}` : null,
+      href: formProjectId && formTaskId ? `/projects/${formProjectId}?view=form&task=${formTaskId}` : null,
       owner: task?.assignee?.name ?? item?.owner?.name ?? t("companyDialog.notAssigned"),
       progress: form.status === "complete" ? 100 : progress,
       updatedAt: form.updated_at ?? form.completed_at ?? null,
@@ -348,10 +350,12 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
       .filter((section) => countFilled(values, section.fields) < section.fields.length)
       .map((section) => t(`marketingB2CForm.section.${section.key}`));
     const task = form.task ?? item?.task ?? null;
+    const formTaskId = form.task_id ?? task?.id ?? item?.task_id ?? null;
+    const formProjectId = form.task?.project_id ?? task?.project_id ?? null;
     return {
       form,
       item,
-      href: task?.project_id && task.id ? `/projects/${task.project_id}?view=form&task=${task.id}` : null,
+      href: formProjectId && formTaskId ? `/projects/${formProjectId}?view=form&task=${formTaskId}` : null,
       owner: task?.assignee?.name ?? item?.owner?.name ?? t("companyDialog.notAssigned"),
       progress: form.status === "complete" ? 100 : progress,
       updatedAt: form.updated_at ?? form.completed_at ?? null,

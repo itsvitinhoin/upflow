@@ -66,11 +66,13 @@ function isSupportGroupOnboardingTask(task: Task) {
 
 function isMarketingB2BFormTask(task: Task) {
   const text = taskSearchText(task);
-  return (
-    text.includes("marketing b2b") &&
-    (text.includes("form") || text.includes("formulario") || text.includes("formulário")) &&
-    !isSchedulingOnboardingTask(task)
-  );
+  const hasFormSignal =
+    text.includes("form") ||
+    text.includes("formulario") ||
+    text.includes("formulário") ||
+    text.includes("onboarding marketing b2b") ||
+    text.includes("marketing b2b onboarding");
+  return text.includes("marketing b2b") && hasFormSignal && !isSchedulingOnboardingTask(task);
 }
 
 export function workflowFormKind(task: Task): WorkflowFormKind | null {

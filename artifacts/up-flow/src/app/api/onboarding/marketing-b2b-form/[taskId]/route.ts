@@ -312,7 +312,36 @@ function isBackfillableMarketingB2BTaskText(input: {
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
-  return text.includes("marketing b2b") && text.includes("form") && !text.includes("meeting") && !text.includes("reuni");
+  const hasFormSignal = text.includes("form") || text.includes("onboarding marketing b2b") || text.includes("marketing b2b onboarding");
+  const hasSchedulingSignal = text.includes("meeting") || text.includes("reuni") || text.includes("schedule") || text.includes("kickoff") || text.includes("agenda");
+  return text.includes("marketing b2b") && hasFormSignal && !hasSchedulingSignal;
+}
+
+async function loadExistingB2BFormForContext(input: {
+  taskId?: string | null;
+  checklistItemId?: string | null;
+  onboardingId?: string | null;
+  workspaceId?: string | null;
+  companyId?: string | null;
+}) {
+  const or: Prisma.MarketingB2BOnboardingFormWhereInput[] = [];
+  if (input.taskId) or.push({ task_id: input.taskId });
+  if (input.checklistItemId) or.push({ checklist_item_id: input.checklistItemId });
+  if (input.onboardingId) or.push({ onboarding_id: input.onboardingId });
+  if (input.workspaceId && input.companyId) {
+    or.push({
+      workspace_id: input.workspaceId,
+      company_id: input.companyId,
+      onboarding: { status: { not: "onboarding_complete" } },
+    });
+  }
+  if (or.length === 0) return null;
+
+  return prisma.marketingB2BOnboardingForm.findFirst({
+    where: { OR: or },
+    orderBy: [{ updated_at: "desc" }, { created_at: "desc" }, { id: "asc" }],
+    include: formInclude,
+  });
 }
 
 async function ensureBackfilledB2BForm(taskId: string) {
@@ -337,23 +366,42 @@ async function ensureBackfilledB2BForm(taskId: string) {
     },
   });
 
-  if (item?.task_id && item.task && isBackfillableMarketingB2BFormTask(item)) {
-    try {
-      return await prisma.marketingB2BOnboardingForm.create({
-        data: {
-          workspace_id: item.workspace_id,
-          onboarding_id: item.onboarding_id,
-          checklist_item_id: item.id,
-          task_id: item.task_id,
-          company_id: item.onboarding.company_id,
-          project_id: item.task.project_id,
-          values: {},
-        },
-        include: formInclude,
-      });
-    } catch (err) {
-      if (isUniqueConstraintError(err)) return loadForm(taskId);
-      throw err;
+  if (item?.task_id && item.task) {
+    const existing = await loadExistingB2BFormForContext({
+      taskId,
+      checklistItemId: item.id,
+      onboardingId: item.onboarding_id,
+      workspaceId: item.workspace_id,
+      companyId: item.onboarding.company_id,
+    });
+    if (existing) return existing;
+
+    if (isBackfillableMarketingB2BFormTask(item)) {
+      try {
+        return await prisma.marketingB2BOnboardingForm.create({
+          data: {
+            workspace_id: item.workspace_id,
+            onboarding_id: item.onboarding_id,
+            checklist_item_id: item.id,
+            task_id: item.task_id,
+            company_id: item.onboarding.company_id,
+            project_id: item.task.project_id,
+            values: {},
+          },
+          include: formInclude,
+        });
+      } catch (err) {
+        if (isUniqueConstraintError(err)) {
+          return loadExistingB2BFormForContext({
+            taskId,
+            checklistItemId: item.id,
+            onboardingId: item.onboarding_id,
+            workspaceId: item.workspace_id,
+            companyId: item.onboarding.company_id,
+          });
+        }
+        throw err;
+      }
     }
   }
 
@@ -388,6 +436,13 @@ async function ensureBackfilledB2BForm(taskId: string) {
   ) {
     return null;
   }
+
+  const existing = await loadExistingB2BFormForContext({
+    taskId,
+    workspaceId: task.project.workspace_id,
+    companyId,
+  });
+  if (existing) return existing;
 
   try {
     return await prisma.$transaction(async (tx) => {
@@ -446,7 +501,13 @@ async function ensureBackfilledB2BForm(taskId: string) {
       });
     });
   } catch (err) {
-    if (isUniqueConstraintError(err)) return loadForm(taskId);
+    if (isUniqueConstraintError(err)) {
+      return loadExistingB2BFormForContext({
+        taskId,
+        workspaceId: task.project.workspace_id,
+        companyId,
+      });
+    }
     throw err;
   }
 }

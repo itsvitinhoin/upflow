@@ -659,7 +659,10 @@ export default function MarketingB2BOnboardingForm({
     setLoadError(null);
     try {
       const res = await fetch(`/api/onboarding/marketing-b2b-form/${taskId}`);
-      if (!res.ok) throw new Error("Não foi possível carregar o onboarding B2B");
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `Nao foi possivel carregar o onboarding B2B (${res.status})`);
+      }
       const data = (await res.json()) as B2BFormResponse;
       const normalizedValues = normalizeInitialValues(data);
       const normalizedAddresses = normalizeAddresses(data, normalizedValues);

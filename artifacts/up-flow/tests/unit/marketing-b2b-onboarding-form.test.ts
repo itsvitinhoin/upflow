@@ -47,6 +47,9 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
   assert.match(route, /ensureBackfilledB2BForm/);
   assert.match(route, /isBackfillableMarketingB2BTaskText/);
+  assert.match(route, /loadExistingB2BFormForContext/);
+  assert.match(route, /onboarding marketing b2b/);
+  assert.match(route, /marketing b2b onboarding/);
   assert.match(route, /clientOnboarding\.findFirst/);
   assert.match(route, /clientOnboarding\.create/);
   assert.match(route, /task\?\.company_id \?\? task\?\.project\.company_id/);
@@ -79,6 +82,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(panel, /marketing_b2b_form/);
   assert.match(panel, /marketingB2BForm\.centralHint/);
   assert.match(panel, /marketingB2BSummary/);
+  assert.match(panel, /formTaskId = form\.task_id/);
+  assert.match(panel, /formProjectId = form\.task\?\.project_id/);
   assert.match(panel, /marketingB2BForm\.summaryTitle/);
   assert.match(panel, /\?view=form&/);
 
@@ -122,6 +127,23 @@ test("Marketing B2B form task opens the form before relation backfill", () => {
   assert.deepEqual(getOnboardingTaskAction(task), {
     kind: "form",
     href: "/projects/project-b2b?view=form&task=task-b2b-form",
+    formKind: "marketing_b2b",
+  });
+});
+
+test("Marketing B2B department onboarding task opens the form-first route", () => {
+  const task = {
+    id: "task-b2b-onboarding",
+    title: "Onboarding Marketing B2B",
+    description: "Complete the department onboarding for this client.",
+    project_id: "project-b2b",
+    project: { id: "project-b2b", name: "Teste" },
+  } as Task;
+
+  assert.equal(workflowFormKind(task), "marketing_b2b");
+  assert.deepEqual(getOnboardingTaskAction(task), {
+    kind: "form",
+    href: "/projects/project-b2b?view=form&task=task-b2b-onboarding",
     formKind: "marketing_b2b",
   });
 });
