@@ -332,7 +332,6 @@ async function loadExistingB2BFormForContext(input: {
     or.push({
       workspace_id: input.workspaceId,
       company_id: input.companyId,
-      onboarding: { status: { not: "onboarding_complete" } },
     });
   }
   if (or.length === 0) return null;

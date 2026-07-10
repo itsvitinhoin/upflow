@@ -48,6 +48,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /ensureBackfilledB2BForm/);
   assert.match(route, /isBackfillableMarketingB2BTaskText/);
   assert.match(route, /loadExistingB2BFormForContext/);
+  assert.doesNotMatch(route, /onboarding:\s*\{\s*status/);
   assert.match(route, /onboarding marketing b2b/);
   assert.match(route, /marketing b2b onboarding/);
   assert.match(route, /clientOnboarding\.findFirst/);
