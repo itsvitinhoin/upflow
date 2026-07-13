@@ -31,6 +31,10 @@ test("meeting room section is exposed in navigation and books the shared room", 
   assert.match(page, /meetingRoom\.userFilter/);
   assert.match(scheduleDialog, /defaultLocation\?: string \| null/);
   assert.match(scheduleDialog, /roomBooking\?: boolean/);
+  assert.match(scheduleDialog, /roomAttendeeOptions/);
+  assert.match(scheduleDialog, /toggleAttendee/);
+  assert.match(scheduleDialog, /type="checkbox"/);
+  assert.match(scheduleDialog, /meetingRoom\.chooseParticipants/);
   assert.match(scheduleDialog, /meetingRoom\.bookingType/);
   assert.match(scheduleDialog, /const resolvedLocation = roomBooking \? defaultLocation \|\| "Sala de Reuniao" : defaultLocation/);
   assert.match(scheduleDialog, /\.\.\.\(resolvedLocation \? \{ location: resolvedLocation \} : \{\}\)/);
@@ -43,5 +47,6 @@ test("meeting room section is exposed in navigation and books the shared room", 
   assert.match(translations, /"meetingRoom\.reserveRoom": "Reserve room"/);
   assert.match(translations, /"meetingRoom\.allUsers": "All users"/);
   assert.match(translations, /"meetingRoom\.roomReserved": "Meeting room reserved"/);
+  assert.match(translations, /"meetingRoom\.chooseParticipants": "Choose participants for the room booking\."/);
   assert.match(translations, /"calendar\.legendRoomBooking": "Meeting room booking"/);
 });
