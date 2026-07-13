@@ -12,6 +12,7 @@ import {
   DoorOpen,
   Plus,
   RefreshCw,
+  Trash2,
   Users,
   Video,
 } from "lucide-react";
@@ -281,6 +282,24 @@ export default function MeetingRoomPage() {
     void loadRoomCalendar({ silent: true });
   };
 
+  const handleDelete = async (event: RoomCalendarEvent) => {
+    if (!confirm(t("calendar.deleteConfirm", { title: event.title }))) return;
+    try {
+      const res = await fetch(`/api/calendar/events/${event.id}`, { method: "DELETE" });
+      if (res.status === 403) {
+        toast.error(t("calendar.noPermission"));
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to delete room booking");
+      setEvents((prev) => prev.filter((item) => item.id !== event.id));
+      toast.success(t("calendar.eventDeleted"));
+      void loadRoomCalendar({ silent: true });
+    } catch (err) {
+      logError("meeting-room:delete", err);
+      toast.error(t("calendar.couldNotDelete"));
+    }
+  };
+
   return (
     <>
       <Header title={t("meetingRoom.title")} />
@@ -526,6 +545,7 @@ export default function MeetingRoomPage() {
                         key={event.id}
                         event={event}
                         hasConflict={conflicts.has(event.id)}
+                        onDelete={handleDelete}
                         t={t}
                       />
                     ))}
@@ -560,6 +580,7 @@ export default function MeetingRoomPage() {
                       event={event}
                       compact
                       hasConflict={conflicts.has(event.id)}
+                      onDelete={handleDelete}
                       t={t}
                     />
                   ))}
@@ -579,6 +600,7 @@ export default function MeetingRoomPage() {
         title={t("meetingRoom.reserveRoom")}
         defaultType="meeting"
         defaultLocation={ROOM_NAME}
+        roomBooking
       />
     </>
   );
@@ -622,11 +644,13 @@ function MeetingItem({
   event,
   compact = false,
   hasConflict,
+  onDelete,
   t,
 }: {
   event: RoomCalendarEvent;
   compact?: boolean;
   hasConflict: boolean;
+  onDelete: (event: RoomCalendarEvent) => void;
   t: (key: string, vars?: Record<string, string | number>) => string;
 }) {
   const people = eventPeople(event);
@@ -672,12 +696,23 @@ function MeetingItem({
               <Video className="h-3 w-3" />
               {event.location || ROOM_NAME}
             </span>
-            <Link
-              href={`/calendar?date=${dateKey(event.starts_at)}&event=${event.id}`}
-              className="rounded-lg px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10"
-            >
-              {t("common.open")}
-            </Link>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onDelete(event)}
+                aria-label={`${t("common.delete")} ${event.title}`}
+                title={t("common.delete")}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-upflow-danger transition hover:bg-upflow-danger/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+              <Link
+                href={`/calendar?date=${dateKey(event.starts_at)}&event=${event.id}`}
+                className="rounded-lg px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10"
+              >
+                {t("common.open")}
+              </Link>
+            </div>
           </div>
         </div>
       </div>

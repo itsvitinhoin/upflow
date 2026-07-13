@@ -25,7 +25,8 @@ test("calendar selected-day panel exposes quick create actions", () => {
   assert.match(page, /defaultDueDate=\{appDateKey\(selected\)\}/);
 
   assert.match(scheduleDialog, /defaultType = "meeting"/);
-  assert.match(scheduleDialog, /type: eventType/);
+  assert.match(scheduleDialog, /const resolvedType = roomBooking \? "meeting" : eventType/);
+  assert.match(scheduleDialog, /type: resolvedType/);
   assert.match(scheduleDialog, /calendar\.eventScheduled/);
   assert.match(taskDialog, /defaultDueDate\?: string/);
 

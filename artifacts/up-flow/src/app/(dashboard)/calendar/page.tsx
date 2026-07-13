@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
-import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, Video, X } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, Trash2, Video, X } from "lucide-react";
 import { appDateKey, appTimeInputValue, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
@@ -67,6 +67,8 @@ const taskColor: Record<Task["priority"], string> = {
 
 const DEFAULT_EVENT_COLOR = "bg-primary/20 text-primary border-l-primary";
 const COMPLETED_EVENT_COLOR = "bg-upflow-success/30 text-upflow-success border-l-upflow-success";
+const ROOM_BOOKING_COLOR = "bg-cyan-400/20 text-cyan-100 border-l-cyan-400";
+const ROOM_NAME = "Sala de Reuniao";
 const DAY_CELL_VISIBLE_ITEM_LIMIT = 6;
 const EVENT_COLOR_OPTIONS = [
   { key: "default", color: null, className: DEFAULT_EVENT_COLOR, labelKey: "calendar.colorDefault" },
@@ -102,6 +104,21 @@ type ScheduleDefaults = {
 
 function eventColor(event: CalendarEvent) {
   return event.color || DEFAULT_EVENT_COLOR;
+}
+
+function normalizeRoom(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function isMeetingRoomEvent(event: CalendarEvent) {
+  const location = normalizeRoom(event.location);
+  return (
+    event.type === "meeting" &&
+    (location.includes("sala de reuniao") || location.includes("meeting room"))
+  );
 }
 
 function eventIsComplete(event: CalendarEvent) {
@@ -307,6 +324,7 @@ export default function CalendarPage() {
 
   const eventVisualClass = (event: CalendarEvent, display: ReturnType<typeof eventDisplayState>) => {
     if (display.isComplete) return display.color;
+    if (isMeetingRoomEvent(event)) return ROOM_BOOKING_COLOR;
     return eventUserTone(event)?.event ?? display.color;
   };
 
@@ -538,11 +556,12 @@ export default function CalendarPage() {
                   <div className="mt-1 hidden w-full space-y-0.5 overflow-hidden sm:block" data-calendar-day-items>
                     {visibleDayEvents.map((event) => {
                       const display = eventDisplayState(event, today);
+                      const isRoomBooking = isMeetingRoomEvent(event);
 
                       return (
                         <div
                           key={event.id}
-                          title={`${eventTime(event)} ${event.title}${display.isAutoComplete ? ` - ${t("calendar.autoCompleted")}` : ""}`}
+                          title={`${eventTime(event)} ${event.title}${isRoomBooking ? ` - ${t("calendar.roomBooking")}` : ""}${display.isAutoComplete ? ` - ${t("calendar.autoCompleted")}` : ""}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelected(day);
@@ -556,6 +575,7 @@ export default function CalendarPage() {
                           className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", eventVisualClass(event, display))}
                         >
                           {display.isComplete && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
+                          {isRoomBooking && !display.isComplete && <DoorOpen className="mr-0.5 inline h-2.5 w-2.5" />}
                           {eventTime(event)} {event.title}
                         </div>
                       );
@@ -670,6 +690,7 @@ export default function CalendarPage() {
                   {selectedEvents.map((event) => {
                     const display = eventDisplayState(event, today);
                     const tone = eventUserTone(event);
+                    const isRoomBooking = isMeetingRoomEvent(event);
 
                     return (
                       <li
@@ -683,7 +704,9 @@ export default function CalendarPage() {
                           eventVisualClass(event, display),
                         )}
                       >
-                        {tone && !display.isComplete && (
+                        {isRoomBooking && !display.isComplete ? (
+                          <DoorOpen className="h-3.5 w-3.5 shrink-0 text-cyan-100" />
+                        ) : tone && !display.isComplete && (
                           <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot)} />
                         )}
                         <div
@@ -691,13 +714,22 @@ export default function CalendarPage() {
                             "min-w-0 flex-1 text-left",
                           )}
                         >
-                          <p className="text-xs font-medium text-foreground truncate">
-                            {display.isComplete && <Check className="mr-1 inline h-3 w-3 text-upflow-success" />}
-                            {eventTime(event)} {event.title}
-                          </p>
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                              {display.isComplete && <Check className="mr-1 inline h-3 w-3 text-upflow-success" />}
+                              {eventTime(event)} {event.title}
+                            </p>
+                            {isRoomBooking && (
+                              <span className="shrink-0 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100">
+                                {t("calendar.roomBooking")}
+                              </span>
+                            )}
+                          </div>
                           {(event.location || event.meeting_url || event.description || display.isAutoComplete) && (
                             <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                              {event.location || event.meeting_url || event.description || t("calendar.autoCompleted")}
+                              {isRoomBooking
+                                ? t("calendar.roomBookingDetail")
+                                : event.location || event.meeting_url || event.description || t("calendar.autoCompleted")}
                             </p>
                           )}
                         </div>
@@ -785,6 +817,10 @@ export default function CalendarPage() {
               <li className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-primary/40 border-l-2 border-l-primary" />
                 {t("calendar.legendEvent")}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded bg-cyan-400/40 border-l-2 border-l-cyan-400" />
+                {t("calendar.legendRoomBooking")}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-upflow-success/40 border-l-2 border-l-upflow-success" />
@@ -928,9 +964,11 @@ function EventEditor({
   onDeleted: (id: string) => void;
 }) {
   const { t } = useLanguage();
+  const isRoomBooking = isMeetingRoomEvent(event);
+  const roomLocation = event.location || ROOM_NAME;
   const [title, setTitle] = useState(event.title);
   const [time, setTime] = useState(toTimeInput(event.starts_at));
-  const [location, setLocation] = useState(event.location ?? "");
+  const [location, setLocation] = useState(isRoomBooking ? roomLocation : event.location ?? "");
   const [submitting, setSubmitting] = useState(false);
 
   const save = async (e: React.FormEvent) => {
@@ -950,7 +988,7 @@ function EventEditor({
           title: title.trim(),
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
-          location: location.trim() || null,
+          location: isRoomBooking ? roomLocation : location.trim() || null,
         }),
       });
       if (res.status === 403) {
@@ -999,7 +1037,11 @@ function EventEditor({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold text-foreground">
             {t("calendar.manageEvent", {
-              type: event.type === "meeting" ? t("calendar.meeting") : t("calendar.event"),
+              type: isRoomBooking
+                ? t("calendar.roomBooking")
+                : event.type === "meeting"
+                  ? t("calendar.meeting")
+                  : t("calendar.event"),
             })}
           </h2>
           <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -1028,8 +1070,12 @@ function EventEditor({
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
+              disabled={isRoomBooking}
               className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
+            {isRoomBooking && (
+              <p className="mt-1 text-[11px] text-muted-foreground">{t("calendar.roomBookingLocked")}</p>
+            )}
           </div>
         </div>
         <div className="mt-6 grid gap-2 sm:flex">

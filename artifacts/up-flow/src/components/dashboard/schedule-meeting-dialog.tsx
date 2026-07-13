@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CalendarPlus, Users, X, Video } from "lucide-react";
+import { CalendarPlus, DoorOpen, Users, X, Video } from "lucide-react";
 import type { CalendarEvent } from "@/lib/types";
 import { APP_TIME_ZONE, mergeAppDateAndTime } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
@@ -51,6 +51,7 @@ export default function ScheduleMeetingDialog({
   defaultProjectId,
   defaultLocation,
   defaultType = "meeting",
+  roomBooking = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -65,6 +66,7 @@ export default function ScheduleMeetingDialog({
   defaultProjectId?: string | null;
   defaultLocation?: string | null;
   defaultType?: "meeting" | "reminder";
+  roomBooking?: boolean;
 }) {
   const { t } = useLanguage();
   const user = useAppUser();
@@ -84,10 +86,10 @@ export default function ScheduleMeetingDialog({
     if (!open) return;
     setDate(dateInputValue(initialDate));
     setTime(initialTime);
-    setEventType(defaultType);
+    setEventType(roomBooking ? "meeting" : defaultType);
     setTitle(defaultTitle ?? "");
     setWithWho(defaultDescription ?? "");
-  }, [defaultDescription, defaultTitle, defaultType, initialDate, initialTime, open]);
+  }, [defaultDescription, defaultTitle, defaultType, initialDate, initialTime, open, roomBooking]);
 
   useEffect(() => {
     if (!open) return;
@@ -145,6 +147,8 @@ export default function ScheduleMeetingDialog({
     const startsAt = buildStartsAt(time, dateFromInput(date));
     const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
     const attendeeIds = attendees.map((attendee) => attendee.id);
+    const resolvedType = roomBooking ? "meeting" : eventType;
+    const resolvedLocation = roomBooking ? defaultLocation || "Sala de Reuniao" : defaultLocation;
     setSubmitting(true);
     try {
       const res = await fetch("/api/calendar/events", {
@@ -153,12 +157,12 @@ export default function ScheduleMeetingDialog({
         body: JSON.stringify({
           title: title.trim(),
           description: withWho.trim() ? withWho.trim() : null,
-          type: eventType,
+          type: resolvedType,
           starts_at: startsAt.toISOString(),
           ends_at: endsAt.toISOString(),
           timezone: APP_TIME_ZONE,
-          color: COLORS[colorIdx],
-          ...(defaultLocation ? { location: defaultLocation } : {}),
+          color: roomBooking ? "bg-cyan-400/20 text-cyan-100 border-l-cyan-400" : COLORS[colorIdx],
+          ...(resolvedLocation ? { location: resolvedLocation } : {}),
           ...(defaultProjectId ? { project_id: defaultProjectId } : {}),
           ...(defaultTaskId ? { task_id: defaultTaskId } : {}),
           ...(attendeeIds.length ? { attendee_ids: attendeeIds } : {}),
@@ -167,7 +171,9 @@ export default function ScheduleMeetingDialog({
       if (!res.ok) throw new Error("Failed to schedule meeting");
       const meeting = (await res.json()) as CalendarEvent;
       toast.success(
-        eventType === "meeting"
+        roomBooking
+          ? t("meetingRoom.roomReserved")
+          : eventType === "meeting"
           ? t("calendar.meetingScheduled")
           : t("calendar.eventScheduled"),
       );
@@ -198,7 +204,9 @@ export default function ScheduleMeetingDialog({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-upflow-success/20 text-upflow-success flex items-center justify-center">
-              {eventType === "meeting" ? (
+              {roomBooking ? (
+                <DoorOpen className="w-4 h-4" />
+              ) : eventType === "meeting" ? (
                 <Video className="w-4 h-4" />
               ) : (
                 <CalendarPlus className="w-4 h-4" />
@@ -245,7 +253,9 @@ export default function ScheduleMeetingDialog({
               value={withWho}
               onChange={(e) => setWithWho(e.target.value)}
               placeholder={
-                eventType === "meeting"
+                roomBooking
+                  ? t("meetingRoom.bookingDetailsPlaceholder")
+                  : eventType === "meeting"
                   ? t("calendar.withPlaceholder")
                   : t("calendar.eventDetailsPlaceholder")
               }
@@ -314,44 +324,53 @@ export default function ScheduleMeetingDialog({
             </p>
           )}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-          <button
-            type="button"
-            onClick={() => setEventType("meeting")}
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-              eventType === "meeting"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
-            }`}
-          >
-            {t("calendar.meeting")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setEventType("reminder")}
-            className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
-              eventType === "reminder"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
-            }`}
-          >
-            {t("calendar.event")}
-          </button>
-        </div>
-        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("calendar.tag")}</label>
-        <div className="flex gap-2">
-          {COLORS.map((c, i) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColorIdx(i)}
-              aria-label={`Color ${i + 1}`}
-              className={`w-8 h-8 rounded-lg ${c} ${
-                colorIdx === i ? "ring-2 ring-foreground/40" : ""
-              }`}
-            />
-          ))}
-        </div>
+        {roomBooking ? (
+          <div className="mt-4 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-3 py-2">
+            <p className="text-xs font-semibold text-cyan-100">{t("meetingRoom.bookingType")}</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{defaultLocation || "Sala de Reuniao"}</p>
+          </div>
+        ) : (
+          <>
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+              <button
+                type="button"
+                onClick={() => setEventType("meeting")}
+                className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                  eventType === "meeting"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                }`}
+              >
+                {t("calendar.meeting")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEventType("reminder")}
+                className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                  eventType === "reminder"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                }`}
+              >
+                {t("calendar.event")}
+              </button>
+            </div>
+            <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("calendar.tag")}</label>
+            <div className="flex gap-2">
+              {COLORS.map((c, i) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColorIdx(i)}
+                  aria-label={`Color ${i + 1}`}
+                  className={`w-8 h-8 rounded-lg ${c} ${
+                    colorIdx === i ? "ring-2 ring-foreground/40" : ""
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
         <div className="flex gap-2 mt-6">
           <button
             type="button"
@@ -366,7 +385,11 @@ export default function ScheduleMeetingDialog({
             disabled={submitting}
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg disabled:opacity-50"
           >
-            {submitting ? t("calendar.scheduling") : t("calendar.schedule")}
+            {submitting
+              ? t("calendar.scheduling")
+              : roomBooking
+                ? t("meetingRoom.reserveRoom")
+                : t("calendar.schedule")}
           </button>
         </div>
       </form>
