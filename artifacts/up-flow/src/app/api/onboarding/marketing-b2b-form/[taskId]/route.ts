@@ -78,10 +78,6 @@ const formInclude = {
       name: true,
       website: true,
       industry: true,
-      addresses: {
-        orderBy: [{ is_primary: "desc" as const }, { created_at: "asc" as const }],
-        select: addressSelect,
-      },
     },
   },
   onboarding: {
@@ -127,6 +123,15 @@ const formInclude = {
   },
   completer: { select: { id: true, name: true, email: true } },
 } satisfies Prisma.MarketingB2BOnboardingFormInclude;
+
+function isMissingClientAddressTableError(err: unknown) {
+  const code =
+    typeof err === "object" && err !== null && "code" in err
+      ? (err as { code?: unknown }).code
+      : null;
+  const message = err instanceof Error ? err.message : "";
+  return code === "P2021" && message.includes("ClientAddress");
+}
 
 function normalizeJsonValue(raw: unknown): JsonFormValue {
   if (raw === null || typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") {
@@ -257,6 +262,16 @@ async function syncClientAddresses(
   }
 }
 
+async function canUseClientAddresses() {
+  try {
+    await prisma.clientAddress.findFirst({ select: { id: true } });
+    return true;
+  } catch (err) {
+    if (isMissingClientAddressTableError(err)) return false;
+    throw err;
+  }
+}
+
 function mapAddress(address: Prisma.ClientAddressGetPayload<{ select: typeof addressSelect }>) {
   return {
     id: address.id,
@@ -283,6 +298,19 @@ async function loadForm(taskId: string) {
     where: { task_id: taskId },
     include: formInclude,
   });
+}
+
+async function loadCompanyAddresses(companyId: string) {
+  try {
+    return await prisma.clientAddress.findMany({
+      where: { company_id: companyId },
+      orderBy: [{ is_primary: "desc" as const }, { created_at: "asc" as const }],
+      select: addressSelect,
+    });
+  } catch (err) {
+    if (isMissingClientAddressTableError(err)) return [];
+    throw err;
+  }
 }
 
 function isBackfillableMarketingB2BFormTask(item: {
@@ -573,6 +601,7 @@ async function ensureBackfilledB2BForm(taskId: string) {
 function responseBody(
   form: NonNullable<Awaited<ReturnType<typeof loadForm>>>,
   canEdit: boolean,
+  addresses: Prisma.ClientAddressGetPayload<{ select: typeof addressSelect }>[],
 ) {
   return {
     id: form.id,
@@ -592,7 +621,7 @@ function responseBody(
     },
     company: {
       ...form.company,
-      addresses: form.company.addresses.map(mapAddress),
+      addresses: addresses.map(mapAddress),
     },
     onboarding: form.onboarding,
     checklist_item: form.checklist_item,
@@ -633,7 +662,8 @@ async function GET_handler(
 ) {
   const access = await getAccess(params.taskId);
   if (!access.ok) return access.response;
-  return NextResponse.json(responseBody(access.form, access.canEdit));
+  const addresses = await loadCompanyAddresses(access.form.company_id);
+  return NextResponse.json(responseBody(access.form, access.canEdit, addresses));
 }
 
 async function PATCH_handler(
@@ -663,6 +693,7 @@ async function PATCH_handler(
       nextValues[key] = cleanJsonValue(value);
     }
   }
+  const canSyncAddresses = parsed.data.addresses ? await canUseClientAddresses() : false;
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.marketingB2BOnboardingForm.update({
@@ -681,7 +712,7 @@ async function PATCH_handler(
       },
     });
 
-    if (parsed.data.addresses) {
+    if (parsed.data.addresses && canSyncAddresses) {
       await syncClientAddresses(tx, access.form.workspace_id, access.form.company_id, parsed.data.addresses);
     }
 
@@ -719,6 +750,7 @@ async function PATCH_handler(
       include: formInclude,
     });
   });
+  const addresses = await loadCompanyAddresses(updated.company_id);
 
   if (parsed.data.finalize) {
     await recordActivity({
@@ -737,7 +769,7 @@ async function PATCH_handler(
     });
   }
 
-  return NextResponse.json(responseBody(updated, access.canEdit));
+  return NextResponse.json(responseBody(updated, access.canEdit, addresses));
 }
 
 export const GET = withErrorReporting("api:onboarding/marketing-b2b-form:GET", GET_handler);
