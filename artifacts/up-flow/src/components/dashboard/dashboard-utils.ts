@@ -42,7 +42,7 @@ export function priorityLabel(
 }
 
 export function moneyCompact(value: number | null | undefined) {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     notation: "compact",

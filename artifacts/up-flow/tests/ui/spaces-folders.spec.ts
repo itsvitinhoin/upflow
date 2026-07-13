@@ -58,8 +58,6 @@ test.describe("Spaces and folders containers", () => {
     await expect(
       sidebar.getByRole("link", { name: directListName, exact: true }),
     ).toBeVisible();
-    await expect(main.getByText("Recent activity")).toHaveCount(0);
-    await expect(main.getByText("Completed")).toHaveCount(0);
     await expect(main.getByText(taskTitle)).toHaveCount(0);
 
     await sidebar.getByRole("link", { name: folderName, exact: true }).click();

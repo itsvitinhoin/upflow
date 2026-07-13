@@ -105,3 +105,14 @@ export async function createTaskViaApi(
   const body = (await res.json()) as { id: string };
   return body.id;
 }
+
+/** Return the id of the user authenticated in this browser/API context. */
+export async function currentUserId(
+  ctx: APIRequestContext | BrowserContext,
+): Promise<string> {
+  const req = "get" in ctx ? ctx : ctx.request;
+  const res = await req.get("/api/auth/me");
+  expect(res.ok(), `load current user failed: ${res.status()}`).toBeTruthy();
+  const body = (await res.json()) as { id: string };
+  return body.id;
+}

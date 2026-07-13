@@ -3,6 +3,7 @@ import { SEEDED, uniq } from "../helpers";
 import {
   createProjectViaApi,
   createTaskViaApi,
+  currentUserId,
   loggedInContext,
   requireChromiumOrSkip,
 } from "./_ui-helpers";
@@ -190,9 +191,11 @@ test.describe("Dashboard quick actions and task rows", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const projectId = await createProjectViaApi(ctx, uniq("Dash"));
     const title = uniq("Task-Edit");
+    const assigneeId = await currentUserId(ctx);
     await createTaskViaApi(ctx, projectId, title, {
       due_date: new Date().toISOString(),
       priority: "high",
+      assignee_id: assigneeId,
     });
 
     const page = await ctx.newPage();
@@ -244,9 +247,11 @@ test.describe("Dashboard quick actions and task rows", () => {
     // Seed a project + task for the admin so a row exists deterministically.
     const projectId = await createProjectViaApi(ctx, uniq("Dash"));
     const title = uniq("Task-MarkDone");
+    const assigneeId = await currentUserId(ctx);
     await createTaskViaApi(ctx, projectId, title, {
       due_date: new Date().toISOString(),
       priority: "high",
+      assignee_id: assigneeId,
     });
 
     const page = await ctx.newPage();
@@ -275,9 +280,11 @@ test.describe("Dashboard quick actions and task rows", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const projectId = await createProjectViaApi(ctx, uniq("Dash"));
     const title = uniq("Task-Delete");
+    const assigneeId = await currentUserId(ctx);
     await createTaskViaApi(ctx, projectId, title, {
       due_date: new Date().toISOString(),
       priority: "high",
+      assignee_id: assigneeId,
     });
 
     const page = await ctx.newPage();

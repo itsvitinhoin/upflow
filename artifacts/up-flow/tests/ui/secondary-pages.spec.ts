@@ -72,17 +72,9 @@ test.describe("Calendar", () => {
 
     const page = await ctx.newPage();
     await page.goto("/calendar");
-    // Click today's cell (the highlighted "today" button has `aria-current`
-    // semantics via its style; targeting by today's day number is reliable
-    // when paired with the seeded task assertion below).
-    const todayNum = new Date().getDate().toString();
-    await page
-      .locator("button")
-      .filter({
-        has: page.locator("span", { hasText: new RegExp(`^${todayNum}$`) }),
-      })
-      .first()
-      .click();
+    // Click the exact calendar cell that rendered the seeded task. This stays
+    // correct across the app timezone and adjacent-month day duplicates.
+    await page.getByRole("button", { name: new RegExp(title) }).click();
     const link = page.getByRole("link", { name: new RegExp(title) }).first();
     await expect(link).toBeVisible({ timeout: 10_000 });
     await link.click();
@@ -111,12 +103,11 @@ test.describe("Time tracking", () => {
     // 7 bars rendered, each with a native `title` tooltip like "Mon: 0h 30m".
     const bars = page.locator("div[title*=':']");
     expect(await bars.count()).toBeGreaterThanOrEqual(7);
-    // Hover a bar to exercise the hover state; assert the title attribute is
-    // populated (this is what browsers surface as the tooltip).
+    // Assert the native tooltip is populated. Zero-minute bars can be too
+    // short to hover, but their title remains the browser-visible tooltip.
     const firstBar = bars.first();
-    await firstBar.hover();
     const tooltipTitle = await firstBar.getAttribute("title");
-    expect(tooltipTitle).toMatch(/^[A-Za-z]{3}: \d+h \d+m$/);
+    expect(tooltipTitle).toMatch(/^[A-Za-z]{3}: (?:(?:\d+h )?\d+m)$/);
     // Per-project breakdown lists at least the seeded project name.
     await expect(page.getByText(/Time-Proj/).first()).toBeVisible();
 

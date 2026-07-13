@@ -98,7 +98,6 @@ export default function TeamPage() {
       setIsSuperAdmin(overview.is_super_admin === true);
       setUsers(overview.members ?? []);
       setDepartments(overview.departments ?? []);
-      setQuery("");
     } catch {
       setToast(t("team.couldNotLoad"));
     } finally {

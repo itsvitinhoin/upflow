@@ -356,6 +356,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     const page = await ctx.newPage();
     await page.goto(`/projects/${projectId}`);
     await expect(page.getByText(taskTitle)).toBeVisible();
+    await page.getByRole("button", { name: /^List$/ }).click();
 
     // Make the Notes column visible (Columns dropdown lists custom fields too).
     await page.getByRole("button", { name: /^Columns$/ }).click();
@@ -395,12 +396,13 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     const page = await ctx.newPage();
     await page.goto(`/projects/${projectId}`);
     await expect(page.getByText(title)).toBeVisible();
+    await page.getByRole("button", { name: /^List$/ }).click();
 
     // The list groups by status by default; use the group's accessible toggle
     // instead of relying on the surrounding layout or button order.
-    await page.getByRole("button", { name: "Collapse To Do" }).click();
+    await page.getByRole("button", { name: /Collapse To Do/i }).click();
     await expect(page.getByText(title)).toBeHidden();
-    await page.getByRole("button", { name: "Expand To Do" }).click();
+    await page.getByRole("button", { name: /Expand To Do/i }).click();
     await expect(page.getByText(title)).toBeVisible();
 
     // Completion checkbox: each row has a circular toggle with title="Toggle complete".

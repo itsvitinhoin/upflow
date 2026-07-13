@@ -52,3 +52,10 @@ test("dashboard copy avoids unsupported operational claims", () => {
   assert.match(translations, /overdue open tasks, no owner, or no activity record in 7 days/);
   assert.match(spaceDashboardDrawer, /t\("spaceDashboard\.projectsAtRiskHint"\)/);
 });
+
+test("dashboard compact currency uses a deterministic locale during hydration", () => {
+  const dashboardUtils = read("src/components/dashboard/dashboard-utils.ts");
+
+  assert.match(dashboardUtils, /new Intl\.NumberFormat\("en-US"/);
+  assert.doesNotMatch(dashboardUtils, /new Intl\.NumberFormat\(undefined/);
+});

@@ -128,6 +128,7 @@ export default function ProjectToolbar({
       <button
         onClick={() => set({ sortDir: state.sortDir === "asc" ? "desc" : "asc" })}
         className="rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground"
+        aria-label={state.sortDir === "asc" ? t("toolbar.sortAscending") : t("toolbar.sortDescending")}
         title={state.sortDir === "asc" ? t("toolbar.sortAscending") : t("toolbar.sortDescending")}
       >
         {state.sortDir === "asc" ? "↑" : "↓"}

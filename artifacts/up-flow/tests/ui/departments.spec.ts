@@ -230,16 +230,27 @@ test.describe("Departments UI", () => {
     // Close the dialog and reveal the new (empty) department on the page.
     await dialog.getByRole("button", { name: "Close" }).click();
     await page.getByLabel("Show empty groups").check();
-    const depGroup = page.getByTestId("department-group").filter({
-      has: page.getByRole("button", {
-        name: new RegExp(`^${depName}\\s+0 members$`),
-      }),
-    });
+    const list = await ctx.request.get(`/api/workspaces/${wsId}/departments`);
+    const listBody = (await list.json()) as {
+      items: { id: string; name: string }[];
+    };
+    const created = listBody.items.find((d) => d.name === depName);
+    expect(created, "new department should be returned by the API").toBeTruthy();
+    const depGroup = page.locator(
+      `[data-testid="department-group"][data-department-key="${created!.id}"]`,
+    );
     await expect(depGroup).toBeVisible();
 
     // Assign via the inline <select> for the seeded member.
     const select = page.getByLabel(`Department for ${targetMember!.name}`);
+    const assignment = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/members/${targetMember!.id}/department`) &&
+        response.request().method() === "PUT" &&
+        response.ok(),
+    );
     await select.selectOption({ label: depName });
+    await assignment;
 
     // After assignment the member row should live inside the department's
     // <section>. Wait for the API round-trip + re-render.
@@ -248,16 +259,9 @@ test.describe("Departments UI", () => {
     });
 
     // Cleanup — also exercises the SetNull onDelete path.
-    const list = await ctx.request.get(`/api/workspaces/${wsId}/departments`);
-    const listBody = (await list.json()) as {
-      items: { id: string; name: string }[];
-    };
-    const created = listBody.items.find((d) => d.name === depName);
-    if (created) {
-      await ctx.request.delete(
-        `/api/workspaces/${wsId}/departments/${created.id}`,
-      );
-    }
+    await ctx.request.delete(
+      `/api/workspaces/${wsId}/departments/${created!.id}`,
+    );
 
     await ctx.close();
   });
