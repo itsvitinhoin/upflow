@@ -25,6 +25,10 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   const translations = read("src/lib/i18n/translations.ts");
   const layout = read("src/app/layout.tsx");
   const theme = read("src/app/theme.css");
+  const contextualLookup = route.slice(
+    route.indexOf("async function loadExistingB2BFormForContext"),
+    route.indexOf("async function bindExistingB2BFormToTask"),
+  );
 
   assert.match(schema, /model MarketingB2BOnboardingForm/);
   assert.match(schema, /marketing_b2b_onboarding_form\s+MarketingB2BOnboardingForm\?/);
@@ -48,7 +52,14 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /ensureBackfilledB2BForm/);
   assert.match(route, /isBackfillableMarketingB2BTaskText/);
   assert.match(route, /loadExistingB2BFormForContext/);
+  assert.match(route, /bindExistingB2BFormToTask/);
+  assert.match(route, /task_id: input\.taskId/);
+  assert.match(route, /checklist_item_id: input\.checklistItemId/);
+  assert.match(route, /where: \{ onboarding_id: onboarding\.id \}/);
+  assert.match(route, /task_id: task\.id/);
   assert.doesNotMatch(route, /onboarding:\s*\{\s*status/);
+  assert.doesNotMatch(contextualLookup, /workspace_id/);
+  assert.doesNotMatch(contextualLookup, /company_id/);
   assert.match(route, /onboarding marketing b2b/);
   assert.match(route, /marketing b2b onboarding/);
   assert.match(route, /clientOnboarding\.findFirst/);
