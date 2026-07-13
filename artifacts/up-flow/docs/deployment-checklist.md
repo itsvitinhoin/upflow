@@ -14,9 +14,12 @@ Confirm these variables exist in the Vercel `Production` environment:
 - `APP_URL`: canonical public app URL, for example `https://upflow-mocha.vercel.app`.
 - `RESEND_API_KEY`: Resend API key for transactional invite/password emails.
 - `EMAIL_FROM`: verified sender, for example `Up Flow <no-reply@yourdomain.com>`.
+- `CRON_SECRET`: random shared secret used by production cron endpoints.
+- `SENTRY_DSN`: server-side error tracking DSN, or set `OBSERVABILITY_DISABLED=1` only for an explicitly accepted internal rollout without error tracking.
 - `TASK_ASSETS_BUCKET`: optional Supabase Storage bucket name for task cover images. Defaults to `task-assets`.
 
 Also confirm these values do not contain placeholders such as `[YOUR-PASSWORD]`.
+For production rate limiting, configure either `REDIS_URL` or both `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`; otherwise each server instance falls back to an in-memory limiter.
 
 Create a public Supabase Storage bucket named `task-assets` unless `TASK_ASSETS_BUCKET` points to a different public bucket. Task cover image uploads store only the public URL in Postgres.
 

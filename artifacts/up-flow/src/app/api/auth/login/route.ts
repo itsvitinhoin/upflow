@@ -81,8 +81,7 @@ async function POST_handler(req: NextRequest) {
     // only see the wrapper's synthetic "responded 500" marker — useful for
     // counting incidents, useless for root-cause.
     logError("api:auth/login:POST", err);
-    const message = err instanceof Error ? err.message : "Login failed";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Login is temporarily unavailable" }, { status: 500 });
   }
 }
 export const POST = withErrorReporting("api:auth/login:POST", POST_handler);

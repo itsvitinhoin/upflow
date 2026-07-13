@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 
 async function GET_handler(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET?.trim();
+  if (!cronSecret && process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Cron secret is not configured" }, { status: 503 });
+  }
   if (cronSecret) {
     const auth = req.headers.get("authorization");
     if (auth !== `Bearer ${cronSecret}`) {
