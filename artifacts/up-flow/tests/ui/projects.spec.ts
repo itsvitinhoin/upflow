@@ -26,13 +26,20 @@ test.describe("Projects index", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/projects");
-    await page.getByRole("button", { name: /^New Project$/ }).first().click();
-    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
+    await page
+      .getByRole("button", { name: /^New Project$/ })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "New Project" }),
+    ).toBeVisible();
     await page
       .getByRole("dialog", { name: "New Project" })
       .getByRole("button", { name: "Cancel" })
       .click();
-    await expect(page.getByRole("dialog", { name: "New Project" })).toBeHidden();
+    await expect(
+      page.getByRole("dialog", { name: "New Project" }),
+    ).toBeHidden();
 
     await ctx.close();
   });
@@ -48,15 +55,19 @@ test.describe("Projects index", () => {
     const page = await ctx.newPage();
     await page.goto("/projects");
 
-    const card = page.locator("h3", { hasText: name }).locator("..").locator("..").locator("..");
+    const card = page
+      .locator("h3", { hasText: name })
+      .locator("..")
+      .locator("..")
+      .locator("..");
     // The Move button uses opacity-0 + group-hover. Force-click via hover.
     await card.hover();
     const move = card.getByRole("button", { name: /Move/ }).first();
     await move.click({ force: true });
-    await expect(page.getByText("Move project")).toBeVisible();
-    await expect(page.getByText(name, { exact: true })).toBeVisible();
-    // Close.
-    await page.getByRole("button", { name: "Cancel" }).click();
+    const dialog = page.getByRole("dialog", { name: "Move project" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(name, { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
 
     await ctx.close();
   });
@@ -113,12 +124,16 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // Group menu.
     await page.getByRole("button", { name: /^Group:/ }).click();
     await page.getByRole("button", { name: "Priority", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^Group: Priority$/ })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Group: Priority$/ }),
+    ).toBeVisible();
 
     // Sort menu.
     await page.getByRole("button", { name: /^Sort:/ }).click();
     await page.getByRole("button", { name: "Due date", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^Sort: Due date$/ })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^Sort: Due date$/ }),
+    ).toBeVisible();
 
     // Filter popover.
     await page.getByRole("button", { name: /^Filter$/ }).click();
@@ -151,13 +166,16 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
 
     // By default "Show closed" is off — the done task is hidden.
     await expect(page.getByText(open)).toBeVisible();
+    await expect(page.getByText(done)).toBeVisible();
+    await page.getByRole("button", { name: /^Show closed$/ }).click();
     await expect(page.getByText(done)).toBeHidden();
-    // Toggle it on.
     await page.getByRole("button", { name: /^Show closed$/ }).click();
     await expect(page.getByText(done)).toBeVisible();
 
     // Sort direction button is a single-char "↑"/"↓" button with a tooltip.
-    const sortDir = page.getByRole("button", { name: /^Sort (asc|desc)ending$/ });
+    const sortDir = page.getByRole("button", {
+      name: /^Sort (asc|desc)ending$/,
+    });
     const initialTitle = await sortDir.getAttribute("title");
     await sortDir.click();
     await expect(sortDir).not.toHaveAttribute("title", initialTitle ?? "");
@@ -182,14 +200,18 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // with data-rfd-drag-handle-draggable-id on the element with the
     // tabIndex; targeting that element directly avoids accidental focus on
     // a child node and makes the keyboard sensor reliable.
-    const handle = page.locator(`[data-rfd-drag-handle-draggable-id]`).filter({ hasText: title }).first();
+    const handle = page
+      .locator(`[data-rfd-drag-handle-draggable-id]`)
+      .filter({ hasText: title })
+      .first();
     await expect(handle).toBeVisible();
     await handle.focus();
 
     // Wait for the persisted reorder PATCH so the reload below shows the
     // server-side truth rather than just the optimistic UI state.
     const reorder = page.waitForResponse(
-      (r) => r.url().includes(`/api/projects/${projectId}/reorder-tasks`) && r.ok(),
+      (r) =>
+        r.url().includes(`/api/projects/${projectId}/reorder-tasks`) && r.ok(),
     );
     // Keyboard sensor: Space lifts, ArrowRight moves between columns,
     // Space drops.
@@ -201,8 +223,12 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // Reload and confirm the task is now under the in_progress droppable.
     await page.reload();
     await page.getByRole("button", { name: /^Board$/ }).click();
-    const inProgressDroppable = page.locator("[data-rfd-droppable-id='in_progress']");
-    await expect(inProgressDroppable.getByText(title)).toBeVisible({ timeout: 10_000 });
+    const inProgressDroppable = page.locator(
+      "[data-rfd-droppable-id='in_progress']",
+    );
+    await expect(inProgressDroppable.getByText(title)).toBeVisible({
+      timeout: 10_000,
+    });
 
     await ctx.close();
   });
@@ -227,7 +253,10 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // Helper: PATCH /api/tasks/:id awaiter.
     const awaitTaskPatch = () =>
       page.waitForResponse(
-        (r) => /\/api\/tasks\/[^/]+$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
+        (r) =>
+          /\/api\/tasks\/[^/]+$/.test(r.url()) &&
+          r.request().method() === "PATCH" &&
+          r.ok(),
       );
 
     // 1) Title edit.
@@ -255,9 +284,14 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await p;
 
     // 4) Due date input (yyyy-mm-dd).
-    const due = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10);
+    const dueDate = new Date(Date.now() + 7 * 86400_000);
+    const due = [
+      String(dueDate.getDate()).padStart(2, "0"),
+      String(dueDate.getMonth() + 1).padStart(2, "0"),
+      dueDate.getFullYear(),
+    ].join("/");
     p = awaitTaskPatch();
-    const dueInput = page.locator('input[type="date"]').first();
+    const dueInput = page.getByPlaceholder("dd/mm/aaaa").first();
     await dueInput.fill(due);
     await dueInput.blur();
     await p;
@@ -284,7 +318,8 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     const commentInput = page.getByPlaceholder("Add a comment...");
     await expect(commentInput).toBeVisible();
     const commentPost = page.waitForResponse(
-      (r) => r.url().includes("/api/comments") && r.request().method() === "POST",
+      (r) =>
+        r.url().includes("/api/comments") && r.request().method() === "POST",
     );
     await commentInput.fill("Looks good to me");
     await commentInput.press("Enter");
@@ -310,9 +345,12 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
 
     // Seed a text custom-field definition on this project (admin endpoint).
     const fieldName = "Notes";
-    const defRes = await ctx.request.post(`/api/projects/${projectId}/custom-fields`, {
-      data: { name: fieldName, type: "text" },
-    });
+    const defRes = await ctx.request.post(
+      `/api/projects/${projectId}/custom-fields`,
+      {
+        data: { name: fieldName, type: "text" },
+      },
+    );
     expect(defRes.ok()).toBeTruthy();
 
     const page = await ctx.newPage();
@@ -327,7 +365,10 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
 
     // The text custom-field renders an <input>. Hover the row, fill, blur,
     // and assert the PUT to /api/tasks/:id/custom-fields fires.
-    const taskRow = page.locator("div").filter({ hasText: taskTitle }).first();
+    const taskRow = page
+      .locator("div.grid.items-center")
+      .filter({ has: page.getByText(taskTitle, { exact: true }) })
+      .last();
     await taskRow.hover();
     const cfInput = taskRow.locator('input[type="text"]').first();
     const put = page.waitForResponse(
@@ -358,9 +399,8 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // The list groups by status by default; "To Do" header row has a chevron
     // toggle as its first button. Find the group row containing "To Do".
     const groupRow = page
-      .locator("div")
-      .filter({ has: page.locator("span", { hasText: /^To Do$/ }) })
-      .filter({ has: page.locator("button").first() })
+      .locator("div.flex.items-center")
+      .filter({ has: page.getByText("To Do", { exact: true }) })
       .first();
     const chevron = groupRow.locator("button").first();
     await chevron.click();
@@ -371,9 +411,16 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // Completion checkbox: each row has a circular toggle with title="Toggle complete".
     // Clicking it PATCHes status → "done".
     const patch = page.waitForResponse(
-      (r) => /\/api\/tasks\/[^/]+$/.test(r.url()) && r.request().method() === "PATCH" && r.ok(),
+      (r) =>
+        /\/api\/tasks\/[^/]+$/.test(r.url()) &&
+        r.request().method() === "PATCH" &&
+        r.ok(),
     );
-    await page.locator('button[title="Toggle complete"]').first().click();
+    const taskRow = page
+      .locator("div.grid.items-center")
+      .filter({ has: page.getByText(title, { exact: true }) })
+      .last();
+    await taskRow.locator('button[title="Completed"]').click();
     await patch;
 
     await ctx.close();

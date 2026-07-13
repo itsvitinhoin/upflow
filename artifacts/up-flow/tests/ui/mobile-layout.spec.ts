@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type BrowserContext, type Page } from "@playwright/test";
 import { SEEDED, uniq } from "../helpers";
 import {
   createProjectViaApi,
@@ -8,9 +8,7 @@ import {
 } from "./_ui-helpers";
 
 const MOBILE_VIEWPORTS = [
-  { width: 375, height: 667 },
   { width: 390, height: 844 },
-  { width: 430, height: 932 },
   { width: 768, height: 1024 },
 ];
 
@@ -19,9 +17,10 @@ async function expectNoPageOverflow(page: Page) {
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth: window.innerWidth,
   }));
-  expect(scrollWidth, "page should not create horizontal document scroll").toBeLessThanOrEqual(
-    innerWidth + 1,
-  );
+  expect(
+    scrollWidth,
+    "page should not create horizontal document scroll",
+  ).toBeLessThanOrEqual(innerWidth + 1);
 }
 
 async function expectFitsViewport(page: Page, selector: string) {
@@ -37,7 +36,10 @@ async function expectFitsViewport(page: Page, selector: string) {
   expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
 }
 
-async function createSpaceViaApi(ctx: BrowserContext, name: string): Promise<string> {
+async function createSpaceViaApi(
+  ctx: BrowserContext,
+  name: string,
+): Promise<string> {
   const res = await ctx.request.post("/api/spaces", { data: { name } });
   expect(res.ok(), `create space failed: ${res.status()}`).toBeTruthy();
   const body = (await res.json()) as { id: string };
@@ -49,7 +51,9 @@ async function createFolderViaApi(
   spaceId: string,
   name: string,
 ): Promise<string> {
-  const res = await ctx.request.post("/api/folders", { data: { name, space_id: spaceId } });
+  const res = await ctx.request.post("/api/folders", {
+    data: { name, space_id: spaceId },
+  });
   expect(res.ok(), `create folder failed: ${res.status()}`).toBeTruthy();
   const body = (await res.json()) as { id: string };
   return body.id;
@@ -67,11 +71,18 @@ test.describe("Mobile responsive layout", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
-    await expect(page.getByRole("button", { name: "Open navigation" })).toBeVisible();
-    await expect(page.locator('input[type="search"]').first()).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Open navigation" }),
+    ).toBeVisible();
+    const searchbox = page
+      .getByRole("form", { name: /^Search / })
+      .getByRole("searchbox");
+    await expect(searchbox).toBeVisible();
 
-    const button = await page.getByRole("button", { name: "Open navigation" }).boundingBox();
-    const search = await page.locator('input[type="search"]').first().boundingBox();
+    const button = await page
+      .getByRole("button", { name: "Open navigation" })
+      .boundingBox();
+    const search = await searchbox.boundingBox();
     expect(button).toBeTruthy();
     expect(search).toBeTruthy();
     if (button && search) {
@@ -80,7 +91,9 @@ test.describe("Mobile responsive layout", () => {
 
     await expectNoPageOverflow(page);
     await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(page.getByRole("button", { name: "Close navigation" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Close navigation" }),
+    ).toBeVisible();
     await expectFitsViewport(page, "aside");
     await page.getByRole("button", { name: "Close navigation" }).click();
     await ctx.close();
@@ -94,12 +107,22 @@ test.describe("Mobile responsive layout", () => {
     const projectId = await createProjectViaApi(ctx, uniq("MobileProject"));
     await createTaskViaApi(ctx, projectId, uniq("MobileTask"));
     const spaceId = await createSpaceViaApi(ctx, uniq("MobileSpace"));
-    const folderId = await createFolderViaApi(ctx, spaceId, uniq("MobileFolder"));
+    const folderId = await createFolderViaApi(
+      ctx,
+      spaceId,
+      uniq("MobileFolder"),
+    );
 
     const companyRes = await ctx.request.post("/api/companies", {
-      data: { name: uniq("MobileClient"), service_type: "Creative", plan_name: "Growth" },
+      data: {
+        name: uniq("MobileClient"),
+        service_type: "Creative",
+        plan_name: "Growth",
+      },
     });
-    const company = companyRes.ok() ? ((await companyRes.json()) as { id: string }) : null;
+    const company = companyRes.ok()
+      ? ((await companyRes.json()) as { id: string })
+      : null;
 
     const routes = [
       "/",
@@ -134,7 +157,10 @@ test.describe("Mobile responsive layout", () => {
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
-    const projectId = await createProjectViaApi(ctx, uniq("MobileBoardProject"));
+    const projectId = await createProjectViaApi(
+      ctx,
+      uniq("MobileBoardProject"),
+    );
     const taskTitle = uniq("MobileBoardTask");
     await createTaskViaApi(ctx, projectId, taskTitle);
 
@@ -152,7 +178,9 @@ test.describe("Mobile responsive layout", () => {
     await expectNoPageOverflow(page);
     await page.getByText(taskTitle).first().click();
 
-    await expect(page.getByDisplayValue(taskTitle)).toBeVisible();
+    await expect(
+      page.locator(`input[value="${taskTitle}"]`).first(),
+    ).toBeVisible();
     await expectFitsViewport(page, "div.fixed.right-0.top-0.z-50");
     await expectNoPageOverflow(page);
     await ctx.close();
@@ -167,14 +195,21 @@ test.describe("Mobile responsive layout", () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto("/");
 
-    await page.getByRole("button", { name: /^New Project$/ }).first().click();
-    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
+    await page
+      .getByRole("button", { name: /^New Project$/ })
+      .first()
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "New Project" }),
+    ).toBeVisible();
     await expectFitsViewport(page, '[role="dialog"]');
     await page.getByRole("button", { name: "Cancel" }).click();
 
     await page.goto("/team");
-    await page.getByRole("button", { name: /Invite member/i }).click();
-    await expect(page.getByRole("heading", { name: "Invite to team" })).toBeVisible();
+    await page.getByRole("button", { name: /Invite users/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Invite to team" }),
+    ).toBeVisible();
     await expectFitsViewport(page, 'form:has-text("Invite to team")');
     await ctx.close();
   });

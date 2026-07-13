@@ -1,12 +1,24 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Calendar as CalendarIcon, MoreHorizontal, Plus, X } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  MoreHorizontal,
+  Plus,
+  X,
+} from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import type { TaskDrawerStatus } from "@/components/dashboard/dashboard-page-types";
 import { priorityLabel } from "@/components/dashboard/dashboard-utils";
 import type { CalendarEvent, Task } from "@/lib/types";
-import { cn, formatDate, formatTime, isOverdue, priorityColor } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  formatTime,
+  isOverdue,
+  priorityColor,
+} from "@/lib/utils";
 
 export function TodayFocusPanel({
   loading,
@@ -39,7 +51,9 @@ export function TodayFocusPanel({
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-upflow-danger/15 text-upflow-danger shadow-[0_0_20px_rgba(251,113,133,0.18)]">
               <AlertCircle className="h-4 w-4" />
             </span>
-            <h3 className="text-sm font-semibold text-foreground">{t("dashboard.todayFocus")}</h3>
+            <h3 className="text-sm font-semibold text-foreground">
+              {t("dashboard.todayFocus")}
+            </h3>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             {t("dashboard.todayFocusHint")}
@@ -62,7 +76,9 @@ export function TodayFocusPanel({
           ))
         ) : !hasFocusItems ? (
           <div className="px-5 py-10 text-center">
-            <p className="text-sm font-medium text-foreground">{t("dashboard.noFocus")}</p>
+            <p className="text-sm font-medium text-foreground">
+              {t("dashboard.noFocus")}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
               {t("dashboard.todayFocusHint")}
             </p>
@@ -288,17 +304,23 @@ export function TaskStatusDrawer({
         : t("dashboard.completed");
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <aside
+        aria-label={`${label} tasks`}
         className="glass-strong absolute right-0 top-0 h-dvh w-full max-w-md overflow-y-auto border-l border-white/10 p-4 sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
-          <div className="hidden">
+          <div>
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
               {t("dashboard.tasks")}
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-foreground">{label}</h2>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">
+              {label}
+            </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {t("dashboard.tasksCount", { count: tasks.length })}
             </p>
@@ -316,7 +338,9 @@ export function TaskStatusDrawer({
         <div className="mt-5 divide-y divide-white/5 overflow-hidden rounded-xl border border-white/5">
           {tasks.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">{t("dashboard.noFocus")}</p>
+              <p className="text-sm font-medium text-foreground">
+                {t("dashboard.noFocus")}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("dashboard.statusHint")}
               </p>

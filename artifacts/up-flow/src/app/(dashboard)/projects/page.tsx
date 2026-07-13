@@ -5,11 +5,24 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { logError } from "@/lib/log-error";
 import { toast } from "sonner";
-import { FolderOpen, Plus, Calendar, CheckSquare, Folder, Trash2 } from "lucide-react";
+import {
+  FolderOpen,
+  Plus,
+  Calendar,
+  CheckSquare,
+  Folder,
+  Trash2,
+} from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import { useLanguage } from "@/components/language-provider";
-import { cn, formatDate, getInitials, statusColor, statusLabel } from "@/lib/utils";
+import {
+  cn,
+  formatDate,
+  getInitials,
+  statusColor,
+  statusLabel,
+} from "@/lib/utils";
 import type { Project, Space } from "@/lib/types";
 
 export default function ProjectsPage() {
@@ -21,7 +34,9 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
   const [moveProjectId, setMoveProjectId] = useState<string | null>(null);
-  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null,
+  );
 
   const loadProjects = (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -69,30 +84,40 @@ export default function ProjectsPage() {
 
   const deleteProject = async (project: Project) => {
     if (deletingProjectId) return;
-    if (!window.confirm(t("projects.deleteConfirm", { name: project.name }))) return;
+    if (!window.confirm(t("projects.deleteConfirm", { name: project.name })))
+      return;
 
     setDeletingProjectId(project.id);
     try {
-      const res = await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        const body = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
         throw new Error(body?.error ?? t("projects.couldNotDelete"));
       }
-      setProjects((current) => current.filter((item) => item.id !== project.id));
+      setProjects((current) =>
+        current.filter((item) => item.id !== project.id),
+      );
       toast.success(t("projects.deleted"));
       loadProjects({ silent: true });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("projects.couldNotDelete"));
+      toast.error(
+        err instanceof Error ? err.message : t("projects.couldNotDelete"),
+      );
     } finally {
       setDeletingProjectId(null);
     }
   };
 
   const filtered = projects.filter(
-    (p) => !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (p) =>
+      !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -101,7 +126,9 @@ export default function ProjectsPage() {
       <div className="mx-auto max-w-6xl overflow-x-hidden p-4 sm:p-6">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold text-foreground">{t("projects.allProjects")}</h2>
+            <h2 className="text-xl font-bold text-foreground">
+              {t("projects.allProjects")}
+            </h2>
             <p className="text-muted-foreground text-sm mt-0.5">
               {t("projects.count", { count: projects.length })}
             </p>
@@ -139,7 +166,8 @@ export default function ProjectsPage() {
                 key={project.id}
                 className={cn(
                   "group relative bg-card border border-border rounded-xl p-5 hover:shadow-md hover:border-primary/30 transition-all",
-                  deletingProjectId === project.id && "pointer-events-none opacity-55",
+                  deletingProjectId === project.id &&
+                    "pointer-events-none opacity-55",
                 )}
               >
                 <Link href={`/projects/${project.id}`} className="block">
@@ -150,7 +178,7 @@ export default function ProjectsPage() {
                     <span
                       className={cn(
                         "text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ml-2",
-                        statusColor(project.status)
+                        statusColor(project.status),
                       )}
                     >
                       {statusLabel(project.status)}
@@ -166,7 +194,9 @@ export default function ProjectsPage() {
                       <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
                         {getInitials(project.owner?.name || "?")}
                       </div>
-                      <span className="min-w-0 truncate text-xs text-muted-foreground">{project.owner?.name}</span>
+                      <span className="min-w-0 truncate text-xs text-muted-foreground">
+                        {project.owner?.name}
+                      </span>
                     </div>
                     <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       {project.space && (
@@ -212,7 +242,10 @@ export default function ProjectsPage() {
                     className="flex items-center gap-1 rounded-md border border-rose-400/35 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 hover:border-rose-300/60 hover:bg-rose-500/15"
                     title={t("projects.deleteProject")}
                   >
-                    <Trash2 className="w-3 h-3" /> {deletingProjectId === project.id ? t("projects.deleting") : t("common.delete")}
+                    <Trash2 className="w-3 h-3" />{" "}
+                    {deletingProjectId === project.id
+                      ? t("projects.deleting")
+                      : t("common.delete")}
                   </button>
                 </div>
               </div>
@@ -262,12 +295,21 @@ function MoveToSpaceDialog({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("projects.moveProject")}
         className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-sm overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-foreground">{t("projects.moveProject")}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5 mb-4 truncate">{project.name}</p>
-        <label className="block text-xs font-medium text-foreground mb-1.5">{t("projects.space")}</label>
+        <h3 className="text-base font-semibold text-foreground">
+          {t("projects.moveProject")}
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5 mb-4 truncate">
+          {project.name}
+        </p>
+        <label className="block text-xs font-medium text-foreground mb-1.5">
+          {t("projects.space")}
+        </label>
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}

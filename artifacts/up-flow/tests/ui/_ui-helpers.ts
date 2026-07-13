@@ -43,6 +43,20 @@ export async function loggedInContext(
   email: string,
 ): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
+  // Keep unrelated seeded notifications from opening the assistant popup on
+  // top of controls under test. Specs that cover notifications register a
+  // page-level route after this and therefore override the empty default.
+  await context.route("**/api/notifications", async (route, request) => {
+    if (request.method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    });
+  });
   await loginAs(context, email);
   return context;
 }
@@ -79,7 +93,13 @@ export async function createTaskViaApi(
 ): Promise<string> {
   const req = "post" in ctx ? ctx : ctx.request;
   const res = await req.post("/api/tasks", {
-    data: { title, project_id: projectId, status: "todo", priority: "medium", ...patch },
+    data: {
+      title,
+      project_id: projectId,
+      status: "todo",
+      priority: "medium",
+      ...patch,
+    },
   });
   expect(res.ok(), `create task failed: ${res.status()}`).toBeTruthy();
   const body = (await res.json()) as { id: string };

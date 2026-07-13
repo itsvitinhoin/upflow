@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { SEEDED, uniq } from "../helpers";
 import {
   createProjectViaApi,
@@ -6,6 +6,14 @@ import {
   loggedInContext,
   requireChromiumOrSkip,
 } from "./_ui-helpers";
+
+async function openQuickCreate(
+  page: Page,
+  item: "Task" | "Project" | "Meeting" | "Company" | "Invite",
+) {
+  await page.getByRole("button", { name: "Quick create" }).click();
+  await page.getByRole("menuitem", { name: item, exact: true }).click();
+}
 
 /**
  * Main dashboard `/`:
@@ -24,17 +32,21 @@ test.describe("Dashboard quick actions and task rows", () => {
     await page.goto("/");
 
     // New Project
-    await page.getByRole("button", { name: "Create Project" }).click();
-    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
+    await openQuickCreate(page, "Project");
+    await expect(
+      page.getByRole("dialog", { name: "New Project" }),
+    ).toBeVisible();
     await page.keyboard.press("Escape").catch(() => undefined);
     // Esc isn't wired on every dialog — explicitly Cancel.
-    const cancel = page.getByRole("dialog", { name: "New Project" }).getByRole("button", {
-      name: "Cancel",
-    });
+    const cancel = page
+      .getByRole("dialog", { name: "New Project" })
+      .getByRole("button", {
+        name: "Cancel",
+      });
     if (await cancel.count()) await cancel.click();
 
     // New Task
-    await page.getByRole("button", { name: "Create Task" }).click();
+    await openQuickCreate(page, "Task");
     await expect(page.getByRole("dialog", { name: "New Task" })).toBeVisible();
     await page
       .getByRole("dialog", { name: "New Task" })
@@ -43,13 +55,16 @@ test.describe("Dashboard quick actions and task rows", () => {
 
     // Invite / Schedule / Company — these are <form> overlays (no dialog
     // role) so we assert by the heading each renders, then Cancel out.
-    const overlays: { trigger: string; heading: string }[] = [
-      { trigger: "Invite to Team", heading: "Invite to team" },
-      { trigger: "Schedule Meeting", heading: "Schedule meeting" },
-      { trigger: "Create a Company", heading: "Create company" },
+    const overlays: {
+      trigger: "Invite" | "Meeting" | "Company";
+      heading: string;
+    }[] = [
+      { trigger: "Invite", heading: "Invite to team" },
+      { trigger: "Meeting", heading: "Schedule meeting" },
+      { trigger: "Company", heading: "Create company" },
     ];
     for (const { trigger, heading } of overlays) {
-      await page.getByRole("button", { name: trigger }).click();
+      await openQuickCreate(page, trigger);
       await expect(
         page.getByRole("heading", { name: heading, exact: true }),
       ).toBeVisible();
@@ -70,24 +85,22 @@ test.describe("Dashboard quick actions and task rows", () => {
     const page = await ctx.newPage();
     await page.goto("/");
 
-    const list = page.locator("section", { has: page.getByText("Upcoming tasks") }).first();
-    await expect(list.getByRole("heading", { name: "Upcoming tasks" })).toBeVisible();
-
     const cards: { name: RegExp; heading: string }[] = [
-      { name: /Upcoming Actions/i, heading: "Upcoming" },
-      { name: /In progress Actions/i, heading: "In progress" },
-      { name: /Completed Actions/i, heading: "Completed" },
+      { name: /^Upcoming\b/i, heading: "Upcoming" },
+      { name: /^In progress\b/i, heading: "In progress" },
+      { name: /^Completed\b/i, heading: "Completed" },
     ];
     for (const { name, heading } of cards) {
-      const card = page.getByRole("button", { name });
-      await expect(card).toHaveAttribute("aria-pressed", "false");
+      const card = page.getByRole("button", { name }).last();
       await card.click();
-      await expect(card).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByRole("heading", { name: `${heading} actions`, exact: false })).toBeVisible();
+      const drawer = page.locator(`aside[aria-label="${heading} tasks"]`);
+      await expect(drawer).toBeVisible();
+      await expect(
+        drawer.getByRole("heading", { name: heading, exact: true }),
+      ).toBeVisible();
       await page.getByRole("button", { name: "Close task drawer" }).click();
-      await expect(card).toHaveAttribute("aria-pressed", "false");
+      await expect(drawer).toBeHidden();
     }
-    await expect(list.getByRole("heading", { name: "Upcoming tasks" })).toBeVisible();
 
     await ctx.close();
   });
@@ -107,12 +120,18 @@ test.describe("Dashboard quick actions and task rows", () => {
       });
     });
     await page.goto("/");
-    await page.getByRole("button", { name: "Invite to Team" }).click();
-    const heading = page.getByRole("heading", { name: "Invite to team", exact: true });
+    await openQuickCreate(page, "Invite");
+    const heading = page.getByRole("heading", {
+      name: "Invite to team",
+      exact: true,
+    });
     await expect(heading).toBeVisible();
-    await page.getByPlaceholder("alice@acme.com, bob@acme.com").fill("a@x.com, b@x.com");
+    await page
+      .getByPlaceholder("alice@acme.com, bob@acme.com")
+      .fill("a@x.com, b@x.com");
     const post = page.waitForResponse(
-      (r) => r.url().includes("/api/invites") && r.request().method() === "POST",
+      (r) =>
+        r.url().includes("/api/invites") && r.request().method() === "POST",
     );
     await page.getByRole("button", { name: /Send invites/ }).click();
     await post;
@@ -128,8 +147,11 @@ test.describe("Dashboard quick actions and task rows", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/");
-    await page.getByRole("button", { name: "Schedule Meeting" }).click();
-    const heading = page.getByRole("heading", { name: "Schedule meeting", exact: true });
+    await openQuickCreate(page, "Meeting");
+    const heading = page.getByRole("heading", {
+      name: "Schedule meeting",
+      exact: true,
+    });
     await expect(heading).toBeVisible();
     await page.getByPlaceholder("e.g. Sprint review").fill(uniq("Sprint"));
     // Pick the second color tag to exercise the color buttons.
@@ -147,8 +169,11 @@ test.describe("Dashboard quick actions and task rows", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/");
-    await page.getByRole("button", { name: "Create a Company" }).click();
-    const heading = page.getByRole("heading", { name: "Create company", exact: true });
+    await openQuickCreate(page, "Company");
+    const heading = page.getByRole("heading", {
+      name: "Create company",
+      exact: true,
+    });
     await expect(heading).toBeVisible();
     await page.getByPlaceholder("Acme Corp").fill(uniq("Acme"));
     await page.getByPlaceholder("acme.com").fill("acme.test");
@@ -166,17 +191,22 @@ test.describe("Dashboard quick actions and task rows", () => {
     const projectId = await createProjectViaApi(ctx, uniq("Dash"));
     const title = uniq("Task-Edit");
     await createTaskViaApi(ctx, projectId, title, {
-      due_date: new Date(Date.now() + 86400_000).toISOString(),
+      due_date: new Date().toISOString(),
+      priority: "high",
     });
 
     const page = await ctx.newPage();
     await page.goto("/");
-    const section = page.locator("section", { has: page.getByText("Upcoming tasks") }).first();
-    await section.getByRole("button", { name: new RegExp(`Actions for ${title}`) }).click();
-    await page.getByRole("menuitem", { name: /Edit \/ details/i }).click();
-    // The detail modal renders a "Status" label + select with the task title.
-    await expect(page.getByText("Status", { exact: true })).toBeVisible();
-    await expect(page.getByText(title).first()).toBeVisible();
+    const section = page
+      .locator("section", {
+        has: page.getByRole("heading", { name: "Today focus" }),
+      })
+      .first();
+    await section
+      .getByRole("button", { name: new RegExp(`Actions for ${title}`) })
+      .click();
+    await page.getByRole("menuitem", { name: "Open", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
 
     await ctx.close();
   });
@@ -215,16 +245,23 @@ test.describe("Dashboard quick actions and task rows", () => {
     const projectId = await createProjectViaApi(ctx, uniq("Dash"));
     const title = uniq("Task-MarkDone");
     await createTaskViaApi(ctx, projectId, title, {
-      due_date: new Date(Date.now() + 86400_000).toISOString(),
+      due_date: new Date().toISOString(),
+      priority: "high",
     });
 
     const page = await ctx.newPage();
     await page.goto("/");
-    const row = page.locator("section", { has: page.getByText("Upcoming tasks") }).first();
+    const row = page
+      .locator("section", {
+        has: page.getByRole("heading", { name: "Today focus" }),
+      })
+      .first();
     await expect(row.getByText(title)).toBeVisible();
 
-    await row.getByRole("button", { name: new RegExp(`Actions for ${title}`) }).click();
-    await page.getByRole("menuitem", { name: /Mark done/i }).click();
+    await row
+      .getByRole("button", { name: new RegExp(`Actions for ${title}`) })
+      .click();
+    await page.getByRole("menuitem", { name: "Done", exact: true }).click();
 
     await expect(row.getByText(title)).toBeHidden({ timeout: 10_000 });
 
@@ -239,17 +276,27 @@ test.describe("Dashboard quick actions and task rows", () => {
     const projectId = await createProjectViaApi(ctx, uniq("Dash"));
     const title = uniq("Task-Delete");
     await createTaskViaApi(ctx, projectId, title, {
-      due_date: new Date(Date.now() + 86400_000).toISOString(),
+      due_date: new Date().toISOString(),
+      priority: "high",
     });
 
     const page = await ctx.newPage();
     page.on("dialog", (d) => d.accept().catch(() => undefined));
     await page.goto("/");
-    const section = page.locator("section", { has: page.getByText("Upcoming tasks") }).first();
+    const section = page
+      .locator("section", {
+        has: page.getByRole("heading", { name: "Today focus" }),
+      })
+      .first();
     await expect(section.getByText(title)).toBeVisible();
 
-    await section.getByRole("button", { name: new RegExp(`Actions for ${title}`) }).click();
+    await section
+      .getByRole("button", { name: new RegExp(`Actions for ${title}`) })
+      .click();
     await page.getByRole("menuitem", { name: /^Delete$/ }).click();
+    const detail = page.getByRole("dialog", { name: title });
+    await expect(detail).toBeVisible();
+    await detail.getByRole("button", { name: "Delete task" }).click();
 
     await expect(section.getByText(title)).toBeHidden({ timeout: 10_000 });
 
@@ -265,7 +312,10 @@ test.describe("Dashboard quick actions and task rows", () => {
     await page.goto("/");
     // The progress widget's button is `+ New Task` (with leading icon). The
     // header's button is "+ New Project". Disambiguate by exact name match.
-    await page.getByRole("button", { name: /^New Task$/ }).first().click();
+    await page
+      .getByRole("button", { name: /^New deliverable$/ })
+      .first()
+      .click();
     await expect(page.getByRole("dialog", { name: "New Task" })).toBeVisible();
 
     await ctx.close();
@@ -282,7 +332,7 @@ test.describe("Dashboard quick actions and task rows", () => {
 
     const page = await ctx.newPage();
     await page.goto("/");
-    await page.getByRole("button", { name: "Create Task" }).click();
+    await openQuickCreate(page, "Task");
     const dlg = page.getByRole("dialog", { name: "New Task" });
     await expect(dlg).toBeVisible();
 
@@ -293,7 +343,10 @@ test.describe("Dashboard quick actions and task rows", () => {
 
     // Wait for the POST /api/tasks then for the dialog to dismiss.
     const post = page.waitForResponse(
-      (r) => r.url().includes("/api/tasks") && r.request().method() === "POST" && r.ok(),
+      (r) =>
+        r.url().includes("/api/tasks") &&
+        r.request().method() === "POST" &&
+        r.ok(),
     );
     await dlg.getByRole("button", { name: /Create Task/i }).click();
     await post;
