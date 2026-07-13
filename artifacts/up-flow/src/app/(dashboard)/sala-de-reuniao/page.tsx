@@ -18,13 +18,14 @@ import {
 import Header from "@/components/layout/header";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
 import { appDateKey, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import { logError } from "@/lib/log-error";
 import type { CalendarEvent } from "@/lib/types";
 
 const ROOM_NAME = "Sala de Reuniao";
 const DEFAULT_SLOT_MINUTES = 30;
-const DAY_CELL_VISIBLE_ITEM_LIMIT = 4;
+const DAY_CELL_VISIBLE_ITEM_LIMIT = 8;
 const WEEKDAY_KEYS = [
   "time.day.mon",
   "time.day.tue",
@@ -37,6 +38,12 @@ const WEEKDAY_KEYS = [
 
 type RoomCalendarEvent = CalendarEvent & {
   creator?: { id: string; name: string | null; email: string } | null;
+};
+
+type SelectableUser = {
+  id: string;
+  name: string | null;
+  email: string;
 };
 
 function dateKey(input: Date | string) {
@@ -113,17 +120,30 @@ function eventPeople(event: RoomCalendarEvent) {
   return Array.from(new Set(names.filter(Boolean)));
 }
 
+function eventUserIds(event: RoomCalendarEvent) {
+  return Array.from(
+    new Set([
+      event.created_by,
+      ...(event.attendees ?? []).map((attendee) => attendee.user_id),
+    ]),
+  );
+}
+
 function eventRange(event: RoomCalendarEvent) {
   return `${formatTime(event.starts_at)} - ${formatTime(eventEnd(event))}`;
 }
 
 export default function MeetingRoomPage() {
   const { language, t } = useLanguage();
+  const user = useAppUser();
   const [today, setToday] = useState(() => new Date());
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [selected, setSelected] = useState(today);
   const [events, setEvents] = useState<RoomCalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [people, setPeople] = useState<SelectableUser[]>([]);
+  const [peopleLoading, setPeopleLoading] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [showSchedule, setShowSchedule] = useState(false);
 
   useEffect(() => {
@@ -167,6 +187,29 @@ export default function MeetingRoomPage() {
     void loadRoomCalendar();
   }, [loadRoomCalendar]);
 
+  useEffect(() => {
+    if (!user?.currentWorkspaceId) return;
+    const controller = new AbortController();
+    setPeopleLoading(true);
+    fetch(`/api/users?workspace_id=${user.currentWorkspaceId}&status=active`, {
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) return { items: [] };
+        return (await res.json()) as { items?: SelectableUser[] };
+      })
+      .then((data) => setPeople(data.items ?? []))
+      .catch((err) => {
+        if ((err as Error).name !== "AbortError") {
+          logError("meeting-room:people", err);
+          setPeople([]);
+        }
+      })
+      .finally(() => setPeopleLoading(false));
+
+    return () => controller.abort();
+  }, [user?.currentWorkspaceId]);
+
   const days = useMemo(() => {
     return Array.from({ length: 42 }, (_, i) => {
       const day = new Date(gridStart);
@@ -175,29 +218,38 @@ export default function MeetingRoomPage() {
     });
   }, [gridStart]);
 
+  const filteredEvents = useMemo(() => {
+    if (!selectedUserId) return events;
+    return events.filter((event) => eventUserIds(event).includes(selectedUserId));
+  }, [events, selectedUserId]);
+
   const eventsByDay = useMemo(() => {
     const map = new Map<string, RoomCalendarEvent[]>();
-    events.forEach((event) => {
+    filteredEvents.forEach((event) => {
       const key = dateKey(event.starts_at);
       map.set(key, [...(map.get(key) ?? []), event]);
     });
     return map;
-  }, [events]);
+  }, [filteredEvents]);
 
   const selectedKey = dateKey(selected);
   const todayKey = dateKey(today);
   const selectedEvents = eventsByDay.get(selectedKey) ?? [];
   const todaysEvents = eventsByDay.get(todayKey) ?? [];
-  const conflicts = useMemo(() => conflictIds(events), [events]);
+  const conflicts = useMemo(() => conflictIds(filteredEvents), [filteredEvents]);
   const upcomingEvents = useMemo(
-    () => events.filter((event) => eventEnd(event).getTime() >= today.getTime()),
-    [events, today],
+    () => filteredEvents.filter((event) => eventEnd(event).getTime() >= today.getTime()),
+    [filteredEvents, today],
   );
   const nextEvent = upcomingEvents[0] ?? null;
   const monthTitle = new Intl.DateTimeFormat(language, {
     month: "long",
     year: "numeric",
   }).format(cursor);
+  const selectedPerson = useMemo(
+    () => people.find((person) => person.id === selectedUserId) ?? null,
+    [people, selectedUserId],
+  );
 
   const goPrev = () => {
     const next = new Date(year, month - 1, 1);
@@ -289,7 +341,7 @@ export default function MeetingRoomPage() {
             <MetricCard
               icon={DoorOpen}
               label={t("meetingRoom.monthBookings")}
-              value={loading ? "..." : String(events.length)}
+              value={loading ? "..." : String(filteredEvents.length)}
               detail={monthTitle}
             />
           </div>
@@ -329,6 +381,44 @@ export default function MeetingRoomPage() {
               </div>
             </div>
 
+            <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-foreground">
+                    {t("meetingRoom.userFilter")}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {selectedPerson
+                      ? t("meetingRoom.userFilterSelected", {
+                          name: selectedPerson.name || selectedPerson.email,
+                        })
+                      : t("meetingRoom.userFilterAll")}
+                  </p>
+                </div>
+                <label className="relative min-w-[220px]">
+                  <span className="sr-only">{t("meetingRoom.userFilter")}</span>
+                  <select
+                    value={selectedUserId}
+                    onChange={(event) => setSelectedUserId(event.target.value)}
+                    disabled={peopleLoading}
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#080d1b] px-3 pr-9 text-xs font-medium text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                  >
+                    <option value="">
+                      {peopleLoading ? t("common.loading") : t("meetingRoom.allUsers")}
+                    </option>
+                    {people.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name || person.email}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {!peopleLoading && people.length === 0 && (
+                <p className="mt-2 text-xs text-muted-foreground">{t("meetingRoom.noUsers")}</p>
+              )}
+            </div>
+
             <div className="mb-1 grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
               {WEEKDAY_KEYS.map((dayKey) => (
                 <div key={dayKey} className="px-2 py-1 text-center">
@@ -350,7 +440,7 @@ export default function MeetingRoomPage() {
                     type="button"
                     onClick={() => setSelected(day)}
                     className={cn(
-                      "min-h-[112px] rounded-xl border p-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                      "flex min-h-[152px] flex-col rounded-xl border p-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:min-h-[164px]",
                       isSelected
                         ? "border-primary/70 bg-primary/12 shadow-[0_0_28px_rgba(59,130,246,0.16)]"
                         : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
@@ -372,22 +462,24 @@ export default function MeetingRoomPage() {
                         </span>
                       )}
                     </div>
-                    <div className="space-y-1">
+                    <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-0.5">
                       {dayEvents.slice(0, DAY_CELL_VISIBLE_ITEM_LIMIT).map((event) => (
                         <span
                           key={event.id}
+                          title={`${formatTime(event.starts_at)} ${event.title}`}
                           className={cn(
-                            "block truncate rounded-md border-l-2 px-2 py-1 text-[10px] font-medium",
+                            "flex min-h-[17px] items-center gap-1 rounded-md border-l-2 px-1.5 py-0.5 text-[9px] font-medium leading-none",
                             conflicts.has(event.id)
                               ? "border-l-upflow-warning bg-upflow-warning/15 text-upflow-warning"
                               : "border-l-primary bg-primary/15 text-sky-100",
                           )}
                         >
-                          {formatTime(event.starts_at)} {event.title}
+                          <span className="shrink-0 font-bold tabular-nums">{formatTime(event.starts_at)}</span>
+                          <span className="min-w-0 truncate">{event.title}</span>
                         </span>
                       ))}
                       {dayEvents.length > DAY_CELL_VISIBLE_ITEM_LIMIT && (
-                        <span className="block text-[10px] text-muted-foreground">
+                        <span className="block text-[9px] text-muted-foreground">
                           {t("calendar.more", { count: dayEvents.length - DAY_CELL_VISIBLE_ITEM_LIMIT })}
                         </span>
                       )}
@@ -451,18 +543,18 @@ export default function MeetingRoomPage() {
                   <h2 className="mt-1 text-base font-semibold text-foreground">{t("meetingRoom.monthAgenda")}</h2>
                 </div>
                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground">
-                  {events.length}
+                  {filteredEvents.length}
                 </span>
               </div>
               {loading ? (
                 <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
-              ) : events.length === 0 ? (
+              ) : filteredEvents.length === 0 ? (
                 <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-xs text-muted-foreground">
                   {t("meetingRoom.noBookingsMonth")}
                 </p>
               ) : (
                 <ul className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
-                  {events.map((event) => (
+                  {filteredEvents.map((event) => (
                     <MeetingItem
                       key={event.id}
                       event={event}
