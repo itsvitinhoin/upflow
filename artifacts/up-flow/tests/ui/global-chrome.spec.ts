@@ -42,7 +42,7 @@ test.describe("Global chrome", () => {
 
     const railToggle = page.getByRole("button", {
       name: /^(Hide|Show) sidebar$/,
-    });
+    }).first();
     const initialPressed = await railToggle.getAttribute("aria-pressed");
     await railToggle.click();
     await expect(railToggle).not.toHaveAttribute(

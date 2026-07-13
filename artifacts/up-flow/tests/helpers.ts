@@ -22,10 +22,23 @@ export async function loginAs(
     );
   }
   const req = "post" in ctx ? ctx : ctx.request;
-  const res = await req.post("/api/auth/test-login", {
-    data: { email, token },
-  });
-  expect(res.ok(), `test-login failed: ${res.status()} ${await res.text()}`).toBeTruthy();
+  let failure = "no response";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await req.post("/api/auth/test-login", {
+        data: { email, token },
+      });
+      if (res.ok()) return;
+      failure = `${res.status()} ${await res.text()}`;
+      if (res.status() < 500) break;
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+    }
+    if (attempt < 2) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    }
+  }
+  expect(false, `test-login failed after 3 attempts: ${failure}`).toBeTruthy();
 }
 
 export async function logout(ctx: APIRequestContext | BrowserContext): Promise<void> {

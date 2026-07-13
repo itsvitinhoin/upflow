@@ -137,7 +137,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
 
     // Filter popover.
     await page.getByRole("button", { name: /^Filter$/ }).click();
-    await page.getByRole("button", { name: "high", exact: true }).click();
+    await page.getByRole("button", { name: "High", exact: true }).click();
     // A filter is now active — the button counter renders "1".
     await expect(
       page.getByRole("button", { name: /Filter\s*1/ }).first(),
@@ -396,16 +396,11 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await page.goto(`/projects/${projectId}`);
     await expect(page.getByText(title)).toBeVisible();
 
-    // The list groups by status by default; "To Do" header row has a chevron
-    // toggle as its first button. Find the group row containing "To Do".
-    const groupRow = page
-      .locator("div.flex.items-center")
-      .filter({ has: page.getByText("To Do", { exact: true }) })
-      .first();
-    const chevron = groupRow.locator("button").first();
-    await chevron.click();
+    // The list groups by status by default; use the group's accessible toggle
+    // instead of relying on the surrounding layout or button order.
+    await page.getByRole("button", { name: "Collapse To Do" }).click();
     await expect(page.getByText(title)).toBeHidden();
-    await chevron.click();
+    await page.getByRole("button", { name: "Expand To Do" }).click();
     await expect(page.getByText(title)).toBeVisible();
 
     // Completion checkbox: each row has a circular toggle with title="Toggle complete".

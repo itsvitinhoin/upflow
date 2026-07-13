@@ -48,7 +48,9 @@ test.describe("Spaces and folders containers", () => {
     await page.goto(`/spaces/${space.id}`);
 
     const main = page.locator("main");
-    await expect(main.getByRole("heading", { name: spaceName })).toBeVisible();
+    await expect(
+      main.getByRole("heading", { name: spaceName, exact: true }),
+    ).toBeVisible();
     const sidebar = page.locator("aside").first();
     await expect(
       sidebar.getByRole("link", { name: folderName, exact: true }),
@@ -65,7 +67,7 @@ test.describe("Spaces and folders containers", () => {
 
     const folderMain = page.locator("main");
     await expect(
-      folderMain.getByRole("heading", { name: folderName }),
+      folderMain.getByRole("heading", { name: folderName, exact: true }),
     ).toBeVisible();
     await expect(
       folderMain.getByRole("link", { name: folderListName, exact: true }),

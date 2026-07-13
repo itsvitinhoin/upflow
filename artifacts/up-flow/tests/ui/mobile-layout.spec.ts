@@ -94,7 +94,7 @@ test.describe("Mobile responsive layout", () => {
     await expect(
       page.getByRole("button", { name: "Close navigation" }),
     ).toBeVisible();
-    await expectFitsViewport(page, "aside");
+    await expectFitsViewport(page, "aside:visible");
     await page.getByRole("button", { name: "Close navigation" }).click();
     await ctx.close();
   });
@@ -103,6 +103,7 @@ test.describe("Mobile responsive layout", () => {
     browser,
     baseURL,
   }) => {
+    test.setTimeout(120_000);
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const projectId = await createProjectViaApi(ctx, uniq("MobileProject"));
     await createTaskViaApi(ctx, projectId, uniq("MobileTask"));

@@ -118,7 +118,10 @@ export default function ListView({
           <div key={g.key} className="border-b border-border last:border-b-0">
             <div className="flex items-center gap-2 px-2 py-1.5 bg-muted/40 sticky top-[30px] z-10">
               <button
+                type="button"
                 onClick={() => setCollapsed((p) => ({ ...p, [g.key]: !p[g.key] }))}
+                aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${g.label}`}
+                aria-expanded={!isCollapsed}
                 className="text-muted-foreground hover:text-foreground p-0.5"
               >
                 {isCollapsed ? (

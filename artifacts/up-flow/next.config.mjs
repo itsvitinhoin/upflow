@@ -16,7 +16,7 @@ const csp = [
   // Sentry ingest endpoints must be reachable from the browser so client-side
   // uncaught errors actually arrive. Cover the regional ingest hostnames
   // ({region}.ingest.sentry.io and the bare ingest.sentry.io).
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://ingest.sentry.io",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://ingest.sentry.io${isProd ? "" : " http://localhost:54321 ws://localhost:54321"}`,
 ].join("; ");
 
 const securityHeaders = [
