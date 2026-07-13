@@ -34,6 +34,7 @@ const startServer = process.env.PLAYWRIGHT_START_SERVER === "1";
 
 export default defineConfig({
   testDir: "./tests",
+  testMatch: "**/*.spec.ts",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

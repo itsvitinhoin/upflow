@@ -23,6 +23,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   const dialog = read("src/components/dashboard/create-company-dialog.tsx");
   const taskSheet = read("src/components/projects/task-detail-sheet.tsx");
   const onboardingPanel = read("src/components/onboarding/client-onboarding-panel.tsx");
+  const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const listView = read("src/components/projects/list-view.tsx");
   const kanbanBoard = read("src/components/projects/kanban-board.tsx");
   const queuePage = read("src/app/(dashboard)/onboarding/page.tsx");
@@ -43,6 +44,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(onboardingListRoute, /OR:[\s\S]*company_id: projectCompanyId/);
   assert.match(onboardingPanel, /params\.set\("company_id", companyId\)/);
   assert.match(onboardingPanel, /params\.set\("project_id", projectId\)/);
+  assert.match(projectPage, /project\.onboarding_enabled && \([\s\S]*<ClientOnboardingPanel/);
   assert.match(updateRoute, /completion_override/);
   assert.match(updateRoute, /completion_override_reason/);
   assert.match(updateRoute, /completion_override[\s\S]*findUniqueOrThrow[\s\S]*select: onboardingSelect\(\)[\s\S]*return \{ onboarding, notificationTargets \}/);

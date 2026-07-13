@@ -49,6 +49,7 @@ export default function ScheduleMeetingDialog({
   defaultAttendeeIds = [],
   defaultTaskId,
   defaultProjectId,
+  defaultLocation,
   defaultType = "meeting",
 }: {
   open: boolean;
@@ -62,6 +63,7 @@ export default function ScheduleMeetingDialog({
   defaultAttendeeIds?: string[];
   defaultTaskId?: string | null;
   defaultProjectId?: string | null;
+  defaultLocation?: string | null;
   defaultType?: "meeting" | "reminder";
 }) {
   const { t } = useLanguage();
@@ -156,6 +158,7 @@ export default function ScheduleMeetingDialog({
           ends_at: endsAt.toISOString(),
           timezone: APP_TIME_ZONE,
           color: COLORS[colorIdx],
+          ...(defaultLocation ? { location: defaultLocation } : {}),
           ...(defaultProjectId ? { project_id: defaultProjectId } : {}),
           ...(defaultTaskId ? { task_id: defaultTaskId } : {}),
           ...(attendeeIds.length ? { attendee_ids: attendeeIds } : {}),

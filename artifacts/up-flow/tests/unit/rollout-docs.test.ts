@@ -14,12 +14,21 @@ test("rollout documentation covers deployment, acceptance, and recovery gates", 
   const rollout = read("docs/internal-rollout-plan.md");
   const acceptance = read("docs/final-acceptance-test.md");
   const recovery = read("docs/backup-recovery-plan.md");
+  const env = read("src/lib/env.ts");
 
   assert.match(deployment, /DATABASE_URL/);
   assert.match(deployment, /DIRECT_URL/);
+  assert.match(deployment, /CRON_SECRET/);
+  assert.match(deployment, /SENTRY_DSN/);
+  assert.match(deployment, /REDIS_URL/);
   assert.match(deployment, /Run migrations before redeploy/i);
   assert.match(deployment, /\/admin\/health/);
   assert.match(deployment, /Secret Rotation/);
+  assert.match(env, /PRODUCTION_REQUIRED/);
+  assert.match(env, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(env, /RESEND_API_KEY/);
+  assert.match(env, /APP_URL/);
+  assert.match(env, /CRON_SECRET/);
 
   assert.match(rollout, /Admin-Only Testing/);
   assert.match(rollout, /Department Pilot/);

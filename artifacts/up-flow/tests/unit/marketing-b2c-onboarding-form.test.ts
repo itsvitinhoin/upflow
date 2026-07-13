@@ -42,7 +42,13 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /db\.project\.update[\s\S]*name: projectName/);
   assert.match(helper, /b2cFormServices/);
   assert.match(helper, /marketingB2COnboardingForm\.create/);
-  assert.match(helper, /b2cFormServiceKeys\.has\(serviceKey\(service\)\)/);
+  assert.match(helper, /const formServiceAlreadyAssigned = b2bFormServiceKeys\.has\(serviceMapKey\) \|\| b2cFormServiceKeys\.has\(serviceMapKey\)/);
+  assert.match(helper, /const dedicatedServiceTask = shouldCreateDedicatedServiceTask\(service\)/);
+  assert.match(helper, /formServiceAlreadyAssigned && !dedicatedServiceTask/);
+  assert.match(
+    helper,
+    /const b2cMeetingTask = await createTask\(\{[\s\S]*?project_id: b2cProjectId,[\s\S]*?title: "Onboarding: schedule Marketing B2C kickoff meeting"/,
+  );
   assert.match(helper, /input\.responsibleDepartmentId[\s\S]*tx\.department\.findFirst/);
   assert.match(helper, /space:\s*\{\s*select:\s*\{\s*id:\s*true,\s*name:\s*true\s*\}\s*\}/);
   assert.match(helper, /sourceProjectSpaceName = sourceProject\?\.space\?\.name/);
@@ -78,6 +84,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(taskDetailRoute, /marketing_b2c_onboarding_form/);
   assert.match(kanbanBoard, /MarketingB2COnboardingForm/);
   assert.match(projectPage, /MarketingB2COnboardingForm/);
+  assert.match(projectPage, /project\.onboarding_enabled && \([\s\S]*<ClientOnboardingPanel/);
 
   assert.match(wizardRoute, /responsible_department_id/);
   assert.match(wizardRoute, /responsibleDepartmentName/);

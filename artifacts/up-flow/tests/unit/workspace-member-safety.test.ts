@@ -19,6 +19,12 @@ test("workspace member mutations cannot remove the last active owner", () => {
   assert.match(route, /You cannot leave this workspace without an active owner/);
 });
 
+test("auth membership scope ignores inactive workspace members", () => {
+  const workspace = read("src/lib/workspace.ts");
+
+  assert.match(workspace, /where:\s*\{\s*user_id: userId,\s*status:\s*"active"\s*\}/);
+});
+
 test("workspace deletion is owner-only and protects the user's only workspace", () => {
   const route = read("src/app/api/workspaces/[id]/route.ts");
 

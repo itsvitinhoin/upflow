@@ -97,7 +97,7 @@ export const ensurePersonalWorkspace = ensureDefaultWorkspace;
 
 export async function loadMemberships(userId: string): Promise<MembershipLite[]> {
   const rows = await prisma.workspaceMember.findMany({
-    where: { user_id: userId },
+    where: { user_id: userId, status: "active" },
     select: {
       workspace_id: true,
       role: true,

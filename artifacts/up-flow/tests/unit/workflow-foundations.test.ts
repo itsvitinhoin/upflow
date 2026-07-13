@@ -40,6 +40,7 @@ test("automation rules are admin-only and have an execution runner", () => {
   const collection = read("src/app/api/automations/route.ts");
   const item = read("src/app/api/automations/[id]/route.ts");
   const runner = read("src/app/api/automations/run/route.ts");
+  const cronRunner = read("src/app/api/cron/automations/route.ts");
   const runnerLib = read("src/lib/automation-runner.ts");
 
   assert.match(collection, /requireWorkspaceAdmin/);
@@ -56,6 +57,8 @@ test("automation rules are admin-only and have an execution runner", () => {
   assert.match(item, /automation_rule_deleted/);
   assert.match(runner, /runAutomationRules/);
   assert.match(runner, /requireWorkspaceAdmin/);
+  assert.match(cronRunner, /NODE_ENV === "production"/);
+  assert.match(cronRunner, /Cron secret is not configured/);
   assert.match(runnerLib, /automation_runner_executed/);
   assert.match(runnerLib, /automation_notification_sent/);
   assert.match(runnerLib, /automation_task_created/);

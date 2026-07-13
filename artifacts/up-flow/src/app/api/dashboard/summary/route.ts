@@ -51,6 +51,10 @@ async function GET_handler(req: NextRequest) {
           },
         },
       };
+  const workspaceOpenTaskWhere: Prisma.TaskWhereInput = {
+    project: { workspace_id: auth.currentWorkspaceId },
+    status: { not: "done" },
+  };
 
   const [
     userTasks,
@@ -73,6 +77,16 @@ async function GET_handler(req: NextRequest) {
     projectCount,
     companyCountForSetup,
     activeWorkspaceMemberCount,
+    openTaskCountsByAssignee,
+    overdueTaskCountsByAssignee,
+    dueTodayTaskCountsByAssignee,
+    upcomingTaskCountsByAssignee,
+    overdueTaskCountsByProject,
+    unassignedOpenTaskCount,
+    unassignedOverdueTaskCount,
+    unassignedUpcomingTaskCount,
+    overdueDeliverableCount,
+    projectsWithoutDeadlineCount,
   ] = await Promise.all([
     prisma.task.findMany({
       where: {
@@ -188,10 +202,7 @@ async function GET_handler(req: NextRequest) {
       },
     }),
     prisma.task.findMany({
-      where: {
-        project: { workspace_id: auth.currentWorkspaceId },
-        status: { not: "done" },
-      },
+      where: workspaceOpenTaskWhere,
       take: 150,
       orderBy: [{ due_date: "asc" }, { priority: "desc" }, { created_at: "desc" }],
       include: {
@@ -263,30 +274,21 @@ async function GET_handler(req: NextRequest) {
       where: { workspace_id: auth.currentWorkspaceId, status: { not: "archived" } },
       take: 100,
       orderBy: [{ updated_at: "desc" }, { id: "asc" }],
-      include: {
+      select: {
+        id: true,
+        name: true,
+        commercial_status: true,
+        status: true,
+        contract_value: true,
+        commission: true,
+        plan_name: true,
+        service_type: true,
         owner: { select: { id: true, name: true, email: true } },
-        contacts: { select: { id: true } },
+        _count: { select: { contacts: true } },
         activity_events: {
           take: 1,
           orderBy: [{ created_at: "desc" }, { id: "asc" }],
           select: { created_at: true },
-        },
-        projects: {
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            due_date: true,
-            owner: { select: { id: true, name: true, email: true } },
-            tasks: {
-              select: {
-                id: true,
-                status: true,
-                due_date: true,
-                assignee_id: true,
-              },
-            },
-          },
         },
       },
     }),
@@ -298,16 +300,6 @@ async function GET_handler(req: NextRequest) {
         owner: { select: { id: true, name: true, email: true } },
         company: { select: { id: true, name: true } },
         space: { select: { id: true, name: true, icon: true } },
-        tasks: {
-          select: {
-            id: true,
-            title: true,
-            status: true,
-            priority: true,
-            due_date: true,
-            assignee_id: true,
-          },
-        },
       },
     }),
     prisma.department.findMany({
@@ -332,7 +324,183 @@ async function GET_handler(req: NextRequest) {
     prisma.workspaceMember.count({
       where: { workspace_id: auth.currentWorkspaceId, status: "active" },
     }),
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: { ...workspaceOpenTaskWhere, assignee_id: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: {
+        ...workspaceOpenTaskWhere,
+        assignee_id: { not: null },
+        due_date: { lt: todayStart },
+      },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: {
+        ...workspaceOpenTaskWhere,
+        assignee_id: { not: null },
+        due_date: { gte: todayStart, lt: tomorrowStart },
+      },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["assignee_id"],
+      where: {
+        ...workspaceOpenTaskWhere,
+        assignee_id: { not: null },
+        due_date: { gte: todayStart, lt: nextSevenDays },
+      },
+      _count: { _all: true },
+    }),
+    prisma.task.groupBy({
+      by: ["project_id"],
+      where: {
+        ...workspaceOpenTaskWhere,
+        due_date: { lt: todayStart },
+      },
+      _count: { _all: true },
+    }),
+    prisma.task.count({
+      where: { ...workspaceOpenTaskWhere, assignee_id: null },
+    }),
+    prisma.task.count({
+      where: {
+        ...workspaceOpenTaskWhere,
+        assignee_id: null,
+        due_date: { lt: todayStart },
+      },
+    }),
+    prisma.task.count({
+      where: {
+        ...workspaceOpenTaskWhere,
+        assignee_id: null,
+        due_date: { gte: todayStart, lt: nextSevenDays },
+      },
+    }),
+    prisma.task.count({
+      where: { ...workspaceOpenTaskWhere, due_date: { lt: todayStart } },
+    }),
+    prisma.project.count({
+      where: { workspace_id: auth.currentWorkspaceId, status: "active", due_date: null },
+    }),
   ]);
+
+  const healthCompanyIds = companiesForHealth.map((company) => company.id);
+  const [
+    companyProjectStats,
+    companyOpenTaskStats,
+    companyOverdueTaskStats,
+    companyTaskDeadlineStats,
+  ] = healthCompanyIds.length
+    ? await Promise.all([
+        prisma.project.groupBy({
+          by: ["company_id"],
+          where: {
+            workspace_id: auth.currentWorkspaceId,
+            status: "active",
+            company_id: { in: healthCompanyIds },
+          },
+          _count: { _all: true },
+          _min: { due_date: true },
+        }),
+        prisma.task.groupBy({
+          by: ["company_id"],
+          where: {
+            company_id: { in: healthCompanyIds },
+            status: { not: "done" },
+          },
+          _count: { _all: true },
+        }),
+        prisma.task.groupBy({
+          by: ["company_id"],
+          where: {
+            company_id: { in: healthCompanyIds },
+            status: { not: "done" },
+            due_date: { lt: todayStart },
+          },
+          _count: { _all: true },
+        }),
+        prisma.task.groupBy({
+          by: ["company_id"],
+          where: {
+            company_id: { in: healthCompanyIds },
+            status: { not: "done" },
+          },
+          _min: { due_date: true },
+        }),
+      ])
+    : [[], [], [], []] as const;
+
+  const activeProjectsByCompany = new Map(
+    companyProjectStats.map((row) => [row.company_id, row._count._all]),
+  );
+  const projectDeadlineByCompany = new Map(
+    companyProjectStats.map((row) => [row.company_id, row._min.due_date]),
+  );
+  const openTasksByCompany = new Map(
+    companyOpenTaskStats.map((row) => [row.company_id, row._count._all]),
+  );
+  const overdueTasksByCompany = new Map(
+    companyOverdueTaskStats.map((row) => [row.company_id, row._count._all]),
+  );
+  const taskDeadlineByCompany = new Map(
+    companyTaskDeadlineStats.map((row) => [row.company_id, row._min.due_date]),
+  );
+  const deliveryProjectIds = deliveryProjects.map((project) => project.id);
+  const [
+    deliveryTaskStatusStats,
+    deliveryOverdueTaskStats,
+    deliveryTaskDeadlineStats,
+  ] = deliveryProjectIds.length
+    ? await Promise.all([
+        prisma.task.groupBy({
+          by: ["project_id", "status"],
+          where: { project_id: { in: deliveryProjectIds } },
+          _count: { _all: true },
+        }),
+        prisma.task.groupBy({
+          by: ["project_id"],
+          where: {
+            project_id: { in: deliveryProjectIds },
+            status: { not: "done" },
+            due_date: { lt: todayStart },
+          },
+          _count: { _all: true },
+        }),
+        prisma.task.groupBy({
+          by: ["project_id"],
+          where: {
+            project_id: { in: deliveryProjectIds },
+            status: { not: "done" },
+          },
+          _min: { due_date: true },
+        }),
+      ])
+    : ([[], [], []] as const);
+  const deliveryTaskTotalByProject = new Map<string, number>();
+  const deliveryDoneTasksByProject = new Map<string, number>();
+  for (const row of deliveryTaskStatusStats) {
+    deliveryTaskTotalByProject.set(
+      row.project_id,
+      (deliveryTaskTotalByProject.get(row.project_id) ?? 0) + row._count._all,
+    );
+    if (row.status === "done") {
+      deliveryDoneTasksByProject.set(
+        row.project_id,
+        (deliveryDoneTasksByProject.get(row.project_id) ?? 0) + row._count._all,
+      );
+    }
+  }
+  const deliveryOverdueTasksByProject = new Map(
+    deliveryOverdueTaskStats.map((row) => [row.project_id, row._count._all]),
+  );
+  const deliveryTaskDeadlineByProject = new Map(
+    deliveryTaskDeadlineStats.map((row) => [row.project_id, row._min.due_date]),
+  );
 
   const flattenedUsers = users.map((u) => {
     const activeMembership = u.memberships.find(
@@ -382,31 +550,38 @@ async function GET_handler(req: NextRequest) {
     todayTimeByUser.set(entry.user_id, (todayTimeByUser.get(entry.user_id) ?? 0) + duration);
   }
 
+  const openTaskCountByAssignee = new Map(
+    openTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
+  const overdueTaskCountByAssignee = new Map(
+    overdueTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
+  const dueTodayTaskCountByAssignee = new Map(
+    dueTodayTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
+  const upcomingTaskCountByAssignee = new Map(
+    upcomingTaskCountsByAssignee.map((row) => [row.assignee_id, row._count._all]),
+  );
+
   const workload = flattenedUsers.map((member) => {
     const assignedOpenTasks = workspaceOpenTasks.filter((task) => task.assignee_id === member.id);
-    const overdueTasks = assignedOpenTasks.filter(
-      (task) => task.due_date && new Date(task.due_date) < todayStart,
-    );
-    const dueTodayTasks = assignedOpenTasks.filter(
-      (task) =>
-        task.due_date &&
-        new Date(task.due_date) >= todayStart &&
-        new Date(task.due_date) < tomorrowStart,
-    );
+    const openTaskCount = openTaskCountByAssignee.get(member.id) ?? 0;
+    const overdueTaskCount = overdueTaskCountByAssignee.get(member.id) ?? 0;
+    const dueTodayTaskCount = dueTodayTaskCountByAssignee.get(member.id) ?? 0;
     const trackedSecondsToday = todayTimeByUser.get(member.id) ?? 0;
     return {
       user: member,
-      open_tasks: assignedOpenTasks.length,
-      overdue_tasks: overdueTasks.length,
-      due_today_tasks: dueTodayTasks.length,
+      open_tasks: openTaskCount,
+      overdue_tasks: overdueTaskCount,
+      due_today_tasks: dueTodayTaskCount,
       tracked_seconds_today: trackedSecondsToday,
       tasks: assignedOpenTasks.slice(0, 8),
       state:
-        overdueTasks.length > 0
+        overdueTaskCount > 0
           ? "late"
-          : assignedOpenTasks.length >= 8
+          : openTaskCount >= 8
             ? "overloaded"
-            : assignedOpenTasks.length === 0 && trackedSecondsToday === 0
+            : openTaskCount === 0 && trackedSecondsToday === 0
               ? "idle"
               : "active",
     };
@@ -417,12 +592,9 @@ async function GET_handler(req: NextRequest) {
       .map((event) => event.project_id)
       .filter((id): id is string => Boolean(id)),
   );
-  const overdueByProject = new Map<string, number>();
-  for (const task of workspaceOpenTasks) {
-    if (task.due_date && new Date(task.due_date) < todayStart) {
-      overdueByProject.set(task.project_id, (overdueByProject.get(task.project_id) ?? 0) + 1);
-    }
-  }
+  const overdueByProject = new Map(
+    overdueTaskCountsByProject.map((row) => [row.project_id, row._count._all]),
+  );
   const projectsAtRisk = projects
     .map((project) => {
       const reasons: string[] = [];
@@ -445,41 +617,37 @@ async function GET_handler(req: NextRequest) {
   const companyCount = companyRevenue._count.id;
   const clientsWithContractValue = companyRevenue._count.contract_value;
   const clientHealthItems = companiesForHealth.map((company) => {
-    const companyTasks = company.projects.flatMap((project) => project.tasks);
-    const openTasks = companyTasks.filter((task) => task.status !== "done");
-    const overdueTasks = openTasks.filter(
-      (task) => task.due_date && task.due_date < todayStart,
-    );
+    const activeProjectCount = activeProjectsByCompany.get(company.id) ?? 0;
+    const openTaskCount = openTasksByCompany.get(company.id) ?? 0;
+    const overdueTaskCount = overdueTasksByCompany.get(company.id) ?? 0;
+    const contactCount = company._count.contacts;
+    const projectDeadline = projectDeadlineByCompany.get(company.id) ?? null;
+    const taskDeadline = taskDeadlineByCompany.get(company.id) ?? null;
     const nextDeadline =
-      [
-        ...company.projects
-          .map((project) => project.due_date)
-          .filter((date): date is Date => Boolean(date)),
-        ...openTasks
-          .map((task) => task.due_date)
-          .filter((date): date is Date => Boolean(date)),
-      ].sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+      [projectDeadline, taskDeadline]
+        .filter((date): date is Date => Boolean(date))
+        .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
     const lastActivityAt = company.activity_events[0]?.created_at ?? null;
     const noRecentActivity = !lastActivityAt || lastActivityAt < sevenDaysAgo;
     const missingPlan = !company.plan_name && !company.service_type;
     const reasons: string[] = [];
 
-    if (company.projects.length === 0) reasons.push("No active client work");
-    if (company.contacts.length === 0) reasons.push("No contacts");
-    if (overdueTasks.length > 0) {
-      reasons.push(`${overdueTasks.length} overdue deliverable${overdueTasks.length === 1 ? "" : "s"}`);
+    if (activeProjectCount === 0) reasons.push("No active client work");
+    if (contactCount === 0) reasons.push("No contacts");
+    if (overdueTaskCount > 0) {
+      reasons.push(`${overdueTaskCount} overdue deliverable${overdueTaskCount === 1 ? "" : "s"}`);
     }
     if (noRecentActivity) reasons.push("No activity in 7 days");
     if (company.contract_value == null && missingPlan) reasons.push("No contract value or plan");
 
     const health_status =
-      company.projects.length === 0 &&
-      company.contacts.length === 0 &&
+      activeProjectCount === 0 &&
+      contactCount === 0 &&
       !lastActivityAt &&
       company.contract_value == null &&
       missingPlan
         ? "not_enough_data"
-        : overdueTasks.length > 0
+        : overdueTaskCount > 0
           ? "at_risk"
           : reasons.length > 0
             ? "attention_needed"
@@ -499,10 +667,10 @@ async function GET_handler(req: NextRequest) {
       },
       health_status,
       reasons,
-      open_tasks: openTasks.length,
-      overdue_tasks: overdueTasks.length,
-      active_projects: company.projects.length,
-      contact_count: company.contacts.length,
+      open_tasks: openTaskCount,
+      overdue_tasks: overdueTaskCount,
+      active_projects: activeProjectCount,
+      contact_count: contactCount,
       next_deadline: nextDeadline,
       last_activity_at: lastActivityAt,
     };
@@ -518,20 +686,22 @@ async function GET_handler(req: NextRequest) {
     .filter((item) => item.health_status === "at_risk" || item.health_status === "attention_needed")
     .slice(0, 10);
   const deliveryOverview = deliveryProjects.map((project) => {
-    const done = project.tasks.filter((task) => task.status === "done").length;
-    const openTasks = project.tasks.filter((task) => task.status !== "done");
-    const overdue = openTasks.filter((task) => task.due_date && task.due_date < todayStart).length;
+    const totalTasks = deliveryTaskTotalByProject.get(project.id) ?? 0;
+    const done = deliveryDoneTasksByProject.get(project.id) ?? 0;
+    const openTasks = Math.max(0, totalTasks - done);
+    const overdue = deliveryOverdueTasksByProject.get(project.id) ?? 0;
+    const taskDeadline = deliveryTaskDeadlineByProject.get(project.id) ?? null;
     const nextDeadline =
       [
         project.due_date,
-        ...openTasks.map((task) => task.due_date),
+        taskDeadline,
       ].filter((date): date is Date => Boolean(date)).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
     const state =
       overdue > 0
         ? "at_risk"
         : nextDeadline && nextDeadline < nextSevenDays
           ? "attention_needed"
-          : project.tasks.length === 0
+          : totalTasks === 0
             ? "not_enough_data"
             : "on_track";
 
@@ -545,8 +715,8 @@ async function GET_handler(req: NextRequest) {
         company: project.company,
         space: project.space,
       },
-      progress: project.tasks.length ? Math.round((done / project.tasks.length) * 100) : 0,
-      open_tasks: openTasks.length,
+      progress: totalTasks ? Math.round((done / totalTasks) * 100) : 0,
+      open_tasks: openTasks,
       overdue_tasks: overdue,
       next_deadline: nextDeadline,
       state,
@@ -619,81 +789,75 @@ async function GET_handler(req: NextRequest) {
       },
     ),
   };
-  const departmentByUser = new Map<string, string | null>();
-  for (const member of flattenedUsers) {
-    departmentByUser.set(member.id, member.department_id ?? null);
-  }
   const departmentWorkload = [
     ...departments.map((department) => {
       const userIds = new Set(department.members.map((member) => member.user_id));
-      const assignedTasks = workspaceOpenTasks.filter(
-        (task) => task.assignee_id && userIds.has(task.assignee_id),
+      const activeTaskCount = [...userIds].reduce(
+        (sum, userId) => sum + (openTaskCountByAssignee.get(userId) ?? 0),
+        0,
       );
-      const overdueTasks = assignedTasks.filter(
-        (task) => task.due_date && new Date(task.due_date) < todayStart,
+      const overdueTaskCount = [...userIds].reduce(
+        (sum, userId) => sum + (overdueTaskCountByAssignee.get(userId) ?? 0),
+        0,
       );
-      const upcomingTasks = assignedTasks.filter(
-        (task) =>
-          task.due_date &&
-          new Date(task.due_date) >= todayStart &&
-          new Date(task.due_date) < nextSevenDays,
+      const upcomingTaskCount = [...userIds].reduce(
+        (sum, userId) => sum + (upcomingTaskCountByAssignee.get(userId) ?? 0),
+        0,
       );
       return {
         department: { id: department.id, name: department.name, color: department.color },
-        active_tasks: assignedTasks.length,
-        overdue_tasks: overdueTasks.length,
-        upcoming_tasks: upcomingTasks.length,
+        active_tasks: activeTaskCount,
+        overdue_tasks: overdueTaskCount,
+        upcoming_tasks: upcomingTaskCount,
         assigned_members: userIds.size,
       };
     }),
     {
       department: { id: "unassigned", name: "Unassigned", color: "slate" },
-      active_tasks: workspaceOpenTasks.filter((task) => !task.assignee_id || !departmentByUser.get(task.assignee_id)).length,
-      overdue_tasks: workspaceOpenTasks.filter(
-        (task) =>
-          (!task.assignee_id || !departmentByUser.get(task.assignee_id)) &&
-          task.due_date &&
-          new Date(task.due_date) < todayStart,
-      ).length,
-      upcoming_tasks: workspaceOpenTasks.filter(
-        (task) =>
-          (!task.assignee_id || !departmentByUser.get(task.assignee_id)) &&
-          task.due_date &&
-          new Date(task.due_date) >= todayStart &&
-          new Date(task.due_date) < nextSevenDays,
-      ).length,
+      active_tasks:
+        unassignedOpenTaskCount +
+        flattenedUsers
+          .filter((member) => !member.department_id)
+          .reduce((sum, member) => sum + (openTaskCountByAssignee.get(member.id) ?? 0), 0),
+      overdue_tasks:
+        unassignedOverdueTaskCount +
+        flattenedUsers
+          .filter((member) => !member.department_id)
+          .reduce((sum, member) => sum + (overdueTaskCountByAssignee.get(member.id) ?? 0), 0),
+      upcoming_tasks:
+        unassignedUpcomingTaskCount +
+        flattenedUsers
+          .filter((member) => !member.department_id)
+          .reduce((sum, member) => sum + (upcomingTaskCountByAssignee.get(member.id) ?? 0), 0),
       assigned_members: flattenedUsers.filter((member) => !member.department_id).length,
     },
   ];
-  const overdueDeliverables = workspaceOpenTasks.filter(
-    (task) => task.due_date && new Date(task.due_date) < todayStart,
-  );
-  const unassignedDeliverables = workspaceOpenTasks.filter((task) => !task.assignee_id);
-  const projectsWithoutDeadlines = deliveryProjects.filter((project) => !project.due_date);
   const busiestMember = workload
     .filter((member) => member.open_tasks > 0)
     .sort((a, b) => b.open_tasks - a.open_tasks)[0];
+  const totalOpenTaskCount =
+    workload.reduce((sum, member) => sum + member.open_tasks, 0) + unassignedOpenTaskCount;
   const workloadConcentration =
-    busiestMember && workspaceOpenTasks.length > 0 && busiestMember.open_tasks / workspaceOpenTasks.length >= 0.5
+    busiestMember && totalOpenTaskCount > 0 && busiestMember.open_tasks / totalOpenTaskCount >= 0.5
       ? 1
       : 0;
   const agencyRiskSignals = [
     {
       key: "overdue_deliverables",
       label: "Overdue deliverables",
-      count: overdueDeliverables.length,
+      count: overdueDeliverableCount,
       trace: "Open tasks with due dates before today",
     },
     {
       key: "unassigned_deliverables",
       label: "Tasks without owners",
-      count: unassignedDeliverables.length,
+      count: unassignedOpenTaskCount,
       trace: "Open tasks without an assignee",
     },
     {
       key: "projects_without_deadlines",
       label: "Projects without deadlines",
-      count: projectsWithoutDeadlines.length,
+      count: projectsWithoutDeadlineCount,
       trace: "Active projects missing a project due date",
     },
     {
@@ -707,7 +871,7 @@ async function GET_handler(req: NextRequest) {
       label: "Workload concentration",
       count: workloadConcentration,
       trace: busiestMember
-        ? `${busiestMember.user.name} owns ${busiestMember.open_tasks} of ${workspaceOpenTasks.length} open tasks`
+        ? `${busiestMember.user.name} owns ${busiestMember.open_tasks} of ${totalOpenTaskCount} open tasks`
         : "No assigned open tasks",
     },
   ];

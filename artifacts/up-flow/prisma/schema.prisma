@@ -187,6 +187,8 @@ model WorkspaceMember {
   @@index([user_id])
   @@index([department_id])
   @@index([status])
+  @@index([workspace_id, status])
+  @@index([workspace_id, status, department_id])
 }
 
 model Department {
@@ -244,6 +246,7 @@ model Space {
   folders      Folder[]
 
   @@index([workspace_id])
+  @@index([workspace_id, position, created_at])
 }
 
 model Folder {
@@ -266,6 +269,7 @@ model Folder {
   @@index([workspace_id])
   @@index([parent_id])
   @@index([space_id, parent_id])
+  @@index([workspace_id, position, created_at])
 }
 
 model Project {
@@ -309,6 +313,9 @@ model Project {
   responsible_salesperson User?                 @relation("ProjectResponsibleSalesperson", fields: [responsible_salesperson_id], references: [id], onDelete: SetNull)
 
   @@index([workspace_id])
+  @@index([workspace_id, status, due_date])
+  @@index([workspace_id, space_id, created_at])
+  @@index([workspace_id, folder_id, created_at])
   @@index([company_id])
   @@index([responsible_salesperson_id])
 }
@@ -349,6 +356,12 @@ model Task {
   marketing_b2c_onboarding_form MarketingB2COnboardingForm?
 
   @@index([company_id])
+  @@index([project_id, status, position])
+  @@index([project_id, parent_id])
+  @@index([assignee_id, status, due_date])
+  @@index([company_id, status, due_date])
+  @@index([parent_id])
+  @@index([due_date])
 }
 
 model CustomFieldDefinition {
@@ -442,6 +455,7 @@ model TimeEntry {
 
   @@index([workspace_id, started_at])
   @@index([user_id, status])
+  @@index([workspace_id, user_id, status, started_at])
   @@index([project_id])
   @@index([task_id])
 }
@@ -463,6 +477,8 @@ model ActivityEvent {
   company      Company?  @relation(fields: [company_id], references: [id], onDelete: SetNull)
 
   @@index([workspace_id, created_at])
+  @@index([workspace_id, project_id, created_at])
+  @@index([workspace_id, company_id, created_at])
   @@index([actor_id])
   @@index([project_id])
   @@index([task_id])
@@ -515,6 +531,8 @@ model Company {
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
 
   @@index([workspace_id])
+  @@index([workspace_id, status, updated_at])
+  @@index([workspace_id, contract_value])
   @@index([owner_id])
 }
 
@@ -1047,6 +1065,9 @@ model Comment {
   author     User      @relation(fields: [author_id], references: [id])
   parent     Comment?  @relation("CommentReplies", fields: [parent_id], references: [id])
   replies    Comment[] @relation("CommentReplies")
+
+  @@index([task_id, created_at])
+  @@index([parent_id])
 }
 
 model Doc {
@@ -1118,4 +1139,6 @@ model Notification {
   workspace    Workspace?       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, created_at])
+  @@index([user_id, read, created_at])
+  @@index([workspace_id, user_id, created_at])
 }

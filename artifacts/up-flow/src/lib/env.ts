@@ -4,6 +4,14 @@ const REQUIRED = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ] as const;
 
+const PRODUCTION_REQUIRED = [
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "RESEND_API_KEY",
+  "EMAIL_FROM",
+  "APP_URL",
+  "CRON_SECRET",
+] as const;
+
 const OPTIONAL = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "ADMIN_EMAILS",
@@ -15,6 +23,8 @@ const OPTIONAL = [
   // (invite accept URLs, password reset URLs). Falls back to the request
   // origin when missing, which is fine in dev.
   "APP_URL",
+  // Shared secret required by production cron endpoints.
+  "CRON_SECRET",
   // Shared rate-limit store. When unset, rate-limit.ts falls back to an
   // in-process Map and logs a degraded-protection warning at startup.
   "REDIS_URL",
@@ -44,7 +54,12 @@ export class MissingEnvError extends Error {
 }
 
 export function validateEnv(): { ok: boolean; missing: string[] } {
-  const missing = REQUIRED.filter((k) => !process.env[k]);
+  const missing = [
+    ...REQUIRED.filter((k) => !process.env[k]),
+    ...(process.env.NODE_ENV === "production"
+      ? PRODUCTION_REQUIRED.filter((k) => !process.env[k])
+      : []),
+  ];
   if (!validated) {
     validated = true;
     const missingOptional = OPTIONAL.filter((k) => !process.env[k]);
