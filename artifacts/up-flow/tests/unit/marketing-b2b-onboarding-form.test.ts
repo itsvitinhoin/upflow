@@ -43,6 +43,10 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /b2bFormServices/);
   assert.match(helper, /marketingB2BOnboardingForm\.create/);
   assert.match(helper, /b2bFormServiceKeys\.has\(serviceKey\(service\)\)/);
+  assert.match(
+    helper,
+    /const b2bMeetingTask = await createTask\(\{[\s\S]*?project_id: b2bProjectId,[\s\S]*?title: "Onboarding: schedule Marketing B2B kickoff meeting"/,
+  );
 
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
   assert.match(route, /ensureBackfilledB2BForm/);
@@ -93,6 +97,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(kanbanBoard, /MarketingB2BOnboardingForm/);
   assert.match(kanbanBoard, /onOpenTask/);
   assert.match(projectPage, /MarketingB2BOnboardingForm/);
+  assert.match(projectPage, /project\.onboarding_enabled && \([\s\S]*<ClientOnboardingPanel/);
   assert.match(projectPage, /viewParam !== "kanban"/);
   assert.match(projectPage, /\?view=form&task=/);
   assert.match(projectPage, /embedded onUpdate=\{loadData\}/);

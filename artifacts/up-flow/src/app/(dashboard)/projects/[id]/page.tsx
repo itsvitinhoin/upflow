@@ -257,9 +257,11 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        <div className="mb-5">
-          <ClientOnboardingPanel projectId={id} companyId={project.company_id} onChanged={loadData} />
-        </div>
+        {project.onboarding_enabled && (
+          <div className="mb-5">
+            <ClientOnboardingPanel projectId={id} companyId={project.company_id} onChanged={loadData} />
+          </div>
+        )}
 
         {workflowFormTask && currentWorkflowKind && (
           <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-blue-300/10">
