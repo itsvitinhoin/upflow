@@ -115,8 +115,11 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @workspace/up-flow run db:generate
 
-      - name: Apply migrations
-        run: pnpm --filter @workspace/up-flow run db:migrate:deploy
+      # The migration history starts from an already-existing production
+      # schema, so a disposable CI database must be initialized from the
+      # current Prisma schema instead of replaying that partial history.
+      - name: Initialize test database
+        run: pnpm --filter @workspace/up-flow run db:push
 
       - name: Seed database
         run: pnpm --filter @workspace/up-flow run db:seed
