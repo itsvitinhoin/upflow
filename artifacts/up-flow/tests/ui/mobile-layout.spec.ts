@@ -91,11 +91,14 @@ test.describe("Mobile responsive layout", () => {
 
     await expectNoPageOverflow(page);
     await page.getByRole("button", { name: "Open navigation" }).click();
+    const mobileNavigation = page.locator("aside.fixed:visible");
     await expect(
-      page.getByRole("button", { name: "Close navigation" }),
+      mobileNavigation.getByRole("button", { name: "Close navigation" }),
     ).toBeVisible();
-    await expectFitsViewport(page, "aside:visible");
-    await page.getByRole("button", { name: "Close navigation" }).click();
+    await expectFitsViewport(page, "aside.fixed:visible");
+    await mobileNavigation
+      .getByRole("button", { name: "Close navigation" })
+      .click();
     await ctx.close();
   });
 
@@ -207,7 +210,7 @@ test.describe("Mobile responsive layout", () => {
     await page.getByRole("button", { name: "Cancel" }).click();
 
     await page.goto("/team");
-    await page.getByRole("button", { name: /Invite users/i }).click();
+    await page.getByRole("button", { name: /Invite users/i }).first().click();
     await expect(
       page.getByRole("heading", { name: "Invite to team" }),
     ).toBeVisible();

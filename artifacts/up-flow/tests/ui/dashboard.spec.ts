@@ -85,15 +85,19 @@ test.describe("Dashboard quick actions and task rows", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/");
+    await expect(
+      page.locator('main[data-dashboard-ready="true"]'),
+    ).toBeVisible();
 
-    const cards: { name: RegExp; heading: string }[] = [
-      { name: /^Upcoming\b/i, heading: "Upcoming" },
-      { name: /^In progress\b/i, heading: "In progress" },
-      { name: /^Completed\b/i, heading: "Completed" },
+    const cards: { status: string; heading: string }[] = [
+      { status: "todo", heading: "Upcoming" },
+      { status: "in_progress", heading: "In progress" },
+      { status: "done", heading: "Completed" },
     ];
-    for (const { name, heading } of cards) {
-      const card = page.getByRole("button", { name }).last();
+    for (const { status, heading } of cards) {
+      const card = page.locator(`button[data-task-status="${status}"]`);
       await card.click();
+      await expect(card).toHaveAttribute("aria-expanded", "true");
       const drawer = page.locator(`aside[aria-label="${heading} tasks"]`);
       await expect(drawer).toBeVisible();
       await expect(
@@ -101,6 +105,7 @@ test.describe("Dashboard quick actions and task rows", () => {
       ).toBeVisible();
       await page.getByRole("button", { name: "Close task drawer" }).click();
       await expect(drawer).toBeHidden();
+      await expect(card).toHaveAttribute("aria-expanded", "false");
     }
 
     await ctx.close();
@@ -177,7 +182,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     });
     await expect(heading).toBeVisible();
     await page.getByPlaceholder("Acme Corp").fill(uniq("Acme"));
-    await page.getByPlaceholder("acme.com").fill("acme.test");
+    await page.getByPlaceholder("acme.com", { exact: true }).fill("acme.test");
     await page.getByRole("button", { name: /^Create$/ }).click();
     await expect(heading).toBeHidden();
 
@@ -344,7 +349,11 @@ test.describe("Dashboard quick actions and task rows", () => {
     await expect(dlg).toBeVisible();
 
     const taskTitle = uniq("DashTask");
-    await dlg.getByPlaceholder("e.g. Design login screen").fill(taskTitle);
+    await dlg
+      .getByPlaceholder(
+        "Example: Approve Meta Ads creative set, or fill Objective below",
+      )
+      .fill(taskTitle);
     // The dialog has a "Project *" select — pick our seeded project.
     await dlg.locator("select").first().selectOption({ label: projectName });
 
@@ -355,7 +364,7 @@ test.describe("Dashboard quick actions and task rows", () => {
         r.request().method() === "POST" &&
         r.ok(),
     );
-    await dlg.getByRole("button", { name: /Create Task/i }).click();
+    await dlg.getByRole("button", { name: /Create deliverable/i }).click();
     await post;
     await expect(dlg).toBeHidden({ timeout: 10_000 });
 

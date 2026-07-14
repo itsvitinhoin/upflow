@@ -55,6 +55,7 @@ export default function CustomFieldInput({
       <FieldWrap error={error}>
         <input
           type="text"
+          aria-label={definition.name}
           defaultValue={(value as string) ?? ""}
           onBlur={(e) => commit(e.target.value || null)}
           placeholder="—"
@@ -68,6 +69,7 @@ export default function CustomFieldInput({
       <FieldWrap error={error}>
         <input
           type="number"
+          aria-label={definition.name}
           defaultValue={value === null || value === undefined ? "" : String(value)}
           onBlur={(e) => commit(e.target.value === "" ? null : e.target.value)}
           placeholder="—"
@@ -82,6 +84,7 @@ export default function CustomFieldInput({
       <FieldWrap error={error}>
         <input
           type="date"
+          aria-label={definition.name}
           defaultValue={dateVal}
           onBlur={(e) => commit(e.target.value || null)}
           className={cn(inputCls, error && errorCls)}
@@ -94,6 +97,7 @@ export default function CustomFieldInput({
     return (
       <button
         type="button"
+        aria-label={definition.name}
         onClick={() => commit(!checked)}
         aria-pressed={checked}
         className={cn(
@@ -111,6 +115,7 @@ export default function CustomFieldInput({
       <FieldWrap error={error}>
         <div className="relative">
           <select
+            aria-label={definition.name}
             value={(value as string) ?? ""}
             onChange={(e) => commit(e.target.value || null)}
             className={cn(inputCls, "appearance-none pr-8", error && errorCls)}
@@ -130,6 +135,7 @@ export default function CustomFieldInput({
   if (definition.type === "people") {
     return (
       <PeoplePicker
+        label={definition.name}
         selected={Array.isArray(value) ? (value as string[]) : []}
         users={users}
         onChange={(ids) => commit(ids.length === 0 ? null : ids)}
@@ -160,11 +166,13 @@ function FieldWrap({
 }
 
 function PeoplePicker({
+  label,
   selected,
   users,
   onChange,
   compact,
 }: {
+  label: string;
   selected: string[];
   users: TaskAssignee[];
   onChange: (ids: string[]) => void;
@@ -183,6 +191,7 @@ function PeoplePicker({
     <div className="relative">
       <button
         type="button"
+        aria-label={label}
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "w-full flex items-center gap-1.5 text-left bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-sm text-foreground hover:bg-white/10",

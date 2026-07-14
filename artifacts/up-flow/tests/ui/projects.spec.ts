@@ -373,7 +373,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
       .filter({ has: page.getByText(taskTitle, { exact: true }) })
       .last();
     await taskRow.hover();
-    const cfInput = taskRow.locator('input[type="text"]').first();
+    const cfInput = taskRow.getByRole("textbox", { name: fieldName });
     const put = page.waitForResponse(
       (r) =>
         /\/api\/tasks\/[^/]+\/custom-fields/.test(r.url()) &&
