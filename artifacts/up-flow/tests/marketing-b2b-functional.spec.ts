@@ -89,9 +89,19 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     expect(reboundForm.can_edit).toBe(true);
 
     await loginAs(page.context(), SEEDED.admin.email);
+    const formPath = `/api/onboarding/marketing-b2b-form/${replacementTask.id}`;
+    const waitForForm = () =>
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === formPath && response.ok(),
+        { timeout: 30_000 },
+      );
+    const formLoaded = waitForForm();
     await page.goto(
       `/projects/${replacementProject.id}?view=form&task=${replacementTask.id}`,
+      { waitUntil: "domcontentloaded", timeout: 30_000 },
     );
+    await formLoaded;
 
     const formShell = page.locator(".marketing-b2b-form-shell");
     await expect(formShell).toBeVisible();
@@ -123,7 +133,9 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     expect(savedForm.status).toBe("in_progress");
     expect(savedForm.values["brand.name"]).toBe(marker);
 
-    await page.reload();
+    const formReloaded = waitForForm();
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+    await formReloaded;
     await expect(page.locator(".marketing-b2b-form-shell")).toBeVisible();
     await expect(page.getByLabel("Nome da marca")).toHaveValue(marker);
   } finally {
