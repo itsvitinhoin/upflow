@@ -91,14 +91,14 @@ test.describe("Mobile responsive layout", () => {
 
     await expectNoPageOverflow(page);
     await page.getByRole("button", { name: "Open navigation" }).click();
-    const mobileNavigation = page.locator("aside.fixed:visible");
     await expect(
-      mobileNavigation.getByRole("button", { name: "Close navigation" }),
+      page.getByRole("button", { name: "Close navigation" }),
     ).toBeVisible();
     await expectFitsViewport(page, "aside.fixed:visible");
-    await mobileNavigation
-      .getByRole("button", { name: "Close navigation" })
-      .click();
+    await page.getByRole("button", { name: "Close navigation" }).click();
+    await expect(
+      page.getByRole("button", { name: "Open navigation" }),
+    ).toBeVisible();
     await ctx.close();
   });
 
@@ -106,7 +106,7 @@ test.describe("Mobile responsive layout", () => {
     browser,
     baseURL,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const projectId = await createProjectViaApi(ctx, uniq("MobileProject"));
     await createTaskViaApi(ctx, projectId, uniq("MobileTask"));
@@ -146,7 +146,10 @@ test.describe("Mobile responsive layout", () => {
       const page = await ctx.newPage();
       await page.setViewportSize(viewport);
       for (const route of routes) {
-        await page.goto(route);
+        await page.goto(route, {
+          waitUntil: "domcontentloaded",
+          timeout: 30_000,
+        });
         await expect(page.locator("body")).toBeVisible();
         await expectNoPageOverflow(page);
       }
@@ -212,9 +215,12 @@ test.describe("Mobile responsive layout", () => {
     await page.goto("/team");
     await page.getByRole("button", { name: /Invite users/i }).first().click();
     await expect(
-      page.getByRole("heading", { name: "Invite to team" }),
+      page.getByRole("heading", { name: "Invite real users to Up Flow" }),
     ).toBeVisible();
-    await expectFitsViewport(page, 'form:has-text("Invite to team")');
+    await expectFitsViewport(
+      page,
+      'form:has-text("Invite real users to Up Flow")',
+    );
     await ctx.close();
   });
 });

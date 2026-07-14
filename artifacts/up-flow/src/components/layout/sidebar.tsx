@@ -123,7 +123,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
         </div>
       </aside>
 
-      <div className="fixed left-3 top-3 z-50 md:hidden">
+      <div className="fixed left-3 top-3 z-[60] md:hidden">
         <button
           onClick={() => setMobileOpen((v) => !v)}
           aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
