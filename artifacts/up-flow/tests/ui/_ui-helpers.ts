@@ -43,12 +43,31 @@ export async function loggedInContext(
   email: string,
 ): Promise<BrowserContext> {
   const context = await browser.newContext({ baseURL });
+  // Keep unrelated seeded notifications from opening the assistant popup on
+  // top of controls under test. Specs that cover notifications register a
+  // page-level route after this and therefore override the empty default.
+  await context.route("**/api/notifications", async (route, request) => {
+    if (request.method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [], nextCursor: null }),
+    });
+  });
   await loginAs(context, email);
   return context;
 }
 
 /** Open the global ⌘K command palette from any page. */
 export async function openCommandPalette(page: Page): Promise<void> {
+  // The palette shortcut is registered in a client effect. Waiting for the
+  // dashboard readiness marker ensures hydration has installed that listener.
+  await expect(
+    page.locator('main[data-dashboard-ready="true"]'),
+  ).toBeVisible({ timeout: 30_000 });
   // Click body first so the keypress isn't swallowed by an input.
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Meta+k");
@@ -79,9 +98,26 @@ export async function createTaskViaApi(
 ): Promise<string> {
   const req = "post" in ctx ? ctx : ctx.request;
   const res = await req.post("/api/tasks", {
-    data: { title, project_id: projectId, status: "todo", priority: "medium", ...patch },
+    data: {
+      title,
+      project_id: projectId,
+      status: "todo",
+      priority: "medium",
+      ...patch,
+    },
   });
   expect(res.ok(), `create task failed: ${res.status()}`).toBeTruthy();
+  const body = (await res.json()) as { id: string };
+  return body.id;
+}
+
+/** Return the id of the user authenticated in this browser/API context. */
+export async function currentUserId(
+  ctx: APIRequestContext | BrowserContext,
+): Promise<string> {
+  const req = "get" in ctx ? ctx : ctx.request;
+  const res = await req.get("/api/auth/me");
+  expect(res.ok(), `load current user failed: ${res.status()}`).toBeTruthy();
   const body = (await res.json()) as { id: string };
   return body.id;
 }

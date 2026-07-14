@@ -31,6 +31,7 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://localhost:${port}`;
  * `PLAYWRIGHT_START_SERVER=1` to have Playwright start it for you.
  */
 const startServer = process.env.PLAYWRIGHT_START_SERVER === "1";
+const isCi = process.env.CI === "true";
 
 export default defineConfig({
   testDir: "./tests",
@@ -45,8 +46,11 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    actionTimeout: 10_000,
-    navigationTimeout: 15_000,
+    // CI exercises a cold Next.js development server, so the first request
+    // to a route can include compilation time. Keep local feedback fast while
+    // allowing those valid cold actions to complete inside the 60s test cap.
+    actionTimeout: isCi ? 30_000 : 10_000,
+    navigationTimeout: isCi ? 30_000 : 15_000,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },

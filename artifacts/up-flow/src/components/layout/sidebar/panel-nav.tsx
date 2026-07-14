@@ -14,7 +14,13 @@ interface PanelNavProps {
   canManageWorkspace: boolean;
 }
 
-export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll, canManageWorkspace }: PanelNavProps) {
+export function PanelNav({
+  pathname,
+  onNavigate,
+  onCreateSpace,
+  onCollapseAll,
+  canManageWorkspace,
+}: PanelNavProps) {
   const { t } = useLanguage();
   return (
     <>
@@ -36,6 +42,7 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll, c
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "relative flex items-center gap-2 overflow-hidden rounded-xl px-3 py-2 text-xs font-semibold outline-none transition-all focus-visible:ring-2 focus-visible:ring-primary/60",
                 active
@@ -49,7 +56,12 @@ export function PanelNav({ pathname, onNavigate, onCreateSpace, onCollapseAll, c
                   <span className="absolute left-0 h-6 w-0.5 rounded-full bg-sky-300 shadow-[0_0_14px_rgba(59,130,246,0.9)]" />
                 </>
               )}
-              <Icon className={cn("relative h-3.5 w-3.5", active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.8)]")} />
+              <Icon
+                className={cn(
+                  "relative h-3.5 w-3.5",
+                  active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.8)]",
+                )}
+              />
               <span className="relative truncate">{label}</span>
             </Link>
           );

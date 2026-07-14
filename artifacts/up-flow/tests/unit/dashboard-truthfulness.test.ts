@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import assert from "node:assert/strict";
 import test from "node:test";
+import { moneyCompact } from "../../src/components/dashboard/dashboard-utils";
 
 const ROOT = join(__dirname, "..", "..");
 
@@ -51,4 +52,14 @@ test("dashboard copy avoids unsupported operational claims", () => {
   assert.match(translations, /No open assigned tasks behind this workload signal/);
   assert.match(translations, /overdue open tasks, no owner, or no activity record in 7 days/);
   assert.match(spaceDashboardDrawer, /t\("spaceDashboard\.projectsAtRiskHint"\)/);
+});
+
+test("dashboard compact currency uses a deterministic locale during hydration", () => {
+  const dashboardUtils = read("src/components/dashboard/dashboard-utils.ts");
+
+  assert.doesNotMatch(dashboardUtils, /Intl\.NumberFormat/);
+  assert.equal(moneyCompact(0), "$0");
+  assert.equal(moneyCompact(1_200), "$1.2K");
+  assert.equal(moneyCompact(2_000_000), "$2M");
+  assert.equal(moneyCompact(-3_400_000_000), "-$3.4B");
 });

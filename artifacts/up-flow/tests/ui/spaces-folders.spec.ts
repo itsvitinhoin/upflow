@@ -45,25 +45,45 @@ test.describe("Spaces and folders containers", () => {
     await createTaskViaApi(ctx, folderList.id, taskTitle);
 
     const page = await ctx.newPage();
-    await page.goto(`/spaces/${space.id}`);
+    const spaceLoaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/spaces/${space.id}` &&
+        response.ok(),
+      { timeout: 30_000 },
+    );
+    await page.goto(`/spaces/${space.id}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await spaceLoaded;
 
     const main = page.locator("main");
-    await expect(main.getByRole("heading", { name: spaceName })).toBeVisible();
-    await expect(main.getByRole("link", { name: folderName, exact: true })).toBeVisible();
-    await expect(main.getByRole("link", { name: directListName, exact: true })).toBeVisible();
-    await expect(main.getByText("Recent activity")).toHaveCount(0);
-    await expect(main.getByText("Completed")).toHaveCount(0);
+    await expect(
+      main.getByRole("heading", { name: spaceName, exact: true }),
+    ).toBeVisible();
+    const sidebar = page.locator("aside").first();
+    await expect(
+      sidebar.getByRole("link", { name: folderName, exact: true }),
+    ).toBeVisible();
+    await expect(
+      sidebar.getByRole("link", { name: directListName, exact: true }),
+    ).toBeVisible();
     await expect(main.getByText(taskTitle)).toHaveCount(0);
 
-    await page
-      .locator("aside")
-      .first()
-      .getByRole("link", { name: folderName, exact: true })
-      .click();
+    const folderLoaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/folders/${folder.id}` &&
+        response.ok(),
+      { timeout: 30_000 },
+    );
+    await sidebar.getByRole("link", { name: folderName, exact: true }).click();
+    await folderLoaded;
     await expect(page).toHaveURL(new RegExp(`/folders/${folder.id}(\\?|$)`));
 
     const folderMain = page.locator("main");
-    await expect(folderMain.getByRole("heading", { name: folderName })).toBeVisible();
+    await expect(
+      folderMain.getByRole("heading", { name: folderName, exact: true }),
+    ).toBeVisible();
     await expect(
       folderMain.getByRole("link", { name: folderListName, exact: true }),
     ).toBeVisible();

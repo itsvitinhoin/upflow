@@ -42,18 +42,15 @@ test.describe("Departments API", () => {
 
     // CREATE — admin
     const name = uniq("Dept");
-    const created = await adminCtx.post(
-      `/api/workspaces/${wsId}/departments`,
-      { data: { name, color: "blue" } },
-    );
+    const created = await adminCtx.post(`/api/workspaces/${wsId}/departments`, {
+      data: { name, color: "blue" },
+    });
     expect(created.status(), await created.text()).toBe(201);
     const dep = (await created.json()) as { id: string; name: string };
     expect(dep.name).toBe(name);
 
     // LIST — admin sees the new dep
-    const list = await adminCtx.get(
-      `/api/workspaces/${wsId}/departments`,
-    );
+    const list = await adminCtx.get(`/api/workspaces/${wsId}/departments`);
     expect(list.ok()).toBeTruthy();
     const listBody = (await list.json()) as { items: { id: string }[] };
     expect(listBody.items.some((d) => d.id === dep.id)).toBeTruthy();
@@ -209,9 +206,7 @@ test.describe("Departments UI", () => {
     const wsId = await getCurrentWorkspaceId(ctx.request);
 
     // Find the seeded member we'll reassign.
-    const usersRes = await ctx.request.get(
-      `/api/users?workspace_id=${wsId}`,
-    );
+    const usersRes = await ctx.request.get(`/api/users?workspace_id=${wsId}`);
     const users = (await usersRes.json()) as {
       items: { id: string; name: string; email: string }[];
     };
@@ -235,34 +230,38 @@ test.describe("Departments UI", () => {
     // Close the dialog and reveal the new (empty) department on the page.
     await dialog.getByRole("button", { name: "Close" }).click();
     await page.getByLabel("Show empty groups").check();
-    const depGroup = page
-      .getByTestId("department-group")
-      .filter({ has: page.getByText(depName, { exact: true }) });
-    await expect(depGroup).toBeVisible();
-
-    // Assign via the inline <select> for the seeded member.
-    const select = page.getByLabel(`Department for ${targetMember!.name}`);
-    await select.selectOption({ label: depName });
-
-    // After assignment the member row should live inside the department's
-    // <section>. Wait for the API round-trip + re-render.
-    await expect(
-      depGroup.getByText(targetMember!.email),
-    ).toBeVisible({ timeout: 10_000 });
-
-    // Cleanup — also exercises the SetNull onDelete path.
-    const list = await ctx.request.get(
-      `/api/workspaces/${wsId}/departments`,
-    );
+    const list = await ctx.request.get(`/api/workspaces/${wsId}/departments`);
     const listBody = (await list.json()) as {
       items: { id: string; name: string }[];
     };
     const created = listBody.items.find((d) => d.name === depName);
-    if (created) {
-      await ctx.request.delete(
-        `/api/workspaces/${wsId}/departments/${created.id}`,
-      );
-    }
+    expect(created, "new department should be returned by the API").toBeTruthy();
+    const depGroup = page.locator(
+      `[data-testid="department-group"][data-department-key="${created!.id}"]`,
+    );
+    await expect(depGroup).toBeVisible();
+
+    // Assign via the inline <select> for the seeded member.
+    const select = page.getByLabel(`Department for ${targetMember!.name}`);
+    const assignment = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/members/${targetMember!.id}`) &&
+        response.request().method() === "PATCH" &&
+        response.ok(),
+    );
+    await select.selectOption({ label: depName });
+    await assignment;
+
+    // After assignment the member row should live inside the department's
+    // <section>. Wait for the API round-trip + re-render.
+    await expect(depGroup.getByText(targetMember!.email)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Cleanup — also exercises the SetNull onDelete path.
+    await ctx.request.delete(
+      `/api/workspaces/${wsId}/departments/${created!.id}`,
+    );
 
     await ctx.close();
   });
@@ -274,9 +273,7 @@ test.describe("Departments UI", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/team");
-    await page
-      .getByLabel("Search members")
-      .fill("zzz-no-such-member-zzz");
+    await page.getByLabel("Search members").fill("zzz-no-such-member-zzz");
     await expect(page.getByTestId("team-search-empty")).toBeVisible();
     // None of the department <section>s should be rendered.
     await expect(page.getByTestId("department-group")).toHaveCount(0);

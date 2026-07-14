@@ -28,7 +28,10 @@ test.describe("Calendar", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/calendar");
-    const heading = page.locator("h3").filter({ hasText: /\b\d{4}$/ }).first();
+    const heading = page
+      .locator("h3")
+      .filter({ hasText: /\b\d{4}$/ })
+      .first();
     const initial = await heading.textContent();
     expect(initial?.length).toBeGreaterThan(0);
 
@@ -45,7 +48,11 @@ test.describe("Calendar", () => {
     await expect(heading).toHaveText(initial ?? "");
 
     // Click a day cell — assert the right-hand "Due tasks" rail header is visible.
-    await page.locator("button:has(span)").filter({ hasText: /^\d+$/ }).first().click();
+    await page
+      .locator("button:has(span)")
+      .filter({ hasText: /^\d+$/ })
+      .first()
+      .click();
     await expect(page.getByText("Due tasks")).toBeVisible();
 
     await ctx.close();
@@ -65,15 +72,9 @@ test.describe("Calendar", () => {
 
     const page = await ctx.newPage();
     await page.goto("/calendar");
-    // Click today's cell (the highlighted "today" button has `aria-current`
-    // semantics via its style; targeting by today's day number is reliable
-    // when paired with the seeded task assertion below).
-    const todayNum = new Date().getDate().toString();
-    await page
-      .locator("button")
-      .filter({ has: page.locator("span", { hasText: new RegExp(`^${todayNum}$`) }) })
-      .first()
-      .click();
+    // Click the exact calendar cell that rendered the seeded task. This stays
+    // correct across the app timezone and adjacent-month day duplicates.
+    await page.getByRole("button", { name: new RegExp(title) }).click();
     const link = page.getByRole("link", { name: new RegExp(title) }).first();
     await expect(link).toBeVisible({ timeout: 10_000 });
     await link.click();
@@ -86,25 +87,27 @@ test.describe("Calendar", () => {
 test.describe("Time tracking", () => {
   requireChromiumOrSkip();
 
-  test("page renders summary cards and the weekly chart bars", async ({ browser, baseURL }) => {
+  test("page renders summary cards and the weekly chart bars", async ({
+    browser,
+    baseURL,
+  }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     // Seed at least one project so the per-project list renders.
     await createProjectViaApi(ctx, uniq("Time-Proj"));
 
     const page = await ctx.newPage();
     await page.goto("/time");
-    await expect(page.getByText("This week")).toBeVisible();
+    await expect(page.getByText("This week", { exact: true })).toBeVisible();
     await expect(page.getByText("Daily average")).toBeVisible();
     await expect(page.getByText("Weekly hours")).toBeVisible();
     // 7 bars rendered, each with a native `title` tooltip like "Mon: 0h 30m".
     const bars = page.locator("div[title*=':']");
     expect(await bars.count()).toBeGreaterThanOrEqual(7);
-    // Hover a bar to exercise the hover state; assert the title attribute is
-    // populated (this is what browsers surface as the tooltip).
+    // Assert the native tooltip is populated. Zero-minute bars can be too
+    // short to hover, but their title remains the browser-visible tooltip.
     const firstBar = bars.first();
-    await firstBar.hover();
     const tooltipTitle = await firstBar.getAttribute("title");
-    expect(tooltipTitle).toMatch(/^[A-Za-z]{3}: \d+h \d+m$/);
+    expect(tooltipTitle).toMatch(/^[A-Za-z]{3}: (?:(?:\d+h )?\d+m)$/);
     // Per-project breakdown lists at least the seeded project name.
     await expect(page.getByText(/Time-Proj/).first()).toBeVisible();
 
@@ -130,7 +133,9 @@ test.describe("Inbox", () => {
       // After marking, the button is gone.
       await expect(markAll).toHaveCount(0);
     } else {
-      await expect(page.getByText(/No unread notifications|Nothing here yet/)).toBeVisible();
+      await expect(
+        page.getByText(/No unread notifications|Nothing here yet/),
+      ).toBeVisible();
     }
 
     await ctx.close();
@@ -158,7 +163,11 @@ test.describe("Inbox", () => {
                 kind: "task_assigned",
                 read: false,
                 created_at: new Date().toISOString(),
-                task: { id: "t1", title: "Review me", project: { id: "p1", name: "Demo" } },
+                task: {
+                  id: "t1",
+                  title: "Review me",
+                  project: { id: "p1", name: "Demo" },
+                },
               },
             ],
           }),
@@ -166,14 +175,20 @@ test.describe("Inbox", () => {
         return;
       }
       // PATCH /api/notifications/:id — mark read
-      await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: "{}",
+      });
     });
 
     await page.goto("/inbox");
     const markRead = page.getByRole("button", { name: /^Mark read$/ });
     await expect(markRead).toBeVisible({ timeout: 10_000 });
     const patch = page.waitForResponse(
-      (r) => r.url().includes("/api/notifications/") && r.request().method() === "PATCH",
+      (r) =>
+        r.url().includes("/api/notifications/") &&
+        r.request().method() === "PATCH",
     );
     await markRead.click();
     await patch;
@@ -193,7 +208,17 @@ test.describe("Team", () => {
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
-    await page.goto("/team");
+    const overviewLoaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/team/overview" &&
+        response.ok(),
+      { timeout: 30_000 },
+    );
+    await page.goto("/team", {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await overviewLoaded;
     // The Team page now groups members into department <section>s.
     const groups = page.getByTestId("department-group");
     await expect(groups.first()).toBeVisible();
@@ -221,16 +246,25 @@ test.describe("Search", () => {
 
     const page = await ctx.newPage();
     await page.goto("/");
-    const input = page.locator('input[type="search"]').first();
+    const input = page
+      .getByRole("form", { name: /^Search / })
+      .getByRole("searchbox");
     await input.fill(name);
     await input.press("Enter");
-    await expect(page).toHaveURL(new RegExp(`/search\\?q=${encodeURIComponent(name)}`));
-    await expect(page.getByRole("heading", { name: /Results for/i })).toBeVisible();
+    await expect(page).toHaveURL(
+      new RegExp(`/search\\?q=${encodeURIComponent(name)}`),
+    );
+    await expect(
+      page.getByRole("heading", { name: /Results for/i }),
+    ).toBeVisible();
     await expect(page.getByText(name).first()).toBeVisible({ timeout: 10_000 });
 
     // Clicking the project result navigates to its detail page.
-    await page.getByRole("link", { name: new RegExp(name) }).first().click();
-    await expect(page).toHaveURL(/\/projects\/[^/]+/);
+    await page
+      .getByRole("link", { name: new RegExp(name) })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/\/projects\/[^/]+/, { timeout: 30_000 });
 
     await ctx.close();
   });

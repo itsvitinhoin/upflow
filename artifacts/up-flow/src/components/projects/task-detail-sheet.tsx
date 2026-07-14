@@ -65,6 +65,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
     loadTaskDetails();
   }, [initialUsers, loadTaskDetails]);
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   // Single-flight queue: rapid blur events on different fields used to fire
   // overlapping PATCH requests whose responses could land out-of-order and
   // overwrite each other. We chain them so each patch waits for the previous

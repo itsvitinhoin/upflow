@@ -19,7 +19,10 @@ test.describe("Up Flow smoke (API)", () => {
 
     // Sanity: GET / behind the middleware returns 2xx (no /login bounce).
     const home = await api.get("/");
-    expect(home.status(), `GET / should be 2xx, got ${home.status()}`).toBeLessThan(400);
+    expect(
+      home.status(),
+      `GET / should be 2xx, got ${home.status()}`,
+    ).toBeLessThan(400);
 
     // 1. Space → folder → project.
     const space = await (
@@ -43,7 +46,10 @@ test.describe("Up Flow smoke (API)", () => {
     expect(project.id, "project created").toBeTruthy();
 
     const folderViewRes = await api.get(`/api/folders/${folder.id}`);
-    expect(folderViewRes.ok(), `folder container fetch: ${folderViewRes.status()}`).toBeTruthy();
+    expect(
+      folderViewRes.ok(),
+      `folder container fetch: ${folderViewRes.status()}`,
+    ).toBeTruthy();
     const folderView = await folderViewRes.json();
     expect(folderView.folder.id).toBe(folder.id);
     expect(folderView.space.id).toBe(space.id);
@@ -55,11 +61,15 @@ test.describe("Up Flow smoke (API)", () => {
     // 2. Find Sarah (seeded member) so we can assign her.
     const usersResp = await (await api.get("/api/users")).json();
     const users = usersResp.items ?? usersResp;
-    const sarah = users.find((u: { email: string }) => u.email === SEEDED.member.email);
+    const sarah = users.find(
+      (u: { email: string }) => u.email === SEEDED.member.email,
+    );
     expect(sarah?.id, "Sarah seeded").toBeTruthy();
 
     // 3. Task with priority / due-date / assignee.
-    const dueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const dueDate = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
     const taskTitle = uniq("Task");
     const task = await (
       await api.post("/api/tasks", {
@@ -87,7 +97,10 @@ test.describe("Up Flow smoke (API)", () => {
     const cfvRes = await api.put(`/api/tasks/${task.id}/custom-fields`, {
       data: { definition_id: field.id, value: 5 },
     });
-    expect(cfvRes.ok(), `set custom field value: ${cfvRes.status()}`).toBeTruthy();
+    expect(
+      cfvRes.ok(),
+      `set custom field value: ${cfvRes.status()}`,
+    ).toBeTruthy();
 
     // 5. Edit the task (same PATCH the task-detail sheet fires).
     const patchRes = await api.patch(`/api/tasks/${task.id}`, {
@@ -103,9 +116,25 @@ test.describe("Up Flow smoke (API)", () => {
     });
     expect(invalidPatch.status(), "invalid task dates are rejected").toBe(400);
 
+    // Active non-guest contributors can delete tasks in projects without an
+    // explicit member allowlist. Exercise that policy on a disposable task so
+    // the main task remains available for the search checks below.
+    const deleteCandidate = await (
+      await api.post("/api/tasks", {
+        data: {
+          title: uniq("Delete candidate"),
+          project_id: project.id,
+          assignee_id: sarah.id,
+        },
+      })
+    ).json();
     const memberApi = await apiAs(baseURL!, SEEDED.member.email);
-    const deniedDelete = await memberApi.delete(`/api/tasks/${task.id}`);
-    expect(deniedDelete.status(), "assignees cannot delete tasks").toBe(403);
+    const allowedDelete = await memberApi.delete(
+      `/api/tasks/${deleteCandidate.id}`,
+    );
+    expect(allowedDelete.status(), "active contributors can delete tasks").toBe(
+      200,
+    );
     await memberApi.dispose();
 
     const startsAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
@@ -120,16 +149,27 @@ test.describe("Up Flow smoke (API)", () => {
         project_id: project.id,
       },
     });
-    expect(eventRes.status(), `create calendar event: ${eventRes.status()}`).toBe(201);
+    expect(
+      eventRes.status(),
+      `create calendar event: ${eventRes.status()}`,
+    ).toBe(201);
     const event = await eventRes.json();
     const events = await (await api.get("/api/calendar/events")).json();
-    expect(events.items.some((e: { id: string }) => e.id === event.id)).toBeTruthy();
+    expect(
+      events.items.some((e: { id: string }) => e.id === event.id),
+    ).toBeTruthy();
     const updateEvent = await api.patch(`/api/calendar/events/${event.id}`, {
       data: { title: `${event.title} updated` },
     });
-    expect(updateEvent.ok(), `update calendar event: ${updateEvent.status()}`).toBeTruthy();
+    expect(
+      updateEvent.ok(),
+      `update calendar event: ${updateEvent.status()}`,
+    ).toBeTruthy();
     const deleteEvent = await api.delete(`/api/calendar/events/${event.id}`);
-    expect(deleteEvent.ok(), `delete calendar event: ${deleteEvent.status()}`).toBeTruthy();
+    expect(
+      deleteEvent.ok(),
+      `delete calendar event: ${deleteEvent.status()}`,
+    ).toBeTruthy();
 
     const existingRunning = await (await api.get("/api/time/running")).json();
     if (existingRunning?.id) {
@@ -138,10 +178,14 @@ test.describe("Up Flow smoke (API)", () => {
     const startTimer = await api.post("/api/time/start", {
       data: { project_id: project.id },
     });
-    expect(startTimer.status(), `start timer: ${startTimer.status()}`).toBe(201);
+    expect(startTimer.status(), `start timer: ${startTimer.status()}`).toBe(
+      201,
+    );
     const running = await (await api.get("/api/time/running")).json();
     expect(running.id, "running timer is recoverable").toBeTruthy();
-    const stopTimer = await api.post("/api/time/stop", { data: { id: running.id } });
+    const stopTimer = await api.post("/api/time/stop", {
+      data: { id: running.id },
+    });
     expect(stopTimer.ok(), `stop timer: ${stopTimer.status()}`).toBeTruthy();
 
     // 6. Search returns the task. Poll briefly for eventual consistency.
@@ -150,7 +194,8 @@ test.describe("Up Flow smoke (API)", () => {
       const r = await api.get(`/api/search?q=${encodeURIComponent(taskTitle)}`);
       expect(r.ok()).toBeTruthy();
       const body = await r.json();
-      const items: Array<{ id: string }> = body.tasks ?? body.items ?? body.results ?? [];
+      const items: Array<{ id: string }> =
+        body.tasks ?? body.items ?? body.results ?? [];
       if (items.some((t) => t.id === task.id)) {
         found = true;
         break;
@@ -159,11 +204,17 @@ test.describe("Up Flow smoke (API)", () => {
     }
     expect(found, "search returns the new task").toBeTruthy();
 
-    // 7. Invite a teammate (API-only, no mail delivery).
+    // 7. Invite a teammate when email delivery is configured. CI deliberately
+    // omits provider credentials, so the safe configuration error is also a
+    // valid result (and must not create a token that cannot be delivered).
     const inviteRes = await api.post("/api/invites", {
       data: { emails: [`invitee+${Date.now()}@example.com`], role: "member" },
     });
-    expect(inviteRes.ok(), `create invite: ${inviteRes.status()}`).toBeTruthy();
+    if (!inviteRes.ok()) {
+      expect(inviteRes.status()).toBe(503);
+      const inviteError = (await inviteRes.json()) as { code?: string };
+      expect(inviteError.code).toBe("EMAIL_NOT_CONFIGURED");
+    }
 
     // 8. Workspace switch: create new ws, switch, verify isolation.
     const newWs = await (

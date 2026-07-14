@@ -344,7 +344,10 @@ export default function DashboardPage() {
   return (
     <>
       <Header title={t("dashboard.title")} />
-      <main className="command-dashboard-shell mx-auto w-full max-w-[1540px] space-y-5 overflow-x-hidden p-4 sm:p-6">
+      <main
+        className="command-dashboard-shell mx-auto w-full max-w-[1540px] space-y-5 overflow-x-hidden p-4 sm:p-6"
+        data-dashboard-ready={loading ? "false" : "true"}
+      >
           <section className="command-hero rounded-[1.4rem] p-5 sm:p-6 lg:p-7">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-300/60 to-transparent" />
             <div className="relative flex flex-col gap-6 xl:flex-row xl:items-stretch xl:justify-between">
@@ -562,6 +565,8 @@ export default function DashboardPage() {
                   value={todoCount}
                   hint={t("dashboard.upcomingHint")}
                   tone="warning"
+                  status="todo"
+                  active={drawerStatus === "todo"}
                   onClick={() => setDrawerStatus("todo")}
                 />
                 <StatusCountButton
@@ -569,6 +574,8 @@ export default function DashboardPage() {
                   value={inProgressCount}
                   hint={t("dashboard.inProgressHint")}
                   tone="info"
+                  status="in_progress"
+                  active={drawerStatus === "in_progress"}
                   onClick={() => setDrawerStatus("in_progress")}
                 />
                 <StatusCountButton
@@ -576,6 +583,8 @@ export default function DashboardPage() {
                   value={doneCount}
                   hint={t("dashboard.ofTotal", { progress })}
                   tone="success"
+                  status="done"
+                  active={drawerStatus === "done"}
                   onClick={() => setDrawerStatus("done")}
                 />
               </div>
@@ -914,19 +923,28 @@ function StatusCountButton({
   value,
   hint,
   tone,
+  status,
+  active,
   onClick,
 }: {
   label: string;
   value: number;
   hint: string;
   tone: DashboardTone;
+  status: TaskDrawerStatus;
+  active: boolean;
   onClick: () => void;
 }) {
   const styles = toneStyles[tone];
   return (
     <button
       type="button"
-      onClick={onClick}
+      data-task-status={status}
+      aria-expanded={active}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
       className={cn(
         "command-metric-card flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-left upflow-focus-glow",
         styles.border,
