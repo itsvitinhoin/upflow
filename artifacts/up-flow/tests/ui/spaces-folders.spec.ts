@@ -45,7 +45,17 @@ test.describe("Spaces and folders containers", () => {
     await createTaskViaApi(ctx, folderList.id, taskTitle);
 
     const page = await ctx.newPage();
-    await page.goto(`/spaces/${space.id}`);
+    const spaceLoaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/spaces/${space.id}` &&
+        response.ok(),
+      { timeout: 30_000 },
+    );
+    await page.goto(`/spaces/${space.id}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await spaceLoaded;
 
     const main = page.locator("main");
     await expect(
@@ -60,7 +70,14 @@ test.describe("Spaces and folders containers", () => {
     ).toBeVisible();
     await expect(main.getByText(taskTitle)).toHaveCount(0);
 
+    const folderLoaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/folders/${folder.id}` &&
+        response.ok(),
+      { timeout: 30_000 },
+    );
     await sidebar.getByRole("link", { name: folderName, exact: true }).click();
+    await folderLoaded;
     await expect(page).toHaveURL(new RegExp(`/folders/${folder.id}(\\?|$)`));
 
     const folderMain = page.locator("main");
