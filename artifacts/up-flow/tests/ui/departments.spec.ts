@@ -245,8 +245,8 @@ test.describe("Departments UI", () => {
     const select = page.getByLabel(`Department for ${targetMember!.name}`);
     const assignment = page.waitForResponse(
       (response) =>
-        response.url().includes(`/members/${targetMember!.id}/department`) &&
-        response.request().method() === "PUT" &&
+        response.url().endsWith(`/members/${targetMember!.id}`) &&
+        response.request().method() === "PATCH" &&
         response.ok(),
     );
     await select.selectOption({ label: depName });

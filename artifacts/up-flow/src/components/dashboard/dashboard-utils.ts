@@ -42,12 +42,19 @@ export function priorityLabel(
 }
 
 export function moneyCompact(value: number | null | undefined) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value ?? 0);
+  const amount = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  const absolute = Math.abs(amount);
+  const compact =
+    absolute >= 1_000_000_000
+      ? { divisor: 1_000_000_000, suffix: "B" }
+      : absolute >= 1_000_000
+        ? { divisor: 1_000_000, suffix: "M" }
+        : absolute >= 1_000
+          ? { divisor: 1_000, suffix: "K" }
+          : { divisor: 1, suffix: "" };
+  const rounded = Math.round((absolute / compact.divisor) * 10) / 10;
+  const digits = Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+  return `${amount < 0 ? "-" : ""}$${digits}${compact.suffix}`;
 }
 
 export function entrySeconds(entry: TimeEntry) {

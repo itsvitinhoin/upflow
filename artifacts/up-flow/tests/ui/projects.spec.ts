@@ -361,7 +361,9 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // Make the Notes column visible (Columns dropdown lists custom fields too).
     await page.getByRole("button", { name: /^Columns$/ }).click();
     const colToggle = page.getByRole("button", { name: fieldName });
-    if (await colToggle.count()) await colToggle.first().click();
+    if ((await colToggle.getAttribute("aria-pressed")) === "false") {
+      await colToggle.click();
+    }
     await page.keyboard.press("Escape").catch(() => undefined);
 
     // The text custom-field renders an <input>. Hover the row, fill, blur,
