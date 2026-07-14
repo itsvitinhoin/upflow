@@ -208,7 +208,17 @@ test.describe("Team", () => {
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
-    await page.goto("/team");
+    const overviewLoaded = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/team/overview" &&
+        response.ok(),
+      { timeout: 30_000 },
+    );
+    await page.goto("/team", {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await overviewLoaded;
     // The Team page now groups members into department <section>s.
     const groups = page.getByTestId("department-group");
     await expect(groups.first()).toBeVisible();
