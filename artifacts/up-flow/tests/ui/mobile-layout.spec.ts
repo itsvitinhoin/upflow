@@ -173,7 +173,19 @@ test.describe("Mobile responsive layout", () => {
 
     const page = await ctx.newPage();
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`/projects/${projectId}`);
+    const tasksLoaded = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return (
+        url.pathname === "/api/tasks" &&
+        url.searchParams.get("project_id") === projectId &&
+        response.ok()
+      );
+    });
+    await page.goto(`/projects/${projectId}`, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    await tasksLoaded;
     await expectNoPageOverflow(page);
 
     const boardButton = page.getByRole("button", { name: /Board/i }).first();
