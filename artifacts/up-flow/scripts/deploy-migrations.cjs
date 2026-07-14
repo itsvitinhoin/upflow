@@ -1,4 +1,5 @@
 const { spawnSync } = require("node:child_process");
+const { getMigrationDatabaseUrl } = require("./migration-database-url.cjs");
 
 const baselineMigrations = [
   "20260512150000_add_spaces",
@@ -75,10 +76,11 @@ function runMigrateDeploy() {
     process.env.DATABASE_URL
   ) {
     console.log("Direct database URL was unreachable. Retrying migrate deploy with DATABASE_URL as DIRECT_URL.");
+    const migrationDatabaseUrl = getMigrationDatabaseUrl(process.env.DATABASE_URL);
     runPrisma(["migrate", "deploy"], {
       env: {
         ...process.env,
-        DIRECT_URL: process.env.DATABASE_URL,
+        DIRECT_URL: migrationDatabaseUrl,
       },
     });
     return;
