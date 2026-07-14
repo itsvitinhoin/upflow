@@ -129,12 +129,21 @@ export default function ScheduleMeetingDialog({
     (person) =>
       person.id !== user?.id && !attendees.some((item) => item.id === person.id),
   );
+  const roomAttendeeOptions = attendeeOptions.filter((person) => person.id !== user?.id);
 
   const addAttendee = () => {
     const person = attendeeOptions.find((item) => item.id === selectedAttendeeId);
     if (!person) return;
     setAttendees((prev) => [...prev, person]);
     setSelectedAttendeeId("");
+  };
+
+  const toggleAttendee = (person: SelectableUser) => {
+    setAttendees((prev) =>
+      prev.some((attendee) => attendee.id === person.id)
+        ? prev.filter((attendee) => attendee.id !== person.id)
+        : [...prev, person],
+    );
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -267,61 +276,99 @@ export default function ScheduleMeetingDialog({
           <label className="mb-1.5 block text-xs font-medium text-foreground">
             {t("calendar.attendees")}
           </label>
-          <div className="flex gap-2">
-            <div className="relative min-w-0 flex-1">
-              <Users className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
-              <select
-                value={selectedAttendeeId}
-                onChange={(e) => setSelectedAttendeeId(e.target.value)}
-                disabled={attendeesLoading || availableAttendees.length === 0}
-                className="h-10 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-              >
-                <option value="">
-                  {attendeesLoading ? t("common.loading") : t("calendar.chooseAttendee")}
-                </option>
-                {availableAttendees.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name || person.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="button"
-              onClick={addAttendee}
-              disabled={!selectedAttendeeId}
-              className="h-10 rounded-lg border border-white/10 px-3 text-xs font-semibold text-foreground transition hover:bg-white/10 disabled:opacity-40"
-            >
-              {t("calendar.addAttendee")}
-            </button>
-          </div>
-          {attendees.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {attendees.map((person) => (
-                <span
-                  key={person.id}
-                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary"
-                >
-                  <span className="min-w-0 truncate">{person.name || person.email}</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAttendees((prev) =>
-                        prev.filter((attendee) => attendee.id !== person.id),
-                      )
-                    }
-                    aria-label={`${t("common.delete")} ${person.name || person.email}`}
-                    className="shrink-0 rounded-full hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
+          {roomBooking ? (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
+              {attendeesLoading ? (
+                <p className="px-2 py-2 text-xs text-muted-foreground">{t("common.loading")}</p>
+              ) : roomAttendeeOptions.length === 0 ? (
+                <p className="px-2 py-2 text-xs text-muted-foreground">{t("meetingRoom.noParticipants")}</p>
+              ) : (
+                <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+                  {roomAttendeeOptions.map((person) => {
+                    const checked = attendees.some((attendee) => attendee.id === person.id);
+                    const label = person.name || person.email;
+                    return (
+                      <label
+                        key={person.id}
+                        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm text-foreground transition hover:bg-white/5"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAttendee(person)}
+                          className="h-4 w-4 rounded border-white/20 bg-white/5 text-primary focus:ring-2 focus:ring-ring"
+                        />
+                        <span className="min-w-0 flex-1 truncate">{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="mt-2 px-2 text-[11px] text-muted-foreground">
+                {attendees.length > 0
+                  ? t("meetingRoom.participantsSelected", { count: attendees.length })
+                  : t("meetingRoom.chooseParticipants")}
+              </p>
             </div>
           ) : (
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t("calendar.noAttendees")}
-            </p>
+            <>
+              <div className="flex gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <Users className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-primary" />
+                  <select
+                    value={selectedAttendeeId}
+                    onChange={(e) => setSelectedAttendeeId(e.target.value)}
+                    disabled={attendeesLoading || availableAttendees.length === 0}
+                    className="h-10 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                  >
+                    <option value="">
+                      {attendeesLoading ? t("common.loading") : t("calendar.chooseAttendee")}
+                    </option>
+                    {availableAttendees.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name || person.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={addAttendee}
+                  disabled={!selectedAttendeeId}
+                  className="h-10 rounded-lg border border-white/10 px-3 text-xs font-semibold text-foreground transition hover:bg-white/10 disabled:opacity-40"
+                >
+                  {t("calendar.addAttendee")}
+                </button>
+              </div>
+              {attendees.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {attendees.map((person) => (
+                    <span
+                      key={person.id}
+                      className="inline-flex max-w-full items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs text-primary"
+                    >
+                      <span className="min-w-0 truncate">{person.name || person.email}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAttendees((prev) =>
+                            prev.filter((attendee) => attendee.id !== person.id),
+                          )
+                        }
+                        aria-label={`${t("common.delete")} ${person.name || person.email}`}
+                        className="shrink-0 rounded-full hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t("calendar.noAttendees")}
+                </p>
+              )}
+            </>
           )}
         </div>
         {roomBooking ? (

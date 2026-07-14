@@ -58,6 +58,10 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   );
 
   assert.match(route, /values: valuesRef|values: nextValues|marketingB2BOnboardingForm\.update/);
+  assert.match(route, /isMissingClientAddressTableError/);
+  assert.match(route, /loadCompanyAddresses/);
+  assert.match(route, /canSyncAddresses/);
+  assert.match(route, /code === "P2021"[\s\S]*ClientAddress/);
   assert.match(route, /ensureBackfilledB2BForm/);
   assert.match(route, /isBackfillableMarketingB2BTaskText/);
   assert.match(route, /loadExistingB2BFormForContext/);
