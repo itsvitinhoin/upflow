@@ -12,7 +12,8 @@
 export async function register() {
   // Env validation first so a misconfig fails before we wire anything else.
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("@/lib/env");
+    const { validateEnv } = await import("@/lib/env");
+    validateEnv();
   }
 
   const dsn = process.env.SENTRY_DSN;

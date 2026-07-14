@@ -93,5 +93,3 @@ export function validateEnv(): { ok: boolean; missing: string[] } {
   }
   return { ok: missing.length === 0, missing };
 }
-
-validateEnv();
