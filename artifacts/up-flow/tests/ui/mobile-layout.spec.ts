@@ -215,12 +215,12 @@ test.describe("Mobile responsive layout", () => {
     await page.goto("/team");
     await page.getByRole("button", { name: /Invite users/i }).first().click();
     await expect(
-      page.getByRole("heading", { name: "Invite real users to Up Flow" }),
+      page.getByRole("heading", {
+        name: "Invite real users to Up Flow",
+        level: 2,
+      }),
     ).toBeVisible();
-    await expectFitsViewport(
-      page,
-      'form:has-text("Invite real users to Up Flow")',
-    );
+    await expectFitsViewport(page, "form:has(h2)");
     await ctx.close();
   });
 });
