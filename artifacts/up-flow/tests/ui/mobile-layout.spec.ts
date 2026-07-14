@@ -181,11 +181,17 @@ test.describe("Mobile responsive layout", () => {
         response.ok()
       );
     });
+    const usersLoaded = page.waitForResponse((response) => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/users" && response.ok();
+    });
     await page.goto(`/projects/${projectId}`, {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
-    await tasksLoaded;
+    // The project page does not publish its task state until the follow-up users
+    // request has completed, so wait for both parts of its loadData sequence.
+    await Promise.all([tasksLoaded, usersLoaded]);
     await expectNoPageOverflow(page);
 
     const boardButton = page.getByRole("button", { name: /Board/i }).first();
