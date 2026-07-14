@@ -264,7 +264,7 @@ test.describe("Search", () => {
       .getByRole("link", { name: new RegExp(name) })
       .first()
       .click();
-    await expect(page).toHaveURL(/\/projects\/[^/]+/);
+    await expect(page).toHaveURL(/\/projects\/[^/]+/, { timeout: 30_000 });
 
     await ctx.close();
   });

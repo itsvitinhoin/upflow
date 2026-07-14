@@ -63,6 +63,11 @@ export async function loggedInContext(
 
 /** Open the global ⌘K command palette from any page. */
 export async function openCommandPalette(page: Page): Promise<void> {
+  // The palette shortcut is registered in a client effect. Waiting for the
+  // dashboard readiness marker ensures hydration has installed that listener.
+  await expect(
+    page.locator('main[data-dashboard-ready="true"]'),
+  ).toBeVisible({ timeout: 30_000 });
   // Click body first so the keypress isn't swallowed by an input.
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("Meta+k");
