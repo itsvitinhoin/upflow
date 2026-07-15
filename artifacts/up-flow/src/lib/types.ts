@@ -159,6 +159,7 @@ export interface TaskOnboardingLink {
   company_name: string;
   department: string;
   title: string;
+  automation_key: string | null;
   status: string;
   progress: number;
   href: string;

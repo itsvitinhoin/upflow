@@ -1,5 +1,8 @@
 import type { Task } from "@/lib/types";
 
+const UP_ZERO_CONFIGURATION_AUTOMATION_KEY = "up_zero_website_configuration";
+const UP_ZERO_CONFIGURATION_TASK_TITLE = "configure up zero website";
+
 export type WorkflowFormKind = "marketing_b2b" | "marketing_b2c" | "finance" | "support";
 
 export type OnboardingTaskAction =
@@ -47,7 +50,15 @@ function isSchedulingOnboardingTask(task: Task) {
   );
 }
 
+function isUpZeroConfigurationTask(task: Task) {
+  return Boolean(
+    task.onboarding_link?.automation_key === UP_ZERO_CONFIGURATION_AUTOMATION_KEY ||
+      task.title.trim().toLowerCase() === UP_ZERO_CONFIGURATION_TASK_TITLE,
+  );
+}
+
 function isSupportGroupOnboardingTask(task: Task) {
+  if (isUpZeroConfigurationTask(task)) return false;
   const text = taskSearchText(task);
   const hasGroupSignal =
     text.includes("client channels") ||
@@ -76,6 +87,7 @@ function isMarketingB2BFormTask(task: Task) {
 }
 
 export function workflowFormKind(task: Task): WorkflowFormKind | null {
+  if (isUpZeroConfigurationTask(task)) return null;
   if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
   if (isMarketingB2BFormTask(task)) return "marketing_b2b";
   if (task.marketing_b2c_onboarding_form) return "marketing_b2c";

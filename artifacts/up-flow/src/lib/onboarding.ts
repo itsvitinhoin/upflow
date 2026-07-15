@@ -77,6 +77,23 @@ export const UP_ZERO_CONFIGURATION_TASK_TITLE = "Configure UP Zero website";
 export const UP_ZERO_MARKETING_B2B_DEPENDENCY_MESSAGE =
   "Waiting for UP Zero website configuration by Technical Support.";
 
+export function isUpZeroConfigurationChecklistItem(item: {
+  automation_key?: string | null;
+  department?: string | null;
+  title?: string | null;
+}) {
+  const department = normalizedName(item.department ?? "");
+  const isTechnicalSupport =
+    ownerKeyForDepartmentLabel(item.department) === "technical_support" ||
+    department.includes("support") ||
+    department.includes("suporte");
+  return Boolean(
+    item.automation_key === UP_ZERO_CONFIGURATION_AUTOMATION_KEY ||
+      (isTechnicalSupport &&
+        normalizedName(item.title ?? "") === normalizedName(UP_ZERO_CONFIGURATION_TASK_TITLE)),
+  );
+}
+
 export const UP_ZERO_SEQUENCE_STATUSES = [
   "commercial_pending",
   "technical_support_pending",
@@ -430,11 +447,18 @@ export function financeRegistrationComplete(company: {
 export async function getOnboardingCompletionBlocker(
   db: Db,
   onboardingId: string,
-  item: { id: string; department: string; task_id?: string | null; automation_key?: string | null },
+  item: {
+    id: string;
+    department: string;
+    title?: string | null;
+    task_id?: string | null;
+    automation_key?: string | null;
+  },
 ) {
   const department = item.department.toLowerCase();
+  const isUpZeroConfiguration = isUpZeroConfigurationChecklistItem(item);
 
-  if (item.task_id) {
+  if (item.task_id && !isUpZeroConfiguration) {
     const gate = await getUpZeroMarketingB2BGate(db, onboardingId);
     if (gate?.blocked && gate.marketing_b2b_task_ids.includes(item.task_id)) {
       return gate.message;
@@ -470,7 +494,7 @@ export async function getOnboardingCompletionBlocker(
 
   if (
     department.includes("support") &&
-    item.automation_key !== UP_ZERO_CONFIGURATION_AUTOMATION_KEY
+    !isUpZeroConfiguration
   ) {
     const support = await db.supportGroup.findUnique({
       where: { onboarding_id: onboardingId },
@@ -524,7 +548,14 @@ export async function getOnboardingCompletionBlocker(
 export async function getOnboardingTaskCompletionBlocker(db: Db, taskId: string) {
   const item = await db.onboardingChecklistItem.findFirst({
     where: { task_id: taskId },
-    select: { id: true, onboarding_id: true, department: true, task_id: true, automation_key: true },
+    select: {
+      id: true,
+      onboarding_id: true,
+      department: true,
+      title: true,
+      task_id: true,
+      automation_key: true,
+    },
   });
   if (!item) return null;
   return getOnboardingCompletionBlocker(db, item.onboarding_id, item);
@@ -1316,14 +1347,16 @@ async function marketingB2BTaskContext(db: Db, onboardingId: string, companyId: 
           id: true,
           title: true,
           assignee_id: true,
+          project_id: true,
         },
       },
     },
   });
   if (!form) return { form: null, taskIds: [] as string[] };
 
+  const canonicalProjectId = form.task.project_id || form.project_id;
   const tasks = await db.task.findMany({
-    where: { project_id: form.project_id, company_id: companyId },
+    where: { project_id: canonicalProjectId, company_id: companyId },
     select: { id: true },
   });
   return { form, taskIds: tasks.map((task) => task.id) };
@@ -1390,7 +1423,7 @@ export async function getUpZeroMarketingB2BGate(
       overridden,
   );
   const technicalItem = usesUpZero
-    ? await db.onboardingChecklistItem.findUnique({
+    ? (await db.onboardingChecklistItem.findUnique({
         where: {
           onboarding_id_automation_key: {
             onboarding_id: onboardingId,
@@ -1407,9 +1440,29 @@ export async function getUpZeroMarketingB2BGate(
             },
           },
         },
-      })
+      })) ??
+      (await db.onboardingChecklistItem.findFirst({
+        where: {
+          onboarding_id: onboardingId,
+          title: UP_ZERO_CONFIGURATION_TASK_TITLE,
+        },
+        select: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              assignee: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+      }))
     : null;
   const marketingContext = await marketingB2BTaskContext(db, onboardingId, onboarding.company_id);
+  const technicalTaskId = technicalItem?.task?.id ?? null;
+  const marketingTaskIds = technicalTaskId
+    ? marketingContext.taskIds.filter((taskId) => taskId !== technicalTaskId)
+    : marketingContext.taskIds;
   const blocked = usesUpZero && !released;
   const currentDepartment = !onboarding.commercial_completed_at
     ? "Commercial"
@@ -1431,7 +1484,7 @@ export async function getUpZeroMarketingB2BGate(
           owner: technicalItem.task.assignee,
         }
       : null,
-    marketing_b2b_task_ids: marketingContext.taskIds,
+    marketing_b2b_task_ids: marketingTaskIds,
     overridden,
     override_reason: onboarding.marketing_b2b_dependency_override_reason,
   };
@@ -1454,6 +1507,7 @@ async function releaseUpZeroMarketingB2B(
       workspace_id: true,
       company_id: true,
       project_id: true,
+      contracted_services: true,
       sequence_status: true,
       marketing_b2b_released_at: true,
       up_zero_configuration_completed_at: true,
@@ -1461,6 +1515,9 @@ async function releaseUpZeroMarketingB2B(
       company: { select: { name: true } },
     },
   });
+  if (!hasUpZeroService(onboarding.contracted_services)) {
+    return { notificationTargets: [] as OnboardingAssignmentNotificationTarget[], released: false };
+  }
   const context = await marketingB2BTaskContext(db, onboarding.id, onboarding.company_id);
   if (input.technicalTaskId && context.taskIds.length > 0) {
     await db.taskDependency.deleteMany({
@@ -3558,7 +3615,7 @@ export async function syncOnboardingChecklistFromTaskStatus(
   }
 
   let transitionNotificationTargets: OnboardingAssignmentNotificationTarget[] = [];
-  if (item.automation_key === UP_ZERO_CONFIGURATION_AUTOMATION_KEY) {
+  if (isUpZeroConfigurationChecklistItem(item)) {
     if (input.status === "done") {
       const release = await releaseUpZeroMarketingB2B(db, {
         onboardingId: item.onboarding_id,
@@ -3710,10 +3767,20 @@ export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string)
     },
     include: { department: { select: { name: true } } },
   });
-  const departmentName = member?.department?.name?.toLowerCase() ?? "";
-  const isFinance = departmentName.includes("finance");
-  const isSupport = departmentName.includes("support");
-  const isCommercial = departmentName.includes("commercial") || onboarding.responsible_salesperson_id === auth.prismaUser.id;
+  const departmentName = member?.department?.name ?? "";
+  const departmentOwnerKey = ownerKeyForDepartmentLabel(departmentName);
+  const normalizedDepartmentName = normalizedName(departmentName);
+  const isFinance =
+    departmentOwnerKey === "finance" || normalizedDepartmentName.includes("finance");
+  const isSupport =
+    departmentOwnerKey === "technical_support" ||
+    normalizedDepartmentName.includes("support") ||
+    normalizedDepartmentName.includes("suporte");
+  const isCommercial =
+    departmentOwnerKey === "commercial" ||
+    normalizedDepartmentName.includes("commercial") ||
+    normalizedDepartmentName.includes("comercial") ||
+    onboarding.responsible_salesperson_id === auth.prismaUser.id;
   const serviceNames = onboarding.service_assignments
     .filter((assignment) => assignment.leader_id === auth.prismaUser.id)
     .map((assignment) => assignment.service);
@@ -3737,10 +3804,29 @@ export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string)
     },
     canUpdateChecklistItem(item: { department: string; owner_id?: string | null; title?: string | null }) {
       if (admin || item.owner_id === auth.prismaUser.id) return true;
-      const department = item.department.toLowerCase();
-      if (department.includes("finance") || department.includes("contract")) return isFinance;
-      if (department.includes("support")) return isSupport;
-      if (department.includes("commercial")) return isCommercial;
+      const department = normalizedName(item.department);
+      const itemDepartmentOwnerKey = ownerKeyForDepartmentLabel(item.department);
+      if (
+        itemDepartmentOwnerKey === "finance" ||
+        department.includes("finance") ||
+        department.includes("contract")
+      ) {
+        return isFinance;
+      }
+      if (
+        itemDepartmentOwnerKey === "technical_support" ||
+        department.includes("support") ||
+        department.includes("suporte")
+      ) {
+        return isSupport;
+      }
+      if (
+        itemDepartmentOwnerKey === "commercial" ||
+        department.includes("commercial") ||
+        department.includes("comercial")
+      ) {
+        return isCommercial;
+      }
       if (department.includes("service")) {
         const service = item.title?.replace(/ onboarding meeting scheduled$/i, "");
         return this.canUpdateService(service);

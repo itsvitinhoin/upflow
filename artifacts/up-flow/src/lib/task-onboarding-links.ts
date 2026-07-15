@@ -14,6 +14,7 @@ export async function loadTaskOnboardingLinkMap(taskIds: string[]) {
       onboarding_id: true,
       department: true,
       title: true,
+      automation_key: true,
       status: true,
       onboarding: {
         select: {
@@ -34,6 +35,7 @@ export async function loadTaskOnboardingLinkMap(taskIds: string[]) {
       company_name: link.onboarding.company.name,
       department: link.department,
       title: link.title,
+      automation_key: link.automation_key,
       status: link.status,
       progress: link.onboarding.progress,
       href: `/clients/${link.onboarding.company_id}`,

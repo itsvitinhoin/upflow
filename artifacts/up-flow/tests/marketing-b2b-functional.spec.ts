@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { prisma } from "../src/lib/prisma";
 import { apiAs, loginAs, SEEDED, uniq } from "./helpers";
 
 test("Marketing B2B form opens from the replacement task and persists edits", async ({
@@ -238,9 +239,18 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
 
 test("Creating a client with Vesti and UP Zero creates the complete service workflows", async ({
   baseURL,
+  page,
 }) => {
   expect(baseURL).toBeTruthy();
   const api = await apiAs(baseURL!, SEEDED.admin.email);
+  const memberApi = await apiAs(baseURL!, SEEDED.member.email);
+  let workspaceIdForCleanup: string | null = null;
+  let memberUserIdForCleanup: string | null = null;
+  let previousMemberDepartmentId: string | null = null;
+  let memberDepartmentChanged = false;
+  let createdTechnicalDepartmentId: string | null = null;
+  let staleFormTaskId: string | null = null;
+  let originalFormProjectId: string | null = null;
 
   try {
     const companyResponse = await api.post("/api/companies", {
@@ -325,6 +335,44 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     expect(technicalItem?.department).toBe("Technical Support");
     expect(technicalItem?.owner?.id).toBeTruthy();
     expect(technicalItem?.task?.id).toBeTruthy();
+    const supportItem = onboarding.checklist_items.find(
+      (item) => item.title === "Client communication group created",
+    );
+    expect(supportItem?.task?.id).toBeTruthy();
+
+    const memberSupportResponse = await memberApi.get(
+      `/api/onboarding/support-form/${supportItem?.task?.id}`,
+    );
+    expect(
+      memberSupportResponse.ok(),
+      `member support form read failed: ${memberSupportResponse.status()} ${await memberSupportResponse.text()}`,
+    ).toBeTruthy();
+    expect(((await memberSupportResponse.json()) as { can_edit: boolean }).can_edit).toBe(true);
+
+    const supportGroupName = uniq("Support group");
+    await loginAs(page.context(), SEEDED.member.email);
+    await page.goto(
+      `/projects/${supportItem?.task?.project_id}?view=form&task=${supportItem?.task?.id}`,
+    );
+    const groupNameInput = page.getByLabel(/Group name|Nome do grupo/i);
+    await expect(groupNameInput).toBeEnabled();
+    await groupNameInput.fill(supportGroupName);
+    await groupNameInput.blur();
+    await expect
+      .poll(async () => {
+        const response = await memberApi.get(
+          `/api/onboarding/support-form/${supportItem?.task?.id}`,
+        );
+        if (!response.ok()) return null;
+        return ((await response.json()) as { support_group: { group_name: string | null } })
+          .support_group.group_name;
+      })
+      .toBe(supportGroupName);
+
+    const technicalSupportFormResponse = await api.get(
+      `/api/onboarding/support-form/${technicalItem?.task?.id}`,
+    );
+    expect(technicalSupportFormResponse.status()).toBe(404);
     const vestiItems = onboarding.checklist_items.filter((item) => item.title.startsWith("Vesti: "));
     const upZeroItems = onboarding.checklist_items.filter((item) => item.title.startsWith("UP Zero: "));
     expect(vestiItems).toHaveLength(10);
@@ -372,7 +420,59 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
       ),
     ).toHaveLength(0);
 
-    const startTechnicalResponse = await api.patch(`/api/tasks/${technicalItem?.task?.id}`, {
+    expect(technicalItem?.task?.project_id).not.toBe(b2bFormTask?.project_id);
+    if (!technicalItem?.task || !b2bFormTask) throw new Error("UP Zero workflow tasks were not created");
+    staleFormTaskId = b2bFormTask.id;
+    originalFormProjectId = b2bFormTask.project_id;
+    await prisma.marketingB2BOnboardingForm.update({
+      where: { task_id: b2bFormTask.id },
+      data: { project_id: technicalItem.task.project_id },
+    });
+
+    const meResponse = await api.get("/api/auth/me");
+    expect(meResponse.ok()).toBeTruthy();
+    const testWorkspaceId = ((await meResponse.json()) as { currentWorkspaceId: string })
+      .currentWorkspaceId;
+    workspaceIdForCleanup = testWorkspaceId;
+    const departmentsResponse = await api.get(
+      `/api/workspaces/${testWorkspaceId}/departments`,
+    );
+    expect(departmentsResponse.ok()).toBeTruthy();
+    const departments = (await departmentsResponse.json()) as {
+      items: Array<{ id: string; name: string }>;
+    };
+    let technicalDepartment = departments.items.find((department) => {
+      const name = department.name.trim().toLowerCase();
+      return name.includes("technical support") || name.includes("suporte t");
+    });
+    if (!technicalDepartment) {
+      const createDepartmentResponse = await api.post(
+        `/api/workspaces/${testWorkspaceId}/departments`,
+        { data: { name: "Technical Support", color: "slate" } },
+      );
+      expect(createDepartmentResponse.status()).toBe(201);
+      technicalDepartment = (await createDepartmentResponse.json()) as { id: string; name: string };
+      createdTechnicalDepartmentId = technicalDepartment.id;
+    }
+
+    const usersResponse = await api.get(`/api/users?workspace_id=${testWorkspaceId}`);
+    expect(usersResponse.ok()).toBeTruthy();
+    const users = (await usersResponse.json()) as {
+      items: Array<{ id: string; email: string; department_id: string | null }>;
+    };
+    const memberUser = users.items.find((user) => user.email === SEEDED.member.email);
+    expect(memberUser?.id).toBeTruthy();
+    if (!memberUser) throw new Error("Seeded Technical Support test member was not found");
+    memberUserIdForCleanup = memberUser.id;
+    previousMemberDepartmentId = memberUser.department_id;
+    const assignDepartmentResponse = await api.put(
+      `/api/workspaces/${testWorkspaceId}/members/${memberUser.id}/department`,
+      { data: { department_id: technicalDepartment.id } },
+    );
+    expect(assignDepartmentResponse.ok()).toBeTruthy();
+    memberDepartmentChanged = true;
+
+    const startTechnicalResponse = await memberApi.patch(`/api/tasks/${technicalItem.task.id}`, {
       data: { status: "in_progress" },
     });
     expect(
@@ -385,9 +485,17 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
       "up_zero_configuration_in_progress",
     );
 
-    const completeTechnicalResponse = await api.patch(`/api/tasks/${technicalItem?.task?.id}`, {
-      data: { status: "done" },
-    });
+    const completeTechnicalResponse = await memberApi.post(
+      `/api/projects/${technicalItem.task.project_id}/reorder-tasks`,
+      {
+        data: {
+          movedTaskId: technicalItem.task.id,
+          srcColumn: "in_progress",
+          dstColumn: "done",
+          dstIndex: 0,
+        },
+      },
+    );
     expect(
       completeTechnicalResponse.ok(),
       `completing UP Zero configuration failed: ${completeTechnicalResponse.status()} ${await completeTechnicalResponse.text()}`,
@@ -512,6 +620,26 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     expect(repeatedSync.synced_onboarding_tasks).toHaveLength(0);
     expect(repeatedSync.moved_onboarding_tasks).toBe(0);
   } finally {
+    if (staleFormTaskId && originalFormProjectId) {
+      await prisma.marketingB2BOnboardingForm
+        .update({
+          where: { task_id: staleFormTaskId },
+          data: { project_id: originalFormProjectId },
+        })
+        .catch(() => undefined);
+    }
+    if (memberDepartmentChanged && workspaceIdForCleanup && memberUserIdForCleanup) {
+      await api.put(
+        `/api/workspaces/${workspaceIdForCleanup}/members/${memberUserIdForCleanup}/department`,
+        { data: { department_id: previousMemberDepartmentId } },
+      );
+    }
+    if (createdTechnicalDepartmentId && workspaceIdForCleanup) {
+      await api.delete(
+        `/api/workspaces/${workspaceIdForCleanup}/departments/${createdTechnicalDepartmentId}`,
+      );
+    }
+    await memberApi.dispose();
     await api.dispose();
   }
 });

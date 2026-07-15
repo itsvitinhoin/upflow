@@ -223,3 +223,29 @@ test("Marketing B2B department onboarding task opens the form-first route", () =
     formKind: "marketing_b2b",
   });
 });
+
+test("UP Zero website configuration stays a Technical Support task for legacy links", () => {
+  const task = {
+    id: "task-up-zero-configuration",
+    title: "Configure UP Zero website",
+    description:
+      "Technical Support must configure the UP Zero website before Marketing B2B onboarding.",
+    project_id: "project-support",
+    project: { id: "project-support", name: "Client Channels" },
+    onboarding_link: {
+      id: "checklist-up-zero",
+      onboarding_id: "onboarding-1",
+      company_id: "company-1",
+      company_name: "Test client",
+      department: "Technical Support",
+      title: "Configure UP Zero website",
+      automation_key: null,
+      status: "pending",
+      progress: 0,
+      href: "/clients/company-1",
+    },
+  } as Task;
+
+  assert.equal(workflowFormKind(task), null);
+  assert.equal(getOnboardingTaskAction(task), null);
+});

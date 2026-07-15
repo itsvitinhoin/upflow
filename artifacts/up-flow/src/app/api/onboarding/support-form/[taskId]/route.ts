@@ -3,8 +3,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
-import { canReadProject } from "@/lib/project-access";
+import {
+  isUpZeroConfigurationChecklistItem,
+  loadOnboardingAccess,
+  recomputeOnboardingProgress,
+} from "@/lib/onboarding";
+import { canContributeToProject, canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const SupportGroupSchema = z.object({
@@ -130,7 +134,7 @@ async function getAccess(taskId: string) {
   const auth = _r.auth;
 
   const item = await loadSupportTask(taskId);
-  if (!item || !item.task) {
+  if (!item || !item.task || isUpZeroConfigurationChecklistItem(item)) {
     return { ok: false as const, response: NextResponse.json({ error: "Not found" }, { status: 404 }) };
   }
 
@@ -144,7 +148,8 @@ async function getAccess(taskId: string) {
   }
 
   const canEdit = Boolean(
-    onboardingAccess.admin ||
+    (await canContributeToProject(auth, item.task.project)) ||
+      onboardingAccess.admin ||
       item.task.assignee_id === auth.prismaUser.id ||
       item.owner_id === auth.prismaUser.id ||
       onboardingAccess.canUpdateSupport ||

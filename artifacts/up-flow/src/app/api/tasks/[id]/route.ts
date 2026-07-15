@@ -121,6 +121,7 @@ async function GET_handler(
       onboarding_id: true,
       department: true,
       title: true,
+      automation_key: true,
       status: true,
       onboarding: {
         select: {
@@ -142,6 +143,7 @@ async function GET_handler(
           company_name: onboardingLink.onboarding.company.name,
           department: onboardingLink.department,
           title: onboardingLink.title,
+          automation_key: onboardingLink.automation_key,
           status: onboardingLink.status,
           progress: onboardingLink.onboarding.progress,
           href: `/clients/${onboardingLink.onboarding.company_id}`,
