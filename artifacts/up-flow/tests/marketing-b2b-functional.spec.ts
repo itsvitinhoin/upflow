@@ -112,6 +112,13 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await loginAs(page.context(), SEEDED.member.email);
     await page.setViewportSize({ width: 1440, height: 900 });
     const formPath = `/api/onboarding/marketing-b2b-form/${replacementTask.id}`;
+    await page.route(`**${formPath}`, async (route) => {
+      if (route.request().method() === "POST") {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
     const waitForForm = () =>
       page.waitForResponse(
         (response) =>

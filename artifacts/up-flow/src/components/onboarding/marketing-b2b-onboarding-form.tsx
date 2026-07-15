@@ -705,12 +705,21 @@ export default function MarketingB2BOnboardingForm({
       setCompetitors(normalizedCompetitors);
       setExtraBrandResponsibles(normalizedExtraBrandResponsibles);
 
-      if (data.workflow_sync?.checked && !workflowRefreshTriggered.current) {
+      if (!workflowRefreshTriggered.current) {
         workflowRefreshTriggered.current = true;
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
-        }
-        void onUpdateRef.current?.();
+        void fetch(`/api/onboarding/marketing-b2b-form/${taskId}`, { method: "POST" })
+          .then(async (syncResponse) => {
+            if (!syncResponse.ok) return;
+            const syncData = (await syncResponse.json()) as Pick<B2BFormResponse, "workflow_sync">;
+            if (!syncData.workflow_sync?.checked) return;
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+            }
+            await onUpdateRef.current?.();
+          })
+          .catch(() => {
+            // Checklist repair must never prevent the form itself from opening.
+          });
       }
 
       if (data.onboarding.workspace_id) {

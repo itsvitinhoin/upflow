@@ -801,9 +801,18 @@ export async function resolveMarketingB2BOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true },
+    select: { id: true, onboarding_enabled: true },
   });
-  if (existingProject) return existingProject.id;
+  if (existingProject) {
+    if (!existingProject.onboarding_enabled) {
+      await db.project.update({
+        where: { id: existingProject.id },
+        data: { onboarding_enabled: true },
+        select: { id: true },
+      });
+    }
+    return existingProject.id;
+  }
 
   const legacyProject = await db.project.findFirst({
     where: {

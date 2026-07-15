@@ -99,6 +99,11 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /canContributeToProject\(auth, form\.task\.project\)/);
   assert.match(route, /syncClientOnboardingServices/);
   assert.match(route, /workflow_sync/);
+  const getHandler = route.slice(route.indexOf("async function GET_handler"), route.indexOf("async function POST_handler"));
+  const postHandler = route.slice(route.indexOf("async function POST_handler"), route.indexOf("async function PATCH_handler"));
+  assert.doesNotMatch(getHandler, /syncClientOnboardingServices/);
+  assert.match(postHandler, /syncClientOnboardingServices/);
+  assert.match(route, /withErrorReporting\("api:onboarding\/marketing-b2b-form:POST"/);
 
   assert.match(form, /updateField/);
   assert.match(form, /valuesRef\.current/);
@@ -109,6 +114,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /loadError/);
   assert.match(form, /Tentar novamente/);
   assert.doesNotMatch(form, /if \(!form\) return null/);
+  assert.match(form, /fetch\(`\/api\/onboarding\/marketing-b2b-form\/\$\{taskId\}`,[\s\S]*method: "POST"/);
+  assert.match(form, /Checklist repair must never prevent the form itself from opening/);
   assert.match(form, /marketing-b2b-form-shell/);
   assert.match(form, /marketing-b2b-form-card/);
   assert.match(form, /const updateField = \(field: string, value: string\)[\s\S]*setForm\(\(current\) => \(current \? \{ \.\.\.current, values: nextValues \} : current\)\)/);

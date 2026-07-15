@@ -668,30 +668,42 @@ async function GET_handler(
 ) {
   const access = await getAccess(params.taskId);
   if (!access.ok) return access.response;
-  let workflowSync: Awaited<ReturnType<typeof syncClientOnboardingServices>> = null;
+  const addresses = await loadCompanyAddresses(access.form.company_id);
+  return NextResponse.json(responseBody(access.form, access.canEdit, addresses));
+}
+
+async function POST_handler(
+  _req: NextRequest,
+  { params }: { params: { taskId: string } },
+) {
+  const access = await getAccess(params.taskId);
+  if (!access.ok) return access.response;
+
   try {
-    workflowSync = await syncClientOnboardingServices({
+    const workflowSync = await syncClientOnboardingServices({
       companyId: access.form.company_id,
       workspaceId: access.form.workspace_id,
       actorId: access.auth.prismaUser.id,
+    });
+    return NextResponse.json({
+      workflow_sync: workflowSync
+        ? {
+            checked: true,
+            created_tasks: workflowSync.createdTasks.length,
+            moved_tasks: workflowSync.movedTasks,
+          }
+        : { checked: true, created_tasks: 0, moved_tasks: 0 },
     });
   } catch (err) {
     logError("marketing-b2b-form:workflow-sync", err, {
       company_id: access.form.company_id,
       onboarding_id: access.form.onboarding_id,
     });
+    return NextResponse.json(
+      { error: "Workflow sync failed", workflow_sync: { checked: false, created_tasks: 0, moved_tasks: 0 } },
+      { status: 503 },
+    );
   }
-  const addresses = await loadCompanyAddresses(access.form.company_id);
-  return NextResponse.json({
-    ...responseBody(access.form, access.canEdit, addresses),
-    workflow_sync: workflowSync
-      ? {
-          checked: true,
-          created_tasks: workflowSync.createdTasks.length,
-          moved_tasks: workflowSync.movedTasks,
-        }
-      : null,
-  });
 }
 
 async function PATCH_handler(
@@ -801,4 +813,5 @@ async function PATCH_handler(
 }
 
 export const GET = withErrorReporting("api:onboarding/marketing-b2b-form:GET", GET_handler);
+export const POST = withErrorReporting("api:onboarding/marketing-b2b-form:POST", POST_handler);
 export const PATCH = withErrorReporting("api:onboarding/marketing-b2b-form:PATCH", PATCH_handler);
