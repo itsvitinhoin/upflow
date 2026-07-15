@@ -1,5 +1,13 @@
+import { Prisma, type CustomFieldType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logError } from "@/lib/log-error";
+import {
+  RH_BOARD_COLUMNS,
+  RH_BOARD_COLUMN_OPTIONS,
+  RH_BOARD_FIELD_NAME,
+  RH_TASK_TYPE_FIELD_NAME,
+  RH_TASK_TYPE_OPTIONS,
+} from "@/lib/rh-board";
 import type { TaskTemplateId } from "@/lib/task-templates";
 
 export type DepartmentSpaceKey =
@@ -18,6 +26,7 @@ export interface DepartmentSpacePreset {
   emoji: string;
   description: string;
   starter_lists: string[];
+  starter_folders?: DepartmentFolderPreset[];
   default_task_template_id: TaskTemplateId;
   dashboard_focus_labels: {
     urgent: string;
@@ -28,6 +37,33 @@ export interface DepartmentSpacePreset {
     risk: string;
     empty: string;
   };
+}
+
+export interface DepartmentFolderPreset {
+  name: string;
+  icon?: string;
+  starter_lists: DepartmentListPreset[];
+}
+
+export interface DepartmentListPreset {
+  name: string;
+  description?: string;
+  custom_fields?: DepartmentCustomFieldPreset[];
+  workflow_statuses?: DepartmentWorkflowStatusPreset[];
+}
+
+export interface DepartmentCustomFieldPreset {
+  name: string;
+  type: CustomFieldType;
+  options?: string[];
+  position?: number;
+}
+
+export interface DepartmentWorkflowStatusPreset {
+  key: string;
+  name: string;
+  color?: string;
+  terminal?: boolean;
 }
 
 export const DEPARTMENT_SPACE_PRESETS: DepartmentSpacePreset[] = [
@@ -156,6 +192,39 @@ export const DEPARTMENT_SPACE_PRESETS: DepartmentSpacePreset[] = [
     emoji: "⚙️",
     description: "Internal requests, access, documents, vendors, and admin operations.",
     starter_lists: ["Internal Requests", "Access & Accounts", "Documents", "Vendors"],
+    starter_folders: [
+      {
+        name: "RH",
+        icon: "RH",
+        starter_lists: [
+          {
+            name: "RH",
+            description:
+              "Human resources board modeled after the agency RH workflow in ClickUp.",
+            custom_fields: [
+              {
+                name: RH_BOARD_FIELD_NAME,
+                type: "dropdown",
+                options: RH_BOARD_COLUMN_OPTIONS,
+                position: 0,
+              },
+              {
+                name: RH_TASK_TYPE_FIELD_NAME,
+                type: "dropdown",
+                options: [...RH_TASK_TYPE_OPTIONS],
+                position: 1,
+              },
+            ],
+            workflow_statuses: RH_BOARD_COLUMNS.map((column, index) => ({
+              key: column.key,
+              name: column.label,
+              color: column.color,
+              terminal: index === RH_BOARD_COLUMNS.length - 1,
+            })),
+          },
+        ],
+      },
+    ],
     default_task_template_id: "admin",
     dashboard_focus_labels: {
       urgent: "Internal requests and access work needing action",
@@ -205,6 +274,125 @@ async function pickDepartmentOwnerId(workspaceId: string, fallbackOwnerId: strin
   return owner?.user_id ?? fallbackOwnerId;
 }
 
+function containerKey(spaceId: string, parentId: string | null | undefined, name: string) {
+  return `${spaceId}:${parentId ?? "root"}:${normalizeDepartmentSpaceName(name)}`;
+}
+
+function sameOptions(current: Prisma.JsonValue | null, expected: string[]) {
+  if (!Array.isArray(current)) return expected.length === 0;
+  const strings = current.filter((item): item is string => typeof item === "string");
+  return strings.length === expected.length && strings.every((item, index) => item === expected[index]);
+}
+
+async function ensureDepartmentListModel(
+  projectId: string,
+  workspaceId: string,
+  listPreset: DepartmentListPreset,
+) {
+  if (listPreset.custom_fields?.length) {
+    const existingFields = await prisma.customFieldDefinition.findMany({
+      where: { project_id: projectId },
+      select: { id: true, name: true, type: true, options: true, position: true },
+    });
+    const fieldsByName = new Map(
+      existingFields.map((field) => [normalizeDepartmentSpaceName(field.name), field]),
+    );
+
+    for (const field of listPreset.custom_fields) {
+      const expectedOptions = field.type === "dropdown" ? field.options ?? [] : [];
+      const existing = fieldsByName.get(normalizeDepartmentSpaceName(field.name));
+      if (!existing) {
+        await prisma.customFieldDefinition.create({
+          data: {
+            project_id: projectId,
+            name: field.name,
+            type: field.type,
+            options:
+              field.type === "dropdown"
+                ? (expectedOptions as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+            position: field.position ?? existingFields.length,
+          },
+        });
+        continue;
+      }
+
+      const position = field.position ?? existing.position;
+      const needsUpdate =
+        existing.type !== field.type ||
+        existing.position !== position ||
+        (field.type === "dropdown" && !sameOptions(existing.options, expectedOptions));
+
+      if (needsUpdate) {
+        await prisma.customFieldDefinition.update({
+          where: { id: existing.id },
+          data: {
+            type: field.type,
+            options:
+              field.type === "dropdown"
+                ? (expectedOptions as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+            position,
+          },
+        });
+      }
+    }
+  }
+
+  if (listPreset.workflow_statuses?.length) {
+    const existingStatuses = await prisma.workflowStatus.findMany({
+      where: { workspace_id: workspaceId, project_id: projectId, category: "task" },
+      select: {
+        id: true,
+        key: true,
+        name: true,
+        color: true,
+        stage_order: true,
+        terminal: true,
+        active: true,
+      },
+    });
+    const statusesByKey = new Map(existingStatuses.map((status) => [status.key, status]));
+
+    for (const [index, status] of listPreset.workflow_statuses.entries()) {
+      const existing = statusesByKey.get(status.key);
+      const data = {
+        name: status.name,
+        color: status.color ?? null,
+        stage_order: index,
+        terminal: status.terminal ?? false,
+        active: true,
+      };
+
+      if (!existing) {
+        await prisma.workflowStatus.create({
+          data: {
+            workspace_id: workspaceId,
+            project_id: projectId,
+            category: "task",
+            key: status.key,
+            ...data,
+          },
+        });
+        continue;
+      }
+
+      if (
+        existing.name !== data.name ||
+        existing.color !== data.color ||
+        existing.stage_order !== data.stage_order ||
+        existing.terminal !== data.terminal ||
+        existing.active !== data.active
+      ) {
+        await prisma.workflowStatus.update({
+          where: { id: existing.id },
+          data,
+        });
+      }
+    }
+  }
+}
+
 export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerId: string) {
   try {
     const ownerId = await pickDepartmentOwnerId(workspaceId, fallbackOwnerId);
@@ -242,16 +430,79 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
     const departmentSpaceIds = DEPARTMENT_SPACE_PRESETS.map(
       (preset) => spacesByName.get(normalizeDepartmentSpaceName(preset.name))?.id,
     ).filter((id): id is string => Boolean(id));
+
+    const existingFolders = await prisma.folder.findMany({
+      where: { workspace_id: workspaceId, space_id: { in: departmentSpaceIds } },
+      select: {
+        id: true,
+        name: true,
+        space_id: true,
+        parent_id: true,
+        position: true,
+      },
+      orderBy: [{ position: "asc" }, { created_at: "asc" }],
+    });
+    const foldersByContainer = new Map(
+      existingFolders.map((folder) => [
+        containerKey(folder.space_id, folder.parent_id, folder.name),
+        folder,
+      ]),
+    );
+    const nextFolderPosition = new Map<string, number>();
+    for (const folder of existingFolders) {
+      const key = `${folder.space_id}:${folder.parent_id ?? "root"}`;
+      nextFolderPosition.set(
+        key,
+        Math.max(nextFolderPosition.get(key) ?? 0, folder.position + 1),
+      );
+    }
+
+    for (const preset of DEPARTMENT_SPACE_PRESETS) {
+      const space = spacesByName.get(normalizeDepartmentSpaceName(preset.name));
+      if (!space) continue;
+
+      for (const folderPreset of preset.starter_folders ?? []) {
+        const key = containerKey(space.id, null, folderPreset.name);
+        if (foldersByContainer.has(key)) continue;
+
+        const positionKey = `${space.id}:root`;
+        const position = nextFolderPosition.get(positionKey) ?? 0;
+        const folder = await prisma.folder.create({
+          data: {
+            name: folderPreset.name,
+            icon: folderPreset.icon ?? null,
+            workspace_id: workspaceId,
+            owner_id: ownerId,
+            space_id: space.id,
+            position,
+          },
+          select: {
+            id: true,
+            name: true,
+            space_id: true,
+            parent_id: true,
+            position: true,
+          },
+        });
+        foldersByContainer.set(key, folder);
+        nextFolderPosition.set(positionKey, position + 1);
+      }
+    }
+
     const existingProjects = await prisma.project.findMany({
       where: { workspace_id: workspaceId, space_id: { in: departmentSpaceIds } },
-      select: { name: true, space_id: true },
+      select: { id: true, name: true, space_id: true, folder_id: true },
     });
     const projectNamesBySpace = new Map<string, Set<string>>();
+    const projectsByFolder = new Map<string, typeof existingProjects[number]>();
     for (const project of existingProjects) {
       if (!project.space_id) continue;
       const names = projectNamesBySpace.get(project.space_id) ?? new Set<string>();
       names.add(normalizeDepartmentSpaceName(project.name));
       projectNamesBySpace.set(project.space_id, names);
+      if (project.folder_id) {
+        projectsByFolder.set(containerKey(project.folder_id, null, project.name), project);
+      }
     }
 
     for (const preset of DEPARTMENT_SPACE_PRESETS) {
@@ -274,6 +525,37 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
           data: listData,
           skipDuplicates: true,
         });
+      }
+
+      for (const folderPreset of preset.starter_folders ?? []) {
+        const folder = foldersByContainer.get(containerKey(space.id, null, folderPreset.name));
+        if (!folder) continue;
+
+        for (const listPreset of folderPreset.starter_lists) {
+          const projectKey = containerKey(folder.id, null, listPreset.name);
+          let project = projectsByFolder.get(projectKey);
+          if (!project) {
+            project = await prisma.project.create({
+              data: {
+                name: listPreset.name,
+                description: listPreset.description ?? null,
+                workspace_id: workspaceId,
+                owner_id: ownerId,
+                space_id: space.id,
+                folder_id: folder.id,
+              },
+              select: { id: true, name: true, space_id: true, folder_id: true },
+            });
+            projectsByFolder.set(projectKey, project);
+          } else if (listPreset.description) {
+            await prisma.project.update({
+              where: { id: project.id },
+              data: { description: listPreset.description },
+            });
+          }
+
+          await ensureDepartmentListModel(project.id, workspaceId, listPreset);
+        }
       }
     }
   } catch (err) {

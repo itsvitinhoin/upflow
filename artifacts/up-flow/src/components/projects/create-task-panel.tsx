@@ -23,6 +23,7 @@ interface Props {
   onClose: () => void;
   projectId: string;
   defaultStatus?: "todo" | "in_progress" | "done";
+  initialCustomFieldValues?: Record<string, unknown>;
   customFields: CustomFieldDefinition[];
   users: TaskAssignee[];
   onCreated: () => void;
@@ -48,6 +49,7 @@ export default function CreateTaskPanel({
   onClose,
   projectId,
   defaultStatus = "todo",
+  initialCustomFieldValues,
   customFields,
   users,
   onCreated,
@@ -69,6 +71,7 @@ export default function CreateTaskPanel({
   useEffect(() => {
     if (open) {
       setStatus(defaultStatus);
+      setFieldValues(initialCustomFieldValues ?? {});
     } else {
       setTitle("");
       setDescription("");
@@ -80,7 +83,7 @@ export default function CreateTaskPanel({
       setAssigneeId("");
       setFieldValues({});
     }
-  }, [open, defaultStatus]);
+  }, [open, defaultStatus, initialCustomFieldValues]);
 
   if (!open) return null;
 

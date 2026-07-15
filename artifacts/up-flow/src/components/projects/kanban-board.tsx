@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-on
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CustomFieldChip from "@/components/projects/custom-field-chip";
 import { PriorityBadge } from "@/components/projects/priority-ui";
+import { RH_BOARD_FIELD_NAME, getRhBoardColumnColor } from "@/lib/rh-board";
 import type { CustomFieldDefinition, Task, TaskAssignee } from "@/lib/types";
 import type { ToolbarState } from "@/components/projects/project-toolbar";
 
@@ -22,7 +23,7 @@ interface KanbanBoardProps {
   users: TaskAssignee[];
   toolbar?: ToolbarState;
   onUpdate: () => void;
-  onAddTask: (status: ColumnKey) => void;
+  onAddTask: (status: ColumnKey, customFieldValues?: Record<string, unknown>) => void;
   onOpenTask?: (task: Task) => void;
 }
 
@@ -33,6 +34,17 @@ const COLUMNS = [
 ] as const;
 
 export type ColumnKey = "todo" | "in_progress" | "done";
+
+interface BoardColumn {
+  key: string;
+  label: string;
+  color: string;
+  hex: string;
+}
+
+function isColumnKey(value: string): value is ColumnKey {
+  return value === "todo" || value === "in_progress" || value === "done";
+}
 
 function columnLabel(
   key: ColumnKey,
@@ -56,16 +68,31 @@ export default function KanbanBoard({
   onOpenTask,
 }: KanbanBoardProps) {
   const { t } = useLanguage();
-  const [columns, setColumns] = useState<Record<ColumnKey, Task[]>>({
-    todo: [],
-    in_progress: [],
-    done: [],
-  });
+  const rhBoardField = customFields.find(
+    (field) =>
+      field.name === RH_BOARD_FIELD_NAME &&
+      field.type === "dropdown" &&
+      (field.options?.length ?? 0) > 0,
+  );
+  const boardColumns = useMemo<BoardColumn[]>(() => {
+    if (rhBoardField?.options?.length) {
+      return rhBoardField.options.map((label) => ({
+        key: label,
+        label,
+        color: "bg-current",
+        hex: getRhBoardColumnColor(label),
+      }));
+    }
+    return COLUMNS.map((column) => ({ ...column }));
+  }, [rhBoardField]);
+  const [columns, setColumns] = useState<Record<string, Task[]>>({});
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const isDraggingRef = useRef(false);
 
   useEffect(() => {
-    const grouped: Record<ColumnKey, Task[]> = { todo: [], in_progress: [], done: [] };
+    const grouped: Record<string, Task[]> = Object.fromEntries(
+      boardColumns.map((column) => [column.key, [] as Task[]]),
+    );
     let filtered = tasks;
     if (toolbar) {
       if (toolbar.search.trim()) {
@@ -91,15 +118,27 @@ export default function KanbanBoard({
       }
     }
     filtered.forEach((t) => {
+      if (rhBoardField) {
+        const fieldValue = (t.custom_field_values ?? []).find(
+          (value) => value.definition_id === rhBoardField.id,
+        )?.value;
+        const columnKey =
+          typeof fieldValue === "string" && fieldValue in grouped
+            ? fieldValue
+            : boardColumns[0]?.key;
+        if (columnKey) grouped[columnKey].push(t);
+        return;
+      }
+
       if (t.status in grouped) {
         grouped[t.status as ColumnKey].push(t);
       }
     });
     Object.keys(grouped).forEach((k) => {
-      grouped[k as ColumnKey].sort((a, b) => a.position - b.position);
+      grouped[k].sort((a, b) => a.position - b.position);
     });
     setColumns(grouped);
-  }, [tasks, toolbar]);
+  }, [boardColumns, rhBoardField, tasks, toolbar]);
 
   const deleteTask = async (taskId: string) => {
     if (!confirm(t("task.deleteConfirm"))) return;
@@ -129,8 +168,26 @@ export default function KanbanBoard({
   };
 
   const visibleCustomFields = customFields.filter(
-    (f) => toolbar?.visibleColumns?.[f.id] ?? true,
+    (f) => f.id !== rhBoardField?.id && (toolbar?.visibleColumns?.[f.id] ?? true),
   );
+
+  const addTaskToColumn = (columnKey: string) => {
+    if (rhBoardField) {
+      onAddTask("todo", { [rhBoardField.id]: columnKey });
+      return;
+    }
+    if (isColumnKey(columnKey)) onAddTask(columnKey);
+  };
+
+  const taskWithCustomBoardValue = (task: Task, value: string): Task => ({
+    ...task,
+    custom_field_values: [
+      ...(task.custom_field_values ?? []).filter(
+        (fieldValue) => fieldValue.definition_id !== rhBoardField?.id,
+      ),
+      ...(rhBoardField ? [{ definition_id: rhBoardField.id, value }] : []),
+    ],
+  });
 
   const handleDragEnd = async (result: DropResult) => {
     setTimeout(() => {
@@ -141,31 +198,45 @@ export default function KanbanBoard({
     if (source.droppableId === destination.droppableId && source.index === destination.index)
       return;
 
-    const srcCol = source.droppableId as ColumnKey;
-    const dstCol = destination.droppableId as ColumnKey;
+    const srcCol = source.droppableId;
+    const dstCol = destination.droppableId;
+    if (!rhBoardField && (!isColumnKey(srcCol) || !isColumnKey(dstCol))) return;
 
     const newColumns = { ...columns };
-    const srcItems = [...newColumns[srcCol]];
+    const srcItems = [...(newColumns[srcCol] ?? [])];
     const [removed] = srcItems.splice(source.index, 1);
+    if (!removed) return;
     newColumns[srcCol] = srcItems;
 
-    const dstItems = srcCol === dstCol ? srcItems : [...newColumns[dstCol]];
-    dstItems.splice(destination.index, 0, { ...removed, status: dstCol });
+    const dstItems = srcCol === dstCol ? srcItems : [...(newColumns[dstCol] ?? [])];
+    const movedTask = rhBoardField
+      ? taskWithCustomBoardValue(removed, dstCol)
+      : { ...removed, status: dstCol as ColumnKey };
+    dstItems.splice(destination.index, 0, movedTask);
     newColumns[dstCol] = dstItems;
 
     setColumns(newColumns);
 
     try {
-      const res = await fetch(`/api/projects/${projectId}/reorder-tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          movedTaskId: draggableId,
-          srcColumn: srcCol,
-          dstColumn: dstCol,
-          dstIndex: destination.index,
-        }),
-      });
+      const res = rhBoardField
+        ? await fetch(`/api/tasks/${draggableId}/custom-fields`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              definition_id: rhBoardField.id,
+              value: dstCol,
+            }),
+          })
+        : await fetch(`/api/projects/${projectId}/reorder-tasks`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              movedTaskId: draggableId,
+              srcColumn: srcCol,
+              dstColumn: dstCol,
+              dstIndex: destination.index,
+            }),
+          });
       if (!res.ok) throw new Error(await readTaskApiError(res, t("common.failedToUpdate")));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("common.failedToUpdate"));
@@ -177,9 +248,13 @@ export default function KanbanBoard({
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex h-[calc(100dvh-300px)] min-h-[440px] max-w-full gap-4 overflow-x-auto overscroll-x-contain pb-5 sm:h-[calc(100dvh-280px)]">
-          {COLUMNS.map(({ key, label, color, hex }) => (
+          {boardColumns.map(({ key, label, color, hex }) => (
             <Droppable key={key} droppableId={key}>
-              {(provided, snapshot) => (
+              {(provided, snapshot) => {
+                const columnTasks = columns[key] ?? [];
+                const displayLabel = isColumnKey(key) ? columnLabel(key, label, t) : label;
+
+                return (
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
@@ -192,15 +267,18 @@ export default function KanbanBoard({
                     className="flex items-center gap-2 border-t-2 px-4 py-3"
                     style={{ borderColor: hex }}
                   >
-                    <div className={cn("h-2.5 w-2.5 rounded-full shadow-[0_0_14px_currentColor]", color)} />
+                    <div
+                      className={cn("h-2.5 w-2.5 rounded-full shadow-[0_0_14px_currentColor]", color)}
+                      style={{ color: hex }}
+                    />
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                      {columnLabel(key, label, t)}
+                      {displayLabel}
                     </span>
                     <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                      {columns[key].length}
+                      {columnTasks.length}
                     </span>
                     <button
-                      onClick={() => onAddTask(key)}
+                      onClick={() => addTaskToColumn(key)}
                       className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground"
                       title={t("projects.addTask")}
                     >
@@ -209,7 +287,7 @@ export default function KanbanBoard({
                   </div>
 
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
-                    {columns[key].map((task, index) => {
+                    {columnTasks.map((task, index) => {
                       const valueMap = new Map(
                         (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
                       );
@@ -335,14 +413,15 @@ export default function KanbanBoard({
                     })}
                     {provided.placeholder}
                     <button
-                      onClick={() => onAddTask(key)}
+                      onClick={() => addTaskToColumn(key)}
                       className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2 text-xs text-muted-foreground transition-all hover:border-sky-400/35 hover:bg-sky-400/10 hover:text-foreground"
                     >
                       <Plus className="w-3 h-3" /> {t("projects.addTask")}
                     </button>
                   </div>
                 </div>
-              )}
+              );
+              }}
             </Droppable>
           ))}
         </div>

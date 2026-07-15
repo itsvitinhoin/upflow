@@ -37,6 +37,11 @@ const DEFAULT_TOOLBAR: ToolbarState = {
   filterAssignee: "all",
 };
 
+interface CreateTaskDefaults {
+  status: ColumnKey;
+  fieldValues?: Record<string, unknown>;
+}
+
 function OnboardingFormLoader() {
   return (
     <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-border bg-card p-6" aria-label="Loading onboarding form">
@@ -80,7 +85,7 @@ export default function ProjectPage() {
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
   const [me, setMe] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [createOpen, setCreateOpen] = useState<ColumnKey | null>(null);
+  const [createOpen, setCreateOpen] = useState<CreateTaskDefaults | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [toolbar, setToolbar] = useState<ToolbarState>(DEFAULT_TOOLBAR);
@@ -176,7 +181,7 @@ export default function ProjectPage() {
 
   const handleAddTask = (status?: string) => {
     const s = (status === "in_progress" || status === "done" ? status : "todo") as ColumnKey;
-    setCreateOpen(s);
+    setCreateOpen({ status: s });
   };
 
   const handleOpenTask = (task: Task) => {
@@ -248,7 +253,7 @@ export default function ProjectPage() {
                 <FileText className="w-4 h-4" /> {t("projects.docs")}
               </Link>
               <button
-                onClick={() => setCreateOpen("todo")}
+                onClick={() => setCreateOpen({ status: "todo" })}
                 className="upflow-gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
               >
                 <Plus className="w-4 h-4" /> {t("projects.addTask")}
@@ -306,7 +311,7 @@ export default function ProjectPage() {
               taskId={workflowFormTask.id}
               embedded
               onClose={() => router.replace(`/projects/${id}?view=kanban`, { scroll: false })}
-              onAddTask={() => setCreateOpen("todo")}
+              onAddTask={() => setCreateOpen({ status: "todo" })}
               onUpdate={loadData}
             />
           )
@@ -329,7 +334,7 @@ export default function ProjectPage() {
                 users={users}
                 toolbar={toolbar}
                 onUpdate={loadData}
-                onAddTask={(status) => setCreateOpen(status)}
+                onAddTask={(status, fieldValues) => setCreateOpen({ status, fieldValues })}
                 onOpenTask={handleOpenTask}
               />
             ) : (
@@ -353,7 +358,8 @@ export default function ProjectPage() {
           open={!!createOpen}
           onClose={() => setCreateOpen(null)}
           projectId={id}
-          defaultStatus={createOpen}
+          defaultStatus={createOpen.status}
+          initialCustomFieldValues={createOpen.fieldValues}
           customFields={customFields}
           users={users}
           onCreated={() => {
@@ -422,7 +428,7 @@ export default function ProjectPage() {
             }}
             onAddTask={() => {
               setSelectedTask(null);
-              setCreateOpen("todo");
+              setCreateOpen({ status: "todo" });
             }}
             onUpdate={() => {
               setSelectedTask(null);
