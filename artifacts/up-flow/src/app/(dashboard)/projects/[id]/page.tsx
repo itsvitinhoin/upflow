@@ -302,7 +302,13 @@ export default function ProjectPage() {
           ) : currentWorkflowKind === "marketing_b2c" ? (
             <MarketingB2COnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
           ) : (
-            <MarketingB2BOnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
+            <MarketingB2BOnboardingForm
+              taskId={workflowFormTask.id}
+              embedded
+              onClose={() => router.replace(`/projects/${id}?view=kanban`, { scroll: false })}
+              onAddTask={() => setCreateOpen("todo")}
+              onUpdate={loadData}
+            />
           )
         ) : (
           <>
@@ -413,6 +419,10 @@ export default function ProjectPage() {
             onClose={() => {
               setSelectedTask(null);
               if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });
+            }}
+            onAddTask={() => {
+              setSelectedTask(null);
+              setCreateOpen("todo");
             }}
             onUpdate={() => {
               setSelectedTask(null);

@@ -352,6 +352,10 @@ export default function KanbanBoard({
         <MarketingB2BOnboardingForm
           taskId={selectedTask.id}
           onClose={() => setSelectedTask(null)}
+          onAddTask={() => {
+            setSelectedTask(null);
+            onAddTask("todo");
+          }}
           onUpdate={() => {
             setSelectedTask(null);
             onUpdate();

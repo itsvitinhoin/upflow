@@ -23,6 +23,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   const kanbanBoard = read("src/components/projects/kanban-board.tsx");
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const translations = read("src/lib/i18n/translations.ts");
+  const scheduleDialog = read("src/components/dashboard/schedule-meeting-dialog.tsx");
   const layout = read("src/app/layout.tsx");
   const theme = read("src/app/theme.css");
   const contextualLookup = route.slice(
@@ -86,6 +87,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /onboardingChecklistItem\.update[\s\S]*status: "complete"/);
   assert.match(route, /recomputeOnboardingProgress/);
   assert.match(route, /withErrorReporting\("api:onboarding\/marketing-b2b-form:PATCH"/);
+  assert.match(route, /canContributeToProject\(auth, form\.task\.project\)/);
 
   assert.match(form, /updateField/);
   assert.match(form, /valuesRef\.current/);
@@ -98,8 +100,30 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.doesNotMatch(form, /if \(!form\) return null/);
   assert.match(form, /marketing-b2b-form-shell/);
   assert.match(form, /marketing-b2b-form-card/);
-  assert.match(form, /field\.startsWith\("brandResponsible\."\)/);
+  assert.match(form, /const updateField = \(field: string, value: string\)[\s\S]*setForm\(\(current\) => \(current \? \{ \.\.\.current, values: nextValues \} : current\)\)/);
   assert.match(form, /value=\{draft\}/);
+  assert.match(form, /label: "CNAE de vestuário"/);
+  assert.match(form, /label: "Todos CNPJs"/);
+  assert.match(form, /label: "Aceita CNPJ e CPF"/);
+  assert.match(form, /\["finance", "Financeiro"\]/);
+  assert.match(form, /\["marketing", "Marketing"\]/);
+  assert.match(form, /\["manager", "Gerente"\]/);
+  assert.match(form, /\["performance", "Performance"\]/);
+  assert.match(form, /\["upMotion", "UP Motion"\]/);
+  assert.match(form, /\["upZero", "UP Zero"\]/);
+  assert.match(form, /\["socialMedia", "Social media"\]/);
+  assert.match(form, /const accessStatusOptions = \["Concedido", "Pendente", "Não se aplica"\]/);
+  assert.match(form, /<Plus className="h-4 w-4" \/> Adicionar endereço/);
+  assert.match(form, /<Plus className="h-4 w-4" \/> Adicionar concorrente/);
+  assert.match(form, /md:grid-cols-\[1fr_1fr_1fr_auto\]/);
+  assert.doesNotMatch(form, /label=.*Proposta de valor/);
+  assert.doesNotMatch(form, /label=.*Perfil lojista/);
+  assert.match(form, /xl:sticky xl:top-5 xl:self-start/);
+  assert.match(form, /onAddTask=\{onAddTask \?\? \(\(\) => setActiveTab\("kanban"\)\)\}/);
+  assert.match(form, /label=\{b2bFormLabels\.generalNotes\}[\s\S]*optional[\s\S]*helper=\{OPTIONAL_HELPER\}/);
+  assert.match(form, /label=\{b2bFormLabels\.commercialNotes\}[\s\S]*optional[\s\S]*helper=\{OPTIONAL_HELPER\}/);
+  assert.match(form, /editing \? b2bFormLabels\.saveSection : b2bFormLabels\.editSection/);
+  assert.match(scheduleDialog, /type="date"[\s\S]*value=\{date\}[\s\S]*onChange=/);
   assert.match(layout, /upflow-performance/);
   assert.match(theme, /Performance skin/);
   assert.match(theme, /content-visibility: auto/);
@@ -120,7 +144,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(projectPage, /project\.onboarding_enabled && \([\s\S]*<ClientOnboardingPanel/);
   assert.match(projectPage, /viewParam !== "kanban"/);
   assert.match(projectPage, /\?view=form&task=/);
-  assert.match(projectPage, /embedded onUpdate=\{loadData\}/);
+  assert.match(projectPage, /embedded[\s\S]*onClose=\{\(\) => router\.replace\(`[\s\S]*\?view=kanban/);
+  assert.match(projectPage, /onAddTask=\{\(\) => setCreateOpen\("todo"\)\}/);
 
   assert.match(translations, /marketingB2BForm\.field\.brandName/);
   assert.match(translations, /marketingB2BForm\.field\.metaAdsAccess/);

@@ -618,11 +618,13 @@ function calculateSectionProgress(values: FormValues, addresses: ClientAddress[]
 export default function MarketingB2BOnboardingForm({
   taskId,
   onClose,
+  onAddTask,
   onUpdate,
   embedded = false,
 }: {
   taskId: string;
   onClose?: () => void;
+  onAddTask?: () => void;
   onUpdate?: () => void;
   embedded?: boolean;
 }) {
@@ -785,9 +787,7 @@ export default function MarketingB2BOnboardingForm({
   const updateField = (field: string, value: string) => {
     const nextValues = { ...valuesRef.current, [field]: value };
     valuesRef.current = nextValues;
-    if (field.startsWith("brandResponsible.") || field.startsWith("upResponsible.") || field.startsWith("access.")) {
-      setForm((current) => (current ? { ...current, values: nextValues } : current));
-    }
+    setForm((current) => (current ? { ...current, values: nextValues } : current));
     scheduleSave();
   };
 
@@ -908,7 +908,7 @@ export default function MarketingB2BOnboardingForm({
                 status={form.status}
                 onClose={onClose}
                 docsHref={form.task.project?.id ? `/docs?project=${form.task.project.id}` : "/docs"}
-                onAddTask={() => setActiveTab("kanban")}
+                onAddTask={onAddTask ?? (() => setActiveTab("kanban"))}
               />
 
               <div className="border-b border-border dark:border-slate-800">

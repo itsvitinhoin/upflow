@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import { loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
-import { canReadProject } from "@/lib/project-access";
+import { canContributeToProject, canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type JsonFormValue =
@@ -647,7 +647,8 @@ async function getAccess(taskId: string) {
   }
 
   const canEdit = Boolean(
-    onboardingAccess.admin ||
+    (await canContributeToProject(auth, form.task.project)) ||
+      onboardingAccess.admin ||
       form.task.assignee_id === auth.prismaUser.id ||
       form.checklist_item.owner_id === auth.prismaUser.id ||
       onboardingAccess.canUpdateChecklistItem(form.checklist_item),

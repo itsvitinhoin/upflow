@@ -7,6 +7,7 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
 }) => {
   expect(baseURL).toBeTruthy();
   const api = await apiAs(baseURL!, SEEDED.admin.email);
+  const memberApi = await apiAs(baseURL!, SEEDED.member.email);
 
   try {
     const companyResponse = await api.post("/api/companies", {
@@ -88,7 +89,27 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     expect(reboundForm.task.project.id).toBe(replacementProject.id);
     expect(reboundForm.can_edit).toBe(true);
 
-    await loginAs(page.context(), SEEDED.admin.email);
+    const memberFormResponse = await memberApi.get(
+      `/api/onboarding/marketing-b2b-form/${replacementTask.id}`,
+    );
+    expect(
+      memberFormResponse.ok(),
+      `member form open failed: ${memberFormResponse.status()} ${await memberFormResponse.text()}`,
+    ).toBeTruthy();
+    const memberForm = (await memberFormResponse.json()) as { can_edit: boolean };
+    expect(memberForm.can_edit).toBe(true);
+
+    const memberEditMarker = uniq("B2B member edit");
+    const memberEditResponse = await memberApi.patch(
+      `/api/onboarding/marketing-b2b-form/${replacementTask.id}`,
+      { data: { field: "brand.notes", value: memberEditMarker } },
+    );
+    expect(
+      memberEditResponse.ok(),
+      `member form edit failed: ${memberEditResponse.status()} ${await memberEditResponse.text()}`,
+    ).toBeTruthy();
+
+    await loginAs(page.context(), SEEDED.member.email);
     const formPath = `/api/onboarding/marketing-b2b-form/${replacementTask.id}`;
     const waitForForm = () =>
       page.waitForResponse(
@@ -111,9 +132,20 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await expect(formShell.getByText(company.name, { exact: true })).toBeVisible();
 
     const marker = uniq("B2B saved brand");
+    const competitorName = uniq("B2B competitor");
     const brandSection = page.locator("#b2b-section-brand");
     await brandSection.getByRole("button", { name: /Editar se/ }).click();
     await brandSection.getByLabel("Nome da marca").fill(marker);
+
+    await brandSection.getByRole("button", { name: "Adicionar endereço" }).click();
+    await expect(brandSection.getByLabel("Endereço completo")).toHaveCount(2);
+    await brandSection.getByLabel("Endereço completo").nth(0).fill("Rua da Loja, 100");
+    await brandSection.getByLabel("Endereço completo").nth(1).fill("Rua da Fábrica, 200");
+
+    await brandSection.getByRole("button", { name: "Adicionar concorrente" }).click();
+    await brandSection.getByLabel("Nome", { exact: true }).fill(competitorName);
+    await brandSection.getByLabel("Instagram", { exact: true }).last().fill("@concorrente");
+    await brandSection.getByLabel("Site", { exact: true }).fill("https://concorrente.example");
     await brandSection.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(
       brandSection.getByRole("button", { name: /Editar se/ }),
@@ -132,6 +164,33 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     };
     expect(savedForm.status).toBe("in_progress");
     expect(savedForm.values["brand.name"]).toBe(marker);
+    expect(savedForm.values["brand.notes"]).toBe(memberEditMarker);
+    expect(savedForm.values["brand.competitors"]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: competitorName,
+          instagram: "@concorrente",
+          website: "https://concorrente.example",
+        }),
+      ]),
+    );
+
+    const commercialSection = page.locator("#b2b-section-commercial");
+    await commercialSection.getByRole("button", { name: /Editar se/ }).click();
+    await commercialSection.getByLabel("Documento aceito").selectOption("all_cnpjs");
+    await commercialSection.getByRole("button", { name: "Salvar", exact: true }).click();
+
+    const commercialSavedResponse = await api.get(
+      `/api/onboarding/marketing-b2b-form/${replacementTask.id}`,
+    );
+    const commercialSavedForm = (await commercialSavedResponse.json()) as {
+      values: Record<string, unknown>;
+      company: { addresses: Array<{ fullAddress: string }> };
+    };
+    expect(commercialSavedForm.values["commercial.acceptedDocumentRule"]).toBe("all_cnpjs");
+    expect(commercialSavedForm.company.addresses.map((address) => address.fullAddress)).toEqual(
+      expect.arrayContaining(["Rua da Loja, 100", "Rua da Fábrica, 200"]),
+    );
 
     const formReloaded = waitForForm();
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -139,6 +198,7 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await expect(page.locator(".marketing-b2b-form-shell")).toBeVisible();
     await expect(page.getByLabel("Nome da marca")).toHaveValue(marker);
   } finally {
+    await memberApi.dispose();
     await api.dispose();
   }
 });
