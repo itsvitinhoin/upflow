@@ -455,12 +455,20 @@ export interface ClientOnboarding {
   company_id: string;
   project_id: string | null;
   status: string;
+  sequence_status: string;
   progress: number;
   closing_date: string | null;
   expected_start_date: string | null;
   responsible_salesperson_id: string | null;
   initial_notes: string | null;
   contracted_services: string[] | null;
+  commercial_completed_at: string | null;
+  technical_support_started_at: string | null;
+  up_zero_configuration_completed_at: string | null;
+  marketing_b2b_released_at: string | null;
+  marketing_b2b_dependency_override_reason: string | null;
+  marketing_b2b_dependency_overridden_by: string | null;
+  marketing_b2b_dependency_overridden_at: string | null;
   completed_at: string | null;
   completion_override_reason: string | null;
   completion_overridden_by: string | null;
@@ -485,6 +493,7 @@ export interface OnboardingChecklistItem {
   onboarding_id: string;
   workspace_id: string;
   task_id: string | null;
+  automation_key: string | null;
   department: string;
   title: string;
   status: "pending" | "in_progress" | "complete" | string;

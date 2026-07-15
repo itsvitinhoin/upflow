@@ -11,6 +11,7 @@ import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
 import { deleteTasksByIds } from "@/lib/task-delete";
 import {
+  getOnboardingTaskStartBlocker,
   getOnboardingTaskCompletionBlocker,
   loadOnboardingAccess,
   syncOnboardingChecklistFromTaskStatus,
@@ -228,6 +229,10 @@ async function PATCH_handler(
 
   if (status === "done" && status !== oldTask.status) {
     const blocker = await getOnboardingTaskCompletionBlocker(prisma, params.id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  }
+  if (status === "in_progress" && status !== oldTask.status) {
+    const blocker = await getOnboardingTaskStartBlocker(prisma, params.id);
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 

@@ -88,6 +88,22 @@ type ServiceAssignment = {
   department: { id: string; name: string } | null;
 };
 
+type UpZeroDependency = {
+  uses_up_zero: boolean;
+  blocked: boolean;
+  message: string | null;
+  sequence_status: string;
+  current_department: "Commercial" | "Technical Support" | "Marketing B2B";
+  technical_support_task: {
+    id: string;
+    title: string;
+    status: string;
+    owner: TeamUser | null;
+  } | null;
+  overridden: boolean;
+  override_reason: string | null;
+};
+
 type B2BFormResponse = {
   id: string;
   status: string;
@@ -97,6 +113,8 @@ type B2BFormResponse = {
   completed_by?: string | null;
   completer?: { id: string; name: string; email: string } | null;
   can_edit: boolean;
+  can_override_dependency: boolean;
+  up_zero_dependency: UpZeroDependency | null;
   task: {
     id: string;
     title: string;
@@ -115,6 +133,7 @@ type B2BFormResponse = {
     id: string;
     workspace_id: string;
     status: string;
+    sequence_status: string;
     progress: number;
     contracted_services: unknown;
     service_assignments?: ServiceAssignment[];
@@ -652,6 +671,8 @@ export default function MarketingB2BOnboardingForm({
   const [extraBrandResponsibles, setExtraBrandResponsibles] = useState<BrandResponsibleExtra[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [overridingDependency, setOverridingDependency] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [activeTab, setActiveTab] = useState<"form" | "kanban">("form");
@@ -710,7 +731,21 @@ export default function MarketingB2BOnboardingForm({
         void fetch(`/api/onboarding/marketing-b2b-form/${taskId}`, { method: "POST" })
           .then(async (syncResponse) => {
             if (!syncResponse.ok) return;
-            const syncData = (await syncResponse.json()) as Pick<B2BFormResponse, "workflow_sync">;
+            const syncData = (await syncResponse.json()) as Pick<
+              B2BFormResponse,
+              "workflow_sync" | "up_zero_dependency"
+            >;
+            if (syncData.up_zero_dependency) {
+              setForm((current) =>
+                current
+                  ? {
+                      ...current,
+                      up_zero_dependency: syncData.up_zero_dependency ?? null,
+                      can_edit: syncData.up_zero_dependency?.blocked ? false : current.can_edit,
+                    }
+                  : current,
+              );
+            }
             if (!syncData.workflow_sync?.checked) return;
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
@@ -888,6 +923,37 @@ export default function MarketingB2BOnboardingForm({
     toast.success("Onboarding B2B finalizado");
   };
 
+  const overrideDependency = async () => {
+    if (!form?.can_override_dependency || overrideReason.trim().length < 8) {
+      toast.error("Informe um motivo com pelo menos 8 caracteres.");
+      return;
+    }
+    setOverridingDependency(true);
+    try {
+      const response = await fetch(`/api/onboarding/${form.onboarding.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          marketing_b2b_dependency_override: { reason: overrideReason.trim() },
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(data.error || "Nao foi possivel liberar o Marketing B2B.");
+      toast.success("Dependencia liberada com justificativa registrada.");
+      setOverrideReason("");
+      workflowRefreshTriggered.current = false;
+      await loadForm();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      }
+      await onUpdateRef.current?.();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel liberar o Marketing B2B.");
+    } finally {
+      setOverridingDependency(false);
+    }
+  };
+
   const scrollToSection = (id: string) => {
     setOpenSections((current) => ({ ...current, [id]: true }));
     window.requestAnimationFrame(() => {
@@ -959,6 +1025,56 @@ export default function MarketingB2BOnboardingForm({
                 docsHref={form.task.project?.id ? `/docs?project=${form.task.project.id}` : "/docs"}
                 onAddTask={onAddTask ?? (() => setActiveTab("kanban"))}
               />
+
+              {form.up_zero_dependency?.blocked ? (
+                <section
+                  data-testid="up-zero-dependency-warning"
+                  className="rounded-lg border border-amber-400/35 bg-amber-500/10 p-5 text-amber-950 dark:text-amber-100"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+                      <ShieldCheck className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black uppercase tracking-[0.18em]">
+                        Current owner: {form.up_zero_dependency.current_department}
+                      </p>
+                      <h2 className="mt-2 text-base font-black">{form.up_zero_dependency.message}</h2>
+                      <p className="mt-1 text-sm text-amber-900/75 dark:text-amber-100/75">
+                        {form.up_zero_dependency.technical_support_task?.title ?? "Configure UP Zero website"}
+                        {form.up_zero_dependency.technical_support_task?.owner?.name
+                          ? ` - ${form.up_zero_dependency.technical_support_task.owner.name}`
+                          : ""}
+                      </p>
+                      <p className="mt-2 text-xs font-bold uppercase tracking-wide text-amber-800/70 dark:text-amber-200/70">
+                        Marketing B2B remains read-only until this dependency is completed.
+                      </p>
+                    </div>
+                  </div>
+                  {form.can_override_dependency ? (
+                    <div className="mt-4 border-t border-amber-400/25 pt-4">
+                      <label className="text-xs font-black uppercase tracking-[0.16em]">Admin override reason</label>
+                      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <input
+                          value={overrideReason}
+                          onChange={(event) => setOverrideReason(event.target.value)}
+                          placeholder="Explain why Marketing B2B may start early"
+                          className="min-w-0 flex-1 rounded-lg border border-amber-400/30 bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void overrideDependency()}
+                          disabled={overridingDependency || overrideReason.trim().length < 8}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                        >
+                          {overridingDependency ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                          Override dependency
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
 
               <div className="border-b border-border dark:border-slate-800">
                 <TabButton active={activeTab === "form"} onClick={() => setActiveTab("form")} icon={ClipboardCheck} label="Formulário de Onboarding" />

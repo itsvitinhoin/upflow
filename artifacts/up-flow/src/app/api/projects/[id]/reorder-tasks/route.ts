@@ -7,6 +7,7 @@ import {
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import {
+  getOnboardingTaskStartBlocker,
   getOnboardingTaskCompletionBlocker,
   loadOnboardingAccess,
   syncOnboardingChecklistFromTaskStatus,
@@ -88,6 +89,10 @@ async function POST_handler(
 
   if (dstColumn === "done" && dstColumn !== srcColumn) {
     const blocker = await getOnboardingTaskCompletionBlocker(prisma, movedTaskId);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  }
+  if (dstColumn === "in_progress" && dstColumn !== srcColumn) {
+    const blocker = await getOnboardingTaskStartBlocker(prisma, movedTaskId);
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 

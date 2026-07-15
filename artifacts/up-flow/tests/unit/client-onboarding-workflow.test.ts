@@ -64,7 +64,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(helper, /export async function startClientOnboardingForCompany/);
   assert.match(helper, /select: onboardingSelect\(\)/);
   assert.doesNotMatch(helper, /onboardingInclude/);
-  assert.doesNotMatch(helper, /completion_override_reason/);
+  assert.match(helper, /completion_override_reason: true/);
   assert.doesNotMatch(route, /include: onboardingInclude/);
   assert.doesNotMatch(updateRoute, /include: onboardingInclude/);
 

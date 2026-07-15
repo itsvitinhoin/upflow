@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import {
+  getUpZeroMarketingB2BGate,
   loadOnboardingAccess,
   recomputeOnboardingProgress,
   syncClientOnboardingServices,
+  syncOnboardingChecklistFromTaskStatus,
 } from "@/lib/onboarding";
 import { canContributeToProject, canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -91,8 +93,15 @@ const formInclude = {
       workspace_id: true,
       company_id: true,
       status: true,
+      sequence_status: true,
       progress: true,
       contracted_services: true,
+      commercial_completed_at: true,
+      technical_support_started_at: true,
+      up_zero_configuration_completed_at: true,
+      marketing_b2b_released_at: true,
+      marketing_b2b_dependency_override_reason: true,
+      marketing_b2b_dependency_overridden_at: true,
       service_assignments: {
         orderBy: [{ service: "asc" as const }],
         select: {
@@ -607,6 +616,8 @@ function responseBody(
   form: NonNullable<Awaited<ReturnType<typeof loadForm>>>,
   canEdit: boolean,
   addresses: Prisma.ClientAddressGetPayload<{ select: typeof addressSelect }>[],
+  upZeroGate: Awaited<ReturnType<typeof getUpZeroMarketingB2BGate>>,
+  canOverrideDependency: boolean,
 ) {
   return {
     id: form.id,
@@ -617,6 +628,8 @@ function responseBody(
     completed_by: form.completed_by,
     completer: form.completer,
     can_edit: canEdit,
+    can_override_dependency: canOverrideDependency,
+    up_zero_dependency: upZeroGate,
     task: {
       id: form.task.id,
       title: form.task.title,
@@ -651,15 +664,24 @@ async function getAccess(taskId: string) {
     return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  const canEdit = Boolean(
+  const canEditWithoutDependency = Boolean(
     (await canContributeToProject(auth, form.task.project)) ||
       onboardingAccess.admin ||
       form.task.assignee_id === auth.prismaUser.id ||
       form.checklist_item.owner_id === auth.prismaUser.id ||
       onboardingAccess.canUpdateChecklistItem(form.checklist_item),
   );
+  const upZeroGate = await getUpZeroMarketingB2BGate(prisma, form.onboarding_id);
+  const canEdit = canEditWithoutDependency && !upZeroGate?.blocked;
 
-  return { ok: true as const, auth, form, canEdit };
+  return {
+    ok: true as const,
+    auth,
+    form,
+    canEdit,
+    upZeroGate,
+    canOverrideDependency: onboardingAccess.admin && Boolean(upZeroGate?.blocked),
+  };
 }
 
 async function GET_handler(
@@ -669,7 +691,15 @@ async function GET_handler(
   const access = await getAccess(params.taskId);
   if (!access.ok) return access.response;
   const addresses = await loadCompanyAddresses(access.form.company_id);
-  return NextResponse.json(responseBody(access.form, access.canEdit, addresses));
+  return NextResponse.json(
+    responseBody(
+      access.form,
+      access.canEdit,
+      addresses,
+      access.upZeroGate,
+      access.canOverrideDependency,
+    ),
+  );
 }
 
 async function POST_handler(
@@ -685,6 +715,7 @@ async function POST_handler(
       workspaceId: access.form.workspace_id,
       actorId: access.auth.prismaUser.id,
     });
+    const upZeroGate = await getUpZeroMarketingB2BGate(prisma, access.form.onboarding_id);
     return NextResponse.json({
       workflow_sync: workflowSync
         ? {
@@ -693,6 +724,7 @@ async function POST_handler(
             moved_tasks: workflowSync.movedTasks,
           }
         : { checked: true, created_tasks: 0, moved_tasks: 0 },
+      up_zero_dependency: upZeroGate,
     });
   } catch (err) {
     logError("marketing-b2b-form:workflow-sync", err, {
@@ -712,6 +744,12 @@ async function PATCH_handler(
 ) {
   const access = await getAccess(params.taskId);
   if (!access.ok) return access.response;
+  if (access.upZeroGate?.blocked) {
+    return NextResponse.json(
+      { error: access.upZeroGate.message, up_zero_dependency: access.upZeroGate },
+      { status: 409 },
+    );
+  }
   if (!access.canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const parsed = PatchSchema.safeParse(await req.json());
@@ -791,6 +829,11 @@ async function PATCH_handler(
     });
   });
   const addresses = await loadCompanyAddresses(updated.company_id);
+  await syncOnboardingChecklistFromTaskStatus(prisma, {
+    taskId: updated.task_id,
+    status: parsed.data.finalize ? "done" : "in_progress",
+    actorId: access.auth.prismaUser.id,
+  });
 
   if (parsed.data.finalize) {
     await recordActivity({
@@ -809,7 +852,8 @@ async function PATCH_handler(
     });
   }
 
-  return NextResponse.json(responseBody(updated, access.canEdit, addresses));
+  const upZeroGate = await getUpZeroMarketingB2BGate(prisma, updated.onboarding_id);
+  return NextResponse.json(responseBody(updated, access.canEdit, addresses, upZeroGate, false));
 }
 
 export const GET = withErrorReporting("api:onboarding/marketing-b2b-form:GET", GET_handler);

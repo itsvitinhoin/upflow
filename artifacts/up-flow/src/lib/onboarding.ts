@@ -63,6 +63,19 @@ export const MARKETING_B2C_FORM_SERVICES = [
   "Influencers / UGC",
 ] as const;
 
+export const UP_ZERO_CONFIGURATION_AUTOMATION_KEY = "up_zero_website_configuration";
+export const UP_ZERO_CONFIGURATION_TASK_TITLE = "Configure UP Zero website";
+export const UP_ZERO_MARKETING_B2B_DEPENDENCY_MESSAGE =
+  "Waiting for UP Zero website configuration by Technical Support.";
+
+export const UP_ZERO_SEQUENCE_STATUSES = [
+  "commercial_pending",
+  "technical_support_pending",
+  "up_zero_configuration_in_progress",
+  "marketing_b2b_ready",
+  "marketing_b2b_in_progress",
+] as const;
+
 type ServiceWorkflowStep = {
   title: string;
   description: string;
@@ -288,13 +301,24 @@ const ONBOARDING_SAFE_SCALAR_SELECT = {
   company_id: true,
   project_id: true,
   status: true,
+  sequence_status: true,
   progress: true,
   closing_date: true,
   expected_start_date: true,
   responsible_salesperson_id: true,
   initial_notes: true,
   contracted_services: true,
+  commercial_completed_at: true,
+  technical_support_started_at: true,
+  up_zero_configuration_completed_at: true,
+  marketing_b2b_released_at: true,
+  marketing_b2b_dependency_override_reason: true,
+  marketing_b2b_dependency_overridden_by: true,
+  marketing_b2b_dependency_overridden_at: true,
   completed_at: true,
+  completion_override_reason: true,
+  completion_overridden_by: true,
+  completion_overridden_at: true,
   created_by: true,
   created_at: true,
   updated_at: true,
@@ -398,9 +422,16 @@ export function financeRegistrationComplete(company: {
 export async function getOnboardingCompletionBlocker(
   db: Db,
   onboardingId: string,
-  item: { id: string; department: string },
+  item: { id: string; department: string; task_id?: string | null; automation_key?: string | null },
 ) {
   const department = item.department.toLowerCase();
+
+  if (item.task_id) {
+    const gate = await getUpZeroMarketingB2BGate(db, onboardingId);
+    if (gate?.blocked && gate.marketing_b2b_task_ids.includes(item.task_id)) {
+      return gate.message;
+    }
+  }
 
   if (department.includes("finance")) {
     const onboarding = await db.clientOnboarding.findUnique({
@@ -429,7 +460,10 @@ export async function getOnboardingCompletionBlocker(
     if (contractCount === 0) return "Upload a private contract before marking Contract done.";
   }
 
-  if (department.includes("support")) {
+  if (
+    department.includes("support") &&
+    item.automation_key !== UP_ZERO_CONFIGURATION_AUTOMATION_KEY
+  ) {
     const support = await db.supportGroup.findUnique({
       where: { onboarding_id: onboardingId },
       select: { group_created: true },
@@ -482,7 +516,7 @@ export async function getOnboardingCompletionBlocker(
 export async function getOnboardingTaskCompletionBlocker(db: Db, taskId: string) {
   const item = await db.onboardingChecklistItem.findFirst({
     where: { task_id: taskId },
-    select: { id: true, onboarding_id: true, department: true },
+    select: { id: true, onboarding_id: true, department: true, task_id: true, automation_key: true },
   });
   if (!item) return null;
   return getOnboardingCompletionBlocker(db, item.onboarding_id, item);
@@ -511,6 +545,10 @@ function normalizedName(value: string) {
     .replace(/[^a-z0-9]+/gi, " ")
     .trim()
     .toLowerCase();
+}
+
+export function hasUpZeroService(services: unknown) {
+  return parseContractedServices(services).some((service) => normalizedName(service) === "up zero");
 }
 
 function serviceWorkflowFor(
@@ -1182,6 +1220,542 @@ async function departmentForRoute(db: Db, workspaceId: string, route: Onboarding
   return findDepartmentByRoute(db, workspaceId, route);
 }
 
+type UpZeroGateTask = {
+  id: string;
+  title: string;
+  status: string;
+  owner: UserRef | null;
+};
+
+export type UpZeroMarketingB2BGate = {
+  uses_up_zero: boolean;
+  blocked: boolean;
+  message: string | null;
+  sequence_status: string;
+  current_department: "Commercial" | "Technical Support" | "Marketing B2B";
+  technical_support_task: UpZeroGateTask | null;
+  marketing_b2b_task_ids: string[];
+  overridden: boolean;
+  override_reason: string | null;
+};
+
+async function marketingB2BTaskContext(db: Db, onboardingId: string, companyId: string) {
+  const form = await db.marketingB2BOnboardingForm.findFirst({
+    where: { onboarding_id: onboardingId },
+    orderBy: [{ created_at: "asc" }],
+    select: {
+      task_id: true,
+      project_id: true,
+      task: {
+        select: {
+          id: true,
+          title: true,
+          assignee_id: true,
+        },
+      },
+    },
+  });
+  if (!form) return { form: null, taskIds: [] as string[] };
+
+  const tasks = await db.task.findMany({
+    where: { project_id: form.project_id, company_id: companyId },
+    select: { id: true },
+  });
+  return { form, taskIds: tasks.map((task) => task.id) };
+}
+
+async function recordOnboardingTransition(
+  db: Db,
+  input: {
+    workspaceId: string;
+    onboardingId: string;
+    companyId: string;
+    projectId?: string | null;
+    taskId?: string | null;
+    actorId: string;
+    type: string;
+    previousStatus: string;
+    nextStatus: string;
+    metadata?: Prisma.InputJsonObject;
+  },
+) {
+  await db.activityEvent.create({
+    data: {
+      workspace_id: input.workspaceId,
+      actor_id: input.actorId,
+      type: input.type,
+      entity_type: "client_onboarding",
+      entity_id: input.onboardingId,
+      project_id: input.projectId ?? null,
+      task_id: input.taskId ?? null,
+      company_id: input.companyId,
+      metadata: {
+        previous_status: input.previousStatus,
+        next_status: input.nextStatus,
+        ...(input.metadata ?? {}),
+      },
+    },
+  });
+}
+
+export async function getUpZeroMarketingB2BGate(
+  db: Db,
+  onboardingId: string,
+): Promise<UpZeroMarketingB2BGate | null> {
+  const onboarding = await db.clientOnboarding.findUnique({
+    where: { id: onboardingId },
+    select: {
+      company_id: true,
+      contracted_services: true,
+      sequence_status: true,
+      commercial_completed_at: true,
+      up_zero_configuration_completed_at: true,
+      marketing_b2b_released_at: true,
+      marketing_b2b_dependency_override_reason: true,
+      marketing_b2b_dependency_overridden_at: true,
+    },
+  });
+  if (!onboarding) return null;
+
+  const usesUpZero = hasUpZeroService(onboarding.contracted_services);
+  const overridden = Boolean(onboarding.marketing_b2b_dependency_overridden_at);
+  const released = Boolean(
+    onboarding.marketing_b2b_released_at ||
+      onboarding.up_zero_configuration_completed_at ||
+      overridden,
+  );
+  const technicalItem = usesUpZero
+    ? await db.onboardingChecklistItem.findUnique({
+        where: {
+          onboarding_id_automation_key: {
+            onboarding_id: onboardingId,
+            automation_key: UP_ZERO_CONFIGURATION_AUTOMATION_KEY,
+          },
+        },
+        select: {
+          task: {
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              assignee: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+      })
+    : null;
+  const marketingContext = await marketingB2BTaskContext(db, onboardingId, onboarding.company_id);
+  const blocked = usesUpZero && !released;
+  const currentDepartment = !onboarding.commercial_completed_at
+    ? "Commercial"
+    : blocked
+      ? "Technical Support"
+      : "Marketing B2B";
+
+  return {
+    uses_up_zero: usesUpZero,
+    blocked,
+    message: blocked ? UP_ZERO_MARKETING_B2B_DEPENDENCY_MESSAGE : null,
+    sequence_status: onboarding.sequence_status,
+    current_department: currentDepartment,
+    technical_support_task: technicalItem?.task
+      ? {
+          id: technicalItem.task.id,
+          title: technicalItem.task.title,
+          status: technicalItem.task.status,
+          owner: technicalItem.task.assignee,
+        }
+      : null,
+    marketing_b2b_task_ids: marketingContext.taskIds,
+    overridden,
+    override_reason: onboarding.marketing_b2b_dependency_override_reason,
+  };
+}
+
+async function releaseUpZeroMarketingB2B(
+  db: Db,
+  input: {
+    onboardingId: string;
+    actorId: string;
+    technicalTaskId?: string | null;
+    overrideReason?: string | null;
+    existingOverride?: boolean;
+  },
+) {
+  const onboarding = await db.clientOnboarding.findUniqueOrThrow({
+    where: { id: input.onboardingId },
+    select: {
+      id: true,
+      workspace_id: true,
+      company_id: true,
+      project_id: true,
+      sequence_status: true,
+      marketing_b2b_released_at: true,
+      up_zero_configuration_completed_at: true,
+      marketing_b2b_dependency_overridden_at: true,
+      company: { select: { name: true } },
+    },
+  });
+  const context = await marketingB2BTaskContext(db, onboarding.id, onboarding.company_id);
+  if (input.technicalTaskId && context.taskIds.length > 0) {
+    await db.taskDependency.deleteMany({
+      where: {
+        depends_on_id: input.technicalTaskId,
+        task_id: { in: context.taskIds },
+      },
+    });
+  }
+
+  const now = new Date();
+  const firstRelease = !onboarding.marketing_b2b_released_at;
+  const firstTechnicalCompletion =
+    !input.overrideReason && !input.existingOverride && !onboarding.up_zero_configuration_completed_at;
+  const firstOverride = Boolean(input.overrideReason) && !onboarding.marketing_b2b_dependency_overridden_at;
+  await db.clientOnboarding.update({
+    where: { id: onboarding.id },
+    data: {
+      sequence_status: "marketing_b2b_ready",
+      marketing_b2b_released_at: onboarding.marketing_b2b_released_at ?? now,
+      ...(!input.overrideReason && !input.existingOverride && {
+        up_zero_configuration_completed_at: onboarding.up_zero_configuration_completed_at ?? now,
+      }),
+      ...(input.overrideReason && {
+        marketing_b2b_dependency_override_reason: input.overrideReason,
+        marketing_b2b_dependency_overridden_by: input.actorId,
+        marketing_b2b_dependency_overridden_at: onboarding.marketing_b2b_dependency_overridden_at ?? now,
+      }),
+    },
+  });
+
+  if (firstTechnicalCompletion) {
+    await recordOnboardingTransition(db, {
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      companyId: onboarding.company_id,
+      projectId: onboarding.project_id,
+      taskId: input.technicalTaskId,
+      actorId: input.actorId,
+      type: "up_zero_configuration_completed",
+      previousStatus: onboarding.sequence_status,
+      nextStatus: "marketing_b2b_ready",
+    });
+  }
+  if (firstOverride) {
+    await recordOnboardingTransition(db, {
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      companyId: onboarding.company_id,
+      projectId: onboarding.project_id,
+      taskId: input.technicalTaskId,
+      actorId: input.actorId,
+      type: "marketing_b2b_dependency_overridden",
+      previousStatus: onboarding.sequence_status,
+      nextStatus: "marketing_b2b_ready",
+      metadata: { reason: input.overrideReason! },
+    });
+  }
+  if (firstRelease) {
+    await recordOnboardingTransition(db, {
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      companyId: onboarding.company_id,
+      projectId: onboarding.project_id,
+      taskId: context.form?.task_id ?? null,
+      actorId: input.actorId,
+      type: "marketing_b2b_released",
+      previousStatus: onboarding.sequence_status,
+      nextStatus: "marketing_b2b_ready",
+      metadata: {
+        release_source: input.overrideReason || input.existingOverride
+          ? "admin_override"
+          : "technical_support_completion",
+      },
+    });
+  }
+
+  const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
+  if (firstRelease && context.form?.task.assignee_id) {
+    notificationTargets.push({
+      userId: context.form.task.assignee_id,
+      taskId: context.form.task_id,
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `${onboarding.company.name} is ready for Marketing B2B onboarding`,
+      companyId: onboarding.company_id,
+    });
+  }
+  return { notificationTargets, released: firstRelease };
+}
+
+async function reconcileUpZeroSequentialWorkflow(
+  tx: Db,
+  input: {
+    onboardingId: string;
+    company: CompanySnapshot;
+    actorId: string;
+    services: string[];
+  },
+) {
+  const onboarding = await tx.clientOnboarding.findUniqueOrThrow({
+    where: { id: input.onboardingId },
+    select: {
+      id: true,
+      workspace_id: true,
+      company_id: true,
+      project_id: true,
+      sequence_status: true,
+      commercial_completed_at: true,
+      technical_support_started_at: true,
+      up_zero_configuration_completed_at: true,
+      marketing_b2b_released_at: true,
+      marketing_b2b_dependency_overridden_at: true,
+    },
+  });
+  const usesUpZero = hasUpZeroService(input.services);
+  const existingItem = await tx.onboardingChecklistItem.findUnique({
+    where: {
+      onboarding_id_automation_key: {
+        onboarding_id: onboarding.id,
+        automation_key: UP_ZERO_CONFIGURATION_AUTOMATION_KEY,
+      },
+    },
+    select: { id: true, task_id: true, status: true },
+  });
+
+  if (!usesUpZero) {
+    if (existingItem?.task_id) {
+      await tx.taskDependency.deleteMany({ where: { depends_on_id: existingItem.task_id } });
+      await tx.onboardingChecklistItem.update({
+        where: { id: existingItem.id },
+        data: { required: false, notes: "UP Zero is no longer included in the contracted services." },
+      });
+    }
+    if (!onboarding.marketing_b2b_released_at || onboarding.sequence_status !== "marketing_b2b_ready") {
+      const now = new Date();
+      await tx.clientOnboarding.update({
+        where: { id: onboarding.id },
+        data: {
+          sequence_status: "marketing_b2b_ready",
+          marketing_b2b_released_at: onboarding.marketing_b2b_released_at ?? now,
+        },
+      });
+      await recordOnboardingTransition(tx, {
+        workspaceId: onboarding.workspace_id,
+        onboardingId: onboarding.id,
+        companyId: onboarding.company_id,
+        projectId: onboarding.project_id,
+        actorId: input.actorId,
+        type: "marketing_b2b_released",
+        previousStatus: onboarding.sequence_status,
+        nextStatus: "marketing_b2b_ready",
+        metadata: { release_source: existingItem ? "up_zero_service_removed" : "commercial_direct" },
+      });
+    }
+    return {
+      blockedTaskIds: [] as string[],
+      createdTechnicalTask: null as CreatedOnboardingTask | null,
+      notificationTargets: [] as OnboardingAssignmentNotificationTarget[],
+    };
+  }
+
+  if (!onboarding.commercial_completed_at) {
+    if (onboarding.sequence_status !== "commercial_pending") {
+      await tx.clientOnboarding.update({
+        where: { id: onboarding.id },
+        data: { sequence_status: "commercial_pending" },
+      });
+    }
+    return {
+      blockedTaskIds: [] as string[],
+      createdTechnicalTask: null as CreatedOnboardingTask | null,
+      notificationTargets: [] as OnboardingAssignmentNotificationTarget[],
+    };
+  }
+
+  const [mappingRows, adminFallback, technicalDepartment] = await Promise.all([
+    tx.serviceLeaderMapping.findMany({
+      where: { workspace_id: onboarding.workspace_id, active: true },
+      include: {
+        department: { select: { id: true, name: true } },
+        leader: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    findAdminFallback(tx, onboarding.workspace_id),
+    departmentForRoute(tx, onboarding.workspace_id, "support"),
+  ]);
+  const technicalMapping = mappingRows.find(
+    (mapping) => ownerKeyForDepartmentLabel(mapping.service) === "technical_support",
+  );
+  const technicalOwner =
+    technicalMapping?.leader ??
+    (await ownerForRoute(tx, onboarding.workspace_id, "support", adminFallback));
+  const ownerId = technicalOwner?.id ?? input.company.owner_id;
+  const projectId = await resolveOnboardingTaskProjectId(tx, {
+    workspaceId: onboarding.workspace_id,
+    companyId: onboarding.company_id,
+    companyName: input.company.name,
+    ownerId: input.actorId,
+    route: "support",
+  });
+
+  let technicalItem = await tx.onboardingChecklistItem.upsert({
+    where: {
+      onboarding_id_automation_key: {
+        onboarding_id: onboarding.id,
+        automation_key: UP_ZERO_CONFIGURATION_AUTOMATION_KEY,
+      },
+    },
+    create: {
+      onboarding_id: onboarding.id,
+      workspace_id: onboarding.workspace_id,
+      automation_key: UP_ZERO_CONFIGURATION_AUTOMATION_KEY,
+      department: "Technical Support",
+      title: UP_ZERO_CONFIGURATION_TASK_TITLE,
+      owner_id: ownerId,
+      notes: "Configure and validate the UP Zero website before Marketing B2B onboarding begins.",
+      sort_order: 65,
+    },
+    update: {
+      required: true,
+      department: "Technical Support",
+      title: UP_ZERO_CONFIGURATION_TASK_TITLE,
+      owner_id: ownerId,
+      notes: "Configure and validate the UP Zero website before Marketing B2B onboarding begins.",
+    },
+    select: { id: true, task_id: true, status: true },
+  });
+
+  let createdTechnicalTask: CreatedOnboardingTask | null = null;
+  if (!technicalItem.task_id) {
+    const position = await tx.task.aggregate({ where: { project_id: projectId }, _max: { position: true } });
+    const task = await tx.task.create({
+      data: {
+        project_id: projectId,
+        company_id: onboarding.company_id,
+        title: UP_ZERO_CONFIGURATION_TASK_TITLE,
+        description:
+          "Technical Support must configure and validate the client's UP Zero website. Completing this task automatically releases Marketing B2B onboarding.",
+        status: "todo",
+        priority: "high",
+        assignee_id: ownerId,
+        position: (position._max.position ?? -1) + 1,
+      },
+    });
+    technicalItem = await tx.onboardingChecklistItem.update({
+      where: { id: technicalItem.id },
+      data: { task_id: task.id },
+      select: { id: true, task_id: true, status: true },
+    });
+    createdTechnicalTask = {
+      id: task.id,
+      title: task.title,
+      route: "support",
+      project_id: task.project_id,
+      assignee_id: task.assignee_id,
+    };
+  } else {
+    await tx.task.update({
+      where: { id: technicalItem.task_id },
+      data: { project_id: projectId, company_id: onboarding.company_id, assignee_id: ownerId },
+    });
+  }
+
+  const technicalTaskId = technicalItem.task_id!;
+  const context = await marketingB2BTaskContext(tx, onboarding.id, onboarding.company_id);
+  if (technicalItem.status === "complete" || onboarding.up_zero_configuration_completed_at || onboarding.marketing_b2b_dependency_overridden_at) {
+    const released = await releaseUpZeroMarketingB2B(tx, {
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      technicalTaskId,
+      existingOverride: Boolean(onboarding.marketing_b2b_dependency_overridden_at),
+    });
+    return {
+      blockedTaskIds: [] as string[],
+      createdTechnicalTask,
+      notificationTargets: released.notificationTargets,
+    };
+  }
+
+  for (const taskId of context.taskIds) {
+    if (taskId === technicalTaskId) continue;
+    await tx.taskDependency.upsert({
+      where: { task_id_depends_on_id: { task_id: taskId, depends_on_id: technicalTaskId } },
+      create: { task_id: taskId, depends_on_id: technicalTaskId },
+      update: {},
+    });
+  }
+  const nextSequenceStatus = technicalItem.status === "in_progress"
+    ? "up_zero_configuration_in_progress"
+    : "technical_support_pending";
+  const firstActivation = !onboarding.technical_support_started_at;
+  await tx.clientOnboarding.update({
+    where: { id: onboarding.id },
+    data: {
+      sequence_status: nextSequenceStatus,
+      technical_support_started_at: onboarding.technical_support_started_at ?? new Date(),
+      marketing_b2b_released_at: null,
+    },
+  });
+  if (firstActivation) {
+    await recordOnboardingTransition(tx, {
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      companyId: onboarding.company_id,
+      projectId: onboarding.project_id,
+      taskId: technicalTaskId,
+      actorId: input.actorId,
+      type: "up_zero_technical_support_activated",
+      previousStatus: onboarding.sequence_status,
+      nextStatus: nextSequenceStatus,
+      metadata: {
+        owner_id: ownerId,
+        department_id: technicalMapping?.department_id ?? technicalDepartment?.id ?? null,
+      },
+    });
+  }
+
+  const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
+  if (firstActivation) {
+    notificationTargets.push({
+      userId: ownerId,
+      taskId: technicalTaskId,
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: `${UP_ZERO_CONFIGURATION_TASK_TITLE} for ${input.company.name}`,
+      companyId: onboarding.company_id,
+    });
+  }
+  return { blockedTaskIds: context.taskIds, createdTechnicalTask, notificationTargets };
+}
+
+export async function getOnboardingTaskStartBlocker(db: Db, taskId: string) {
+  const item = await db.onboardingChecklistItem.findFirst({
+    where: { task_id: taskId },
+    select: { onboarding_id: true },
+  });
+  if (!item) return null;
+  const gate = await getUpZeroMarketingB2BGate(db, item.onboarding_id);
+  return gate?.blocked && gate.marketing_b2b_task_ids.includes(taskId) ? gate.message : null;
+}
+
+export async function overrideUpZeroMarketingB2BGate(
+  db: Db,
+  input: { onboardingId: string; actorId: string; reason: string },
+) {
+  const gate = await getUpZeroMarketingB2BGate(db, input.onboardingId);
+  if (!gate?.uses_up_zero) throw new Error("This client does not use UP Zero.");
+  if (!gate.blocked) throw new Error("Marketing B2B is not waiting on UP Zero configuration.");
+  const released = await releaseUpZeroMarketingB2B(db, {
+    onboardingId: input.onboardingId,
+    actorId: input.actorId,
+    technicalTaskId: gate.technical_support_task?.id ?? null,
+    overrideReason: input.reason,
+  });
+  return { gate: await getUpZeroMarketingB2BGate(db, input.onboardingId), ...released };
+}
+
 function onboardingServices(input: {
   explicitServices?: string[];
   includedServices?: Prisma.JsonValue | null;
@@ -1494,6 +2068,11 @@ async function createOnboardingRecords(
 ): Promise<OnboardingCreationResult> {
   const company = input.company;
   const sourceProject = input.sourceProject ?? null;
+  const contractedServices = onboardingServices({
+    explicitServices: input.services,
+    includedServices: company.included_services,
+    serviceType: company.service_type,
+  });
 
   const existing = sourceProject
     ? await tx.clientOnboarding.findUnique({
@@ -1510,11 +2089,30 @@ async function createOnboardingRecords(
         select: onboardingSelect(),
       });
   if (existing) {
+    const synced = await syncDedicatedServiceWorkflows(tx, {
+      onboardingId: existing.id,
+      company,
+      actorId: input.actorId,
+      services: contractedServices,
+      currentServices: existing.contracted_services,
+    });
+    const sequence = await reconcileUpZeroSequentialWorkflow(tx, {
+      onboardingId: existing.id,
+      company,
+      actorId: input.actorId,
+      services: contractedServices,
+    });
+    if (sequence.createdTechnicalTask) synced.createdTasks.push(sequence.createdTechnicalTask);
+    const blockedTaskIds = new Set(sequence.blockedTaskIds);
+    synced.notificationTargets = synced.notificationTargets.filter(
+      (target) => !blockedTaskIds.has(target.taskId),
+    );
+    synced.notificationTargets.push(...sequence.notificationTargets);
     return {
-      onboarding: existing,
-      notificationTargets: [],
-      createdTasks: [],
-      missingMappings: [],
+      onboarding: await recomputeOnboardingProgress(tx, existing.id),
+      notificationTargets: synced.notificationTargets,
+      createdTasks: synced.createdTasks,
+      missingMappings: synced.missingMappings,
       reused: true,
     };
   }
@@ -1522,11 +2120,6 @@ async function createOnboardingRecords(
   const notificationTargets: OnboardingAssignmentNotificationTarget[] = [];
   const createdTasks: CreatedOnboardingTask[] = [];
   const missingMappings: string[] = [];
-  const contractedServices = onboardingServices({
-    explicitServices: input.services,
-    includedServices: company.included_services,
-    serviceType: company.service_type,
-  });
   const responsibleDepartment = input.responsibleDepartmentName
     ? null
     : input.responsibleDepartmentId
@@ -1604,6 +2197,7 @@ async function createOnboardingRecords(
     companyName: company.name,
     ownerId: input.actorId,
   });
+  const commercialCompletedAt = new Date();
 
   const onboarding = await tx.clientOnboarding.create({
     data: {
@@ -1611,12 +2205,14 @@ async function createOnboardingRecords(
       company_id: company.id,
       project_id: sourceProject?.id ?? null,
       status: "pending_finance_registration",
+      sequence_status: "commercial_pending",
       progress: 0,
       closing_date: input.closingDate ?? sourceProject?.closing_date ?? null,
       expected_start_date: input.expectedStartDate ?? sourceProject?.onboarding_start_date ?? null,
       responsible_salesperson_id: salespersonId,
       initial_notes: input.initialNotes ?? sourceProject?.initial_notes ?? null,
       contracted_services: contractedServices,
+      commercial_completed_at: commercialCompletedAt,
       created_by: input.actorId,
     },
     select: ONBOARDING_SAFE_SCALAR_SELECT,
@@ -1795,7 +2391,7 @@ async function createOnboardingRecords(
         title: "Client created and services selected",
         status: "complete",
         owner_id: salespersonId,
-        completed_at: new Date(),
+        completed_at: commercialCompletedAt,
         completed_by: input.actorId,
         sort_order: 0,
       },
@@ -2280,8 +2876,41 @@ async function createOnboardingRecords(
     position += 10;
   }
 
+  await recordOnboardingTransition(tx, {
+    workspaceId: company.workspace_id,
+    onboardingId: onboarding.id,
+    companyId: company.id,
+    projectId: onboarding.project_id,
+    taskId: commercialTask.id,
+    actorId: input.actorId,
+    type: "commercial_onboarding_completed",
+    previousStatus: "commercial_pending",
+    nextStatus: hasUpZeroService(contractedServices)
+      ? "technical_support_pending"
+      : "marketing_b2b_ready",
+  });
+
+  const sequence = await reconcileUpZeroSequentialWorkflow(tx, {
+    onboardingId: onboarding.id,
+    company,
+    actorId: input.actorId,
+    services: contractedServices,
+  });
+  if (sequence.createdTechnicalTask) createdTasks.push(sequence.createdTechnicalTask);
+  const blockedTaskIds = new Set(sequence.blockedTaskIds);
+  const releasedNotificationTargets = notificationTargets.filter(
+    (target) => !blockedTaskIds.has(target.taskId),
+  );
+  releasedNotificationTargets.push(...sequence.notificationTargets);
+
   const refreshed = await recomputeOnboardingProgress(tx, onboarding.id);
-  return { onboarding: refreshed, notificationTargets, createdTasks, missingMappings, reused: false };
+  return {
+    onboarding: refreshed,
+    notificationTargets: releasedNotificationTargets,
+    createdTasks,
+    missingMappings,
+    reused: false,
+  };
 }
 
 export async function createClientOnboardingFromWizard(
@@ -2457,6 +3086,18 @@ export async function syncClientOnboardingServices(input: {
       services,
       currentServices: onboarding.contracted_services,
     });
+    const sequence = await reconcileUpZeroSequentialWorkflow(tx, {
+      onboardingId: onboarding.id,
+      company,
+      actorId: input.actorId,
+      services,
+    });
+    if (sequence.createdTechnicalTask) synced.createdTasks.push(sequence.createdTechnicalTask);
+    const blockedTaskIds = new Set(sequence.blockedTaskIds);
+    synced.notificationTargets = synced.notificationTargets.filter(
+      (target) => !blockedTaskIds.has(target.taskId),
+    );
+    synced.notificationTargets.push(...sequence.notificationTargets);
     const refreshed = await tx.clientOnboarding.findUniqueOrThrow({
       where: { id: onboarding.id },
       select: onboardingSelect(),
@@ -2819,6 +3460,8 @@ export async function syncOnboardingChecklistFromTaskStatus(
       department: true,
       title: true,
       status: true,
+      task_id: true,
+      automation_key: true,
     },
   });
   if (!item) return { linked: false as const };
@@ -2850,6 +3493,107 @@ export async function syncOnboardingChecklistFromTaskStatus(
     });
   }
 
+  let transitionNotificationTargets: OnboardingAssignmentNotificationTarget[] = [];
+  if (item.automation_key === UP_ZERO_CONFIGURATION_AUTOMATION_KEY) {
+    if (input.status === "done") {
+      const release = await releaseUpZeroMarketingB2B(db, {
+        onboardingId: item.onboarding_id,
+        actorId: input.actorId,
+        technicalTaskId: input.taskId,
+      });
+      transitionNotificationTargets = release.notificationTargets;
+    } else {
+      const sequenceOnboarding = await db.clientOnboarding.findUniqueOrThrow({
+        where: { id: item.onboarding_id },
+        select: {
+          id: true,
+          workspace_id: true,
+          company_id: true,
+          project_id: true,
+          sequence_status: true,
+          contracted_services: true,
+          marketing_b2b_dependency_overridden_at: true,
+          company: {
+            select: {
+              id: true,
+              workspace_id: true,
+              name: true,
+              owner_id: true,
+              included_services: true,
+              service_type: true,
+              plan_name: true,
+            },
+          },
+        },
+      });
+      const nextSequenceStatus = input.status === "in_progress"
+        ? "up_zero_configuration_in_progress"
+        : "technical_support_pending";
+      if (!sequenceOnboarding.marketing_b2b_dependency_overridden_at) {
+        await db.clientOnboarding.update({
+          where: { id: item.onboarding_id },
+          data: {
+            sequence_status: nextSequenceStatus,
+            up_zero_configuration_completed_at: null,
+            marketing_b2b_released_at: null,
+          },
+        });
+        if (sequenceOnboarding.sequence_status !== nextSequenceStatus) {
+          await recordOnboardingTransition(db, {
+            workspaceId: sequenceOnboarding.workspace_id,
+            onboardingId: sequenceOnboarding.id,
+            companyId: sequenceOnboarding.company_id,
+            projectId: sequenceOnboarding.project_id,
+            taskId: input.taskId,
+            actorId: input.actorId,
+            type: input.status === "in_progress"
+              ? "up_zero_configuration_started"
+              : "up_zero_configuration_reopened",
+            previousStatus: sequenceOnboarding.sequence_status,
+            nextStatus: nextSequenceStatus,
+          });
+        }
+        const reconciled = await reconcileUpZeroSequentialWorkflow(db, {
+          onboardingId: item.onboarding_id,
+          company: sequenceOnboarding.company,
+          actorId: input.actorId,
+          services: parseContractedServices(sequenceOnboarding.contracted_services),
+        });
+        transitionNotificationTargets.push(...reconciled.notificationTargets);
+      }
+    }
+  } else if (input.status !== "todo") {
+    const gate = await getUpZeroMarketingB2BGate(db, item.onboarding_id);
+    if (gate?.uses_up_zero && !gate.blocked && gate.marketing_b2b_task_ids.includes(input.taskId)) {
+      const sequenceOnboarding = await db.clientOnboarding.findUniqueOrThrow({
+        where: { id: item.onboarding_id },
+        select: {
+          workspace_id: true,
+          company_id: true,
+          project_id: true,
+          sequence_status: true,
+        },
+      });
+      if (sequenceOnboarding.sequence_status !== "marketing_b2b_in_progress") {
+        await db.clientOnboarding.update({
+          where: { id: item.onboarding_id },
+          data: { sequence_status: "marketing_b2b_in_progress" },
+        });
+        await recordOnboardingTransition(db, {
+          workspaceId: sequenceOnboarding.workspace_id,
+          onboardingId: item.onboarding_id,
+          companyId: sequenceOnboarding.company_id,
+          projectId: sequenceOnboarding.project_id,
+          taskId: input.taskId,
+          actorId: input.actorId,
+          type: "marketing_b2b_started",
+          previousStatus: sequenceOnboarding.sequence_status,
+          nextStatus: "marketing_b2b_in_progress",
+        });
+      }
+    }
+  }
+
   const onboarding = await recomputeOnboardingProgress(db, item.onboarding_id);
   await recordActivity({
     workspace_id: item.workspace_id,
@@ -2870,7 +3614,16 @@ export async function syncOnboardingChecklistFromTaskStatus(
     },
   });
 
-  return { linked: true as const, blocked: false as const, onboarding };
+  if (transitionNotificationTargets.length > 0) {
+    await sendOnboardingAssignmentNotifications(transitionNotificationTargets);
+  }
+
+  return {
+    linked: true as const,
+    blocked: false as const,
+    onboarding,
+    transition_notifications: transitionNotificationTargets.length,
+  };
 }
 
 export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string) {

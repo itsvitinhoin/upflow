@@ -8,6 +8,7 @@ import {
   financeRegistrationComplete,
   loadOnboardingAccess,
   onboardingSelect,
+  overrideUpZeroMarketingB2BGate,
   recomputeOnboardingProgress,
   redactOnboardingContracts,
   resolveOnboardingTaskProjectId,
@@ -57,6 +58,9 @@ const PatchSchema = z.object({
     notes: z.string().trim().nullable().optional(),
   }).optional(),
   completion_override: z.object({
+    reason: z.string().trim().min(8),
+  }).optional(),
+  marketing_b2b_dependency_override: z.object({
     reason: z.string().trim().min(8),
   }).optional(),
 });
@@ -318,6 +322,21 @@ async function PATCH_handler(
           ? { status: "pending", completed_at: null, completed_by: null }
           : { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
       });
+    }
+
+    if (parsed.data.marketing_b2b_dependency_override) {
+      if (!access.admin) return null;
+      const override = await overrideUpZeroMarketingB2BGate(tx, {
+        onboardingId: params.id,
+        actorId: auth.prismaUser.id,
+        reason: parsed.data.marketing_b2b_dependency_override.reason,
+      });
+      notificationTargets.push(...override.notificationTargets);
+      const onboarding = await tx.clientOnboarding.findUniqueOrThrow({
+        where: { id: params.id },
+        select: onboardingSelect(),
+      });
+      return { onboarding, notificationTargets };
     }
 
     if (parsed.data.completion_override) {

@@ -568,12 +568,20 @@ model ClientOnboarding {
   company_id                 String
   project_id                 String?   @unique
   status                     String    @default("pending_commercial_setup")
+  sequence_status            String    @default("commercial_pending")
   progress                   Int       @default(0)
   closing_date               DateTime?
   expected_start_date        DateTime?
   responsible_salesperson_id String?
   initial_notes              String?
   contracted_services        Json?
+  commercial_completed_at    DateTime?
+  technical_support_started_at DateTime?
+  up_zero_configuration_completed_at DateTime?
+  marketing_b2b_released_at  DateTime?
+  marketing_b2b_dependency_override_reason String?
+  marketing_b2b_dependency_overridden_by String?
+  marketing_b2b_dependency_overridden_at DateTime?
   completed_at               DateTime?
   completion_override_reason String?
   completion_overridden_by   String?
@@ -595,6 +603,7 @@ model ClientOnboarding {
   marketing_b2c_forms        MarketingB2COnboardingForm[]
 
   @@index([workspace_id, status])
+  @@index([workspace_id, sequence_status])
   @@index([company_id])
   @@index([responsible_salesperson_id])
 }
@@ -604,6 +613,7 @@ model OnboardingChecklistItem {
   onboarding_id  String
   workspace_id   String
   task_id        String?
+  automation_key String?
   department     String
   title          String
   status         String    @default("pending")
@@ -627,6 +637,7 @@ model OnboardingChecklistItem {
 
   @@index([workspace_id])
   @@index([onboarding_id, sort_order])
+  @@unique([onboarding_id, automation_key])
   @@index([owner_id])
   @@index([task_id])
 }

@@ -56,9 +56,9 @@ function statusLabel(status: string, t: (key: string) => string) {
 }
 
 function statusClass(status: string) {
-  if (status === "onboarding_complete" || status === "complete") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+  if (status === "onboarding_complete" || status === "complete" || status === "marketing_b2b_ready") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
   if (status === "needs_mapping") return "border-rose-400/35 bg-rose-500/12 text-rose-200";
-  if (status === "onboarding_in_progress" || status === "in_progress") return "border-blue-400/30 bg-blue-400/10 text-blue-100";
+  if (status.includes("in_progress")) return "border-blue-400/30 bg-blue-400/10 text-blue-100";
   return "border-amber-400/25 bg-amber-400/10 text-amber-100";
 }
 
@@ -66,8 +66,32 @@ function missingMappings(item: ClientOnboarding) {
   return (item.service_assignments ?? []).filter((assignment) => assignment.status === "needs_mapping" || !assignment.leader_id);
 }
 
+function usesUpZero(item: ClientOnboarding) {
+  return (item.contracted_services ?? []).some(
+    (service) => service.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ") === "up zero",
+  );
+}
+
+function upZeroTechnicalItem(item: ClientOnboarding) {
+  return (item.checklist_items ?? []).find(
+    (check) => check.automation_key === "up_zero_website_configuration",
+  ) ?? null;
+}
+
+function marketingB2BBlockedByUpZero(item: ClientOnboarding) {
+  return (
+    usesUpZero(item) &&
+    !item.up_zero_configuration_completed_at &&
+    !item.marketing_b2b_released_at &&
+    !item.marketing_b2b_dependency_overridden_at
+  );
+}
+
 function blockers(item: ClientOnboarding) {
   const results: string[] = [];
+  if (marketingB2BBlockedByUpZero(item)) {
+    results.push("Waiting for UP Zero website configuration by Technical Support.");
+  }
   if ((item.checklist_items ?? []).some((check) => check.department === "Finance" && check.status !== "complete")) results.push("Finance registration pending");
   if ((item.contracts ?? []).length === 0) results.push("Contract not uploaded");
   if (missingMappings(item).length > 0) results.push("Department owners missing");
@@ -77,6 +101,7 @@ function blockers(item: ClientOnboarding) {
 }
 
 function nextAction(item: ClientOnboarding) {
+  if (marketingB2BBlockedByUpZero(item)) return upZeroTechnicalItem(item);
   return item.checklist_items?.find((check) => check.status !== "complete") ?? null;
 }
 
@@ -196,7 +221,18 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
   const itemBlockers = blockers(item);
   const completeSteps = (item.checklist_items ?? []).filter((check) => check.status === "complete").length;
   const totalSteps = Math.max((item.checklist_items ?? []).length, 1);
-  const owner = item.service_assignments?.find((assignment) => assignment.leader)?.leader ?? item.salesperson ?? null;
+  const technicalItem = upZeroTechnicalItem(item);
+  const upZeroBlocked = marketingB2BBlockedByUpZero(item);
+  const owner = !item.commercial_completed_at
+    ? item.salesperson ?? null
+    : upZeroBlocked
+      ? technicalItem?.owner ?? null
+      : item.service_assignments?.find((assignment) => assignment.leader)?.leader ?? item.salesperson ?? null;
+  const currentDepartment = !item.commercial_completed_at
+    ? "Commercial"
+    : upZeroBlocked
+      ? "Technical Support"
+      : "Marketing B2B";
   const services = item.contracted_services?.slice(0, 4).join(", ") || "Servicos em definicao";
   const creativeItems = (item.checklist_items ?? []).filter((entry) => {
     const text = `${entry.department} ${entry.title}`.toLowerCase();
@@ -215,7 +251,7 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
                   <h3 className="truncate text-2xl font-black text-white">{item.company?.name ?? t("clients.unknownClient")}</h3>
-                  <span className={cn("rounded-lg border px-3 py-1 text-xs font-black", statusClass(item.status))}>{statusLabel(item.status, t)}</span>
+                  <span className={cn("rounded-lg border px-3 py-1 text-xs font-black", statusClass(item.status))}>{statusLabel(item.sequence_status || item.status, t)}</span>
                 </div>
                 <p className="mt-1 text-sm text-slate-400">B2B - {services}</p>
               </div>
@@ -234,7 +270,7 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
             <MetricPill label="Progresso geral" value={`${item.progress}%`} progress={item.progress} />
             <MetricLine icon={CalendarDays} label="Data de inicio" value={item.expected_start_date ? formatDate(item.expected_start_date) : "Nao definida"} />
             <MetricLine icon={UserRound} label="Comercial responsavel" value={item.salesperson?.name ?? "Nao atribuido"} />
-            <MetricLine icon={Users} label="Delivery owner" value={owner?.name ?? "Nao atribuido"} />
+            <MetricLine icon={Users} label={`Current owner - ${currentDepartment}`} value={owner?.name ?? "Nao atribuido"} />
             <MetricLine icon={DollarSign} label="Valor do contrato" value="A definir" />
           </div>
         </section>
@@ -255,9 +291,23 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
           <WorkflowRow index={3} icon={LockKeyhole} title="Contrato privado" status={(item.contracts ?? []).length ? "Enviado" : "Nao enviado"} tone={(item.contracts ?? []).length ? "green" : "amber"} meta={["Upload contract", "Validacao"]} action="Upload contract" />
           <WorkflowRow index={4} icon={Users} title="Service Leader Assignment" status={missingMappings(item).length ? "Precisa de mapeamento" : "Assigned"} tone={missingMappings(item).length ? "amber" : "green"} meta={(item.service_assignments ?? []).slice(0, 4).map((assignment) => `${assignment.service}: ${assignment.leader?.name ?? "Sem responsavel"}`)} action="Salvar" />
           <WorkflowRow index={5} icon={MessageSquare} title="Support Setup" status={item.support_group?.group_created ? "Grupo criado" : "Pendente"} tone={item.support_group?.group_created ? "green" : "blue"} meta={[item.support_group?.group_name ?? "Grupo de comunicacao", item.support_group?.group_link ?? "Link pendente"]} action="Save group link" />
-          <WorkflowRow index={6} icon={ClipboardCheck} title="Marketing B2B Onboarding" status={statusFromDepartment(item, "Marketing B2B")} tone="purple" meta={["Open form", "Request missing info", "Mark as complete"]} action="Open form" />
-          <WorkflowRow index={7} icon={Palette} title="Creative & Design" status={statusFromDepartment(item, "Creative")} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${entry.title}: ${entry.status === "complete" ? "Concluido" : "Pendente"}`) : ["Brand guideline meeting", "Visita tecnica"]} action="Open creative tasks" />
-          <WorkflowRow index={8} icon={CalendarDays} title="Meetings" status={(item.meetings ?? []).every((meeting) => meeting.scheduled) ? "Agendadas" : "Nao agendada"} tone="rose" meta={(item.meetings ?? []).slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? "Agendada" : "Nao agendada"}`)} action="Save" />
+          {usesUpZero(item) ? (
+            <WorkflowRow
+              index={6}
+              icon={LockKeyhole}
+              title="UP Zero - Technical Support"
+              status={technicalItem?.status === "complete" ? "Concluido" : technicalItem?.status === "in_progress" ? "Em andamento" : "Pendente"}
+              tone={technicalItem?.status === "complete" ? "green" : "amber"}
+              meta={[
+                technicalItem?.title ?? "Configure UP Zero website",
+                `Owner: ${technicalItem?.owner?.name ?? "Technical Support mapping pending"}`,
+              ]}
+              action="Open task"
+            />
+          ) : null}
+          <WorkflowRow index={usesUpZero(item) ? 7 : 6} icon={ClipboardCheck} title="Marketing B2B Onboarding" status={upZeroBlocked ? "Bloqueado" : statusFromDepartment(item, "Marketing B2B")} tone={upZeroBlocked ? "amber" : "purple"} meta={upZeroBlocked ? ["Waiting for UP Zero website configuration by Technical Support."] : ["Open form", "Request missing info", "Mark as complete"]} action="Open form" />
+          <WorkflowRow index={usesUpZero(item) ? 8 : 7} icon={Palette} title="Creative & Design" status={statusFromDepartment(item, "Creative")} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${entry.title}: ${entry.status === "complete" ? "Concluido" : "Pendente"}`) : ["Brand guideline meeting", "Visita tecnica"]} action="Open creative tasks" />
+          <WorkflowRow index={usesUpZero(item) ? 9 : 8} icon={CalendarDays} title="Meetings" status={(item.meetings ?? []).every((meeting) => meeting.scheduled) ? "Agendadas" : "Nao agendada"} tone="rose" meta={(item.meetings ?? []).slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? "Agendada" : "Nao agendada"}`)} action="Save" />
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
@@ -291,8 +341,8 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
         </section>
         <section className="rounded-2xl border border-blue-500/35 bg-blue-500/10 p-5">
           <h4 className="flex items-center gap-2 font-black text-white"><Rocket className="h-4 w-4 text-blue-300" /> Next action</h4>
-          <p className="mt-4 font-black text-white">{next?.title ?? "Ready to start"}</p>
-          <p className="mt-1 text-sm text-slate-300">{next ? "Complete this step to unlock the next onboarding stage." : "All required onboarding steps are complete."}</p>
+          <p className="mt-4 font-black text-white">{upZeroBlocked ? "Configure UP Zero website" : next?.title ?? "Ready to start"}</p>
+          <p className="mt-1 text-sm text-slate-300">{upZeroBlocked ? "Waiting for UP Zero website configuration by Technical Support." : next ? "Complete this step to unlock the next onboarding stage." : "All required onboarding steps are complete."}</p>
           <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-white">Open Workflow</Link>
         </section>
       </aside>

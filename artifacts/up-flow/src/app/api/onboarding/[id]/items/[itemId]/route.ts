@@ -3,7 +3,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { getOnboardingCompletionBlocker, loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
+import {
+  getOnboardingCompletionBlocker,
+  getOnboardingTaskStartBlocker,
+  loadOnboardingAccess,
+  recomputeOnboardingProgress,
+  syncOnboardingChecklistFromTaskStatus,
+} from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const ItemSchema = z.object({
@@ -25,7 +31,14 @@ async function PATCH_handler(
 
   const item = await prisma.onboardingChecklistItem.findFirst({
     where: { id: params.itemId, onboarding_id: params.id },
-    select: { id: true, department: true, owner_id: true, title: true },
+    select: {
+      id: true,
+      department: true,
+      owner_id: true,
+      title: true,
+      task_id: true,
+      automation_key: true,
+    },
   });
   if (!item) return NextResponse.json({ error: "Item not found" }, { status: 404 });
   if (!access.canUpdateChecklistItem(item)) {
@@ -51,8 +64,12 @@ async function PATCH_handler(
     const blocker = await getOnboardingCompletionBlocker(prisma, params.id, item);
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
+  if (parsed.data.status === "in_progress" && item.task_id) {
+    const blocker = await getOnboardingTaskStartBlocker(prisma, item.task_id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  }
 
-  const updated = await prisma.$transaction(async (tx) => {
+  let updated = await prisma.$transaction(async (tx) => {
     await tx.onboardingChecklistItem.update({
       where: { id: params.itemId },
       data: {
@@ -69,6 +86,17 @@ async function PATCH_handler(
     });
     return recomputeOnboardingProgress(tx, params.id);
   });
+
+  if (parsed.data.status && item.task_id) {
+    const taskStatus = parsed.data.status === "complete" ? "done" : parsed.data.status === "in_progress" ? "in_progress" : "todo";
+    await prisma.task.update({ where: { id: item.task_id }, data: { status: taskStatus } });
+    const synced = await syncOnboardingChecklistFromTaskStatus(prisma, {
+      taskId: item.task_id,
+      status: taskStatus,
+      actorId: auth.prismaUser.id,
+    });
+    if (synced.linked && !synced.blocked) updated = synced.onboarding;
+  }
 
   await recordActivity({
     workspace_id: updated.workspace_id,

@@ -256,6 +256,7 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     ).toBeTruthy();
 
     const company = (await companyResponse.json()) as {
+      id: string;
       onboarding_id: string;
       created_onboarding_tasks: Array<{ id: string; title: string; project_id: string }>;
     };
@@ -264,6 +265,7 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     const createdTitles = company.created_onboarding_tasks.map((task) => task.title);
     expect(createdTitles.filter((title) => title.startsWith("Vesti: "))).toHaveLength(10);
     expect(createdTitles.filter((title) => title.startsWith("UP Zero: "))).toHaveLength(9);
+    expect(createdTitles.filter((title) => title === "Configure UP Zero website")).toHaveLength(1);
     expect(createdTitles).toEqual(
       expect.arrayContaining([
         "Vesti: Criar grupo de WhatsApp e capa",
@@ -295,14 +297,34 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
       `onboarding read failed: ${onboardingResponse.status()} ${await onboardingResponse.text()}`,
     ).toBeTruthy();
     const onboarding = (await onboardingResponse.json()) as {
+      sequence_status: string;
+      commercial_completed_at: string | null;
+      technical_support_started_at: string | null;
+      up_zero_configuration_completed_at: string | null;
+      marketing_b2b_released_at: string | null;
       checklist_items: Array<{
         id: string;
         title: string;
         department: string;
-        task: { id: string } | null;
+        automation_key: string | null;
+        status: string;
+        owner: { id: string; name: string } | null;
+        task: { id: string; project_id: string } | null;
       }>;
       meetings: Array<{ service: string; checklist_item_id: string }>;
     };
+    expect(onboarding.sequence_status).toBe("technical_support_pending");
+    expect(onboarding.commercial_completed_at).toBeTruthy();
+    expect(onboarding.technical_support_started_at).toBeTruthy();
+    expect(onboarding.up_zero_configuration_completed_at).toBeNull();
+    expect(onboarding.marketing_b2b_released_at).toBeNull();
+    const technicalItem = onboarding.checklist_items.find(
+      (item) => item.automation_key === "up_zero_website_configuration",
+    );
+    expect(technicalItem?.title).toBe("Configure UP Zero website");
+    expect(technicalItem?.department).toBe("Technical Support");
+    expect(technicalItem?.owner?.id).toBeTruthy();
+    expect(technicalItem?.task?.id).toBeTruthy();
     const vestiItems = onboarding.checklist_items.filter((item) => item.title.startsWith("Vesti: "));
     const upZeroItems = onboarding.checklist_items.filter((item) => item.title.startsWith("UP Zero: "));
     expect(vestiItems).toHaveLength(10);
@@ -315,6 +337,95 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     expect(upZeroMeeting?.checklist_item_id).toBeTruthy();
     expect(vestiItems.some((item) => item.id === vestiMeeting?.checklist_item_id)).toBe(true);
     expect(upZeroItems.some((item) => item.id === upZeroMeeting?.checklist_item_id)).toBe(true);
+
+    const blockedFormResponse = await api.get(
+      `/api/onboarding/marketing-b2b-form/${b2bFormTask?.id}`,
+    );
+    expect(blockedFormResponse.ok()).toBeTruthy();
+    const blockedForm = (await blockedFormResponse.json()) as {
+      can_edit: boolean;
+      up_zero_dependency: { blocked: boolean; message: string; current_department: string };
+    };
+    expect(blockedForm.can_edit).toBe(false);
+    expect(blockedForm.up_zero_dependency).toMatchObject({
+      blocked: true,
+      message: "Waiting for UP Zero website configuration by Technical Support.",
+      current_department: "Technical Support",
+    });
+
+    const blockedEditResponse = await api.patch(
+      `/api/onboarding/marketing-b2b-form/${b2bFormTask?.id}`,
+      { data: { field: "brand.name", value: "must remain blocked" } },
+    );
+    expect(blockedEditResponse.status()).toBe(409);
+
+    const repeatUpZeroSyncResponse = await api.patch(`/api/companies/${company.id}`, {
+      data: { included_services: ["Vesti", "UP Zero"] },
+    });
+    expect(repeatUpZeroSyncResponse.ok()).toBeTruthy();
+    const repeatUpZeroSync = (await repeatUpZeroSyncResponse.json()) as {
+      synced_onboarding_tasks: Array<{ title: string }>;
+    };
+    expect(
+      repeatUpZeroSync.synced_onboarding_tasks.filter(
+        (task) => task.title === "Configure UP Zero website",
+      ),
+    ).toHaveLength(0);
+
+    const startTechnicalResponse = await api.patch(`/api/tasks/${technicalItem?.task?.id}`, {
+      data: { status: "in_progress" },
+    });
+    expect(
+      startTechnicalResponse.ok(),
+      `starting UP Zero configuration failed: ${startTechnicalResponse.status()} ${await startTechnicalResponse.text()}`,
+    ).toBeTruthy();
+    const startedOnboardingResponse = await api.get(`/api/onboarding/${company.onboarding_id}`);
+    expect(startedOnboardingResponse.ok()).toBeTruthy();
+    expect(((await startedOnboardingResponse.json()) as { sequence_status: string }).sequence_status).toBe(
+      "up_zero_configuration_in_progress",
+    );
+
+    const completeTechnicalResponse = await api.patch(`/api/tasks/${technicalItem?.task?.id}`, {
+      data: { status: "done" },
+    });
+    expect(
+      completeTechnicalResponse.ok(),
+      `completing UP Zero configuration failed: ${completeTechnicalResponse.status()} ${await completeTechnicalResponse.text()}`,
+    ).toBeTruthy();
+
+    const releasedOnboardingResponse = await api.get(`/api/onboarding/${company.onboarding_id}`);
+    expect(releasedOnboardingResponse.ok()).toBeTruthy();
+    const releasedOnboarding = (await releasedOnboardingResponse.json()) as {
+      sequence_status: string;
+      up_zero_configuration_completed_at: string | null;
+      marketing_b2b_released_at: string | null;
+    };
+    expect(releasedOnboarding.sequence_status).toBe("marketing_b2b_ready");
+    expect(releasedOnboarding.up_zero_configuration_completed_at).toBeTruthy();
+    expect(releasedOnboarding.marketing_b2b_released_at).toBeTruthy();
+
+    const releasedFormResponse = await api.get(
+      `/api/onboarding/marketing-b2b-form/${b2bFormTask?.id}`,
+    );
+    expect(releasedFormResponse.ok()).toBeTruthy();
+    const releasedForm = (await releasedFormResponse.json()) as {
+      can_edit: boolean;
+      up_zero_dependency: { blocked: boolean; message: string | null };
+    };
+    expect(releasedForm.can_edit).toBe(true);
+    expect(releasedForm.up_zero_dependency).toMatchObject({ blocked: false, message: null });
+
+    const activityResponse = await api.get(`/api/activity?company_id=${company.id}&limit=100`);
+    expect(activityResponse.ok()).toBeTruthy();
+    const activity = (await activityResponse.json()) as { items: Array<{ type: string }> };
+    expect(activity.items.map((event) => event.type)).toEqual(
+      expect.arrayContaining([
+        "up_zero_technical_support_activated",
+        "up_zero_configuration_started",
+        "up_zero_configuration_completed",
+        "marketing_b2b_released",
+      ]),
+    );
 
     const laterCompanyResponse = await api.post("/api/companies", {
       data: {
@@ -332,7 +443,36 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     const laterB2BProjectId = laterCompany.created_onboarding_tasks.find(
       (task) => task.title === "Marketing B2B onboarding form",
     )?.project_id;
+    const laterB2BTaskId = laterCompany.created_onboarding_tasks.find(
+      (task) => task.title === "Marketing B2B onboarding form",
+    )?.id;
     expect(laterB2BProjectId).toBeTruthy();
+
+    const directOnboardingResponse = await api.get(`/api/onboarding/${laterCompany.onboarding_id}`);
+    expect(directOnboardingResponse.ok()).toBeTruthy();
+    const directOnboarding = (await directOnboardingResponse.json()) as {
+      sequence_status: string;
+      marketing_b2b_released_at: string | null;
+      checklist_items: Array<{ automation_key: string | null }>;
+    };
+    expect(directOnboarding.sequence_status).toBe("marketing_b2b_ready");
+    expect(directOnboarding.marketing_b2b_released_at).toBeTruthy();
+    expect(
+      directOnboarding.checklist_items.some(
+        (item) => item.automation_key === "up_zero_website_configuration",
+      ),
+    ).toBe(false);
+
+    const directFormResponse = await api.get(
+      `/api/onboarding/marketing-b2b-form/${laterB2BTaskId}`,
+    );
+    expect(directFormResponse.ok()).toBeTruthy();
+    const directForm = (await directFormResponse.json()) as {
+      can_edit: boolean;
+      up_zero_dependency: { uses_up_zero: boolean; blocked: boolean };
+    };
+    expect(directForm.can_edit).toBe(true);
+    expect(directForm.up_zero_dependency).toMatchObject({ uses_up_zero: false, blocked: false });
 
     const addVestiResponse = await api.patch(`/api/companies/${laterCompany.id}`, {
       data: { included_services: ["Meta Ads", "Vesti"] },
@@ -371,6 +511,88 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     };
     expect(repeatedSync.synced_onboarding_tasks).toHaveLength(0);
     expect(repeatedSync.moved_onboarding_tasks).toBe(0);
+  } finally {
+    await api.dispose();
+  }
+});
+
+test("UP Zero Marketing B2B dependency requires an audited admin override reason", async ({
+  baseURL,
+}) => {
+  expect(baseURL).toBeTruthy();
+  const api = await apiAs(baseURL!, SEEDED.admin.email);
+
+  try {
+    const companyResponse = await api.post("/api/companies", {
+      data: {
+        name: uniq("UP Zero override company"),
+        included_services: ["UP Zero"],
+        start_onboarding: true,
+      },
+    });
+    expect(companyResponse.ok()).toBeTruthy();
+    const company = (await companyResponse.json()) as {
+      id: string;
+      onboarding_id: string;
+      created_onboarding_tasks: Array<{ id: string; title: string }>;
+    };
+    const formTask = company.created_onboarding_tasks.find(
+      (task) => task.title === "Marketing B2B onboarding form",
+    );
+    expect(formTask?.id).toBeTruthy();
+
+    const missingReasonResponse = await api.patch(`/api/onboarding/${company.onboarding_id}`, {
+      data: { marketing_b2b_dependency_override: { reason: "short" } },
+    });
+    expect(missingReasonResponse.status()).toBe(400);
+
+    const reason = "Approved by operations because the client launch cannot move.";
+    const overrideResponse = await api.patch(`/api/onboarding/${company.onboarding_id}`, {
+      data: { marketing_b2b_dependency_override: { reason } },
+    });
+    expect(
+      overrideResponse.ok(),
+      `override failed: ${overrideResponse.status()} ${await overrideResponse.text()}`,
+    ).toBeTruthy();
+
+    const onboardingResponse = await api.get(`/api/onboarding/${company.onboarding_id}`);
+    expect(onboardingResponse.ok()).toBeTruthy();
+    const onboarding = (await onboardingResponse.json()) as {
+      sequence_status: string;
+      marketing_b2b_released_at: string | null;
+      marketing_b2b_dependency_override_reason: string | null;
+      marketing_b2b_dependency_overridden_at: string | null;
+    };
+    expect(onboarding.sequence_status).toBe("marketing_b2b_ready");
+    expect(onboarding.marketing_b2b_released_at).toBeTruthy();
+    expect(onboarding.marketing_b2b_dependency_override_reason).toBe(reason);
+    expect(onboarding.marketing_b2b_dependency_overridden_at).toBeTruthy();
+
+    const formResponse = await api.get(`/api/onboarding/marketing-b2b-form/${formTask?.id}`);
+    expect(formResponse.ok()).toBeTruthy();
+    const form = (await formResponse.json()) as {
+      can_edit: boolean;
+      up_zero_dependency: { blocked: boolean; overridden: boolean; override_reason: string };
+    };
+    expect(form.can_edit).toBe(true);
+    expect(form.up_zero_dependency).toMatchObject({
+      blocked: false,
+      overridden: true,
+      override_reason: reason,
+    });
+
+    const activityResponse = await api.get(`/api/activity?company_id=${company.id}&limit=100`);
+    expect(activityResponse.ok()).toBeTruthy();
+    const activity = (await activityResponse.json()) as {
+      items: Array<{ type: string; metadata: { reason?: string } | null }>;
+    };
+    expect(
+      activity.items.some(
+        (event) =>
+          event.type === "marketing_b2b_dependency_overridden" &&
+          event.metadata?.reason === reason,
+      ),
+    ).toBe(true);
   } finally {
     await api.dispose();
   }
