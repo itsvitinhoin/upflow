@@ -30,6 +30,8 @@ interface Props {
   onTaskClick: (task: Task) => void;
   onAddTask: (groupKey?: string) => void;
   onUpdate: () => void;
+  selectedTaskIds?: Set<string>;
+  onToggleTaskSelection?: (taskId: string) => void;
 }
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
@@ -52,6 +54,8 @@ export default function ListView({
   onTaskClick,
   onAddTask,
   onUpdate,
+  selectedTaskIds,
+  onToggleTaskSelection,
 }: Props) {
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -153,6 +157,7 @@ export default function ListView({
                   const valueMap = new Map(
                     (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
                   );
+                  const isSelected = selectedTaskIds?.has(task.id) ?? false;
                   return (
                     <div
                       key={task.id}
@@ -163,6 +168,16 @@ export default function ListView({
                         className="px-2 flex items-center gap-2 cursor-pointer min-w-0 sticky left-0 bg-card group-hover:bg-muted/30"
                         onClick={() => onTaskClick(task)}
                       >
+                        {onToggleTaskSelection && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => onToggleTaskSelection(task.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label={t("task.selectTask", { title: task.title })}
+                            className="h-4 w-4 flex-shrink-0 rounded border-border bg-background text-blue-500 focus:ring-2 focus:ring-blue-400"
+                          />
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

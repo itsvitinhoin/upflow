@@ -10,6 +10,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
+import { deleteTasksByIds } from "@/lib/task-delete";
 import {
   canAssignUserToProject,
   canContributeToProject,
@@ -298,6 +299,70 @@ async function postHandler(req: NextRequest) {
   return NextResponse.json(task, { status: 201 });
 }
 
+async function deleteHandler(req: NextRequest) {
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
+
+  const body = (await req.json().catch(() => null)) as { ids?: unknown } | null;
+  if (!Array.isArray(body?.ids)) {
+    return NextResponse.json({ error: "ids must be an array" }, { status: 400 });
+  }
+
+  const ids = Array.from(
+    new Set(
+      body.ids
+        .filter((id): id is string => typeof id === "string")
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  );
+  if (ids.length === 0) {
+    return NextResponse.json({ error: "Select at least one task" }, { status: 400 });
+  }
+  if (ids.length > 200) {
+    return NextResponse.json({ error: "Delete up to 200 tasks at once" }, { status: 400 });
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      title: true,
+      project_id: true,
+      company_id: true,
+      project: { select: { id: true, workspace_id: true, owner_id: true } },
+    },
+  });
+  if (tasks.length !== ids.length) {
+    return NextResponse.json({ error: "One or more tasks were not found" }, { status: 404 });
+  }
+
+  const projects = new Map(tasks.map((task) => [task.project.id, task.project]));
+  for (const project of projects.values()) {
+    if (!(await canContributeToProject(auth, project))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
+  for (const task of tasks) {
+    await recordActivity({
+      workspace_id: task.project.workspace_id,
+      actor_id: auth.prismaUser.id,
+      type: "task_deleted",
+      entity_type: "task",
+      entity_id: task.id,
+      project_id: task.project_id,
+      task_id: task.id,
+      company_id: task.company_id,
+      metadata: { title: task.title, bulk_deleted: true },
+    });
+  }
+
+  const deleted = await prisma.$transaction((tx) => deleteTasksByIds(tx, ids));
+  return NextResponse.json({ success: true, deleted });
+}
+
 export const GET = withErrorReporting("api:tasks:GET", getHandler);
 export const POST = withErrorReporting("api:tasks:POST", postHandler);
-
+export const DELETE = withErrorReporting("api:tasks:DELETE", deleteHandler);

@@ -9,6 +9,7 @@ import { broadcastNotification } from "@/lib/supabase-server";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
+import { deleteTasksByIds } from "@/lib/task-delete";
 import {
   getOnboardingTaskCompletionBlocker,
   loadOnboardingAccess,
@@ -362,8 +363,8 @@ async function DELETE_handler(
     task_id: task.id,
     metadata: { title: task.title },
   });
-  await prisma.task.delete({ where: { id: params.id } });
-  return NextResponse.json({ success: true });
+  const deleted = await prisma.$transaction((tx) => deleteTasksByIds(tx, [params.id]));
+  return NextResponse.json({ success: true, deleted });
 }
 export const GET = withErrorReporting("api:tasks/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:tasks/id:PATCH", PATCH_handler);

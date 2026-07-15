@@ -9,6 +9,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { canReadProject } from "@/lib/project-access";
+import { deleteProjectsByIds } from "@/lib/project-delete";
 import { z } from "zod";
 
 const UpdateProjectSchema = z.object({
@@ -190,135 +191,7 @@ async function DELETE_handler(
   }
 
   const result = await prisma.$transaction(async (tx) => {
-    const [tasks, docs] = await Promise.all([
-      tx.task.findMany({
-        where: { project_id: project.id },
-        select: { id: true },
-      }),
-      tx.doc.findMany({
-        where: { project_id: project.id },
-        select: { id: true },
-      }),
-    ]);
-    const taskIds = tasks.map((task) => task.id);
-    const docIds = docs.map((doc) => doc.id);
-    const approvalEntityIds = [project.id, ...taskIds, ...docIds];
-
-    const approvalRequests = await tx.approvalRequest.findMany({
-      where: {
-        workspace_id: project.workspace_id,
-        entity_id: { in: approvalEntityIds },
-        entity_type: { in: ["project", "task", "doc", "report", "campaign", "deliverable"] },
-      },
-      select: { id: true },
-    });
-    const approvalIds = approvalRequests.map((approval) => approval.id);
-
-    const deleted = {
-      approval_events: approvalIds.length
-        ? (await tx.approvalEvent.deleteMany({
-            where: { approval_id: { in: approvalIds } },
-          })).count
-        : 0,
-      approval_requests: approvalIds.length
-        ? (await tx.approvalRequest.deleteMany({
-            where: { id: { in: approvalIds } },
-          })).count
-        : 0,
-      notifications: taskIds.length
-        ? (await tx.notification.deleteMany({
-            where: { task_id: { in: taskIds } },
-          })).count
-        : 0,
-      time_entries: (await tx.timeEntry.deleteMany({
-        where: {
-          OR: [
-            { project_id: project.id },
-            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
-          ],
-        },
-      })).count,
-      calendar_events: (await tx.calendarEvent.deleteMany({
-        where: {
-          OR: [
-            { project_id: project.id },
-            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
-          ],
-        },
-      })).count,
-      recurring_rules: (await tx.recurringTaskRule.deleteMany({
-        where: {
-          OR: [
-            { project_id: project.id },
-            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
-          ],
-        },
-      })).count,
-      onboarding_task_links: taskIds.length
-        ? (await tx.onboardingChecklistItem.updateMany({
-            where: { task_id: { in: taskIds } },
-            data: { task_id: null },
-          })).count
-        : 0,
-      client_onboardings: (await tx.clientOnboarding.updateMany({
-        where: { project_id: project.id },
-        data: { project_id: null },
-      })).count,
-      client_contracts: (await tx.clientContract.updateMany({
-        where: { project_id: project.id },
-        data: { project_id: null },
-      })).count,
-      task_dependencies: taskIds.length
-        ? (await tx.taskDependency.deleteMany({
-            where: {
-              OR: [
-                { task_id: { in: taskIds } },
-                { depends_on_id: { in: taskIds } },
-              ],
-            },
-          })).count
-        : 0,
-      comments: taskIds.length
-        ? (await tx.comment.deleteMany({
-            where: { task_id: { in: taskIds } },
-          })).count
-        : 0,
-      custom_field_values: taskIds.length
-        ? (await tx.customFieldValue.deleteMany({
-            where: { task_id: { in: taskIds } },
-          })).count
-        : 0,
-      custom_fields: (await tx.customFieldDefinition.deleteMany({
-        where: { project_id: project.id },
-      })).count,
-      workflow_statuses: (await tx.workflowStatus.deleteMany({
-        where: { project_id: project.id },
-      })).count,
-      project_members: (await tx.projectMember.deleteMany({
-        where: { project_id: project.id },
-      })).count,
-      docs: (await tx.doc.deleteMany({
-        where: { project_id: project.id },
-      })).count,
-      activity_events: (await tx.activityEvent.deleteMany({
-        where: {
-          workspace_id: project.workspace_id,
-          OR: [
-            { project_id: project.id },
-            { entity_type: "project", entity_id: project.id },
-            ...(taskIds.length ? [{ task_id: { in: taskIds } }] : []),
-            ...(taskIds.length ? [{ entity_type: "task", entity_id: { in: taskIds } }] : []),
-            ...(docIds.length ? [{ entity_type: "doc", entity_id: { in: docIds } }] : []),
-          ],
-        },
-      })).count,
-      tasks: (await tx.task.deleteMany({
-        where: { project_id: project.id },
-      })).count,
-      projects: (await tx.project.deleteMany({
-        where: { id: project.id },
-      })).count,
-    };
+    const deleted = await deleteProjectsByIds(tx, [project]);
 
     if (deleted.projects !== 1) {
       throw new Error("Project delete did not remove the project row");
@@ -331,7 +204,7 @@ async function DELETE_handler(
         type: "project_deleted",
         entity_type: "project",
         entity_id: project.id,
-        metadata: { name: project.name, deleted },
+        metadata: { name: project.name, deleted: { ...deleted } },
       },
     });
 

@@ -25,6 +25,8 @@ interface KanbanBoardProps {
   onUpdate: () => void;
   onAddTask: (status: ColumnKey, customFieldValues?: Record<string, unknown>) => void;
   onOpenTask?: (task: Task) => void;
+  selectedTaskIds?: Set<string>;
+  onToggleTaskSelection?: (taskId: string) => void;
 }
 
 const COLUMNS = [
@@ -66,6 +68,8 @@ export default function KanbanBoard({
   onUpdate,
   onAddTask,
   onOpenTask,
+  selectedTaskIds,
+  onToggleTaskSelection,
 }: KanbanBoardProps) {
   const { t } = useLanguage();
   const rhBoardField = customFields.find(
@@ -291,6 +295,7 @@ export default function KanbanBoard({
                       const valueMap = new Map(
                         (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
                       );
+                      const isSelected = selectedTaskIds?.has(task.id) ?? false;
                       return (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
                           {(provided, snapshot) => {
@@ -346,6 +351,17 @@ export default function KanbanBoard({
                                 </div>
                               )}
                               <div className="flex items-start gap-2">
+                                {onToggleTaskSelection && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => onToggleTaskSelection(task.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    aria-label={t("task.selectTask", { title: task.title })}
+                                    className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-white/20 bg-[#030712] text-blue-500 focus:ring-2 focus:ring-blue-400"
+                                  />
+                                )}
                                 <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">
                                   {task.title}
                                 </p>

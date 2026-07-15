@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, FileText } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
 import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
@@ -88,6 +88,7 @@ export default function ProjectPage() {
   const [createOpen, setCreateOpen] = useState<CreateTaskDefaults | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [toolbar, setToolbar] = useState<ToolbarState>(DEFAULT_TOOLBAR);
 
   const loadData = async () => {
@@ -149,6 +150,14 @@ export default function ProjectPage() {
     setSelectedTask(task);
   }, [focusedTaskId, id, loading, router, tasks, viewParam]);
 
+  useEffect(() => {
+    const liveTaskIds = new Set(tasks.map((task) => task.id));
+    setSelectedTaskIds((current) => {
+      const next = current.filter((taskId) => liveTaskIds.has(taskId));
+      return next.length === current.length ? current : next;
+    });
+  }, [tasks]);
+
   const workflowFormTask = useMemo(() => {
     const focused = focusedTaskId ? tasks.find((task) => task.id === focusedTaskId) : null;
     if (focused && workflowFormKind(focused)) return focused;
@@ -156,6 +165,7 @@ export default function ProjectPage() {
   }, [focusedTaskId, tasks]);
   const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
   const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
+  const selectedTaskIdSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds]);
 
   const canManageFields = useMemo(() => {
     if (!me) return false;
@@ -192,6 +202,39 @@ export default function ProjectPage() {
       return;
     }
     setSelectedTask(task);
+  };
+
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedTaskIds((current) =>
+      current.includes(taskId)
+        ? current.filter((id) => id !== taskId)
+        : [...current, taskId],
+    );
+  };
+
+  const handleDeleteSelectedTasks = async () => {
+    if (selectedTaskIds.length === 0) return;
+    if (!confirm(t("task.bulkDeleteConfirm", { count: selectedTaskIds.length }))) return;
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedTaskIds }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("task.failedDelete"));
+      }
+      const deletedCount = selectedTaskIds.length;
+      setSelectedTaskIds([]);
+      setSelectedTask((current) =>
+        current && selectedTaskIds.includes(current.id) ? null : current,
+      );
+      await loadData();
+      toast.success(t("task.bulkDeleteSuccess", { count: deletedCount }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("task.failedDelete"));
+    }
   };
 
   const workflowFormTabLabel =
@@ -326,6 +369,32 @@ export default function ProjectPage() {
               users={users}
             />
 
+            {selectedTaskIds.length > 0 && (
+              <div className="mb-3 flex flex-col gap-3 rounded-xl border border-blue-300/15 bg-[#071024]/85 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:flex-row sm:items-center sm:justify-between">
+                <span className="text-sm font-semibold text-foreground">
+                  {t("task.bulkSelected", { count: selectedTaskIds.length })}
+                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTaskIds([])}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                    {t("common.clear")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedTasks}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t("task.deleteSelected")}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {toolbar.view === "board" ? (
               <KanbanBoard
                 projectId={id}
@@ -336,6 +405,8 @@ export default function ProjectPage() {
                 onUpdate={loadData}
                 onAddTask={(status, fieldValues) => setCreateOpen({ status, fieldValues })}
                 onOpenTask={handleOpenTask}
+                selectedTaskIds={selectedTaskIdSet}
+                onToggleTaskSelection={toggleTaskSelection}
               />
             ) : (
               <ListView
@@ -347,6 +418,8 @@ export default function ProjectPage() {
                 onTaskClick={handleOpenTask}
                 onAddTask={handleAddTask}
                 onUpdate={loadData}
+                selectedTaskIds={selectedTaskIdSet}
+                onToggleTaskSelection={toggleTaskSelection}
               />
             )}
           </>

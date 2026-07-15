@@ -11,9 +11,16 @@ function read(rel: string) {
 
 test("projects and clients expose card delete actions backed by DELETE routes", () => {
   const projectsPage = read("src/app/(dashboard)/projects/page.tsx");
+  const projectDetailPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const clientsPage = read("src/app/(dashboard)/clients/page.tsx");
   const projectRoute = read("src/app/api/projects/[id]/route.ts");
+  const folderRoute = read("src/app/api/folders/[id]/route.ts");
+  const tasksRoute = read("src/app/api/tasks/route.ts");
   const companyRoute = read("src/app/api/companies/[id]/route.ts");
+  const projectDelete = read("src/lib/project-delete.ts");
+  const taskDelete = read("src/lib/task-delete.ts");
+  const kanbanBoard = read("src/components/projects/kanban-board.tsx");
+  const listView = read("src/components/projects/list-view.tsx");
   const sidebarProjectRow = read("src/components/layout/sidebar/project-row.tsx");
   const sidebarTree = read("src/components/layout/sidebar/space-tree.tsx");
 
@@ -24,19 +31,35 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectsPage, /setProjects\(\(current\) =>\s*current\.filter/);
   assert.match(projectsPage, /t\("projects\.deleted"\)/);
   assert.match(projectRoute, /prisma\.\$transaction/);
-  assert.match(projectRoute, /taskDependency\.deleteMany/);
-  assert.match(projectRoute, /notification\.deleteMany/);
-  assert.match(projectRoute, /timeEntry\.deleteMany/);
-  assert.match(projectRoute, /calendarEvent\.deleteMany/);
-  assert.match(projectRoute, /approvalRequest\.deleteMany/);
-  assert.match(projectRoute, /activityEvent\.deleteMany/);
-  assert.match(projectRoute, /onboardingChecklistItem\.updateMany/);
-  assert.match(projectRoute, /clientOnboarding\.updateMany/);
-  assert.match(projectRoute, /clientContract\.updateMany/);
-  assert.match(projectRoute, /project\.deleteMany/);
+  assert.match(projectRoute, /deleteProjectsByIds/);
+  assert.match(projectDelete, /deleteTasksByIds/);
+  assert.match(taskDelete, /collectTaskDescendantIds/);
+  assert.match(taskDelete, /taskDependency\.deleteMany/);
+  assert.match(taskDelete, /notification\.deleteMany/);
+  assert.match(taskDelete, /timeEntry\.deleteMany/);
+  assert.match(taskDelete, /calendarEvent\.deleteMany/);
+  assert.match(projectDelete, /approvalRequest\.deleteMany/);
+  assert.match(projectDelete, /activityEvent\.deleteMany/);
+  assert.match(taskDelete, /onboardingChecklistItem\.updateMany/);
+  assert.match(projectDelete, /clientOnboarding\.updateMany/);
+  assert.match(projectDelete, /clientContract\.updateMany/);
+  assert.match(projectDelete, /project\.deleteMany/);
   assert.match(projectRoute, /deleted\.projects !== 1/);
   assert.match(projectRoute, /workspace_id:\s*project\.workspace_id/);
   assert.match(projectRoute, /deleted:\s*result/);
+  assert.match(folderRoute, /getDescendantFolderIds/);
+  assert.match(folderRoute, /deleteProjectsByIds/);
+  assert.match(folderRoute, /folder\.deleteMany/);
+  assert.doesNotMatch(folderRoute, /promoted_children/);
+  assert.match(tasksRoute, /async function deleteHandler/);
+  assert.match(tasksRoute, /ids\.length > 200/);
+  assert.match(tasksRoute, /deleteTasksByIds/);
+  assert.match(tasksRoute, /export const DELETE = withErrorReporting\("api:tasks:DELETE", deleteHandler\)/);
+  assert.match(projectDetailPage, /selectedTaskIds/);
+  assert.match(projectDetailPage, /task\.deleteSelected/);
+  assert.match(projectDetailPage, /fetch\("\/api\/tasks"/);
+  assert.match(kanbanBoard, /onToggleTaskSelection/);
+  assert.match(listView, /onToggleTaskSelection/);
   assert.match(sidebarProjectRow, /new CustomEvent\("upflow:sidebar-refresh"\)/);
   assert.match(sidebarTree, /onDeleted=\{\(\) => loadPanel\(\{ force: true \}\)\}/);
 

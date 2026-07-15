@@ -6,7 +6,8 @@ import {
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { buildFolderTree, wouldCreateFolderCycle } from "@/lib/folder-tree";
+import { buildFolderTree, getDescendantFolderIds, wouldCreateFolderCycle } from "@/lib/folder-tree";
+import { deleteProjectsByIds } from "@/lib/project-delete";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type FolderTreeNode = ReturnType<typeof buildFolderTree>[number];
@@ -194,16 +195,31 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.folder.updateMany({
-      where: { parent_id: folder.id, workspace_id: folder.workspace_id },
-      data: { parent_id: folder.parent_id },
+  const deleted = await prisma.$transaction(async (tx) => {
+    const allFolders = await tx.folder.findMany({
+      where: { workspace_id: folder.workspace_id, space_id: folder.space_id },
+      select: { id: true, parent_id: true },
     });
-    await tx.project.updateMany({
-      where: { folder_id: folder.id, workspace_id: folder.workspace_id },
-      data: { folder_id: folder.parent_id },
+    const folderIds = [folder.id, ...getDescendantFolderIds(allFolders, folder.id)];
+    const projects = await tx.project.findMany({
+      where: {
+        workspace_id: folder.workspace_id,
+        folder_id: { in: folderIds },
+      },
+      select: { id: true, workspace_id: true },
     });
-    await tx.folder.delete({ where: { id: params.id } });
+    const projectDeletes = await deleteProjectsByIds(tx, projects);
+    const folderDeletes = await tx.folder.deleteMany({
+      where: { id: { in: folderIds }, workspace_id: folder.workspace_id },
+    });
+
+    return {
+      folders: folderDeletes.count,
+      lists: projectDeletes.projects,
+      projects: projectDeletes.projects,
+      nested_folders: Math.max(folderDeletes.count - 1, 0),
+      project_records: { ...projectDeletes },
+    };
   });
   await recordActivity({
     workspace_id: folder.workspace_id,
@@ -214,10 +230,11 @@ async function DELETE_handler(
     metadata: {
       name: folder.name,
       parent_id: folder.parent_id,
-      promoted_children: true,
+      recursive_delete: true,
+      deleted,
     },
   });
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, deleted });
 }
 export const GET = withErrorReporting("api:folders/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:folders/id:PATCH", PATCH_handler);
