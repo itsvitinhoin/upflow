@@ -143,9 +143,9 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await brandSection.getByLabel("Endereço completo").nth(1).fill("Rua da Fábrica, 200");
 
     await brandSection.getByRole("button", { name: "Adicionar concorrente" }).click();
-    await brandSection.getByLabel("Nome", { exact: true }).fill(competitorName);
-    await brandSection.getByLabel("Instagram", { exact: true }).last().fill("@concorrente");
-    await brandSection.getByLabel("Site", { exact: true }).fill("https://concorrente.example");
+    await brandSection.getByPlaceholder("Ex.: Namine").fill(competitorName);
+    await brandSection.getByPlaceholder("@concorrente ou URL").fill("@concorrente");
+    await brandSection.getByPlaceholder("https://...").fill("https://concorrente.example");
     await brandSection.getByRole("button", { name: "Salvar", exact: true }).click();
     await expect(
       brandSection.getByRole("button", { name: /Editar se/ }),
