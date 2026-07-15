@@ -84,7 +84,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(taskDetailRoute, /marketing_b2c_onboarding_form/);
   assert.match(kanbanBoard, /MarketingB2COnboardingForm/);
   assert.match(projectPage, /MarketingB2COnboardingForm/);
-  assert.match(projectPage, /project\.onboarding_enabled && \([\s\S]*<ClientOnboardingPanel/);
+  assert.doesNotMatch(projectPage, /ClientOnboardingPanel/);
 
   assert.match(wizardRoute, /responsible_department_id/);
   assert.match(wizardRoute, /responsibleDepartmentName/);

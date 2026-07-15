@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { ArrowLeft, Plus, FileText, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
-import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
 import ListView from "@/components/projects/list-view";
@@ -304,12 +303,6 @@ export default function ProjectPage() {
             </div>
           </div>
         </div>
-
-        {project.onboarding_enabled && (
-          <div className="mb-5">
-            <ClientOnboardingPanel projectId={id} companyId={project.company_id} onChanged={loadData} />
-          </div>
-        )}
 
         {workflowFormTask && currentWorkflowKind && (
           <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-blue-300/10">

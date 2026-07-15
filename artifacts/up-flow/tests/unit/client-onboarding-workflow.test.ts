@@ -48,7 +48,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(onboardingListRoute, /OR:[\s\S]*company_id: projectCompanyId/);
   assert.match(onboardingPanel, /params\.set\("company_id", companyId\)/);
   assert.match(onboardingPanel, /params\.set\("project_id", projectId\)/);
-  assert.match(projectPage, /project\.onboarding_enabled && \([\s\S]*<ClientOnboardingPanel/);
+  assert.doesNotMatch(projectPage, /ClientOnboardingPanel/);
   assert.match(updateRoute, /completion_override/);
   assert.match(updateRoute, /completion_override_reason/);
   assert.match(updateRoute, /completion_override[\s\S]*findUniqueOrThrow[\s\S]*select: onboardingSelect\(\)[\s\S]*return \{ onboarding, notificationTargets \}/);

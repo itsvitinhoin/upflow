@@ -134,6 +134,7 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
 
     const formShell = page.locator(".marketing-b2b-form-shell");
     await expect(formShell).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New client onboarding" })).toHaveCount(0);
     await expect(
       formShell.getByRole("heading", { name: "Marketing B2B Onboarding" }),
     ).toBeVisible();
