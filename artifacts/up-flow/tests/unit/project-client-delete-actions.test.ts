@@ -21,6 +21,7 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   const taskDelete = read("src/lib/task-delete.ts");
   const kanbanBoard = read("src/components/projects/kanban-board.tsx");
   const listView = read("src/components/projects/list-view.tsx");
+  const projectToolbar = read("src/components/projects/project-toolbar.tsx");
   const sidebarProjectRow = read("src/components/layout/sidebar/project-row.tsx");
   const sidebarTree = read("src/components/layout/sidebar/space-tree.tsx");
 
@@ -57,9 +58,15 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(tasksRoute, /export const DELETE = withErrorReporting\("api:tasks:DELETE", deleteHandler\)/);
   assert.match(projectDetailPage, /selectedTaskIds/);
   assert.match(projectDetailPage, /task\.deleteSelected/);
+  assert.match(projectDetailPage, /toggleVisibleTaskSelection/);
+  assert.match(projectDetailPage, /task\.selectAllVisible/);
+  assert.match(projectDetailPage, /deletingSelectedTasks/);
   assert.match(projectDetailPage, /fetch\("\/api\/tasks"/);
   assert.match(kanbanBoard, /onToggleTaskSelection/);
+  assert.match(kanbanBoard, /isDragDisabled=\{selectionMode\}/);
   assert.match(listView, /onToggleTaskSelection/);
+  assert.match(projectToolbar, /task\.selectTasks/);
+  assert.match(projectToolbar, /onToggleSelectionMode/);
   assert.match(sidebarProjectRow, /new CustomEvent\("upflow:sidebar-refresh"\)/);
   assert.match(sidebarTree, /onDeleted=\{\(\) => loadPanel\(\{ force: true \}\)\}/);
 

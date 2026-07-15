@@ -27,6 +27,7 @@ interface KanbanBoardProps {
   onOpenTask?: (task: Task) => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  selectionMode?: boolean;
 }
 
 const COLUMNS = [
@@ -70,6 +71,7 @@ export default function KanbanBoard({
   onOpenTask,
   selectedTaskIds,
   onToggleTaskSelection,
+  selectionMode = false,
 }: KanbanBoardProps) {
   const { t } = useLanguage();
   const rhBoardField = customFields.find(
@@ -297,7 +299,12 @@ export default function KanbanBoard({
                       );
                       const isSelected = selectedTaskIds?.has(task.id) ?? false;
                       return (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                        <Draggable
+                          key={task.id}
+                          draggableId={task.id}
+                          index={index}
+                          isDragDisabled={selectionMode}
+                        >
                           {(provided, snapshot) => {
                             const { style: draggableStyle, ...draggableProps } =
                               provided.draggableProps;
@@ -310,35 +317,42 @@ export default function KanbanBoard({
                               style={draggableStyle as CSSProperties | undefined}
                               onClick={() => {
                                 if (isDraggingRef.current) return;
+                                if (selectionMode && onToggleTaskSelection) {
+                                  onToggleTaskSelection(task.id);
+                                  return;
+                                }
                                 openTask(task);
                               }}
                               className={cn(
                                 "upflow-task-card group relative cursor-pointer rounded-xl p-3 transition-all hover:-translate-y-0.5",
                                 snapshot.isDragging && "rotate-1 opacity-95 shadow-[0_24px_60px_rgba(59,130,246,0.24)]",
+                                isSelected && "bg-blue-500/10 ring-2 ring-blue-400/70",
                               )}
                             >
-                              <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#071024]/95 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openTask(task);
-                                  }}
+                              {!selectionMode && (
+                                <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#071024]/95 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openTask(task);
+                                    }}
                                     className="rounded p-1 text-muted-foreground hover:text-foreground"
-                                  title={t("common.open")}
-                                >
-                                  <MoreHorizontal className="w-3 h-3" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteTask(task.id);
-                                  }}
+                                    title={t("common.open")}
+                                  >
+                                    <MoreHorizontal className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteTask(task.id);
+                                    }}
                                     className="rounded p-1 text-muted-foreground hover:text-destructive"
-                                  title={t("common.delete")}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
+                                    title={t("common.delete")}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
                               {task.cover_image_url && (
                                 <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-xl border-b border-white/10 bg-muted/30">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -351,7 +365,7 @@ export default function KanbanBoard({
                                 </div>
                               )}
                               <div className="flex items-start gap-2">
-                                {onToggleTaskSelection && (
+                                {selectionMode && onToggleTaskSelection && (
                                   <input
                                     type="checkbox"
                                     checked={isSelected}

@@ -32,6 +32,7 @@ interface Props {
   onUpdate: () => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string) => void;
+  selectionMode?: boolean;
 }
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
@@ -56,6 +57,7 @@ export default function ListView({
   onUpdate,
   selectedTaskIds,
   onToggleTaskSelection,
+  selectionMode = false,
 }: Props) {
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -161,14 +163,26 @@ export default function ListView({
                   return (
                     <div
                       key={task.id}
-                      className="grid items-center px-3 py-1.5 border-t border-border/60 hover:bg-muted/30 group"
+                      className={cn(
+                        "grid items-center border-t border-border/60 px-3 py-1.5 hover:bg-muted/30 group",
+                        isSelected && "bg-blue-500/10 ring-1 ring-inset ring-blue-400/60",
+                      )}
                       style={{ gridTemplateColumns: cols.gridTemplate }}
                     >
                       <div
-                        className="px-2 flex items-center gap-2 cursor-pointer min-w-0 sticky left-0 bg-card group-hover:bg-muted/30"
-                        onClick={() => onTaskClick(task)}
+                        className={cn(
+                          "sticky left-0 flex min-w-0 cursor-pointer items-center gap-2 px-2 group-hover:bg-muted/30",
+                          isSelected ? "bg-[#0b1c3a]" : "bg-card",
+                        )}
+                        onClick={() => {
+                          if (selectionMode && onToggleTaskSelection) {
+                            onToggleTaskSelection(task.id);
+                            return;
+                          }
+                          onTaskClick(task);
+                        }}
                       >
-                        {onToggleTaskSelection && (
+                        {selectionMode && onToggleTaskSelection && (
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -178,25 +192,27 @@ export default function ListView({
                             className="h-4 w-4 flex-shrink-0 rounded border-border bg-background text-blue-500 focus:ring-2 focus:ring-blue-400"
                           />
                         )}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateTask(task.id, {
-                              status: task.status === "done" ? "todo" : "done",
-                            });
-                          }}
-                          className={cn(
-                            "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
-                            task.status === "done"
-                              ? "bg-upflow-success border-upflow-success"
-                              : "border-border hover:border-primary",
-                          )}
-                          title={t("dashboard.completed")}
-                        >
-                          {task.status === "done" && (
-                            <span className="text-[8px] text-white">✓</span>
-                          )}
-                        </button>
+                        {!selectionMode && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateTask(task.id, {
+                                status: task.status === "done" ? "todo" : "done",
+                              });
+                            }}
+                            className={cn(
+                              "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
+                              task.status === "done"
+                                ? "bg-upflow-success border-upflow-success"
+                                : "border-border hover:border-primary",
+                            )}
+                            title={t("dashboard.completed")}
+                          >
+                            {task.status === "done" && (
+                              <span className="text-[8px] text-white">✓</span>
+                            )}
+                          </button>
+                        )}
                         <span
                           className={cn(
                             "min-w-0 truncate text-sm text-foreground",

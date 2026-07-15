@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, FileText, Trash2, X } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Trash2, X, CheckSquare2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
@@ -88,6 +88,8 @@ export default function ProjectPage() {
   const [manageOpen, setManageOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [deletingSelectedTasks, setDeletingSelectedTasks] = useState(false);
   const [toolbar, setToolbar] = useState<ToolbarState>(DEFAULT_TOOLBAR);
 
   const loadData = async () => {
@@ -165,6 +167,31 @@ export default function ProjectPage() {
   const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
   const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
   const selectedTaskIdSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds]);
+  const visibleTaskIds = useMemo(() => {
+    const query = toolbar.search.trim().toLowerCase();
+    return tasks
+      .filter((task) => {
+        if (
+          query &&
+          !task.title.toLowerCase().includes(query) &&
+          !(task.description ?? "").toLowerCase().includes(query)
+        ) {
+          return false;
+        }
+        if (!toolbar.showClosed && task.status === "done") return false;
+        if (toolbar.filterPriority !== "all" && task.priority !== toolbar.filterPriority) {
+          return false;
+        }
+        if (toolbar.filterAssignee === "unassigned") return !task.assignee;
+        if (toolbar.filterAssignee !== "all") {
+          return task.assignee?.id === toolbar.filterAssignee;
+        }
+        return true;
+      })
+      .map((task) => task.id);
+  }, [tasks, toolbar]);
+  const allVisibleTasksSelected =
+    visibleTaskIds.length > 0 && visibleTaskIds.every((taskId) => selectedTaskIdSet.has(taskId));
 
   const canManageFields = useMemo(() => {
     if (!me) return false;
@@ -211,28 +238,50 @@ export default function ProjectPage() {
     );
   };
 
+  const toggleSelectionMode = () => {
+    if (selectionMode) setSelectedTaskIds([]);
+    setSelectionMode(!selectionMode);
+  };
+
+  const toggleVisibleTaskSelection = () => {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (allVisibleTasksSelected) {
+        visibleTaskIds.forEach((taskId) => next.delete(taskId));
+      } else {
+        visibleTaskIds.forEach((taskId) => next.add(taskId));
+      }
+      return Array.from(next);
+    });
+  };
+
   const handleDeleteSelectedTasks = async () => {
-    if (selectedTaskIds.length === 0) return;
+    if (selectedTaskIds.length === 0 || deletingSelectedTasks) return;
     if (!confirm(t("task.bulkDeleteConfirm", { count: selectedTaskIds.length }))) return;
+    const idsToDelete = [...selectedTaskIds];
+    setDeletingSelectedTasks(true);
     try {
       const res = await fetch("/api/tasks", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: selectedTaskIds }),
+        body: JSON.stringify({ ids: idsToDelete }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? t("task.failedDelete"));
       }
-      const deletedCount = selectedTaskIds.length;
+      const deletedCount = idsToDelete.length;
       setSelectedTaskIds([]);
+      setSelectionMode(false);
       setSelectedTask((current) =>
-        current && selectedTaskIds.includes(current.id) ? null : current,
+        current && idsToDelete.includes(current.id) ? null : current,
       );
       await loadData();
       toast.success(t("task.bulkDeleteSuccess", { count: deletedCount }));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("task.failedDelete"));
+    } finally {
+      setDeletingSelectedTasks(false);
     }
   };
 
@@ -360,9 +409,12 @@ export default function ProjectPage() {
               onManageFields={() => setManageOpen(true)}
               canManage={canManageFields}
               users={users}
+              selectionMode={selectionMode}
+              selectedCount={selectedTaskIds.length}
+              onToggleSelectionMode={toggleSelectionMode}
             />
 
-            {selectedTaskIds.length > 0 && (
+            {selectionMode && (
               <div className="mb-3 flex flex-col gap-3 rounded-xl border border-blue-300/15 bg-[#071024]/85 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-semibold text-foreground">
                   {t("task.bulkSelected", { count: selectedTaskIds.length })}
@@ -370,18 +422,35 @@ export default function ProjectPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setSelectedTaskIds([])}
+                    onClick={toggleVisibleTaskSelection}
+                    disabled={visibleTaskIds.length === 0 || deletingSelectedTasks}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                  >
+                    <CheckSquare2 className="h-4 w-4" />
+                    {allVisibleTasksSelected
+                      ? t("task.deselectAllVisible")
+                      : t("task.selectAllVisible", { count: visibleTaskIds.length })}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleSelectionMode}
+                    disabled={deletingSelectedTasks}
                     className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
                   >
                     <X className="h-4 w-4" />
-                    {t("common.clear")}
+                    {t("common.cancel")}
                   </button>
                   <button
                     type="button"
                     onClick={handleDeleteSelectedTasks}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20"
+                    disabled={selectedTaskIds.length === 0 || deletingSelectedTasks}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {deletingSelectedTasks ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                     {t("task.deleteSelected")}
                   </button>
                 </div>
@@ -400,6 +469,7 @@ export default function ProjectPage() {
                 onOpenTask={handleOpenTask}
                 selectedTaskIds={selectedTaskIdSet}
                 onToggleTaskSelection={toggleTaskSelection}
+                selectionMode={selectionMode}
               />
             ) : (
               <ListView
@@ -413,6 +483,7 @@ export default function ProjectPage() {
                 onUpdate={loadData}
                 selectedTaskIds={selectedTaskIdSet}
                 onToggleTaskSelection={toggleTaskSelection}
+                selectionMode={selectionMode}
               />
             )}
           </>

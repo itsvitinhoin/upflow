@@ -11,6 +11,7 @@ import {
   LayoutList,
   Columns3,
   Check,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
@@ -41,6 +42,9 @@ interface Props {
   onManageFields?: () => void;
   canManage: boolean;
   users?: { id: string; name: string }[];
+  selectionMode: boolean;
+  selectedCount: number;
+  onToggleSelectionMode: () => void;
 }
 
 export default function ProjectToolbar({
@@ -50,6 +54,9 @@ export default function ProjectToolbar({
   onManageFields,
   canManage,
   users = [],
+  selectionMode,
+  selectedCount,
+  onToggleSelectionMode,
 }: Props) {
   const { t } = useLanguage();
   const filterCount =
@@ -161,6 +168,23 @@ export default function ProjectToolbar({
           })
         }
       />
+
+      <button
+        type="button"
+        onClick={onToggleSelectionMode}
+        aria-pressed={selectionMode}
+        className={cn(
+          "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
+          selectionMode
+            ? "border-sky-400/45 bg-sky-400/15 text-sky-100 shadow-[0_0_18px_rgba(59,130,246,0.16)]"
+            : "border-blue-300/10 bg-[#071024]/80 text-muted-foreground hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground",
+        )}
+      >
+        <ListChecks className="h-3.5 w-3.5" />
+        {selectionMode
+          ? t("task.finishSelecting", { count: selectedCount })
+          : t("task.selectTasks")}
+      </button>
 
       {canManage && onManageFields && (
         <button

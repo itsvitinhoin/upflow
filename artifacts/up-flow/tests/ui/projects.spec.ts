@@ -76,6 +76,38 @@ test.describe("Projects index", () => {
 test.describe("Project detail page (toolbar + kanban + list + task sheet)", () => {
   requireChromiumOrSkip();
 
+  test("bulk selection deletes all visible matching tasks in one action", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("BulkDeleteProj"));
+    const matchingOne = uniq("BulkTarget-One");
+    const matchingTwo = uniq("BulkTarget-Two");
+    const keepTitle = uniq("Keep-Task");
+    await createTaskViaApi(ctx, projectId, matchingOne);
+    await createTaskViaApi(ctx, projectId, matchingTwo);
+    await createTaskViaApi(ctx, projectId, keepTitle);
+
+    const page = await ctx.newPage();
+    await page.goto(`/projects/${projectId}`);
+    await page.getByPlaceholder("Search tasks...").fill("BulkTarget");
+    await page.getByRole("button", { name: "Select tasks" }).click();
+    await page.getByRole("button", { name: /Select all visible \(2\)/ }).click();
+    await expect(page.getByText("Selected tasks: 2")).toBeVisible();
+
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", { name: "Delete selected" }).click();
+    await expect(page.getByText("Tasks deleted: 2")).toBeVisible();
+
+    await page.getByPlaceholder("Search tasks...").fill("");
+    await expect(page.getByText(matchingOne)).toBeHidden();
+    await expect(page.getByText(matchingTwo)).toBeHidden();
+    await expect(page.getByText(keepTitle)).toBeVisible();
+
+    await ctx.close();
+  });
+
   test("toolbar list/board toggle and inline search filter work end-to-end", async ({
     browser,
     baseURL,
