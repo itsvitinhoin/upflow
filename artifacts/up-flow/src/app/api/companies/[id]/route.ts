@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { syncClientOnboardingServices } from "@/lib/onboarding";
 
 const UpdateCompanySchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -267,7 +268,21 @@ async function PATCH_handler(
     metadata: { name: updated.name },
   });
 
-  return NextResponse.json(updated);
+  const onboardingSync = "included_services" in parsed.data
+    ? await syncClientOnboardingServices({
+        companyId: updated.id,
+        workspaceId: company.workspace_id,
+        actorId: auth.prismaUser.id,
+        services: parsed.data.included_services ?? [],
+      })
+    : null;
+
+  return NextResponse.json({
+    ...updated,
+    onboarding_id: onboardingSync?.onboarding.id ?? null,
+    synced_onboarding_tasks: onboardingSync?.createdTasks ?? [],
+    moved_onboarding_tasks: onboardingSync?.movedTasks ?? 0,
+  });
 }
 
 async function DELETE_handler(

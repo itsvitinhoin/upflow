@@ -110,6 +110,7 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     ).toBeTruthy();
 
     await loginAs(page.context(), SEEDED.member.email);
+    await page.setViewportSize({ width: 1440, height: 900 });
     const formPath = `/api/onboarding/marketing-b2b-form/${replacementTask.id}`;
     const waitForForm = () =>
       page.waitForResponse(
@@ -130,6 +131,15 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
       formShell.getByRole("heading", { name: "Marketing B2B Onboarding" }),
     ).toBeVisible();
     await expect(formShell.getByText(company.name, { exact: true })).toBeVisible();
+
+    const progressSidebar = page.getByTestId("b2b-progress-sidebar");
+    const pageScroller = page.locator("main.overflow-y-auto").first();
+    await expect(progressSidebar).toBeVisible();
+    await pageScroller.evaluate((element) => element.scrollTo({ top: 900, behavior: "instant" }));
+    await expect.poll(async () => Math.round((await progressSidebar.boundingBox())?.y ?? -1)).toBeLessThanOrEqual(24);
+    const stickyTop = Math.round((await progressSidebar.boundingBox())?.y ?? -1);
+    await pageScroller.evaluate((element) => element.scrollTo({ top: 1_600, behavior: "instant" }));
+    await expect.poll(async () => Math.round((await progressSidebar.boundingBox())?.y ?? -1)).toBe(stickyTop);
 
     const marker = uniq("B2B saved brand");
     const competitorName = uniq("B2B competitor");
@@ -232,7 +242,7 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
 
     const company = (await companyResponse.json()) as {
       onboarding_id: string;
-      created_onboarding_tasks: Array<{ id: string; title: string }>;
+      created_onboarding_tasks: Array<{ id: string; title: string; project_id: string }>;
     };
     expect(company.onboarding_id).toBeTruthy();
 
@@ -251,6 +261,18 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
         "UP Zero: Treinar o cliente no uso do UP Dash",
       ]),
     );
+    const b2bFormTask = company.created_onboarding_tasks.find(
+      (task) => task.title === "Marketing B2B onboarding form",
+    );
+    expect(b2bFormTask?.project_id).toBeTruthy();
+    expect(
+      company.created_onboarding_tasks
+        .filter((task) => task.title.startsWith("Vesti: ") || task.title.startsWith("UP Zero: "))
+        .every((task) => task.project_id === b2bFormTask?.project_id),
+    ).toBe(true);
+    const b2bProjectResponse = await api.get(`/api/projects/${b2bFormTask?.project_id}`);
+    expect(b2bProjectResponse.ok()).toBeTruthy();
+    expect(((await b2bProjectResponse.json()) as { onboarding_enabled: boolean }).onboarding_enabled).toBe(true);
 
     const onboardingResponse = await api.get(`/api/onboarding/${company.onboarding_id}`);
     expect(
@@ -278,6 +300,62 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     expect(upZeroMeeting?.checklist_item_id).toBeTruthy();
     expect(vestiItems.some((item) => item.id === vestiMeeting?.checklist_item_id)).toBe(true);
     expect(upZeroItems.some((item) => item.id === upZeroMeeting?.checklist_item_id)).toBe(true);
+
+    const laterCompanyResponse = await api.post("/api/companies", {
+      data: {
+        name: uniq("Later Vesti workflow company"),
+        included_services: ["Meta Ads"],
+        start_onboarding: true,
+      },
+    });
+    expect(laterCompanyResponse.ok()).toBeTruthy();
+    const laterCompany = (await laterCompanyResponse.json()) as {
+      id: string;
+      onboarding_id: string;
+      created_onboarding_tasks: Array<{ id: string; title: string; project_id: string }>;
+    };
+    const laterB2BProjectId = laterCompany.created_onboarding_tasks.find(
+      (task) => task.title === "Marketing B2B onboarding form",
+    )?.project_id;
+    expect(laterB2BProjectId).toBeTruthy();
+
+    const addVestiResponse = await api.patch(`/api/companies/${laterCompany.id}`, {
+      data: { included_services: ["Meta Ads", "Vesti"] },
+    });
+    expect(
+      addVestiResponse.ok(),
+      `adding Vesti failed: ${addVestiResponse.status()} ${await addVestiResponse.text()}`,
+    ).toBeTruthy();
+    const syncedCompany = (await addVestiResponse.json()) as {
+      onboarding_id: string;
+      synced_onboarding_tasks: Array<{ title: string; project_id: string }>;
+      moved_onboarding_tasks: number;
+    };
+    expect(syncedCompany.onboarding_id).toBe(laterCompany.onboarding_id);
+    expect(syncedCompany.synced_onboarding_tasks).toHaveLength(10);
+    expect(
+      syncedCompany.synced_onboarding_tasks.every((task) => task.project_id === laterB2BProjectId),
+    ).toBe(true);
+
+    const syncedOnboardingResponse = await api.get(`/api/onboarding/${laterCompany.onboarding_id}`);
+    expect(syncedOnboardingResponse.ok()).toBeTruthy();
+    const syncedOnboarding = (await syncedOnboardingResponse.json()) as {
+      checklist_items: Array<{ title: string; task: { project_id: string } | null }>;
+    };
+    const syncedVestiItems = syncedOnboarding.checklist_items.filter((item) => item.title.startsWith("Vesti: "));
+    expect(syncedVestiItems).toHaveLength(10);
+    expect(syncedVestiItems.every((item) => item.task?.project_id === laterB2BProjectId)).toBe(true);
+
+    const repeatSyncResponse = await api.patch(`/api/companies/${laterCompany.id}`, {
+      data: { included_services: ["Meta Ads", "Vesti"] },
+    });
+    expect(repeatSyncResponse.ok()).toBeTruthy();
+    const repeatedSync = (await repeatSyncResponse.json()) as {
+      synced_onboarding_tasks: unknown[];
+      moved_onboarding_tasks: number;
+    };
+    expect(repeatedSync.synced_onboarding_tasks).toHaveLength(0);
+    expect(repeatedSync.moved_onboarding_tasks).toBe(0);
   } finally {
     await api.dispose();
   }

@@ -59,6 +59,9 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /for \(const \[stepIndex, step\] of dedicatedWorkflow\.steps\.entries\(\)\)/);
   assert.match(helper, /department: step\.meeting \? "Service Onboarding"/);
   assert.match(helper, /checklist_item_id: workflowItem\.id/);
+  assert.match(helper, /syncDedicatedServiceWorkflows/);
+  assert.match(helper, /project_id: projectId, company_id: input\.company\.id/);
+  assert.match(helper, /export async function syncClientOnboardingServices/);
   assert.match(
     helper,
     /const b2bMeetingTask = await createTask\(\{[\s\S]*?project_id: b2bProjectId,[\s\S]*?title: "Onboarding: schedule Marketing B2B kickoff meeting"/,
@@ -94,6 +97,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(route, /recomputeOnboardingProgress/);
   assert.match(route, /withErrorReporting\("api:onboarding\/marketing-b2b-form:PATCH"/);
   assert.match(route, /canContributeToProject\(auth, form\.task\.project\)/);
+  assert.match(route, /syncClientOnboardingServices/);
+  assert.match(route, /workflow_sync/);
 
   assert.match(form, /updateField/);
   assert.match(form, /valuesRef\.current/);
@@ -127,7 +132,10 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /md:grid-cols-\[1fr_1fr_1fr_auto\]/);
   assert.doesNotMatch(form, /label=.*Proposta de valor/);
   assert.doesNotMatch(form, /label=.*Perfil lojista/);
-  assert.match(form, /xl:sticky xl:top-5 xl:self-start/);
+  assert.match(form, /xl:sticky xl:top-5/);
+  assert.match(form, /data-testid="b2b-progress-sidebar"/);
+  assert.match(form, /xl:max-h-\[calc\(100dvh-2\.5rem\)\]/);
+  assert.match(projectPage, /overflow-x-clip/);
   assert.match(form, /onAddTask=\{onAddTask \?\? \(\(\) => setActiveTab\("kanban"\)\)\}/);
   assert.match(form, /label=\{b2bFormLabels\.generalNotes\}[\s\S]*optional[\s\S]*helper=\{OPTIONAL_HELPER\}/);
   assert.match(form, /label=\{b2bFormLabels\.commercialNotes\}[\s\S]*optional[\s\S]*helper=\{OPTIONAL_HELPER\}/);

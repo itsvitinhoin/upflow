@@ -4,9 +4,14 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
+import {
+  loadOnboardingAccess,
+  recomputeOnboardingProgress,
+  syncClientOnboardingServices,
+} from "@/lib/onboarding";
 import { canContributeToProject, canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { logError } from "@/lib/log-error";
 
 type JsonFormValue =
   | string
@@ -663,8 +668,30 @@ async function GET_handler(
 ) {
   const access = await getAccess(params.taskId);
   if (!access.ok) return access.response;
+  let workflowSync: Awaited<ReturnType<typeof syncClientOnboardingServices>> = null;
+  try {
+    workflowSync = await syncClientOnboardingServices({
+      companyId: access.form.company_id,
+      workspaceId: access.form.workspace_id,
+      actorId: access.auth.prismaUser.id,
+    });
+  } catch (err) {
+    logError("marketing-b2b-form:workflow-sync", err, {
+      company_id: access.form.company_id,
+      onboarding_id: access.form.onboarding_id,
+    });
+  }
   const addresses = await loadCompanyAddresses(access.form.company_id);
-  return NextResponse.json(responseBody(access.form, access.canEdit, addresses));
+  return NextResponse.json({
+    ...responseBody(access.form, access.canEdit, addresses),
+    workflow_sync: workflowSync
+      ? {
+          checked: true,
+          created_tasks: workflowSync.createdTasks.length,
+          moved_tasks: workflowSync.movedTasks,
+        }
+      : null,
+  });
 }
 
 async function PATCH_handler(

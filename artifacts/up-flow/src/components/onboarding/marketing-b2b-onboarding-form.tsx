@@ -120,6 +120,7 @@ type B2BFormResponse = {
     service_assignments?: ServiceAssignment[];
   };
   checklist_item: { id: string; status: string; completed_at: string | null; owner_id: string | null };
+  workflow_sync?: { checked: boolean; created_tasks: number; moved_tasks: number } | null;
 };
 
 type Accent = "blue" | "amber" | "purple" | "pink" | "cyan" | "teal" | "green";
@@ -671,6 +672,12 @@ export default function MarketingB2BOnboardingForm({
   const competitorsRef = useRef<Competitor[]>([]);
   const extraBrandResponsiblesRef = useRef<BrandResponsibleExtra[]>([]);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const onUpdateRef = useRef(onUpdate);
+  const workflowRefreshTriggered = useRef(false);
+
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  }, [onUpdate]);
 
   const loadForm = useCallback(async () => {
     setLoading(true);
@@ -697,6 +704,14 @@ export default function MarketingB2BOnboardingForm({
       setAddresses(normalizedAddresses);
       setCompetitors(normalizedCompetitors);
       setExtraBrandResponsibles(normalizedExtraBrandResponsibles);
+
+      if (data.workflow_sync?.checked && !workflowRefreshTriggered.current) {
+        workflowRefreshTriggered.current = true;
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+        }
+        void onUpdateRef.current?.();
+      }
 
       if (data.onboarding.workspace_id) {
         const usersRes = await fetch(`/api/users?workspace_id=${data.onboarding.workspace_id}&status=active&limit=500`);
@@ -2267,7 +2282,10 @@ function ProgressSidebar({
   onFinalize: () => void;
 }) {
   return (
-    <aside className="space-y-4 xl:sticky xl:top-5 xl:self-start">
+    <aside
+      data-testid="b2b-progress-sidebar"
+      className="space-y-4 xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:self-start xl:overflow-y-auto xl:overscroll-contain xl:pr-1"
+    >
       <section className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f]">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Resumo do Onboarding</p>

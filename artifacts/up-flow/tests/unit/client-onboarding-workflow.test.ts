@@ -15,6 +15,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   const route = read("src/app/api/onboarding/client-wizard/route.ts");
   const onboardingListRoute = read("src/app/api/onboarding/route.ts");
   const companiesRoute = read("src/app/api/companies/route.ts");
+  const companyUpdateRoute = read("src/app/api/companies/[id]/route.ts");
   const updateRoute = read("src/app/api/onboarding/[id]/route.ts");
   const itemRoute = read("src/app/api/onboarding/[id]/items/[itemId]/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
@@ -38,6 +39,9 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(companiesRoute, /startClientOnboardingForCompany/);
   assert.match(companiesRoute, /start_onboarding: z\.boolean\(\)\.optional\(\)/);
   assert.match(companiesRoute, /parsed\.data\.start_onboarding === false[\s\S]*startClientOnboardingForCompany/);
+  assert.match(companyUpdateRoute, /syncClientOnboardingServices/);
+  assert.match(companyUpdateRoute, /"included_services" in parsed\.data/);
+  assert.match(companyUpdateRoute, /synced_onboarding_tasks/);
   assert.match(route, /included_services: z\.array\(z\.string/);
   assert.match(route, /expected_start_date/);
   assert.match(onboardingListRoute, /projectCompanyId/);

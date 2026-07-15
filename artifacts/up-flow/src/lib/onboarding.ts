@@ -704,9 +704,17 @@ export async function resolveOnboardingTaskProjectId(
       company_id: null,
       name: config.projectName,
     },
-    select: { id: true },
+    select: { id: true, onboarding_enabled: true },
   });
-  if (existingProject) return existingProject.id;
+  if (existingProject) {
+    if (!existingProject.onboarding_enabled) {
+      await db.project.update({
+        where: { id: existingProject.id },
+        data: { onboarding_enabled: true },
+      });
+    }
+    return existingProject.id;
+  }
 
   const createdProject = await db.project.create({
     data: {
@@ -810,7 +818,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
   if (legacyProject) {
     const renamed = await db.project.update({
       where: { id: legacyProject.id },
-      data: { name: projectName },
+      data: { name: projectName, onboarding_enabled: true },
       select: { id: true },
     });
     return renamed.id;
@@ -824,6 +832,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
       folder_id: clientFolder.id,
       company_id: input.companyId,
       name: projectName,
+      onboarding_enabled: true,
       description:
         "Marketing B2B onboarding form and execution tasks for this client.",
     },
@@ -1182,6 +1191,281 @@ function onboardingServices(input: {
 function cleanNullable(value: string | null | undefined) {
   const trimmed = value?.trim();
   return trimmed || null;
+}
+
+type DedicatedWorkflowSyncResult = {
+  createdTasks: CreatedOnboardingTask[];
+  notificationTargets: OnboardingAssignmentNotificationTarget[];
+  missingMappings: string[];
+  movedTasks: number;
+};
+
+async function syncDedicatedServiceWorkflows(
+  tx: Tx,
+  input: {
+    onboardingId: string;
+    company: CompanySnapshot;
+    actorId: string;
+    services: string[];
+    currentServices?: Prisma.JsonValue | null;
+  },
+): Promise<DedicatedWorkflowSyncResult> {
+  const workflows = new Map<string, { serviceName: string; steps: readonly ServiceWorkflowStep[] }>();
+  for (const service of input.services) {
+    const workflow = serviceWorkflowFor(service);
+    if (workflow) workflows.set(normalizedName(workflow.serviceName), workflow);
+  }
+
+  const currentServiceKeys = parseContractedServices(input.currentServices).map(normalizedName).sort();
+  const nextServiceKeys = input.services.map(normalizedName).sort();
+  if (
+    currentServiceKeys.length !== nextServiceKeys.length ||
+    currentServiceKeys.some((service, index) => service !== nextServiceKeys[index])
+  ) {
+    await tx.clientOnboarding.update({
+      where: { id: input.onboardingId },
+      data: { contracted_services: input.services },
+    });
+  }
+
+  const result: DedicatedWorkflowSyncResult = {
+    createdTasks: [],
+    notificationTargets: [],
+    missingMappings: [],
+    movedTasks: 0,
+  };
+  if (workflows.size === 0) return result;
+
+  const projectId = await resolveMarketingB2BOnboardingProjectId(tx, {
+    workspaceId: input.company.workspace_id,
+    companyId: input.company.id,
+    companyName: input.company.name,
+    ownerId: input.actorId,
+  });
+  const [items, assignments, meetings, mappingRows, adminFallback, positionAggregate] = await Promise.all([
+    tx.onboardingChecklistItem.findMany({
+      where: { onboarding_id: input.onboardingId },
+      select: {
+        id: true,
+        title: true,
+        department: true,
+        task_id: true,
+        sort_order: true,
+        owner_id: true,
+        notes: true,
+        task: { select: { id: true, project_id: true } },
+      },
+    }),
+    tx.onboardingServiceAssignment.findMany({
+      where: { onboarding_id: input.onboardingId },
+      select: {
+        id: true,
+        service: true,
+        leader_id: true,
+        department_id: true,
+        department_name: true,
+        status: true,
+      },
+    }),
+    tx.onboardingMeeting.findMany({
+      where: { onboarding_id: input.onboardingId },
+      select: { id: true, service: true, checklist_item_id: true },
+    }),
+    tx.serviceLeaderMapping.findMany({
+      where: { workspace_id: input.company.workspace_id, active: true },
+      include: {
+        department: { select: { id: true, name: true } },
+        leader: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    findAdminFallback(tx, input.company.workspace_id),
+    tx.task.aggregate({ where: { project_id: projectId }, _max: { position: true } }),
+  ]);
+  const marketingMapping = mappingRows.find(
+    (mapping) => ownerKeyForDepartmentLabel(mapping.service) === ownerKeyForTaskRoute("marketing_b2b"),
+  );
+  const fallbackLeader =
+    marketingMapping?.leader ??
+    (await ownerForRoute(tx, input.company.workspace_id, "marketing_b2b", adminFallback));
+  const fallbackDepartment =
+    marketingMapping?.department ??
+    (await departmentForRoute(tx, input.company.workspace_id, "marketing_b2b"));
+  let nextSortOrder = Math.max(-1, ...items.map((item) => item.sort_order)) + 1;
+  let nextTaskPosition = (positionAggregate._max.position ?? -1) + 1;
+
+  for (const workflow of workflows.values()) {
+    const serviceKey = normalizedName(workflow.serviceName);
+    let assignment = assignments.find((candidate) => normalizedName(candidate.service) === serviceKey) ?? null;
+    const leaderId = assignment?.leader_id ?? marketingMapping?.leader_id ?? fallbackLeader?.id ?? input.company.owner_id;
+    const departmentId = assignment?.department_id ?? marketingMapping?.department_id ?? fallbackDepartment?.id ?? null;
+    const departmentName =
+      assignment?.department_name ?? marketingMapping?.department?.name ?? fallbackDepartment?.name ?? "Marketing B2B";
+    const needsMapping = assignment ? assignment.status === "needs_mapping" : !marketingMapping?.leader_id;
+    if (!assignment) {
+      assignment = await tx.onboardingServiceAssignment.create({
+        data: {
+          onboarding_id: input.onboardingId,
+          workspace_id: input.company.workspace_id,
+          service: workflow.serviceName,
+          leader_id: leaderId,
+          department_id: departmentId,
+          department_name: departmentName,
+          status: needsMapping ? "needs_mapping" : "assigned",
+          notes: needsMapping
+            ? "Needs Marketing B2B department responsible mapping. Fallback owner was assigned for continuity."
+            : null,
+        },
+        select: {
+          id: true,
+          service: true,
+          leader_id: true,
+          department_id: true,
+          department_name: true,
+          status: true,
+        },
+      });
+      assignments.push(assignment);
+    }
+    if (needsMapping && !result.missingMappings.includes(departmentName)) {
+      result.missingMappings.push(departmentName);
+    }
+
+    let firstCreatedTaskId: string | null = null;
+    for (const step of workflow.steps) {
+      const title = `${workflow.serviceName}: ${step.title}`;
+      const titleKey = normalizedName(title);
+      let item = items.find((candidate) => normalizedName(candidate.title) === titleKey) ?? null;
+      let taskId = item?.task_id ?? null;
+
+      if (item?.task_id) {
+        if (item.task?.project_id !== projectId) {
+          await tx.task.update({
+            where: { id: item.task_id },
+            data: { project_id: projectId, company_id: input.company.id },
+          });
+          result.movedTasks += 1;
+        }
+        const department = step.meeting ? "Service Onboarding" : `${workflow.serviceName} Workflow`;
+        if (item.department !== department || item.owner_id !== leaderId || item.notes !== step.description) {
+          await tx.onboardingChecklistItem.update({
+            where: { id: item.id },
+            data: { department, owner_id: leaderId, notes: step.description },
+          });
+        }
+      } else {
+        const task = await tx.task.create({
+          data: {
+            project_id: projectId,
+            company_id: input.company.id,
+            title,
+            description: `${step.description}\n\nConcluir esta tarefa atualiza automaticamente o checklist e o progresso do onboarding.`,
+            status: "todo",
+            priority: step.priority ?? "medium",
+            assignee_id: leaderId,
+            position: nextTaskPosition,
+          },
+        });
+        nextTaskPosition += 1;
+        taskId = task.id;
+        firstCreatedTaskId ??= task.id;
+        result.createdTasks.push({
+          id: task.id,
+          title: task.title,
+          route: "marketing_b2b",
+          project_id: projectId,
+          assignee_id: task.assignee_id,
+        });
+
+        if (item) {
+          item = await tx.onboardingChecklistItem.update({
+            where: { id: item.id },
+            data: {
+              task_id: task.id,
+              department: step.meeting ? "Service Onboarding" : `${workflow.serviceName} Workflow`,
+              owner_id: leaderId,
+              notes: step.description,
+            },
+            select: {
+              id: true,
+              title: true,
+              department: true,
+              task_id: true,
+              sort_order: true,
+              owner_id: true,
+              notes: true,
+              task: { select: { id: true, project_id: true } },
+            },
+          });
+        } else {
+          item = await tx.onboardingChecklistItem.create({
+            data: {
+              onboarding_id: input.onboardingId,
+              workspace_id: input.company.workspace_id,
+              task_id: task.id,
+              department: step.meeting ? "Service Onboarding" : `${workflow.serviceName} Workflow`,
+              title,
+              owner_id: leaderId,
+              notes: step.description,
+              sort_order: nextSortOrder,
+            },
+            select: {
+              id: true,
+              title: true,
+              department: true,
+              task_id: true,
+              sort_order: true,
+              owner_id: true,
+              notes: true,
+              task: { select: { id: true, project_id: true } },
+            },
+          });
+          nextSortOrder += 1;
+          items.push(item);
+        }
+      }
+
+      if (step.meeting && item && taskId) {
+        const existingMeeting = meetings.find((candidate) => normalizedName(candidate.service) === serviceKey) ?? null;
+        if (existingMeeting) {
+          await tx.onboardingMeeting.update({
+            where: { id: existingMeeting.id },
+            data: {
+              service: workflow.serviceName,
+              checklist_item_id: item.id,
+              leader_id: leaderId,
+            },
+          });
+        } else {
+          const meeting = await tx.onboardingMeeting.create({
+            data: {
+              onboarding_id: input.onboardingId,
+              workspace_id: input.company.workspace_id,
+              service: workflow.serviceName,
+              checklist_item_id: item.id,
+              leader_id: leaderId,
+            },
+            select: { id: true, service: true, checklist_item_id: true },
+          });
+          meetings.push(meeting);
+        }
+      }
+    }
+
+    if (firstCreatedTaskId) {
+      result.notificationTargets.push({
+        userId: leaderId,
+        taskId: firstCreatedTaskId,
+        workspaceId: input.company.workspace_id,
+        onboardingId: input.onboardingId,
+        actorId: input.actorId,
+        label: `Complete o checklist de onboarding ${workflow.serviceName} para ${input.company.name}`,
+        companyId: input.company.id,
+      });
+    }
+  }
+
+  await recomputeOnboardingProgress(tx, input.onboardingId);
+  return result;
 }
 
 async function createOnboardingRecords(
@@ -1609,6 +1893,7 @@ async function createOnboardingRecords(
     b2bAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
   }
 
+  let marketingB2BProjectId: string | null = null;
   if (b2bFormServices.length > 0) {
     const fallbackLeader = await ownerForDepartmentRoute("marketing_b2b", adminFallback);
     const formOwnerId = b2bAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
@@ -1618,6 +1903,7 @@ async function createOnboardingRecords(
       companyName: company.name,
       ownerId: input.actorId,
     });
+    marketingB2BProjectId = b2bProjectId;
     const b2bTask = await createTask({
       project_id: b2bProjectId,
       route: "marketing_b2b",
@@ -1876,8 +2162,16 @@ async function createOnboardingRecords(
       });
     }
 
-    const serviceProjectId = await queueProjectId(route);
     const dedicatedWorkflow = serviceWorkflowFor(service);
+    const serviceProjectId = dedicatedWorkflow
+      ? marketingB2BProjectId ??
+        (await resolveMarketingB2BOnboardingProjectId(tx, {
+          workspaceId: company.workspace_id,
+          companyId: company.id,
+          companyName: company.name,
+          ownerId: input.actorId,
+        }))
+      : await queueProjectId(route);
     if (dedicatedWorkflow) {
       let entryTaskId: string | null = null;
       for (const [stepIndex, step] of dedicatedWorkflow.steps.entries()) {
@@ -2108,6 +2402,78 @@ export async function createClientOnboardingFromWizard(
     notifications: assignedNotificationCount + adminNotificationCount,
     missing_mappings: result.missingMappings,
   };
+}
+
+export async function syncClientOnboardingServices(input: {
+  companyId: string;
+  workspaceId: string;
+  actorId: string;
+  services?: string[];
+}) {
+  const result = await prisma.$transaction(async (tx) => {
+    const company = await tx.company.findFirst({
+      where: { id: input.companyId, workspace_id: input.workspaceId },
+      select: {
+        id: true,
+        workspace_id: true,
+        name: true,
+        owner_id: true,
+        included_services: true,
+        service_type: true,
+        plan_name: true,
+      },
+    });
+    if (!company) throw new Error("Client not found.");
+
+    const onboarding = await tx.clientOnboarding.findFirst({
+      where: {
+        workspace_id: input.workspaceId,
+        company_id: input.companyId,
+        status: { not: "onboarding_complete" },
+      },
+      orderBy: [{ created_at: "desc" }, { id: "asc" }],
+      select: { id: true, contracted_services: true },
+    });
+    if (!onboarding) return null;
+
+    const services = onboardingServices({
+      explicitServices: input.services,
+      includedServices: company.included_services,
+      serviceType: company.service_type,
+    });
+    const synced = await syncDedicatedServiceWorkflows(tx, {
+      onboardingId: onboarding.id,
+      company,
+      actorId: input.actorId,
+      services,
+      currentServices: onboarding.contracted_services,
+    });
+    const refreshed = await tx.clientOnboarding.findUniqueOrThrow({
+      where: { id: onboarding.id },
+      select: onboardingSelect(),
+    });
+    return { ...synced, onboarding: refreshed };
+  });
+
+  if (!result) return null;
+  const notifications = await sendOnboardingAssignmentNotifications(result.notificationTargets);
+  if (result.createdTasks.length > 0 || result.movedTasks > 0) {
+    await recordActivity({
+      workspace_id: result.onboarding.workspace_id,
+      actor_id: input.actorId,
+      type: "client_onboarding_services_synced",
+      entity_type: "client_onboarding",
+      entity_id: result.onboarding.id,
+      project_id: result.onboarding.project_id,
+      company_id: result.onboarding.company_id,
+      metadata: {
+        services: result.onboarding.contracted_services,
+        created_tasks: result.createdTasks.length,
+        moved_tasks: result.movedTasks,
+      },
+    });
+  }
+  return { ...result, notifications };
 }
 
 export async function startClientOnboardingForCompany(input: {

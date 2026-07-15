@@ -201,7 +201,7 @@ export default function ProjectPage() {
   return (
     <>
       <Header title={project.name} />
-      <div className="mx-auto max-w-[1500px] overflow-x-hidden p-4 sm:p-6">
+      <div className="mx-auto max-w-[1500px] overflow-x-clip p-4 sm:p-6">
         <div className="mb-5 rounded-2xl border border-blue-300/10 bg-[#050a18]/35 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.18)] sm:p-6">
           <Link
             href="/projects"
