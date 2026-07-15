@@ -15,6 +15,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260702120000_marketing_b2b_onboarding_forms/migration.sql");
   const helper = read("src/lib/onboarding.ts");
+  const routing = read("src/lib/onboarding-routing.ts");
   const route = read("src/app/api/onboarding/marketing-b2b-form/[taskId]/route.ts");
   const form = read("src/components/onboarding/marketing-b2b-onboarding-form.tsx");
   const panel = read("src/components/onboarding/client-onboarding-panel.tsx");
@@ -39,7 +40,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /MARKETING_B2B_FORM_SERVICES/);
   assert.match(helper, /MARKETING_B2B_FORM_SERVICES[\s\S]*"Vesti"/);
   assert.match(helper, /isMarketingB2BFormService[\s\S]*key === "vesti"/);
-  assert.match(helper, /routeForService[\s\S]*key\.includes\("vesti"\)/);
+  assert.match(routing, /routeForService[\s\S]*key\.includes\("vesti"\)/);
   assert.match(helper, /isMarketingB2BFormService/);
   assert.match(helper, /resolveMarketingB2BOnboardingProjectId/);
   assert.match(helper, /name: "Onboarding"/);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { Prisma, type TaskStatus, type TaskPriority } from "@prisma/client";
@@ -18,6 +19,7 @@ import {
   readableProjectWhere,
 } from "@/lib/project-access";
 import { attachTaskOnboardingLink, loadTaskOnboardingLinkMap } from "@/lib/task-onboarding-links";
+import { repairOnboardingTaskRouting } from "@/lib/onboarding";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -43,6 +45,22 @@ async function getHandler(req: NextRequest) {
     if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (!(await canReadProject(auth, project))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    if (isWorkspaceAdminFor(auth, project.workspace_id)) {
+      await prisma
+        .$transaction((tx) =>
+          repairOnboardingTaskRouting(tx, {
+            workspaceId: project.workspace_id,
+            projectId: project.id,
+            ownerId: auth.prismaUser.id,
+          }),
+        )
+        .catch((err) =>
+          logError("api:tasks:GET:repair-onboarding-routing", err, {
+            project_id: project.id,
+            workspace_id: project.workspace_id,
+          }),
+        );
     }
   }
 

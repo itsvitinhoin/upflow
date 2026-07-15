@@ -13,6 +13,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260702130000_marketing_b2c_onboarding_forms/migration.sql");
   const helper = read("src/lib/onboarding.ts");
+  const routing = read("src/lib/onboarding-routing.ts");
   const route = read("src/app/api/onboarding/marketing-b2c-form/[taskId]/route.ts");
   const form = read("src/components/onboarding/marketing-b2c-onboarding-form.tsx");
   const panel = read("src/components/onboarding/client-onboarding-panel.tsx");
@@ -33,8 +34,7 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES[\s\S]*"Vesti"/);
   assert.match(helper, /isMarketingB2CFormService[\s\S]*key === "vesti"/);
   assert.match(helper, /isMarketingB2CFormService/);
-  assert.match(helper, /isMarketingB2CDepartment/);
-  assert.match(helper, /routeForResponsibleDepartment/);
+  assert.match(routing, /routeForResponsibleDepartment/);
   assert.match(helper, /resolveMarketingB2COnboardingProjectId/);
   assert.match(helper, /Marketing B2C Onboarding/);
   assert.match(helper, /const projectName = input\.companyName\.trim\(\) \|\| "Marketing B2C Onboarding"/);
@@ -54,8 +54,8 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /sourceProjectSpaceName = sourceProject\?\.space\?\.name/);
   assert.match(helper, /responsibleDepartmentName = input\.responsibleDepartmentName \?\? responsibleDepartment\?\.name \?\? sourceProjectSpaceName/);
   assert.match(helper, /responsibleDepartmentRoute === "marketing_b2c"/);
-  assert.match(helper, /key\.includes\("content calendar"\)/);
-  assert.match(helper, /key\.includes\("campanhas"\)/);
+  assert.match(routing, /key\.includes\("content calendar"\)/);
+  assert.match(routing, /key\.includes\("campanhas"\)/);
   assert.match(helper, /key === "tiktok ads"/);
   assert.match(helper, /key === "pinterest ads"/);
   assert.match(helper, /key\.startsWith\("up motion "\)/);

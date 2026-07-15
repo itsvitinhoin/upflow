@@ -41,6 +41,12 @@ export const ONBOARDING_DEPARTMENT_OWNERS = [
     route: "support",
     aliases: ["technical support", "support", "suporte", "suporte tecnico", "suporte tecnico"],
   },
+  {
+    key: "general_admin",
+    label: "General Admin",
+    route: "general_admin",
+    aliases: ["general admin", "admin"],
+  },
 ] as const;
 
 export type OnboardingDepartmentOwner = (typeof ONBOARDING_DEPARTMENT_OWNERS)[number];
@@ -89,6 +95,8 @@ export function ownerKeyForTaskRoute(route: string | null | undefined): Onboardi
       return "marketing_b2c";
     case "creative_design":
       return "creative_design";
+    case "general_admin":
+      return "general_admin";
     case "commercial":
     default:
       return "commercial";
@@ -98,4 +106,3 @@ export function ownerKeyForTaskRoute(route: string | null | undefined): Onboardi
 export function ownerLabelForTaskRoute(route: string | null | undefined) {
   return onboardingDepartmentOwnerForKey(ownerKeyForTaskRoute(route))?.label ?? "Comercial";
 }
-

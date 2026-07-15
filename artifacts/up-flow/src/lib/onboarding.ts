@@ -4,8 +4,17 @@ import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
 import { logError } from "@/lib/log-error";
 import { ownerKeyForDepartmentLabel, ownerKeyForTaskRoute } from "@/lib/onboarding-department-owners";
+import {
+  type OnboardingTaskRoute,
+  normalizeOnboardingRouteValue,
+  routeForOnboardingChecklistItem,
+  routeForResponsibleDepartment,
+  routeForService,
+} from "@/lib/onboarding-routing";
 import { prisma } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/supabase-server";
+
+export { routeForService } from "@/lib/onboarding-routing";
 
 export const ONBOARDING_STATUSES = [
   "pending_commercial_setup",
@@ -187,14 +196,6 @@ export const UP_ZERO_ONBOARDING_WORKFLOW = [
 type Tx = Prisma.TransactionClient;
 type Db = typeof prisma | Tx;
 
-type OnboardingTaskRoute =
-  | "commercial"
-  | "finance"
-  | "support"
-  | "marketing_b2b"
-  | "marketing_b2c"
-  | "creative_design";
-
 type OnboardingTaskProjectInput = {
   workspaceId: string;
   companyId?: string | null;
@@ -202,7 +203,7 @@ type OnboardingTaskProjectInput = {
   sourceProjectId?: string | null;
   sourceProjectSpaceId?: string | null;
   ownerId: string;
-  route: OnboardingTaskRoute | null;
+  route: OnboardingTaskRoute;
 };
 
 type UserRef = { id: string; name: string; email: string };
@@ -331,6 +332,7 @@ const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
   marketing_b2b: ["marketing b2b", "paid media", "media buying", "marketing"],
   marketing_b2c: ["marketing b2c", "consumer marketing", "b2c", "varejo", "ecommerce"],
   creative_design: ["creative and design", "creative design", "creative & design", "criativo", "design"],
+  general_admin: ["general admin"],
 };
 
 const ROUTE_QUEUE_CONFIG: Record<
@@ -372,6 +374,12 @@ const ROUTE_QUEUE_CONFIG: Record<
     projectName: "Service Onboarding",
     description: "Reusable queue for creative, video, website, and design service kickoff tasks.",
     aliases: ROUTE_SPACE_ALIASES.creative_design,
+  },
+  general_admin: {
+    spaceName: "General Admin",
+    projectName: "Onboarding Triage",
+    description: "Review and route onboarding work that does not yet belong to a department.",
+    aliases: ROUTE_SPACE_ALIASES.general_admin,
   },
 };
 
@@ -538,13 +546,7 @@ function serviceKey(service: string) {
 }
 
 function normalizedName(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/&/g, "and")
-    .replace(/[^a-z0-9]+/gi, " ")
-    .trim()
-    .toLowerCase();
+  return normalizeOnboardingRouteValue(value);
 }
 
 export function hasUpZeroService(services: unknown) {
@@ -614,80 +616,6 @@ export function isMarketingB2CFormService(service: string) {
   );
 }
 
-function isMarketingB2BDepartment(value: string | null | undefined) {
-  const key = normalizedName(value ?? "");
-  return key.includes("marketing b2b");
-}
-
-function isMarketingB2CDepartment(value: string | null | undefined) {
-  const key = normalizedName(value ?? "");
-  return key.includes("marketing b2c") || key === "b2c" || key.includes("consumer marketing");
-}
-
-function routeForResponsibleDepartment(value: string | null | undefined): OnboardingTaskRoute | null {
-  if (isMarketingB2CDepartment(value)) return "marketing_b2c";
-  if (isMarketingB2BDepartment(value)) return "marketing_b2b";
-  const key = normalizedName(value ?? "");
-  if (key.includes("creative") || key.includes("design")) return "creative_design";
-  if (key.includes("finance") || key.includes("financeiro")) return "finance";
-  if (key.includes("support") || key.includes("suporte")) return "support";
-  if (key.includes("commercial") || key.includes("comercial") || key.includes("sales")) return "commercial";
-  return null;
-}
-
-export function routeForService(service: string): OnboardingTaskRoute | null {
-  const key = normalizedName(service);
-  if (
-    key.includes("nuvemshop") ||
-    key.includes("google shopping") ||
-    key.includes("influencer") ||
-    key.includes("ugc") ||
-    key.includes("marketing b2c") ||
-    key.includes("consumer marketing") ||
-    key.includes("content calendar") ||
-    key.includes("calendario de conteudo") ||
-    key.includes("promotions") ||
-    key.includes("promocoes") ||
-    key.includes("campaigns") ||
-    key.includes("campanhas") ||
-    key === "ads" ||
-    key.includes("trafego") ||
-    key.includes("midia")
-  ) {
-    return "marketing_b2c";
-  }
-  if (
-    key.includes("creative") ||
-    key.includes("video") ||
-    key.includes("website") ||
-    key.includes("web design") ||
-    key.includes("landing page")
-  ) {
-    return "creative_design";
-  }
-  if (
-    key.includes("meta ads") ||
-    key.includes("google ads") ||
-    key.includes("e commerce") ||
-    key.includes("ecommerce") ||
-    key.includes("vesti") ||
-    key.includes("up zero") ||
-    key.includes("up motion") ||
-    key.includes("paid media") ||
-    key.includes("social") ||
-    key.includes("seo") ||
-    key.includes("tracking") ||
-    key.includes("analytics") ||
-    key.includes("email") ||
-    key.includes("monthly report") ||
-    key.includes("content")
-  ) {
-    return "marketing_b2b";
-  }
-  if (key.includes("support")) return "support";
-  return null;
-}
-
 function shouldCreateDedicatedServiceTask(service: string) {
   return serviceWorkflowFor(service) !== null;
 }
@@ -731,7 +659,7 @@ export async function resolveOnboardingTaskProjectId(
   db: Db,
   input: OnboardingTaskProjectInput,
 ): Promise<string> {
-  const route = input.route ?? "commercial";
+  const route = input.route;
   const config = ROUTE_QUEUE_CONFIG[route];
   const targetSpace = await ensureTargetSpace(db, input.workspaceId, route, input.ownerId);
 
@@ -1059,6 +987,143 @@ export async function resolveCreativeDesignOnboardingProjectId(
     fallbackProjectName: "Creative Onboarding",
     description: "Creative and design onboarding scheduling tasks for this client.",
   });
+}
+
+async function resolveOnboardingRouteProjectId(
+  db: Db,
+  input: {
+    workspaceId: string;
+    companyId: string;
+    companyName: string;
+    ownerId: string;
+    route: OnboardingTaskRoute;
+  },
+) {
+  switch (input.route) {
+    case "finance":
+      return resolveFinanceOnboardingProjectId(db, input);
+    case "creative_design":
+      return resolveCreativeDesignOnboardingProjectId(db, input);
+    case "marketing_b2b":
+      return resolveMarketingB2BOnboardingProjectId(db, input);
+    case "marketing_b2c":
+      return resolveMarketingB2COnboardingProjectId(db, input);
+    default:
+      return resolveOnboardingTaskProjectId(db, input);
+  }
+}
+
+async function collectTaskAndSubtaskIds(db: Db, taskId: string) {
+  const ids = new Set([taskId]);
+  let frontier = [taskId];
+
+  while (frontier.length > 0) {
+    const children = await db.task.findMany({
+      where: { parent_id: { in: frontier } },
+      select: { id: true },
+    });
+    frontier = children
+      .map((child) => child.id)
+      .filter((childId) => !ids.has(childId));
+    for (const childId of frontier) ids.add(childId);
+  }
+
+  return [...ids];
+}
+
+export async function repairOnboardingTaskRouting(
+  db: Db,
+  input: { workspaceId: string; projectId: string; ownerId: string },
+) {
+  const checklistItems = await db.onboardingChecklistItem.findMany({
+    where: {
+      workspace_id: input.workspaceId,
+      task_id: { not: null },
+      task: { project_id: input.projectId },
+    },
+    select: {
+      id: true,
+      department: true,
+      title: true,
+      task: { select: { id: true, project_id: true, title: true } },
+      onboarding: {
+        select: {
+          company_id: true,
+          company: { select: { name: true } },
+        },
+      },
+    },
+  });
+  if (checklistItems.length === 0) return { checked: 0, rehomed: 0 };
+
+  const meetings = await db.onboardingMeeting.findMany({
+    where: {
+      workspace_id: input.workspaceId,
+      checklist_item_id: { in: checklistItems.map((item) => item.id) },
+    },
+    select: { checklist_item_id: true, service: true },
+  });
+  const serviceByChecklistItemId = new Map(
+    meetings
+      .filter((meeting): meeting is typeof meeting & { checklist_item_id: string } => Boolean(meeting.checklist_item_id))
+      .map((meeting) => [meeting.checklist_item_id, meeting.service]),
+  );
+  const projectByRouteAndCompany = new Map<string, string>();
+  let rehomed = 0;
+
+  for (const item of checklistItems) {
+    if (!item.task) continue;
+    const route = routeForOnboardingChecklistItem({
+      department: item.department,
+      service: serviceByChecklistItemId.get(item.id),
+      title: item.title,
+      taskTitle: item.task.title,
+    });
+    const projectKey = `${item.onboarding.company_id}:${route}`;
+    let targetProjectId = projectByRouteAndCompany.get(projectKey);
+    if (!targetProjectId) {
+      targetProjectId = await resolveOnboardingRouteProjectId(db, {
+        workspaceId: input.workspaceId,
+        companyId: item.onboarding.company_id,
+        companyName: item.onboarding.company.name,
+        ownerId: input.ownerId,
+        route,
+      });
+      projectByRouteAndCompany.set(projectKey, targetProjectId);
+    }
+    if (item.task.project_id === targetProjectId) continue;
+
+    const taskIds = await collectTaskAndSubtaskIds(db, item.task.id);
+    await Promise.all([
+      db.task.updateMany({
+        where: { id: { in: taskIds } },
+        data: { project_id: targetProjectId, company_id: item.onboarding.company_id },
+      }),
+      db.calendarEvent.updateMany({
+        where: { task_id: { in: taskIds } },
+        data: { project_id: targetProjectId, company_id: item.onboarding.company_id },
+      }),
+      db.timeEntry.updateMany({
+        where: { task_id: { in: taskIds } },
+        data: { project_id: targetProjectId },
+      }),
+      db.activityEvent.updateMany({
+        where: { task_id: { in: taskIds } },
+        data: { project_id: targetProjectId, company_id: item.onboarding.company_id },
+      }),
+      db.marketingB2BOnboardingForm.updateMany({
+        where: { task_id: { in: taskIds } },
+        data: { project_id: targetProjectId },
+      }),
+      db.marketingB2COnboardingForm.updateMany({
+        where: { task_id: { in: taskIds } },
+        data: { project_id: targetProjectId },
+      }),
+    ]);
+    rehomed += 1;
+  }
+
+  return { checked: checklistItems.length, rehomed };
 }
 
 export async function sendOnboardingAssignmentNotifications(targets: OnboardingAssignmentNotificationTarget[]) {
@@ -2166,9 +2231,8 @@ async function createOnboardingRecords(
     company.owner_id;
 
   const queueProjectCache = new Map<OnboardingTaskRoute, string>();
-  const queueProjectId = async (route: OnboardingTaskRoute | null) => {
-    const resolvedRoute = route ?? "commercial";
-    const cached = queueProjectCache.get(resolvedRoute);
+  const queueProjectId = async (route: OnboardingTaskRoute) => {
+    const cached = queueProjectCache.get(route);
     if (cached) return cached;
     const projectId = await resolveOnboardingTaskProjectId(tx, {
       workspaceId: company.workspace_id,
@@ -2177,9 +2241,9 @@ async function createOnboardingRecords(
       sourceProjectId: sourceProject?.id ?? null,
       sourceProjectSpaceId: sourceProject?.space_id ?? null,
       ownerId: input.actorId,
-      route: resolvedRoute,
+      route,
     });
-    queueProjectCache.set(resolvedRoute, projectId);
+    queueProjectCache.set(route, projectId);
     return projectId;
   };
 
@@ -2378,7 +2442,7 @@ async function createOnboardingRecords(
   );
 
   const allMapped = contractedServices.every((service) => {
-    const route = routeForService(service) ?? "commercial";
+    const route = routeForService(service);
     return Boolean(departmentMappingForRoute(route)?.leader_id);
   });
   await tx.onboardingChecklistItem.createMany({
@@ -2742,7 +2806,7 @@ async function createOnboardingRecords(
       dedicatedServiceTask && (responsibleDepartmentRoute === "marketing_b2b" || responsibleDepartmentRoute === "marketing_b2c")
         ? responsibleDepartmentRoute
         : routeForService(service);
-    const assignmentRoute = route ?? "commercial";
+    const assignmentRoute = route;
     const mapping = departmentMappingForRoute(assignmentRoute);
     const fallbackLeader = await ownerForDepartmentRoute(assignmentRoute, adminFallback);
     const fallbackDepartment = await departmentForDepartmentRoute(assignmentRoute);
