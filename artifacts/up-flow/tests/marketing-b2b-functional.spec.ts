@@ -203,7 +203,14 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await expect(
       commercialSection.getByRole("button", { name: "Salvar", exact: true }),
     ).toBeVisible();
+    const commercialSave = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        new URL(response.url()).pathname === `/api/onboarding/marketing-b2b-form/${replacementTask.id}` &&
+        response.ok(),
+    );
     await commercialSection.getByRole("button", { name: "Salvar", exact: true }).click();
+    await commercialSave;
 
     const commercialSavedResponse = await api.get(
       `/api/onboarding/marketing-b2b-form/${replacementTask.id}`,
