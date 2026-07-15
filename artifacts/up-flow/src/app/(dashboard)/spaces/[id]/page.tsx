@@ -78,6 +78,12 @@ export default function SpaceContainerPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
   const [updatingTask, setUpdatingTask] = useState(false);
+  const [defaultsEnsuredFor, setDefaultsEnsuredFor] = useState<string | null>(null);
+  const canManageWorkspace = Boolean(
+    user?.isSuperAdmin ||
+      user?.currentRole === "owner" ||
+      user?.currentRole === "admin",
+  );
 
   const loadContainer = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -135,6 +141,33 @@ export default function SpaceContainerPage() {
   useEffect(() => {
     setActiveTab(tabParam === "browse" || focusedListId ? "browse" : "dashboard");
   }, [focusedListId, id, tabParam]);
+
+  useEffect(() => {
+    if (
+      !id ||
+      !canManageWorkspace ||
+      dashboard?.department_preset?.department_key !== "general_admin" ||
+      defaultsEnsuredFor === id
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    setDefaultsEnsuredFor(id);
+    fetch(`/api/spaces/${id}/department-defaults`, { method: "POST" })
+      .then((res) => {
+        if (!res.ok || cancelled) return;
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+        loadContainer({ silent: true });
+        loadDashboard({ silent: true });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageWorkspace, dashboard?.department_preset?.department_key, defaultsEnsuredFor, id]);
 
   const firstProjectId = dashboard?.projects.items[0]?.id ?? null;
 
@@ -216,10 +249,7 @@ export default function SpaceContainerPage() {
   const departmentPreset = dashboard?.department_preset ?? null;
   const departmentTheme = getDepartmentDashboardTheme(departmentPreset?.department_key);
   const workspaceName = space.workspace?.name ?? t("invite.currentWorkspace");
-  const canShareWorkspace =
-    user?.isSuperAdmin ||
-    user?.currentRole === "owner" ||
-    user?.currentRole === "admin";
+  const canShareWorkspace = canManageWorkspace;
 
   return (
     <>

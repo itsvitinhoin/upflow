@@ -38,6 +38,37 @@ test("department space presets include all requested departments with emojis and
   }
 });
 
+test("General Admin includes the RH folder and ClickUp-style RH board model", () => {
+  const rhBoardSource = readFileSync(join(root, "src/lib/rh-board.ts"), "utf8");
+
+  for (const value of [
+    "starter_folders",
+    "RH",
+    "ensureDepartmentListModel",
+    "prisma.folder.create",
+    "workflowStatus.create",
+  ]) {
+    assert.ok(departmentSpacesSource.includes(value), `missing ${value}`);
+  }
+
+  for (const value of [
+    "BOAS VINDAS",
+    "RH Status",
+    "RH Task Type",
+    "EM TREINAMENTO",
+    "PONTO DE ATENCAO",
+    "ANIVERSARIANTES",
+    "PLANO DE CARREIRA",
+    "STEFAN",
+    "THIAGO",
+    "FEEDBACKS",
+    "DESLIGAMENTO",
+    "ASSINATURA DO CONTRATO",
+  ]) {
+    assert.ok(rhBoardSource.includes(value), `missing ${value}`);
+  }
+});
+
 test("department setup is idempotent but not auto-seeded into personal workspace load paths", () => {
   assert.match(departmentSpacesSource, /normalizeDepartmentSpaceName/);
   assert.match(departmentSpacesSource, /spacesByName\.get/);
@@ -68,4 +99,22 @@ test("space dashboards and department task creation use department presets", () 
   assert.match(dashboardRoute, /department_preset/);
   assert.match(spacePage, /dashboard_focus_labels/);
   assert.match(spacePage, /default_task_template_id/);
+});
+
+test("RH board fields drive project board columns and setup refresh", () => {
+  const kanbanBoard = readFileSync(join(root, "src/components/projects/kanban-board.tsx"), "utf8");
+  const projectPage = readFileSync(join(root, "src/app/(dashboard)/projects/[id]/page.tsx"), "utf8");
+  const spacePage = readFileSync(join(root, "src/app/(dashboard)/spaces/[id]/page.tsx"), "utf8");
+  const defaultsRoute = readFileSync(
+    join(root, "src/app/api/spaces/[id]/department-defaults/route.ts"),
+    "utf8",
+  );
+
+  assert.match(kanbanBoard, /RH_BOARD_FIELD_NAME/);
+  assert.match(kanbanBoard, /custom-fields/);
+  assert.match(kanbanBoard, /addTaskToColumn/);
+  assert.match(projectPage, /initialCustomFieldValues/);
+  assert.match(spacePage, /department-defaults/);
+  assert.match(defaultsRoute, /ensureDepartmentSpaces/);
+  assert.match(defaultsRoute, /isWorkspaceAdminFor/);
 });
