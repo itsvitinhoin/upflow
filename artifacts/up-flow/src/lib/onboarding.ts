@@ -63,6 +63,114 @@ export const MARKETING_B2C_FORM_SERVICES = [
   "Influencers / UGC",
 ] as const;
 
+type ServiceWorkflowStep = {
+  title: string;
+  description: string;
+  meeting?: boolean;
+  priority?: "low" | "medium" | "high";
+};
+
+const ONBOARDING_PRESENTATION_URL = "https://www.canva.com/folder/FAHOKHrZriY";
+
+export const VESTI_ONBOARDING_WORKFLOW = [
+  {
+    title: "Criar grupo de WhatsApp e capa",
+    description: "Criar o grupo de WhatsApp do cliente, adicionar os participantes e configurar a capa.",
+  },
+  {
+    title: "Agendar apresentação e dia do onboarding",
+    description: "Apresentar-se ao cliente e marcar a data e o horário do onboarding.",
+    meeting: true,
+    priority: "high",
+  },
+  {
+    title: "Realizar onboarding",
+    description: `Realizar o onboarding usando a apresentação oficial: ${ONBOARDING_PRESENTATION_URL}`,
+    priority: "high",
+  },
+  {
+    title: "Registrar anotações pós-onboarding no ClickUp",
+    description: "Documentar decisões, responsáveis, prazos, acessos e pendências levantadas durante o onboarding.",
+  },
+  {
+    title: "Solicitar materiais e acessos ao cliente",
+    description:
+      "Solicitar lista de clientes para Lookalike; acesso ao painel/API da Vesti; Drive com fotos e vídeos; e compra do domínio.",
+    priority: "high",
+  },
+  {
+    title: "Obter acessos de Meta, GA4 e GTM",
+    description: "Confirmar e registrar os acessos necessários ao Meta, Google Analytics 4 e Google Tag Manager.",
+    priority: "high",
+  },
+  {
+    title: "Solicitar configuração do domínio na Vesti para o Chiliti",
+    description: "Solicitar ao cliente a configuração do domínio na Vesti e encaminhar as informações para o Chiliti.",
+  },
+  {
+    title: "Solicitar inclusão do cliente no Power BI da Vesti",
+    description: "Solicitar à Vesti a inclusão do novo cliente no Power BI e confirmar a disponibilidade dos dados.",
+  },
+  {
+    title: "Realizar configuração técnica",
+    description:
+      "Configurar rastreamento web (Meta Ads, GA4, Microsoft Clarity e GTM Web) e rastreamento server-side (domínio, Stape e GTM Server).",
+    priority: "high",
+  },
+  {
+    title: "Criar e validar o UP Dash",
+    description:
+      "Obter API Key e Company ID da Vesti; conectar os dados; criar o dashboard; validar os dados do cliente; e enviar o acesso ao cliente.",
+    priority: "high",
+  },
+] as const satisfies readonly ServiceWorkflowStep[];
+
+export const UP_ZERO_ONBOARDING_WORKFLOW = [
+  {
+    title: "Criar grupo de WhatsApp e capa",
+    description: "Criar o grupo de WhatsApp do cliente, adicionar os participantes e configurar a capa.",
+  },
+  {
+    title: "Agendar apresentação e dia do onboarding",
+    description: "Apresentar-se ao cliente e marcar a data e o horário do onboarding.",
+    meeting: true,
+    priority: "high",
+  },
+  {
+    title: "Realizar onboarding",
+    description: `Realizar o onboarding usando a apresentação oficial: ${ONBOARDING_PRESENTATION_URL}`,
+    priority: "high",
+  },
+  {
+    title: "Registrar anotações pós-onboarding no ClickUp",
+    description: "Documentar decisões, responsáveis, prazos, acessos e pendências levantadas durante o onboarding.",
+  },
+  {
+    title: "Solicitar materiais ao cliente",
+    description: "Solicitar lista de clientes para Lookalike e Drive com fotos e vídeos.",
+    priority: "high",
+  },
+  {
+    title: "Obter acessos de Meta, GA4 e GTM",
+    description: "Confirmar e registrar os acessos necessários ao Meta, Google Analytics 4 e Google Tag Manager.",
+    priority: "high",
+  },
+  {
+    title: "Realizar configuração técnica",
+    description:
+      "Configurar Meta Ads (pixel e API Token), GA4 (ID e chave secreta da API) e Microsoft Clarity (ID do projeto).",
+    priority: "high",
+  },
+  {
+    title: "Preparar briefing de criativos",
+    description: "Consolidar o briefing de criativos com ofertas, formatos, referências, mensagens e materiais disponíveis.",
+  },
+  {
+    title: "Treinar o cliente no uso do UP Dash",
+    description: "Apresentar o UP Dash ao cliente, explicar os indicadores e orientar o uso recorrente do dashboard.",
+  },
+] as const satisfies readonly ServiceWorkflowStep[];
+
 type Tx = Prisma.TransactionClient;
 type Db = typeof prisma | Tx;
 
@@ -405,6 +513,15 @@ function normalizedName(value: string) {
     .toLowerCase();
 }
 
+function serviceWorkflowFor(
+  service: string,
+): { serviceName: string; steps: readonly ServiceWorkflowStep[] } | null {
+  const key = normalizedName(service);
+  if (key === "vesti") return { serviceName: "Vesti", steps: VESTI_ONBOARDING_WORKFLOW };
+  if (key === "up zero") return { serviceName: "UP Zero", steps: UP_ZERO_ONBOARDING_WORKFLOW };
+  return null;
+}
+
 export function isMarketingB2BFormService(service: string) {
   const key = normalizedName(service);
   return (
@@ -534,8 +651,7 @@ export function routeForService(service: string): OnboardingTaskRoute | null {
 }
 
 function shouldCreateDedicatedServiceTask(service: string) {
-  const key = normalizedName(service);
-  return key === "vesti" || key === "up zero";
+  return serviceWorkflowFor(service) !== null;
 }
 
 function routeMatcher(route: OnboardingTaskRoute) {
@@ -1745,7 +1861,79 @@ async function createOnboardingRecords(
     const needsMapping = existingAssignment?.needsMapping ?? !mapping?.leader_id;
     if (needsMapping && !existingAssignment) missingMappings.push(mapping?.department?.name ?? fallbackDepartment?.name ?? service);
 
+    if (!existingAssignment) {
+      await tx.onboardingServiceAssignment.create({
+        data: {
+          onboarding_id: onboarding.id,
+          workspace_id: company.workspace_id,
+          service,
+          leader_id: leaderId,
+          department_id: departmentId,
+          department_name: departmentName,
+          status: needsMapping ? "needs_mapping" : "assigned",
+          notes: needsMapping ? "Needs department responsible mapping. Fallback owner was assigned for continuity." : null,
+        },
+      });
+    }
+
     const serviceProjectId = await queueProjectId(route);
+    const dedicatedWorkflow = serviceWorkflowFor(service);
+    if (dedicatedWorkflow) {
+      let entryTaskId: string | null = null;
+      for (const [stepIndex, step] of dedicatedWorkflow.steps.entries()) {
+        const stepPosition = position + stepIndex;
+        const workflowTask = await createTask({
+          project_id: serviceProjectId,
+          route: assignmentRoute,
+          title: `${dedicatedWorkflow.serviceName}: ${step.title}`,
+          description: `${step.description}\n\nConcluir esta tarefa atualiza automaticamente o checklist e o progresso do onboarding.`,
+          status: "todo",
+          priority: step.priority ?? "medium",
+          assignee_id: leaderId,
+          position: stepPosition,
+        });
+        entryTaskId ??= workflowTask.id;
+        const workflowItem = await tx.onboardingChecklistItem.create({
+          data: {
+            onboarding_id: onboarding.id,
+            workspace_id: company.workspace_id,
+            task_id: workflowTask.id,
+            department: step.meeting ? "Service Onboarding" : `${dedicatedWorkflow.serviceName} Workflow`,
+            title: `${dedicatedWorkflow.serviceName}: ${step.title}`,
+            owner_id: leaderId,
+            notes: needsMapping
+              ? `${step.description}\n\nResponsável do departamento não configurado; proprietário alternativo atribuído.`
+              : step.description,
+            sort_order: stepPosition,
+          },
+        });
+        if (step.meeting) {
+          await tx.onboardingMeeting.create({
+            data: {
+              onboarding_id: onboarding.id,
+              workspace_id: company.workspace_id,
+              service: dedicatedWorkflow.serviceName,
+              checklist_item_id: workflowItem.id,
+              leader_id: leaderId,
+            },
+          });
+        }
+      }
+      if (entryTaskId) {
+        notificationTargets.push({
+          userId: leaderId,
+          taskId: entryTaskId,
+          workspaceId: company.workspace_id,
+          onboardingId: onboarding.id,
+          actorId: input.actorId,
+          label: `Complete o checklist de onboarding ${dedicatedWorkflow.serviceName} para ${company.name}`,
+          companyId: company.id,
+        });
+      }
+      position += dedicatedWorkflow.steps.length;
+      continue;
+    }
+
     const serviceTask = await createTask({
       project_id: serviceProjectId,
       route: assignmentRoute,
@@ -1768,20 +1956,6 @@ async function createOnboardingRecords(
         sort_order: position,
       },
     });
-    if (!existingAssignment) {
-      await tx.onboardingServiceAssignment.create({
-        data: {
-          onboarding_id: onboarding.id,
-          workspace_id: company.workspace_id,
-          service,
-          leader_id: leaderId,
-          department_id: departmentId,
-          department_name: departmentName,
-          status: needsMapping ? "needs_mapping" : "assigned",
-          notes: needsMapping ? "Needs department responsible mapping. Fallback owner was assigned for continuity." : null,
-        },
-      });
-    }
     await tx.onboardingMeeting.create({
       data: {
         onboarding_id: onboarding.id,

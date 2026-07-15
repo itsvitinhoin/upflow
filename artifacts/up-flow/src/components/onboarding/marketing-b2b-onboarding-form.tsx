@@ -523,6 +523,22 @@ function cleanExtraBrandResponsibles(rows: BrandResponsibleExtra[]): JsonFormVal
 function isUpResponsibleSelected(values: FormValues, serviceKey: string) {
   return textValue(values, `upResponsible.${serviceKey}.leaderId`).trim().length > 0;
 }
+
+const sectionByFieldPrefix: Record<string, string> = {
+  brand: "brand",
+  commercial: "commercial",
+  targetPositioning: "target",
+  brandResponsible: "brandResponsibles",
+  upResponsible: "upResponsibles",
+  access: "access",
+  validation: "validation",
+};
+
+function sectionForField(field: string) {
+  const prefix = field.split(".", 1)[0];
+  return sectionByFieldPrefix[prefix] ?? null;
+}
+
 function cleanAddresses(addresses: ClientAddress[]) {
   return addresses.map((address) => ({
     ...address,
@@ -784,7 +800,13 @@ export default function MarketingB2BOnboardingForm({
     saveTimer.current = setTimeout(() => void savePatch(), 700);
   }, [canEdit, savePatch]);
 
+  const enterEditMode = (sectionId: string | null) => {
+    if (!sectionId) return;
+    setEditingSections((current) => (current[sectionId] ? current : { ...current, [sectionId]: true }));
+  };
+
   const updateField = (field: string, value: string) => {
+    enterEditMode(sectionForField(field));
     const nextValues = { ...valuesRef.current, [field]: value };
     valuesRef.current = nextValues;
     setForm((current) => (current ? { ...current, values: nextValues } : current));
@@ -792,6 +814,7 @@ export default function MarketingB2BOnboardingForm({
   };
 
   const updateAddresses = (nextAddresses: ClientAddress[]) => {
+    enterEditMode("brand");
     const normalized = nextAddresses.length ? nextAddresses : [emptyAddress(true)];
     const hasPrimary = normalized.some((address) => address.isPrimary);
     const withPrimary = normalized.map((address, index) => ({ ...address, isPrimary: hasPrimary ? address.isPrimary : index === 0 }));
@@ -801,6 +824,7 @@ export default function MarketingB2BOnboardingForm({
   };
 
   const updateCompetitors = (nextCompetitors: Competitor[]) => {
+    enterEditMode("brand");
     competitorsRef.current = nextCompetitors;
     setCompetitors(nextCompetitors);
     valuesRef.current = { ...valuesRef.current, "brand.competitors": cleanCompetitors(nextCompetitors) };
@@ -809,6 +833,7 @@ export default function MarketingB2BOnboardingForm({
   };
 
   const updateExtraBrandResponsibles = (nextRows: BrandResponsibleExtra[]) => {
+    enterEditMode("brandResponsibles");
     extraBrandResponsiblesRef.current = nextRows;
     setExtraBrandResponsibles(nextRows);
     valuesRef.current = { ...valuesRef.current, "brandResponsible.extraRows": cleanExtraBrandResponsibles(nextRows) };
@@ -1464,22 +1489,22 @@ function BrandSection({
       onAction={onAction}
     >
       <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
-        <TextInput label={b2bFormLabels.brandName} value={textValue(values, "brand.name")} icon={Building2} disabled={!canEdit || !editing} required placeholder="Ex.: Nome público da marca" onChange={(value) => onFieldChange("brand.name", value)} />
-        <TextInput label={b2bFormLabels.brandOwner} value={textValue(values, "brand.owner")} icon={UserRound} disabled={!canEdit || !editing} required placeholder="Nome do proprietário" onChange={(value) => onFieldChange("brand.owner", value)} />
-        <TextInput label={b2bFormLabels.cnpj} value={textValue(values, "brand.cnpj")} icon={ClipboardCheck} disabled={!canEdit || !editing} required placeholder="00.000.000/0000-00" onChange={(value) => onFieldChange("brand.cnpj", value)} />
-        <TextInput label={b2bFormLabels.website} value={textValue(values, "brand.website")} icon={Globe2} disabled={!canEdit || !editing} required type="url" placeholder="https://exemplo.com" onChange={(value) => onFieldChange("brand.website", value)} />
-        <TextInput label={b2bFormLabels.instagram} value={textValue(values, "brand.instagram")} icon={Instagram} disabled={!canEdit || !editing} required placeholder="@marca" onChange={(value) => onFieldChange("brand.instagram", value)} />
+        <TextInput label={b2bFormLabels.brandName} value={textValue(values, "brand.name")} icon={Building2} disabled={!canEdit} required placeholder="Ex.: Nome público da marca" onChange={(value) => onFieldChange("brand.name", value)} />
+        <TextInput label={b2bFormLabels.brandOwner} value={textValue(values, "brand.owner")} icon={UserRound} disabled={!canEdit} required placeholder="Nome do proprietário" onChange={(value) => onFieldChange("brand.owner", value)} />
+        <TextInput label={b2bFormLabels.cnpj} value={textValue(values, "brand.cnpj")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="00.000.000/0000-00" onChange={(value) => onFieldChange("brand.cnpj", value)} />
+        <TextInput label={b2bFormLabels.website} value={textValue(values, "brand.website")} icon={Globe2} disabled={!canEdit} required type="url" placeholder="https://exemplo.com" onChange={(value) => onFieldChange("brand.website", value)} />
+        <TextInput label={b2bFormLabels.instagram} value={textValue(values, "brand.instagram")} icon={Instagram} disabled={!canEdit} required placeholder="@marca" onChange={(value) => onFieldChange("brand.instagram", value)} />
       </div>
 
-      <AddressManager addresses={addresses} disabled={!canEdit || !editing} onChange={onAddressesChange} />
-      <CompetitorManager competitors={competitors} disabled={!canEdit || !editing} onChange={onCompetitorsChange} />
+      <AddressManager addresses={addresses} disabled={!canEdit} onChange={onAddressesChange} />
+      <CompetitorManager competitors={competitors} disabled={!canEdit} onChange={onCompetitorsChange} />
 
       <div className="mt-4 grid gap-4">
         <TextAreaInput
           label={b2bFormLabels.generalNotes}
           value={textValue(values, "brand.notes")}
           icon={FileText}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           optional
           helper={OPTIONAL_HELPER}
           placeholder="Contexto extra sobre a marca, operação ou posicionamento."
@@ -1725,7 +1750,7 @@ function CommercialSection({
             label={b2bFormLabels.acceptedDocumentRule}
             value={documentRule}
             icon={ClipboardCheck}
-            disabled={!canEdit || !editing}
+            disabled={!canEdit}
             required
             helper="Defina qual tipo de cadastro o cliente aceita para compras no atacado."
             options={documentRuleOptions}
@@ -1733,14 +1758,14 @@ function CommercialSection({
           />
           {selectedExplanation && <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-200">{selectedExplanation}</p>}
         </div>
-        <TextInput label={b2bFormLabels.minimumOrder} value={textValue(values, "commercial.minimumOrder")} icon={BarChart3} disabled={!canEdit || !editing} required placeholder="Ex.: Pedido mínimo de R$150" onChange={(value) => onFieldChange("commercial.minimumOrder", value)} />
-        <TextInput label={b2bFormLabels.paymentMethods} value={textValue(values, "commercial.paymentMethods")} icon={ClipboardCheck} disabled={!canEdit || !editing} required placeholder="Pix, cartão, boleto, parcelamento..." onChange={(value) => onFieldChange("commercial.paymentMethods", value)} />
-        <TextInput label={b2bFormLabels.discountPolicy} value={textValue(values, "commercial.discountPolicy")} icon={ClipboardCheck} disabled={!canEdit || !editing} required placeholder="Cupons, primeira compra, descontos..." onChange={(value) => onFieldChange("commercial.discountPolicy", value)} />
-        <TextInput label={b2bFormLabels.commercialRestrictions} value={textValue(values, "commercial.restrictions")} icon={ShieldCheck} disabled={!canEdit || !editing} required span="full" placeholder="Geografia, categorias, estoque, regras legais..." onChange={(value) => onFieldChange("commercial.restrictions", value)} />
-        <TextInput label={b2bFormLabels.sizeRange} value={textValue(values, "commercial.sizeGrid")} icon={ClipboardCheck} disabled={!canEdit || !editing} required placeholder="PP ao GG, 34 ao 48..." onChange={(value) => onFieldChange("commercial.sizeGrid", value)} />
-        <SelectInput label={b2bFormLabels.ownManufacturing} value={textValue(values, "commercial.ownManufacturing")} icon={Building2} disabled={!canEdit || !editing} required options={booleanishOptions} onChange={(value) => onFieldChange("commercial.ownManufacturing", value)} />
-        <SelectInput label={b2bFormLabels.nationalShipping} value={textValue(values, "commercial.nationalShipping")} icon={Globe2} disabled={!canEdit || !editing} required options={shippingOptions} onChange={(value) => onFieldChange("commercial.nationalShipping", value)} />
-        <TextAreaInput label={b2bFormLabels.commercialNotes} value={textValue(values, "commercial.notes")} icon={FileText} disabled={!canEdit || !editing} optional helper={OPTIONAL_HELPER} placeholder="Contexto comercial adicional." onChange={(value) => onFieldChange("commercial.notes", value)} />
+        <TextInput label={b2bFormLabels.minimumOrder} value={textValue(values, "commercial.minimumOrder")} icon={BarChart3} disabled={!canEdit} required placeholder="Ex.: Pedido mínimo de R$150" onChange={(value) => onFieldChange("commercial.minimumOrder", value)} />
+        <TextInput label={b2bFormLabels.paymentMethods} value={textValue(values, "commercial.paymentMethods")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="Pix, cartão, boleto, parcelamento..." onChange={(value) => onFieldChange("commercial.paymentMethods", value)} />
+        <TextInput label={b2bFormLabels.discountPolicy} value={textValue(values, "commercial.discountPolicy")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="Cupons, primeira compra, descontos..." onChange={(value) => onFieldChange("commercial.discountPolicy", value)} />
+        <TextInput label={b2bFormLabels.commercialRestrictions} value={textValue(values, "commercial.restrictions")} icon={ShieldCheck} disabled={!canEdit} required span="full" placeholder="Geografia, categorias, estoque, regras legais..." onChange={(value) => onFieldChange("commercial.restrictions", value)} />
+        <TextInput label={b2bFormLabels.sizeRange} value={textValue(values, "commercial.sizeGrid")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="PP ao GG, 34 ao 48..." onChange={(value) => onFieldChange("commercial.sizeGrid", value)} />
+        <SelectInput label={b2bFormLabels.ownManufacturing} value={textValue(values, "commercial.ownManufacturing")} icon={Building2} disabled={!canEdit} required options={booleanishOptions} onChange={(value) => onFieldChange("commercial.ownManufacturing", value)} />
+        <SelectInput label={b2bFormLabels.nationalShipping} value={textValue(values, "commercial.nationalShipping")} icon={Globe2} disabled={!canEdit} required options={shippingOptions} onChange={(value) => onFieldChange("commercial.nationalShipping", value)} />
+        <TextAreaInput label={b2bFormLabels.commercialNotes} value={textValue(values, "commercial.notes")} icon={FileText} disabled={!canEdit} optional helper={OPTIONAL_HELPER} placeholder="Contexto comercial adicional." onChange={(value) => onFieldChange("commercial.notes", value)} />
       </div>
     </SectionShell>
   );
@@ -1791,7 +1816,7 @@ function TargetSection({
           label={b2bFormLabels.positioning}
           value={textValue(values, "targetPositioning.positioning")}
           icon={Target}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           placeholder="Ex.: marca premium de alfaiataria feminina para lojistas que buscam peças sofisticadas..."
           onChange={(value) => onFieldChange("targetPositioning.positioning", value)}
         />
@@ -1799,7 +1824,7 @@ function TargetSection({
           label={b2bFormLabels.brandStyle}
           value={textValue(values, "targetPositioning.brandStyle")}
           icon={Sparkles}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           required
           placeholder="Ex.: moderno, minimalista, casual chic, festa, fitness, romântico..."
           span="full"
@@ -1809,7 +1834,7 @@ function TargetSection({
           label={b2bFormLabels.mainAudience}
           value={textValue(values, "targetPositioning.mainAudience")}
           icon={Users}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           placeholder="Ex.: lojistas multimarcas, boutiques, revendedoras, lojas de moda feminina..."
           onChange={(value) => onFieldChange("targetPositioning.mainAudience", value)}
         />
@@ -1817,7 +1842,7 @@ function TargetSection({
           label={b2bFormLabels.researchLink}
           value={textValue(values, "targetPositioning.researchLink")}
           icon={Globe2}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           optional
           helper={OPTIONAL_HELPER}
           type="url"
@@ -1829,7 +1854,7 @@ function TargetSection({
           label={b2bFormLabels.behaviorNotes}
           value={textValue(values, "targetPositioning.behaviorNotes")}
           icon={FileText}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           optional
           helper={OPTIONAL_HELPER}
           placeholder="Opcional — use este campo para adicionar informações extras sobre compra, sazonalidade, objeções ou comportamento do público."
@@ -1863,7 +1888,7 @@ function ResponsibleBrandSection({
   onFieldChange: (field: string, value: string) => void;
   onExtraRowsChange: (rows: BrandResponsibleExtra[]) => void;
 }) {
-  const disabled = !canEdit || !editing;
+  const disabled = !canEdit;
   const fixedDone = brandResponsibleRows.filter(([rowKey]) => isTextFilled(values, `brandResponsible.${rowKey}.name`)).length;
   const extraDone = extraRows.filter((row) => row.area.trim().length > 0 || row.name.trim().length > 0).length;
   const total = brandResponsibleRows.length + extraRows.length;
@@ -1995,7 +2020,7 @@ function UpResponsibleSection({
   onAction: () => void;
   onFieldChange: (field: string, value: string) => void;
 }) {
-  const disabled = !canEdit || !editing;
+  const disabled = !canEdit;
   const done = upResponsibleServices.filter(([rowKey]) => isUpResponsibleSelected(values, rowKey)).length;
 
   return (
@@ -2099,7 +2124,7 @@ function AccessSection({
             <div className="grid gap-2 sm:grid-cols-[0.9fr_1.1fr]">
               <select
                 value={textValue(values, `access.${rowKey}.status`)}
-                disabled={!canEdit || !editing}
+                disabled={!canEdit}
                 onChange={(event) => onFieldChange(`access.${rowKey}.status`, event.target.value)}
                 className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
               >
@@ -2108,7 +2133,7 @@ function AccessSection({
               </select>
               <input
                 value={textValue(values, `access.${rowKey}.notes`)}
-                disabled={!canEdit || !editing}
+                disabled={!canEdit}
                 onChange={(event) => onFieldChange(`access.${rowKey}.notes`, event.target.value)}
                 placeholder="Link, usuário ou observação"
                 className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-slate-900/60"
@@ -2122,7 +2147,7 @@ function AccessSection({
           label={b2bFormLabels.accessNotes}
           value={textValue(values, "access.notes")}
           icon={FileText}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           optional
           helper={OPTIONAL_HELPER}
           rows={2}
@@ -2190,7 +2215,7 @@ function ValidationSection({
           label={b2bFormLabels.finalNotes}
           value={textValue(values, "validation.notes")}
           icon={FileText}
-          disabled={!canEdit || !editing}
+          disabled={!canEdit}
           optional
           helper={OPTIONAL_HELPER}
           rows={2}

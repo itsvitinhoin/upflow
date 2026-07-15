@@ -47,12 +47,18 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /folder_id: clientFolder\.id/);
   assert.match(helper, /b2bFormServices/);
   assert.match(helper, /marketingB2BOnboardingForm\.create/);
-  assert.match(helper, /function shouldCreateDedicatedServiceTask\(service: string\)[\s\S]*key === "vesti"[\s\S]*key === "up zero"/);
+  assert.match(helper, /function shouldCreateDedicatedServiceTask\(service: string\)[\s\S]*serviceWorkflowFor\(service\) !== null/);
   assert.match(helper, /const formServiceAlreadyAssigned = b2bFormServiceKeys\.has\(serviceMapKey\) \|\| b2cFormServiceKeys\.has\(serviceMapKey\)/);
   assert.match(helper, /const dedicatedServiceTask = shouldCreateDedicatedServiceTask\(service\)/);
   assert.match(helper, /formServiceAlreadyAssigned && !dedicatedServiceTask/);
   assert.match(helper, /const existingAssignment =[\s\S]*b2bAssignments\.find[\s\S]*b2cAssignments\.find/);
   assert.match(helper, /if \(!existingAssignment\) \{[\s\S]*onboardingServiceAssignment\.create/);
+  assert.match(helper, /VESTI_ONBOARDING_WORKFLOW[\s\S]*Criar e validar o UP Dash/);
+  assert.match(helper, /UP_ZERO_ONBOARDING_WORKFLOW[\s\S]*Treinar o cliente no uso do UP Dash/);
+  assert.match(helper, /https:\/\/www\.canva\.com\/folder\/FAHOKHrZriY/);
+  assert.match(helper, /for \(const \[stepIndex, step\] of dedicatedWorkflow\.steps\.entries\(\)\)/);
+  assert.match(helper, /department: step\.meeting \? "Service Onboarding"/);
+  assert.match(helper, /checklist_item_id: workflowItem\.id/);
   assert.match(
     helper,
     /const b2bMeetingTask = await createTask\(\{[\s\S]*?project_id: b2bProjectId,[\s\S]*?title: "Onboarding: schedule Marketing B2B kickoff meeting"/,
@@ -101,6 +107,9 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /marketing-b2b-form-shell/);
   assert.match(form, /marketing-b2b-form-card/);
   assert.match(form, /const updateField = \(field: string, value: string\)[\s\S]*setForm\(\(current\) => \(current \? \{ \.\.\.current, values: nextValues \} : current\)\)/);
+  assert.match(form, /enterEditMode\(sectionForField\(field\)\)/);
+  assert.match(form, /disabled=\{!canEdit\}/);
+  assert.doesNotMatch(form, /disabled=\{!canEdit \|\| !editing\}/);
   assert.match(form, /value=\{draft\}/);
   assert.match(form, /label: "CNAE de vestuário"/);
   assert.match(form, /label: "Todos CNPJs"/);

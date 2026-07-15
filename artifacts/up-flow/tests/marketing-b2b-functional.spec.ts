@@ -134,8 +134,12 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     const marker = uniq("B2B saved brand");
     const competitorName = uniq("B2B competitor");
     const brandSection = page.locator("#b2b-section-brand");
-    await brandSection.getByRole("button", { name: /Editar se/ }).click();
-    await brandSection.getByLabel("Nome da marca").fill(marker);
+    const brandNameInput = brandSection.getByLabel("Nome da marca");
+    await expect(brandNameInput).toBeEnabled();
+    await brandNameInput.fill(marker);
+    await expect(
+      brandSection.getByRole("button", { name: "Salvar", exact: true }),
+    ).toBeVisible();
 
     await brandSection.getByRole("button", { name: "Adicionar endereço" }).click();
     await expect(brandSection.getByLabel("Endereço completo")).toHaveCount(2);
@@ -176,8 +180,12 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     );
 
     const commercialSection = page.locator("#b2b-section-commercial");
-    await commercialSection.getByRole("button", { name: /Editar se/ }).click();
-    await commercialSection.getByLabel("Documento aceito").selectOption("all_cnpjs");
+    const documentRule = commercialSection.getByLabel("Documento aceito");
+    await expect(documentRule).toBeEnabled();
+    await documentRule.selectOption("all_cnpjs");
+    await expect(
+      commercialSection.getByRole("button", { name: "Salvar", exact: true }),
+    ).toBeVisible();
     await commercialSection.getByRole("button", { name: "Salvar", exact: true }).click();
 
     const commercialSavedResponse = await api.get(
@@ -199,6 +207,78 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await expect(page.getByLabel("Nome da marca")).toHaveValue(marker);
   } finally {
     await memberApi.dispose();
+    await api.dispose();
+  }
+});
+
+test("Creating a client with Vesti and UP Zero creates the complete service workflows", async ({
+  baseURL,
+}) => {
+  expect(baseURL).toBeTruthy();
+  const api = await apiAs(baseURL!, SEEDED.admin.email);
+
+  try {
+    const companyResponse = await api.post("/api/companies", {
+      data: {
+        name: uniq("Vesti and UP Zero workflow company"),
+        included_services: ["Vesti", "UP Zero"],
+        start_onboarding: true,
+      },
+    });
+    expect(
+      companyResponse.ok(),
+      `company creation failed: ${companyResponse.status()} ${await companyResponse.text()}`,
+    ).toBeTruthy();
+
+    const company = (await companyResponse.json()) as {
+      onboarding_id: string;
+      created_onboarding_tasks: Array<{ id: string; title: string }>;
+    };
+    expect(company.onboarding_id).toBeTruthy();
+
+    const createdTitles = company.created_onboarding_tasks.map((task) => task.title);
+    expect(createdTitles.filter((title) => title.startsWith("Vesti: "))).toHaveLength(10);
+    expect(createdTitles.filter((title) => title.startsWith("UP Zero: "))).toHaveLength(9);
+    expect(createdTitles).toEqual(
+      expect.arrayContaining([
+        "Vesti: Criar grupo de WhatsApp e capa",
+        "Vesti: Agendar apresentação e dia do onboarding",
+        "Vesti: Realizar onboarding",
+        "Vesti: Criar e validar o UP Dash",
+        "UP Zero: Criar grupo de WhatsApp e capa",
+        "UP Zero: Realizar configuração técnica",
+        "UP Zero: Preparar briefing de criativos",
+        "UP Zero: Treinar o cliente no uso do UP Dash",
+      ]),
+    );
+
+    const onboardingResponse = await api.get(`/api/onboarding/${company.onboarding_id}`);
+    expect(
+      onboardingResponse.ok(),
+      `onboarding read failed: ${onboardingResponse.status()} ${await onboardingResponse.text()}`,
+    ).toBeTruthy();
+    const onboarding = (await onboardingResponse.json()) as {
+      checklist_items: Array<{
+        id: string;
+        title: string;
+        department: string;
+        task: { id: string } | null;
+      }>;
+      meetings: Array<{ service: string; checklist_item_id: string }>;
+    };
+    const vestiItems = onboarding.checklist_items.filter((item) => item.title.startsWith("Vesti: "));
+    const upZeroItems = onboarding.checklist_items.filter((item) => item.title.startsWith("UP Zero: "));
+    expect(vestiItems).toHaveLength(10);
+    expect(upZeroItems).toHaveLength(9);
+    expect([...vestiItems, ...upZeroItems].every((item) => Boolean(item.task?.id))).toBe(true);
+
+    const vestiMeeting = onboarding.meetings.find((meeting) => meeting.service === "Vesti");
+    const upZeroMeeting = onboarding.meetings.find((meeting) => meeting.service === "UP Zero");
+    expect(vestiMeeting?.checklist_item_id).toBeTruthy();
+    expect(upZeroMeeting?.checklist_item_id).toBeTruthy();
+    expect(vestiItems.some((item) => item.id === vestiMeeting?.checklist_item_id)).toBe(true);
+    expect(upZeroItems.some((item) => item.id === upZeroMeeting?.checklist_item_id)).toBe(true);
+  } finally {
     await api.dispose();
   }
 });
