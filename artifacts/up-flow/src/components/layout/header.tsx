@@ -337,6 +337,8 @@ export default function Header({ title }: HeaderProps) {
       <header className="sticky top-0 z-30 flex min-h-20 flex-col gap-3 px-4 py-3 glass-header sm:flex-row sm:items-center sm:gap-4 sm:px-6">
         <form
           onSubmit={handleSearch}
+          action="/search"
+          method="get"
           className="w-full min-w-0 pl-11 sm:flex-1 md:pl-0"
           aria-label={`Search ${title}`}
         >
@@ -345,6 +347,7 @@ export default function Header({ title }: HeaderProps) {
             <input
               ref={searchRef}
               type="search"
+              name="q"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("header.searchPlaceholder", {
