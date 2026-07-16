@@ -2,6 +2,8 @@
 
 Use this checklist before every production deployment. UP Flow is an internal operations system, so deploys must protect production data and avoid partial schema/app mismatches.
 
+The `itsvitinhoin/upflow` repository is currently public. Move the source to a private repository or organization before internal launch, then confirm the Vercel Git connection still has access.
+
 ## 1. Required Vercel Production Environment
 
 Confirm these variables exist in the Vercel `Production` environment:
@@ -73,16 +75,16 @@ Run in this order:
    from writing rows with the new column's fallback value between migration and
    redeploy.
 
-4. Deploy the rehearsed migrations against production. Never run arbitrary Prisma migrations during a Vercel build.
+4. Wait for the `Test` GitHub Actions workflow on the exact `main` commit to pass. Automatic Vercel Git deployments are disabled by design.
 
-   ```bash
-   pnpm db:migrate:status
-   pnpm db:migrate:deploy
-   ```
+5. In GitHub, configure the `production` environment with these secrets:
 
-5. Redeploy the Vercel app from `main` only after migrations complete.
+   - `UPFLOW_PRODUCTION_DIRECT_URL`: direct Postgres connection URL used only by Prisma migration jobs.
+   - `VERCEL_TOKEN`: a Vercel token allowed to deploy the `upflow` project.
 
-6. End the read-only window when one was required, resume lifecycle mutations, then confirm health:
+6. Dispatch the `Controlled Production Release` workflow from `main`. Complete the staging confirmation only after the staging rehearsal and smoke test pass. The workflow verifies CI, migrates production, deploys the reviewed commit, and probes `/api/health`. Never run arbitrary Prisma migrations during a Vercel build.
+
+7. End the read-only window when one was required, resume lifecycle mutations, then confirm health:
 
    - `GET /api/health` returns `status: "ok"`.
    - `/admin/health` shows `Ready for internal rollout`.
@@ -126,5 +128,6 @@ No-go when:
 - Invite email cannot be delivered by Resend.
 - Task image storage bucket is public, missing, or not readable through authorized access.
 - A high or moderate production dependency advisory remains.
+- The source repository remains public.
 - Logout/login fails.
 - Workspace isolation or role permissions fail.
