@@ -1,0 +1,83 @@
+name: Generate theme visual baselines
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    name: Generate Linux theme screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: upflow
+          POSTGRES_PASSWORD: upflow
+          POSTGRES_DB: upflow_visual_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U upflow"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      CI: "true"
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgresql://upflow:upflow@localhost:5432/upflow_visual_test
+      DIRECT_URL: postgresql://upflow:upflow@localhost:5432/upflow_visual_test
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      ADMIN_EMAILS: admin@upflow.io
+      TEST_LOGIN_TOKEN: ${{ secrets.TEST_LOGIN_TOKEN }}
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      PLAYWRIGHT_START_SERVER: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail fast if TEST_LOGIN_TOKEN secret is not configured
+        run: |
+          if [ -z "${TEST_LOGIN_TOKEN}" ]; then
+            echo "::error::TEST_LOGIN_TOKEN repository secret is not set."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @workspace/up-flow run db:generate
+
+      - name: Initialize visual test database
+        run: pnpm --filter @workspace/up-flow run db:push
+
+      - name: Seed visual test database
+        run: pnpm --filter @workspace/up-flow run db:seed
+
+      - name: Install Playwright browser
+        run: pnpm --filter @workspace/up-flow run test:e2e:install
+
+      - name: Generate light and dark baselines
+        run: pnpm --filter @workspace/up-flow run test:e2e:visual:update
+
+      - name: Upload baseline candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-visual-baselines-linux
+          path: artifacts/up-flow/visual-tests/theme.spec.ts-snapshots
+          if-no-files-found: error
+          retention-days: 7

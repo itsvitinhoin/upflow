@@ -1,0 +1,14 @@
+*,
+*::before,
+*::after {
+  animation-delay: 0s !important;
+  animation-duration: 0s !important;
+  caret-color: transparent !important;
+  transition-delay: 0s !important;
+  transition-duration: 0s !important;
+}
+
+[data-sonner-toaster],
+nextjs-portal {
+  display: none !important;
+}

@@ -210,3 +210,106 @@ jobs:
             artifacts/up-flow/test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  theme-visual:
+    name: Light and dark theme screenshots
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: upflow
+          POSTGRES_PASSWORD: upflow
+          POSTGRES_DB: upflow_visual_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U upflow"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      CI: "true"
+      NODE_ENV: development
+      PORT: "3000"
+      DATABASE_URL: postgresql://upflow:upflow@localhost:5432/upflow_visual_test
+      DIRECT_URL: postgresql://upflow:upflow@localhost:5432/upflow_visual_test
+      NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      ADMIN_EMAILS: admin@upflow.io
+      TEST_LOGIN_TOKEN: ${{ secrets.TEST_LOGIN_TOKEN }}
+      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      PLAYWRIGHT_START_SERVER: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for approved Linux baselines
+        id: baselines
+        shell: bash
+        run: |
+          shopt -s nullglob globstar
+          files=(artifacts/up-flow/visual-tests/theme.spec.ts-snapshots/**/*.png)
+          if (( ${#files[@]} > 0 )); then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Theme screenshot baselines are not committed yet. Run the Generate theme visual baselines workflow, review its artifact, and commit the PNG files."
+          fi
+
+      - name: Fail fast if TEST_LOGIN_TOKEN secret is not configured
+        if: steps.baselines.outputs.present == 'true'
+        run: |
+          if [ -z "${TEST_LOGIN_TOKEN}" ]; then
+            echo "::error::TEST_LOGIN_TOKEN repository secret is not set."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: steps.baselines.outputs.present == 'true'
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        if: steps.baselines.outputs.present == 'true'
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        if: steps.baselines.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: steps.baselines.outputs.present == 'true'
+        run: pnpm --filter @workspace/up-flow run db:generate
+
+      - name: Initialize visual test database
+        if: steps.baselines.outputs.present == 'true'
+        run: pnpm --filter @workspace/up-flow run db:push
+
+      - name: Seed visual test database
+        if: steps.baselines.outputs.present == 'true'
+        run: pnpm --filter @workspace/up-flow run db:seed
+
+      - name: Install Playwright browser
+        if: steps.baselines.outputs.present == 'true'
+        run: pnpm --filter @workspace/up-flow run test:e2e:install
+
+      - name: Compare light and dark screenshots
+        if: steps.baselines.outputs.present == 'true'
+        run: pnpm --filter @workspace/up-flow run test:e2e:visual
+
+      - name: Upload theme screenshot differences
+        if: ${{ always() && steps.baselines.outputs.present == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: theme-visual-differences
+          path: |
+            artifacts/up-flow/playwright-report
+            artifacts/up-flow/test-results
+          if-no-files-found: ignore
+          retention-days: 7
