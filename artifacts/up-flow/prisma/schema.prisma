@@ -36,6 +36,13 @@ enum ProjectStatus {
   archived
 }
 
+enum ProjectKind {
+  client
+  internal
+  operational_queue
+  onboarding
+}
+
 enum TaskStatus {
   todo
   in_progress
@@ -285,6 +292,7 @@ model Project {
   name                  String
   description           String?
   status                ProjectStatus           @default(active)
+  kind                  ProjectKind             @default(internal)
   approval_status       String                  @default("draft")
   approval_stage        String                  @default("draft")
   approval_requested_at DateTime?
@@ -323,6 +331,8 @@ model Project {
 
   @@index([workspace_id])
   @@index([workspace_id, status, due_date])
+  @@index([workspace_id, kind, status])
+  @@index([workspace_id, company_id, kind])
   @@index([workspace_id, space_id, created_at])
   @@index([workspace_id, folder_id, created_at])
   @@index([workspace_id, sidebar_hidden, created_at])

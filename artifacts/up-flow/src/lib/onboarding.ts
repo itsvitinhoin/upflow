@@ -210,7 +210,7 @@ export const UP_ZERO_ONBOARDING_WORKFLOW = [
   },
 ] as const satisfies readonly ServiceWorkflowStep[];
 
-type Tx = Prisma.TransactionClient;
+export type Tx = Prisma.TransactionClient;
 type Db = typeof prisma | Tx;
 
 type OnboardingTaskProjectInput = {
@@ -260,7 +260,7 @@ type CreatedOnboardingTask = {
   assignee_id: string | null;
 };
 
-type OnboardingCreationResult = {
+export type OnboardingCreationResult = {
   onboarding: Awaited<ReturnType<typeof recomputeOnboardingProgress>>;
   notificationTargets: OnboardingAssignmentNotificationTarget[];
   createdTasks: CreatedOnboardingTask[];
@@ -701,13 +701,13 @@ export async function resolveOnboardingTaskProjectId(
       company_id: null,
       name: config.projectName,
     },
-    select: { id: true, onboarding_enabled: true },
+    select: { id: true, onboarding_enabled: true, kind: true },
   });
   if (existingProject) {
-    if (!existingProject.onboarding_enabled) {
+    if (!existingProject.onboarding_enabled || existingProject.kind !== "operational_queue") {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { onboarding_enabled: true },
+        data: { onboarding_enabled: true, kind: "operational_queue" },
       });
     }
     return existingProject.id;
@@ -721,6 +721,8 @@ export async function resolveOnboardingTaskProjectId(
       owner_id: input.ownerId,
       space_id: targetSpace.id,
       company_id: null,
+      onboarding_enabled: true,
+      kind: "operational_queue",
     },
     select: { id: true },
   });
@@ -802,13 +804,17 @@ export async function resolveMarketingB2BOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true, onboarding_enabled: true, sidebar_hidden: true },
+    select: { id: true, onboarding_enabled: true, sidebar_hidden: true, kind: true },
   });
   if (existingProject) {
-    if (!existingProject.onboarding_enabled || !existingProject.sidebar_hidden) {
+    if (
+      !existingProject.onboarding_enabled ||
+      !existingProject.sidebar_hidden ||
+      existingProject.kind !== "onboarding"
+    ) {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { onboarding_enabled: true, sidebar_hidden: true },
+        data: { onboarding_enabled: true, sidebar_hidden: true, kind: "onboarding" },
         select: { id: true },
       });
     }
@@ -828,7 +834,12 @@ export async function resolveMarketingB2BOnboardingProjectId(
   if (legacyProject) {
     const renamed = await db.project.update({
       where: { id: legacyProject.id },
-      data: { name: projectName, onboarding_enabled: true, sidebar_hidden: true },
+      data: {
+        name: projectName,
+        onboarding_enabled: true,
+        sidebar_hidden: true,
+        kind: "onboarding",
+      },
       select: { id: true },
     });
     return renamed.id;
@@ -844,6 +855,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
       name: projectName,
       onboarding_enabled: true,
       sidebar_hidden: true,
+      kind: "onboarding",
       description:
         "Marketing B2B onboarding form and execution tasks for this client.",
     },
@@ -891,11 +903,15 @@ export async function resolveMarketingB2COnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true, sidebar_hidden: true },
+    select: { id: true, sidebar_hidden: true, kind: true },
   });
   if (existingProject) {
-    if (!existingProject.sidebar_hidden) {
-      await db.project.update({ where: { id: existingProject.id }, data: { sidebar_hidden: true } });
+    if (!existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
+      await db.project.update({
+        where: { id: existingProject.id },
+        data: { sidebar_hidden: true, kind: "onboarding" },
+        select: { id: true },
+      });
     }
     return existingProject.id;
   }
@@ -914,7 +930,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     if (legacyProject) {
       const renamedProject = await db.project.update({
         where: { id: legacyProject.id },
-      data: { name: projectName, sidebar_hidden: true },
+        data: { name: projectName, sidebar_hidden: true, kind: "onboarding" },
         select: { id: true },
       });
       return renamedProject.id;
@@ -930,6 +946,7 @@ export async function resolveMarketingB2COnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
       sidebar_hidden: true,
+      kind: "onboarding",
       description:
         "Marketing B2C onboarding form and execution tasks for this client.",
     },
@@ -980,11 +997,15 @@ async function resolveDepartmentClientOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true, sidebar_hidden: true },
+    select: { id: true, sidebar_hidden: true, kind: true },
   });
   if (existingProject) {
-    if (!existingProject.sidebar_hidden) {
-      await db.project.update({ where: { id: existingProject.id }, data: { sidebar_hidden: true } });
+    if (!existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
+      await db.project.update({
+        where: { id: existingProject.id },
+        data: { sidebar_hidden: true, kind: "onboarding" },
+        select: { id: true },
+      });
     }
     return existingProject.id;
   }
@@ -998,6 +1019,7 @@ async function resolveDepartmentClientOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
       sidebar_hidden: true,
+      kind: "onboarding",
       description: input.description,
     },
     select: { id: true },
@@ -2232,6 +2254,14 @@ async function createOnboardingRecords(
         select: onboardingSelect(),
       });
   if (existing) {
+    const onboardingProjectId = sourceProject?.id ?? existing.project_id;
+    if (onboardingProjectId) {
+      await tx.project.update({
+        where: { id: onboardingProjectId },
+        data: { onboarding_enabled: true, kind: "onboarding" },
+        select: { id: true },
+      });
+    }
     const synced = await syncDedicatedServiceWorkflows(tx, {
       onboardingId: existing.id,
       company,
@@ -2365,6 +2395,7 @@ async function createOnboardingRecords(
       where: { id: sourceProject.id },
       data: {
         onboarding_enabled: true,
+        kind: "onboarding",
         responsible_salesperson_id: salespersonId,
         ...(input.closingDate !== undefined && { closing_date: input.closingDate }),
         ...(input.expectedStartDate !== undefined && { onboarding_start_date: input.expectedStartDate }),
@@ -3352,7 +3383,7 @@ export async function startClientOnboardingForCompany(input: {
   };
 }
 
-export async function startClientOnboarding(input: {
+export type StartClientOnboardingInput = {
   projectId: string;
   actorId: string;
   services?: string[];
@@ -3360,9 +3391,26 @@ export async function startClientOnboarding(input: {
   expectedStartDate?: Date | null;
   initialNotes?: string | null;
   responsibleSalespersonId?: string | null;
-}) {
-  const result = await prisma.$transaction(async (tx) => {
-    const project = await tx.project.findUnique({
+};
+
+export async function createClientOnboardingRecordsForProject(
+  tx: Tx,
+  input: StartClientOnboardingInput,
+) {
+  const initialProject = await tx.project.findUnique({
+    where: { id: input.projectId },
+    select: { company_id: true },
+  });
+  if (!initialProject?.company_id) {
+    throw new Error("Onboarding requires a project linked to a client.");
+  }
+
+  // All client/project lifecycle transactions lock Company before Project.
+  // This keeps onboarding, client deletion, and project reassignment from
+  // deadlocking while still preventing a stale client read.
+  await tx.$queryRaw`SELECT "id" FROM "Company" WHERE "id" = ${initialProject.company_id} FOR KEY SHARE`;
+  await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id" = ${input.projectId} FOR UPDATE`;
+  const project = await tx.project.findUnique({
       where: { id: input.projectId },
       select: {
         id: true,
@@ -3388,28 +3436,35 @@ export async function startClientOnboarding(input: {
           },
         },
       },
-    });
-    if (!project?.company_id || !project.company) {
-      throw new Error("Onboarding requires a project linked to a client.");
-    }
-
-    return createOnboardingRecords(tx, {
-      company: project.company,
-      sourceProject: project,
-      actorId: input.actorId,
-      services: input.services,
-      closingDate: input.closingDate,
-      expectedStartDate: input.expectedStartDate,
-      initialNotes: input.initialNotes,
-      responsibleSalespersonId: input.responsibleSalespersonId,
-    });
   });
+  if (project?.company_id !== initialProject.company_id) {
+    throw new Error("The project client changed while onboarding was starting. Please try again.");
+  }
+  if (!project?.company_id || !project.company) {
+    throw new Error("Onboarding requires a project linked to a client.");
+  }
 
+  return createOnboardingRecords(tx, {
+    company: project.company,
+    sourceProject: project,
+    actorId: input.actorId,
+    services: input.services,
+    closingDate: input.closingDate,
+    expectedStartDate: input.expectedStartDate,
+    initialNotes: input.initialNotes,
+    responsibleSalespersonId: input.responsibleSalespersonId,
+  });
+}
+
+export async function finishClientOnboardingStart(
+  result: OnboardingCreationResult,
+  actorId: string,
+) {
   await sendOnboardingAssignmentNotifications(result.notificationTargets);
   if (!result.reused) {
     await recordActivity({
       workspace_id: result.onboarding.workspace_id,
-      actor_id: input.actorId,
+      actor_id: actorId,
       type: "client_onboarding_started",
       entity_type: "client_onboarding",
       entity_id: result.onboarding.id,
@@ -3426,6 +3481,14 @@ export async function startClientOnboarding(input: {
     });
   }
   return result.onboarding;
+}
+
+export async function startClientOnboarding(input: StartClientOnboardingInput) {
+  const result = await prisma.$transaction((tx) =>
+    createClientOnboardingRecordsForProject(tx, input),
+  );
+
+  return finishClientOnboardingStart(result, input.actorId);
 }
 
 export function onboardingSelect() {

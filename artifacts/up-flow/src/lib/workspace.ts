@@ -9,6 +9,7 @@ export interface MembershipLite {
   workspace_id: string;
   role: WorkspaceRole;
   workspace: { id: string; name: string; slug: string };
+  department: { id: string; name: string } | null;
 }
 
 function slugify(input: string) {
@@ -102,6 +103,7 @@ export async function loadMemberships(userId: string): Promise<MembershipLite[]>
       workspace_id: true,
       role: true,
       workspace: { select: { id: true, name: true, slug: true } },
+      department: { select: { id: true, name: true } },
     },
     orderBy: { created_at: "asc" },
   });

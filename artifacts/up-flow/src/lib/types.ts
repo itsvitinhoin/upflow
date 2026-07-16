@@ -6,6 +6,7 @@ export interface AppUser {
   role: "admin" | "member";
   currentWorkspaceId?: string;
   currentRole?: "owner" | "admin" | "member" | "guest" | null;
+  currentDepartmentName?: string | null;
   isSuperAdmin?: boolean;
 }
 
@@ -15,11 +16,18 @@ export interface ProjectOwner {
   email: string;
 }
 
+export type ProjectKind =
+  | "client"
+  | "internal"
+  | "operational_queue"
+  | "onboarding";
+
 export interface Project {
   id: string;
   name: string;
   description: string | null;
   status: "active" | "archived";
+  kind?: ProjectKind;
   workspace_id: string;
   owner_id: string;
   space_id?: string | null;

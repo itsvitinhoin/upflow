@@ -19,6 +19,9 @@ export default async function DashboardLayout({
 
   const auth = authResult.user;
   const prismaUser = auth.prismaUser;
+  const currentMembership = auth.memberships.find(
+    (membership) => membership.workspace_id === auth.currentWorkspaceId,
+  );
 
   const user: AppUser = {
     id: prismaUser.id,
@@ -28,6 +31,7 @@ export default async function DashboardLayout({
     role: prismaUser.role,
     currentWorkspaceId: auth.currentWorkspaceId,
     currentRole: auth.currentRole,
+    currentDepartmentName: currentMembership?.department?.name ?? null,
     isSuperAdmin: isSuperAdmin(auth),
   };
 

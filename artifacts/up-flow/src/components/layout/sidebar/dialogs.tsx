@@ -171,6 +171,7 @@ export function MoveProjectDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useLanguage();
   const initial =
     project.folder_id
       ? `folder:${project.folder_id}`
@@ -179,7 +180,6 @@ export function MoveProjectDialog({
       : "";
   const [target, setTarget] = useState<string>(initial);
   const [loading, setLoading] = useState(false);
-  const { t } = useLanguage();
 
   const save = async () => {
     setLoading(true);
@@ -198,13 +198,15 @@ export function MoveProjectDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ space_id, folder_id }),
       });
-      if (!res.ok) throw new Error(await readApiError(res, t("sidebarDialog.couldNotMoveList")));
-      toast.success(t("sidebarDialog.listMoved"));
+      if (!res.ok) {
+        throw new Error(await readApiError(res, t("sidebar.moveProjectError")));
+      }
+      toast.success(t("sidebar.projectMoved"));
       broadcastSidebarRefresh();
       onSaved();
     } catch (err) {
       logError("sidebar:move-project-dialog", err, { id: project.id });
-      toast.error(err instanceof Error ? err.message : t("sidebarDialog.couldNotMoveList"));
+      toast.error(err instanceof Error ? err.message : t("sidebar.moveProjectError"));
     } finally {
       setLoading(false);
     }
@@ -221,7 +223,9 @@ export function MoveProjectDialog({
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">{t("sidebarDialog.moveList")}</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              {t("sidebar.moveProject")}
+            </h3>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">{project.name}</p>
           </div>
           <button onClick={onClose} aria-label={t("common.close")} className="text-muted-foreground hover:text-foreground">
@@ -402,11 +406,11 @@ export function NewListDialog({
   onSaved: (project: Project) => void;
 }) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
-  const { t } = useLanguage();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -431,15 +435,17 @@ export function NewListDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await readApiError(res, t("sidebarDialog.couldNotCreateList")));
+      if (!res.ok) {
+        throw new Error(await readApiError(res, t("sidebar.createProjectError")));
+      }
       const created = (await res.json()) as Project;
-      toast.success(t("sidebarDialog.listCreated"));
+      toast.success(t("sidebar.projectCreated"));
       broadcastSidebarRefresh();
       onSaved(created);
       router.push(`/projects/${created.id}`);
     } catch (err) {
       logError("sidebar:new-list-dialog", err);
-      toast.error(err instanceof Error ? err.message : t("sidebarDialog.couldNotCreateList"));
+      toast.error(err instanceof Error ? err.message : t("sidebar.createProjectError"));
     } finally {
       setLoading(false);
     }
@@ -462,7 +468,9 @@ export function NewListDialog({
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">{t("folder.newList")}</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              {t("sidebar.newProjectTitle")}
+            </h3>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">
               {t("common.inLocation", { location: locationLabel })}
             </p>
@@ -481,7 +489,7 @@ export function NewListDialog({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={t("sidebarDialog.listNamePlaceholder")}
+          placeholder={t("projects.projectNamePlaceholder")}
           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
@@ -491,7 +499,7 @@ export function NewListDialog({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          placeholder={t("sidebarDialog.listDescriptionPlaceholder")}
+          placeholder={t("sidebar.projectDescriptionPlaceholder")}
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">

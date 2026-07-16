@@ -69,6 +69,16 @@ test.describe("light and dark theme visual regression", () => {
       `Visual fixture creation failed: ${response.status()} ${await response.text()}`,
     ).toBeTruthy();
     const company = (await response.json()) as VisualCompany;
+    const directoryProject = await fixtureApi.post("/api/projects", {
+      data: {
+        name: "Theme Visual Campaign",
+        company_id: company.id,
+      },
+    });
+    expect(
+      directoryProject.ok(),
+      `Visual directory fixture failed: ${directoryProject.status()} ${await directoryProject.text()}`,
+    ).toBeTruthy();
     fixture = {
       companyId: company.id,
       financeUrl: taskUrl(company, "Onboarding: complete finance registration"),
@@ -112,6 +122,28 @@ test.describe("light and dark theme visual regression", () => {
         await page.getByRole("button", { name: "Filter", exact: true }).click();
         await expect(page.getByText("Priority", { exact: true })).toBeVisible();
         await capture(page, theme, `${theme}-project-board-filter.png`);
+      });
+
+      test("project directory and expanded client group", async ({ page }) => {
+        await page.goto("/projects?q=Theme%20Visual%20Client");
+        await expect(page.getByRole("heading", { name: "Find work without the clutter" })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Theme Visual Campaign" })).toBeVisible();
+        await capture(page, theme, `${theme}-project-directory.png`);
+      });
+
+      test("project directory mobile layout", async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto("/projects?q=Theme%20Visual%20Client");
+        await expect(page.getByRole("heading", { name: "Find work without the clutter" })).toBeVisible();
+        await capture(page, theme, `${theme}-project-directory-mobile.png`);
+      });
+
+      test("sidebar project search", async ({ page }) => {
+        await page.goto("/projects?tab=internal");
+        const sidebarSearch = page.getByPlaceholder("Find spaces and projects...");
+        await sidebarSearch.fill("Website Redesign");
+        await expect(page.getByTitle(/Website Redesign/)).toBeVisible();
+        await capture(page, theme, `${theme}-sidebar-project-search.png`);
       });
 
       test("new project dialog", async ({ page }) => {

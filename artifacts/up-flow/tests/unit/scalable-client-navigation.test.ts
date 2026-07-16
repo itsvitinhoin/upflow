@@ -31,7 +31,10 @@ test("the sidebar hides generated branches by default but search keeps client wo
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
 
-  assert.match(sidebarRoute, /AND: \[readableProjectsWhere, \{ sidebar_hidden: false \}\]/);
+  assert.match(
+    sidebarRoute,
+    /AND:\s*\[\s*readableProjectsWhere,\s*\{ sidebar_hidden: false \},\s*\{ kind: \{ not: "onboarding" as const \} \},\s*\]/,
+  );
   assert.match(sidebarRoute, /sidebar_hidden: false/);
   assert.match(sidebarRoute, /company: \{ is: \{ name: \{ contains: q/);
   assert.match(sidebarRoute, /pinned_clients: pinnedClients/);

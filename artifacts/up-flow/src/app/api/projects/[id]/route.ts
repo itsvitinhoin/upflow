@@ -6,7 +6,6 @@ import {
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
-import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { canReadProject } from "@/lib/project-access";
 import { deleteProjectsByIds } from "@/lib/project-delete";
@@ -66,7 +65,10 @@ async function PATCH_handler(
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  const project = await prisma.project.findUnique({ where: { id: params.id } });
+  const project = await prisma.project.findUnique({
+    where: { id: params.id },
+    select: { id: true, workspace_id: true, company_id: true },
+  });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -107,70 +109,132 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid onboarding date" }, { status: 400 });
   }
 
-  if (space_id) {
-    const space = await prisma.space.findUnique({ where: { id: space_id } });
-    if (!space) return NextResponse.json({ error: "Space not found" }, { status: 400 });
-    if (space.workspace_id !== project.workspace_id) {
-      return NextResponse.json({ error: "Cannot move across workspaces" }, { status: 400 });
+  const result = await prisma.$transaction(async (tx) => {
+    // Match the Company -> Project lock order used by onboarding and client
+    // deletion. The company lock also keeps an explicit reassignment target
+    // alive until the project update commits.
+    const companyToLock = company_id === undefined ? project.company_id : company_id;
+    if (companyToLock) {
+      const lockedCompany = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Company"
+        WHERE "id" = ${companyToLock} AND "workspace_id" = ${project.workspace_id}
+        FOR KEY SHARE
+      `;
+      if (company_id && lockedCompany.length === 0) {
+        return { ok: false as const, status: 400, error: "Company not found" };
+      }
     }
-  }
-  if (folder_id) {
-    const folder = await prisma.folder.findUnique({ where: { id: folder_id } });
-    if (!folder) return NextResponse.json({ error: "Folder not found" }, { status: 400 });
-    if (folder.workspace_id !== project.workspace_id) {
-      return NextResponse.json({ error: "Cannot move across workspaces" }, { status: 400 });
-    }
-    const targetSpaceId = space_id ?? project.space_id;
-    if (targetSpaceId && folder.space_id !== targetSpaceId) {
-      return NextResponse.json({ error: "Folder does not belong to selected space" }, { status: 400 });
-    }
-  }
-  if (company_id) {
-    const company = await prisma.company.findFirst({
-      where: { id: company_id, workspace_id: project.workspace_id },
-      select: { id: true },
+
+    // Lock the row before reading workflow evidence so concurrent onboarding
+    // and client lifecycle mutations cannot make the classification stale.
+    await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id" = ${params.id} FOR UPDATE`;
+    const current = await tx.project.findUnique({
+      where: { id: params.id },
+      include: {
+        client_onboarding: { select: { id: true } },
+        _count: {
+          select: {
+            marketing_b2b_onboarding_forms: true,
+            marketing_b2c_onboarding_forms: true,
+            tasks: { where: { onboarding_items: { some: {} } } },
+          },
+        },
+      },
     });
-    if (!company) return NextResponse.json({ error: "Company not found" }, { status: 400 });
+    if (!current) return { ok: false as const, status: 404, error: "Not found" };
+
+    if (space_id) {
+      const space = await tx.space.findUnique({ where: { id: space_id } });
+      if (!space) return { ok: false as const, status: 400, error: "Space not found" };
+      if (space.workspace_id !== current.workspace_id) {
+        return { ok: false as const, status: 400, error: "Cannot move across workspaces" };
+      }
+    }
+    if (folder_id) {
+      const folder = await tx.folder.findUnique({ where: { id: folder_id } });
+      if (!folder) return { ok: false as const, status: 400, error: "Folder not found" };
+      if (folder.workspace_id !== current.workspace_id) {
+        return { ok: false as const, status: 400, error: "Cannot move across workspaces" };
+      }
+      const targetSpaceId = space_id ?? current.space_id;
+      if (targetSpaceId && folder.space_id !== targetSpaceId) {
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Folder does not belong to selected space",
+        };
+      }
+    }
+    const hasOnboardingWorkflow = Boolean(
+      current.client_onboarding ||
+        current._count.marketing_b2b_onboarding_forms > 0 ||
+        current._count.marketing_b2c_onboarding_forms > 0 ||
+        current._count.tasks > 0,
+    );
+    if (
+      hasOnboardingWorkflow &&
+      company_id !== undefined &&
+      company_id !== current.company_id
+    ) {
+      return {
+        ok: false as const,
+        status: 409,
+        error: "The client cannot be changed while this project has onboarding records",
+      };
+    }
+    const effectiveCompanyId = company_id !== undefined ? company_id : current.company_id;
+    const nextKind = current.kind === "operational_queue"
+      ? undefined
+      : hasOnboardingWorkflow
+        ? "onboarding"
+        : effectiveCompanyId
+          ? "client"
+          : "internal";
+
+    const updated = await tx.project.update({
+      where: { id: params.id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+        ...(status !== undefined && { status }),
+        ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
+        ...(onboarding_enabled !== undefined && { onboarding_enabled }),
+        ...(parsedClosingDate !== undefined && { closing_date: parsedClosingDate }),
+        ...(parsedOnboardingStartDate !== undefined && { onboarding_start_date: parsedOnboardingStartDate }),
+        ...(responsible_salesperson_id !== undefined && { responsible_salesperson_id: responsible_salesperson_id || null }),
+        ...(initial_notes !== undefined && { initial_notes }),
+        ...(space_id !== undefined && { space_id: space_id || null }),
+        ...(folder_id !== undefined && { folder_id: folder_id || null }),
+        ...(company_id !== undefined && { company_id: company_id || null }),
+        ...(nextKind !== undefined && { kind: nextKind }),
+      },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        space: { select: { id: true, name: true, icon: true } },
+        folder: { select: { id: true, name: true, icon: true } },
+        _count: { select: { tasks: true } },
+      },
+    });
+
+    await tx.activityEvent.create({
+      data: {
+        workspace_id: current.workspace_id,
+        actor_id: auth.prismaUser.id,
+        type: "project_updated",
+        entity_type: "project",
+        entity_id: updated.id,
+        project_id: updated.id,
+        metadata: { name: updated.name, status: updated.status },
+      },
+    });
+
+    return { ok: true as const, updated };
+  });
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
-
-  const updated = await prisma.project.update({
-    where: { id: params.id },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(description !== undefined && { description }),
-      ...(status !== undefined && { status }),
-      ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
-      ...(onboarding_enabled !== undefined && { onboarding_enabled }),
-      ...(parsedClosingDate !== undefined && { closing_date: parsedClosingDate }),
-      ...(parsedOnboardingStartDate !== undefined && { onboarding_start_date: parsedOnboardingStartDate }),
-      ...(responsible_salesperson_id !== undefined && { responsible_salesperson_id: responsible_salesperson_id || null }),
-      ...(initial_notes !== undefined && { initial_notes }),
-      ...(space_id !== undefined && { space_id: space_id || null }),
-      ...(folder_id !== undefined && { folder_id: folder_id || null }),
-      ...(company_id !== undefined && { company_id: company_id || null }),
-    },
-    include: {
-      owner: { select: { id: true, name: true, email: true } },
-      space: { select: { id: true, name: true, icon: true } },
-      folder: { select: { id: true, name: true, icon: true } },
-      _count: { select: { tasks: true } },
-    },
-  });
-
-  await recordActivity({
-    workspace_id: project.workspace_id,
-    actor_id: auth.prismaUser.id,
-    type: "project_updated",
-    entity_type: "project",
-    entity_id: updated.id,
-    project_id: updated.id,
-    metadata: {
-      name: updated.name,
-      status: updated.status,
-    },
-  });
-
-  return NextResponse.json(updated);
+  return NextResponse.json(result.updated);
 }
 
 async function DELETE_handler(

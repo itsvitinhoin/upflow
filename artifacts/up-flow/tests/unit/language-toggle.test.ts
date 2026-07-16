@@ -36,7 +36,7 @@ test("sidebar and workspace chrome use translation keys for shared labels", () =
   assert.match(rail, /labelKey: "nav\.dashboard"/);
   assert.match(rail, /t\("sidebar\.show"\)/);
   assert.match(panelNav, /t\("sidebar\.navigation"\)/);
-  assert.match(panel, /t\("sidebar\.searchSpaces"\)/);
+  assert.match(panel, /t\("sidebar\.searchSpacesAndProjects"\)/);
   assert.match(workspaceSwitcher, /t\("workspace\.new"\)/);
 });
 
@@ -71,6 +71,7 @@ test("core rollout surfaces are wired to the language provider", () => {
   const clients = read("src/app/(dashboard)/clients/page.tsx");
   const createCompanyDialog = read("src/components/dashboard/create-company-dialog.tsx");
   const projects = read("src/app/(dashboard)/projects/page.tsx");
+  const projectDirectory = read("src/components/projects/project-directory.tsx");
   const customFields = read("src/components/projects/custom-fields-manager.tsx");
   const team = read("src/app/(dashboard)/team/page.tsx");
   const time = read("src/app/(dashboard)/time/page.tsx");
@@ -108,9 +109,10 @@ test("core rollout surfaces are wired to the language provider", () => {
   assert.match(createCompanyDialog, /t\("companyDialog\.responsibleDepartment"\)/);
   assert.match(createCompanyDialog, /t\(option\.labelKey\)/);
   assert.match(createCompanyDialog, /optionLabel\(service, SERVICE_OPTIONS, t\)/);
-  assert.match(projects, /t\("projects\.allProjects"\)/);
-  assert.match(projects, /t\("projects\.deleteConfirm"/);
-  assert.match(projects, /t\("projects\.moveToSpace"\)/);
+  assert.match(projects, /t\("projects\.title"\)/);
+  assert.match(projectDirectory, /t\("projects\.directoryTitle"\)/);
+  assert.match(projectDirectory, /t\("projects\.deleteConfirm"/);
+  assert.match(projectDirectory, /t\("projects\.moveProject"\)/);
   assert.match(customFields, /useLanguage/);
   assert.match(customFields, /t\("customFields\.existingFields"\)/);
   assert.match(customFields, /t\(item\.labelKey\)/);

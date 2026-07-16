@@ -1,9 +1,12 @@
-import { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { readableProjectWhere } from "@/lib/project-access";
+import {
+  buildFolderBreadcrumb,
+  type SidebarSearchResult,
+} from "@/lib/sidebar-discovery";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +22,7 @@ async function GET_handler(req: NextRequest) {
       projects: { items: [], nextCursor: null },
       folders: { items: [], nextCursor: null },
       pinned_clients: [],
+      search_results: [],
     });
   }
 
@@ -30,7 +34,11 @@ async function GET_handler(req: NextRequest) {
   const foldersCursor = searchParams.get("folders_cursor");
   const readableProjectsWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
   const visibleProjectWhere = {
-    AND: [readableProjectsWhere, { sidebar_hidden: false }],
+    AND: [
+      readableProjectsWhere,
+      { sidebar_hidden: false },
+      { kind: { not: "onboarding" as const } },
+    ],
   };
   const spaceInclude = {
     owner: { select: { id: true, name: true, email: true } },
@@ -70,7 +78,7 @@ async function GET_handler(req: NextRequest) {
       prisma.project.findMany({
         where: {
           AND: [
-            readableProjectsWhere,
+            visibleProjectWhere,
             {
               OR: [
                 { name: { contains: q, mode: "insensitive" as const } },
@@ -173,12 +181,63 @@ async function GET_handler(req: NextRequest) {
       if (positionDelta !== 0) return positionDelta;
       return a.name.localeCompare(b.name);
     });
+    const spaceById = new Map(spaces.map((space) => [space.id, space]));
+    const searchResults: SidebarSearchResult[] = [];
+
+    for (const space of matchingSpaces) {
+      searchResults.push({
+        id: space.id,
+        type: "space",
+        name: space.name,
+        href: `/spaces/${space.id}`,
+        breadcrumb: [space.name],
+      });
+    }
+
+    for (const folder of matchingFolders) {
+      const space = spaceById.get(folder.space_id);
+      searchResults.push({
+        id: folder.id,
+        type: "folder",
+        name: folder.name,
+        href: `/folders/${folder.id}`,
+        breadcrumb: [
+          space?.name ?? "Unassigned",
+          ...buildFolderBreadcrumb(folder.id, folderById),
+        ],
+      });
+    }
+
+    for (const project of matchingProjects) {
+      const folder = project.folder_id ? folderById.get(project.folder_id) : undefined;
+      const spaceId = project.space_id ?? folder?.space_id;
+      const space = spaceId ? spaceById.get(spaceId) : undefined;
+      searchResults.push({
+        id: project.id,
+        type: "project",
+        name: project.name,
+        href: `/projects/${project.id}`,
+        breadcrumb: [
+          space?.name ?? "Unassigned",
+          ...buildFolderBreadcrumb(project.folder_id, folderById),
+          project.name,
+        ],
+      });
+    }
+
+    const resultOrder = { space: 0, folder: 1, project: 2 } as const;
+    searchResults.sort(
+      (a, b) =>
+        resultOrder[a.type] - resultOrder[b.type] ||
+        a.breadcrumb.join("/").localeCompare(b.breadcrumb.join("/")),
+    );
 
     return NextResponse.json({
       spaces: { items: spaces, nextCursor: null },
       projects: { items: matchingProjects, nextCursor: null },
       folders: { items: folders, nextCursor: null },
       pinned_clients: pinnedClients,
+      search_results: searchResults,
     });
   }
 
@@ -242,6 +301,7 @@ async function GET_handler(req: NextRequest) {
     projects: buildPage(projects, limit),
     folders: buildPage(folders, limit),
     pinned_clients: pinnedClients,
+    search_results: [],
   });
 }
 

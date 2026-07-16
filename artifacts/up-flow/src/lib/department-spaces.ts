@@ -491,7 +491,14 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
 
     const existingProjects = await prisma.project.findMany({
       where: { workspace_id: workspaceId, space_id: { in: departmentSpaceIds } },
-      select: { id: true, name: true, space_id: true, folder_id: true },
+      select: {
+        id: true,
+        name: true,
+        space_id: true,
+        folder_id: true,
+        company_id: true,
+        kind: true,
+      },
     });
     const projectNamesBySpace = new Map<string, Set<string>>();
     const projectsByFolder = new Map<string, typeof existingProjects[number]>();
@@ -500,7 +507,7 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
       const names = projectNamesBySpace.get(project.space_id) ?? new Set<string>();
       names.add(normalizeDepartmentSpaceName(project.name));
       projectNamesBySpace.set(project.space_id, names);
-      if (project.folder_id) {
+      if (project.folder_id && project.company_id === null) {
         projectsByFolder.set(containerKey(project.folder_id, null, project.name), project);
       }
     }
@@ -520,6 +527,7 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
           workspace_id: workspaceId,
           owner_id: ownerId,
           space_id: space.id,
+          kind: "operational_queue" as const,
         }));
         await prisma.project.createMany({
           data: listData,
@@ -543,14 +551,25 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
                 owner_id: ownerId,
                 space_id: space.id,
                 folder_id: folder.id,
+                kind: "operational_queue",
               },
-              select: { id: true, name: true, space_id: true, folder_id: true },
+              select: {
+                id: true,
+                name: true,
+                space_id: true,
+                folder_id: true,
+                company_id: true,
+                kind: true,
+              },
             });
             projectsByFolder.set(projectKey, project);
-          } else if (listPreset.description) {
+          } else if (listPreset.description || project.kind !== "operational_queue") {
             await prisma.project.update({
               where: { id: project.id },
-              data: { description: listPreset.description },
+              data: {
+                ...(listPreset.description && { description: listPreset.description }),
+                kind: "operational_queue",
+              },
             });
           }
 

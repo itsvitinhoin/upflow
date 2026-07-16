@@ -306,16 +306,29 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await recordActivity({
-    workspace_id: company.workspace_id,
-    actor_id: auth.prismaUser.id,
-    type: "company_deleted",
-    entity_type: "company",
-    entity_id: company.id,
-    company_id: company.id,
-    metadata: { name: company.name },
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Company" WHERE "id" = ${company.id} FOR UPDATE`;
+    await tx.activityEvent.create({
+      data: {
+        workspace_id: company.workspace_id,
+        actor_id: auth.prismaUser.id,
+        type: "company_deleted",
+        entity_type: "company",
+        entity_id: company.id,
+        company_id: company.id,
+        metadata: { name: company.name },
+      },
+    });
+    await tx.project.updateMany({
+      where: {
+        workspace_id: company.workspace_id,
+        company_id: company.id,
+        kind: { in: ["client", "onboarding"] },
+      },
+      data: { company_id: null, onboarding_enabled: false, kind: "internal" },
+    });
+    await tx.company.delete({ where: { id: company.id } });
   });
-  await prisma.company.delete({ where: { id: company.id } });
 
   return NextResponse.json({ success: true });
 }

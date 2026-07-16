@@ -9,6 +9,15 @@ export const dynamic = "force-dynamic";
 
 const MAX_PER_TYPE = 20;
 
+const projectContextSelect = {
+  id: true,
+  name: true,
+  kind: true,
+  company: { select: { id: true, name: true } },
+  space: { select: { id: true, name: true, icon: true } },
+  folder: { select: { id: true, name: true, icon: true } },
+} as const;
+
 async function GET_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, { windowMs: 60_000, max: 60, key: "search" });
   if (!rl.ok) return rateLimitResponse(rl);
@@ -20,7 +29,7 @@ async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") || "").trim();
   if (!q) {
-    return NextResponse.json({ q: "", tasks: [], projects: [], docs: [], companies: [] });
+    return NextResponse.json({ q: "", spaces: [], tasks: [], projects: [], docs: [], companies: [] });
   }
   if (q.length > 200) {
     return NextResponse.json({ error: "Query too long" }, { status: 400 });
@@ -29,22 +38,27 @@ async function GET_handler(req: NextRequest) {
   // Search is scoped to the caller's active workspace.
   const workspaceId = auth.currentWorkspaceId;
   if (!workspaceId) {
-    return NextResponse.json({ q, tasks: [], projects: [], docs: [], companies: [] });
+    return NextResponse.json({ q, spaces: [], tasks: [], projects: [], docs: [], companies: [] });
   }
 
   const projectScope = readableProjectWhere(auth, workspaceId);
   const taskScope = { project: projectScope };
   const docScope = { workspace_id: workspaceId, project: projectScope };
 
-  const [tasks, projects, docs, companies] = await Promise.all([
+  const contains = { contains: q, mode: "insensitive" as const };
+  const [tasks, projects, docs, companies, spaces] = await Promise.all([
     prisma.task.findMany({
       where: {
         AND: [
           taskScope,
           {
             OR: [
-              { title: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
+              { title: contains },
+              { description: contains },
+              { project: { name: contains } },
+              { project: { company: { name: contains } } },
+              { project: { space: { name: contains } } },
+              { project: { folder: { name: contains } } },
             ],
           },
         ],
@@ -54,9 +68,10 @@ async function GET_handler(req: NextRequest) {
       select: {
         id: true,
         title: true,
+        description: true,
         status: true,
         priority: true,
-        project: { select: { id: true, name: true } },
+        project: { select: projectContextSelect },
       },
     }),
     prisma.project.findMany({
@@ -65,8 +80,11 @@ async function GET_handler(req: NextRequest) {
           projectScope,
           {
             OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { description: { contains: q, mode: "insensitive" } },
+              { name: contains },
+              { description: contains },
+              { company: { name: contains } },
+              { space: { name: contains } },
+              { folder: { name: contains } },
             ],
           },
         ],
@@ -74,23 +92,32 @@ async function GET_handler(req: NextRequest) {
       take: MAX_PER_TYPE,
       orderBy: { created_at: "desc" },
       select: {
-        id: true,
-        name: true,
+        ...projectContextSelect,
         description: true,
         status: true,
-        space: { select: { id: true, name: true, icon: true } },
       },
     }),
     prisma.doc.findMany({
       where: {
-        AND: [docScope, { title: { contains: q, mode: "insensitive" } }],
+        AND: [
+          docScope,
+          {
+            OR: [
+              { title: contains },
+              { project: { name: contains } },
+              { project: { company: { name: contains } } },
+              { project: { space: { name: contains } } },
+              { project: { folder: { name: contains } } },
+            ],
+          },
+        ],
       },
       take: MAX_PER_TYPE,
       orderBy: { updated_at: "desc" },
       select: {
         id: true,
         title: true,
-        project: { select: { id: true, name: true } },
+        project: { select: projectContextSelect },
       },
     }),
     prisma.company.findMany({
@@ -114,8 +141,17 @@ async function GET_handler(req: NextRequest) {
         owner: { select: { id: true, name: true } },
       },
     }),
+    prisma.space.findMany({
+      where: {
+        workspace_id: workspaceId,
+        name: contains,
+      },
+      take: MAX_PER_TYPE,
+      orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, icon: true },
+    }),
   ]);
 
-  return NextResponse.json({ q, tasks, projects, docs, companies });
+  return NextResponse.json({ q, spaces, tasks, projects, docs, companies });
 }
 export const GET = withErrorReporting("api:search:GET", GET_handler);

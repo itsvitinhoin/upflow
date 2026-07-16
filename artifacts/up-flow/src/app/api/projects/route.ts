@@ -7,7 +7,11 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { readableProjectWhere } from "@/lib/project-access";
-import { startClientOnboarding } from "@/lib/onboarding";
+import {
+  createClientOnboardingRecordsForProject,
+  finishClientOnboardingStart,
+} from "@/lib/onboarding";
+import { isCommercialDepartmentName } from "@/lib/project-creation-access";
 
 async function canCreateProjectInWorkspace(userId: string, workspaceId: string, admin: boolean) {
   if (admin) return true;
@@ -18,7 +22,7 @@ async function canCreateProjectInWorkspace(userId: string, workspaceId: string, 
   return Boolean(
     member?.status === "active" &&
       member.role !== "guest" &&
-      member.department?.name.toLowerCase().includes("commercial"),
+      isCommercialDepartmentName(member.department?.name),
   );
 }
 
@@ -152,40 +156,49 @@ async function postHandler(req: NextRequest) {
     }
   }
 
-  const project = await prisma.project.create({
-    data: {
-      name: name.trim(),
-      description: description || null,
-      due_date: parsedDueDate,
-      workspace_id: auth.currentWorkspaceId,
-      owner_id: auth.prismaUser.id,
-      space_id: resolvedSpaceId,
-      folder_id: folder_id || null,
-      company_id: company_id || null,
-      onboarding_enabled: Boolean(start_onboarding && company_id),
-      closing_date: parsedClosingDate,
-      onboarding_start_date: parsedOnboardingStartDate,
-      responsible_salesperson_id: responsible_salesperson_id || (start_onboarding ? auth.prismaUser.id : null),
-      initial_notes: initial_notes || null,
-    },
-    include: {
-      owner: { select: { id: true, name: true, email: true } },
-      space: { select: { id: true, name: true, icon: true } },
-      folder: { select: { id: true, name: true, icon: true } },
-      _count: { select: { tasks: true } },
-    },
+  const { project, onboardingResult } = await prisma.$transaction(async (tx) => {
+    const createdProject = await tx.project.create({
+      data: {
+        name: name.trim(),
+        description: description || null,
+        due_date: parsedDueDate,
+        workspace_id: auth.currentWorkspaceId!,
+        owner_id: auth.prismaUser.id,
+        space_id: resolvedSpaceId,
+        folder_id: folder_id || null,
+        company_id: company_id || null,
+        onboarding_enabled: Boolean(start_onboarding && company_id),
+        kind: start_onboarding && company_id ? "onboarding" : company_id ? "client" : "internal",
+        closing_date: parsedClosingDate,
+        onboarding_start_date: parsedOnboardingStartDate,
+        responsible_salesperson_id: responsible_salesperson_id || (start_onboarding ? auth.prismaUser.id : null),
+        initial_notes: initial_notes || null,
+      },
+      include: {
+        owner: { select: { id: true, name: true, email: true } },
+        space: { select: { id: true, name: true, icon: true } },
+        folder: { select: { id: true, name: true, icon: true } },
+        _count: { select: { tasks: true } },
+      },
+    });
+
+    const createdOnboarding = start_onboarding && company_id
+      ? await createClientOnboardingRecordsForProject(tx, {
+          projectId: createdProject.id,
+          actorId: auth.prismaUser.id,
+          services: Array.isArray(contracted_services) ? contracted_services : undefined,
+          closingDate: parsedClosingDate,
+          expectedStartDate: parsedOnboardingStartDate,
+          responsibleSalespersonId: responsible_salesperson_id || auth.prismaUser.id,
+          initialNotes: initial_notes || null,
+        })
+      : null;
+
+    return { project: createdProject, onboardingResult: createdOnboarding };
   });
 
-  if (start_onboarding && company_id) {
-    await startClientOnboarding({
-      projectId: project.id,
-      actorId: auth.prismaUser.id,
-      services: Array.isArray(contracted_services) ? contracted_services : undefined,
-      closingDate: parsedClosingDate,
-      expectedStartDate: parsedOnboardingStartDate,
-      responsibleSalespersonId: responsible_salesperson_id || auth.prismaUser.id,
-      initialNotes: initial_notes || null,
-    });
+  if (onboardingResult) {
+    await finishClientOnboardingStart(onboardingResult, auth.prismaUser.id);
   }
 
   await recordActivity({

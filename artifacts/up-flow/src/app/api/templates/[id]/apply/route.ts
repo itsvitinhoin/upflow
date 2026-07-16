@@ -14,13 +14,18 @@ const ApplyTemplateSchema = z.object({
   company_id: z.string().uuid().optional().nullable(),
 });
 
-function normalizeTemplate(template: { id: string; name: string; config: unknown }): BuiltInTemplate | null {
+function normalizeTemplate(template: {
+  id: string;
+  name: string;
+  type: string;
+  config: unknown;
+}): BuiltInTemplate | null {
   const config = template.config as BuiltInTemplate["config"];
   if (!config || !Array.isArray(config.tasks) || typeof config.projectName !== "string") return null;
   return {
     id: template.id,
     name: template.name,
-    type: "custom",
+    type: template.type,
     description: "",
     config,
   };
@@ -85,6 +90,12 @@ async function POST_handler(
       space_id: parsed.data.space_id ?? null,
       folder_id: parsed.data.folder_id ?? null,
       company_id: parsed.data.company_id ?? null,
+      kind:
+        template.type === "operational_queue"
+          ? "operational_queue"
+          : parsed.data.company_id
+            ? "client"
+            : "internal",
       tasks: {
         create: template.config.tasks.map((task, index) => ({
           title: task.title,

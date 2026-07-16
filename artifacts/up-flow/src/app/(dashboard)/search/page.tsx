@@ -8,31 +8,48 @@ import {
   Building2,
   Folder,
   FileText,
+  Hash,
   Search as SearchIcon,
   Loader2,
 } from "lucide-react";
 import Header from "@/components/layout/header";
-import { cn, statusColor, statusLabel } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
+import { cn, statusColor, statusLabel } from "@/lib/utils";
 
 interface SearchTask {
   id: string;
   title: string;
   status: string;
   priority: string;
-  project: { id: string; name: string } | null;
+  project: SearchProjectContext | null;
+}
+interface SearchProjectContext {
+  id: string;
+  name: string;
+  kind: "client" | "internal" | "operational_queue" | "onboarding";
+  company: { id: string; name: string } | null;
+  space: { id: string; name: string; icon: string | null } | null;
+  folder: { id: string; name: string; icon: string | null } | null;
 }
 interface SearchProject {
   id: string;
   name: string;
   description: string | null;
   status: string;
+  kind: SearchProjectContext["kind"];
+  company: SearchProjectContext["company"];
   space: { id: string; name: string; icon: string | null } | null;
+  folder: SearchProjectContext["folder"];
 }
 interface SearchDoc {
   id: string;
   title: string;
-  project: { id: string; name: string } | null;
+  project: SearchProjectContext | null;
+}
+interface SearchSpace {
+  id: string;
+  name: string;
+  icon: string | null;
 }
 interface SearchCompany {
   id: string;
@@ -43,10 +60,18 @@ interface SearchCompany {
 }
 interface SearchResponse {
   q: string;
+  spaces: SearchSpace[];
   tasks: SearchTask[];
   projects: SearchProject[];
   docs: SearchDoc[];
   companies: SearchCompany[];
+}
+
+function projectContext(project: SearchProjectContext | SearchProject | null | undefined) {
+  if (!project) return "";
+  return [project.company?.name, project.space?.name, project.folder?.name]
+    .filter(Boolean)
+    .join(" › ");
 }
 
 function SearchResults() {
@@ -59,16 +84,34 @@ function SearchResults() {
   useEffect(() => {
     if (!q) {
       setData(null);
+      setLoading(false);
       return;
     }
+    const controller = new AbortController();
+    setData(null);
     setLoading(true);
-    fetch(`/api/search?q=${encodeURIComponent(q)}`)
+    fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setData(d))
-      .finally(() => setLoading(false));
+      .then((d) => {
+        if (!controller.signal.aborted) setData(d);
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          setData(null);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
   }, [q]);
 
-  const total = (data?.tasks.length ?? 0) + (data?.projects.length ?? 0) + (data?.docs.length ?? 0) + (data?.companies.length ?? 0);
+  const total =
+    (data?.spaces.length ?? 0) +
+    (data?.tasks.length ?? 0) +
+    (data?.projects.length ?? 0) +
+    (data?.docs.length ?? 0) +
+    (data?.companies.length ?? 0);
 
   return (
     <>
@@ -84,7 +127,9 @@ function SearchResults() {
 
         {!q && (
           <p className="text-sm text-muted-foreground">
-            {t("search.hint", { shortcut: "Ctrl K" })}
+            {t("search.hintBeforeShortcut")} {" "}
+            <kbd className="rounded bg-muted px-1.5 py-0.5 text-xs">Ctrl/Cmd K</kbd>{" "}
+            {t("search.hintAfterShortcut")}
           </p>
         )}
 
@@ -94,8 +139,23 @@ function SearchResults() {
           </div>
         )}
 
+        {data && data.spaces.length > 0 && (
+          <Section title={t("search.spaces")} count={data.spaces.length}>
+            {data.spaces.map((space) => (
+              <Link
+                key={space.id}
+                href={`/spaces/${space.id}`}
+                className="flex items-center gap-3 rounded-lg border border-transparent px-4 py-3 transition-colors hover:border-border hover:bg-muted/50"
+              >
+                <Hash className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                <span className="truncate text-sm font-medium">{space.name}</span>
+              </Link>
+            ))}
+          </Section>
+        )}
+
         {data && data.projects.length > 0 && (
-          <Section title={t("nav.projects")} count={data.projects.length}>
+          <Section title={t("search.projects")} count={data.projects.length}>
             {data.projects.map((p) => (
               <Link
                 key={p.id}
@@ -109,16 +169,23 @@ function SearchResults() {
                     <span className={cn("text-xs px-1.5 py-0.5 rounded", statusColor(p.status))}>
                       {statusLabel(p.status, t)}
                     </span>
+                    {p.kind === "onboarding" && (
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                        {t("search.onboarding")}
+                      </span>
+                    )}
                   </div>
                   {p.description && (
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
                       {p.description}
                     </p>
                   )}
+                  {projectContext(p) && (
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {projectContext(p)}
+                    </p>
+                  )}
                 </div>
-                {p.space?.name && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">{p.space.name}</span>
-                )}
               </Link>
             ))}
           </Section>
@@ -145,7 +212,7 @@ function SearchResults() {
         )}
 
         {data && data.tasks.length > 0 && (
-          <Section title={t("command.myTasks")} count={data.tasks.length}>
+          <Section title={t("search.tasks")} count={data.tasks.length}>
             {data.tasks.map((task) => (
               <Link
                 key={task.id}
@@ -170,7 +237,7 @@ function SearchResults() {
         )}
 
         {data && data.docs.length > 0 && (
-          <Section title={t("docs.title")} count={data.docs.length}>
+          <Section title={t("search.docs")} count={data.docs.length}>
             {data.docs.map((d) => (
               <Link
                 key={d.id}
@@ -180,9 +247,9 @@ function SearchResults() {
                 <FileText className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm truncate block">{d.title}</span>
-                  {d.project?.name && (
+                  {d.project && (
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {d.project.name}
+                      {[d.project.name, projectContext(d.project)].filter(Boolean).join(" · ")}
                     </p>
                   )}
                 </div>
@@ -216,10 +283,14 @@ function Section({
 }
 
 export default function SearchPage() {
-  const { t } = useLanguage();
   return (
-    <Suspense fallback={<div className="px-4 py-6 text-sm text-muted-foreground sm:px-6 sm:py-8">{t("common.loading")}</div>}>
+    <Suspense fallback={<SearchLoading />}>
       <SearchResults />
     </Suspense>
   );
+}
+
+function SearchLoading() {
+  const { t } = useLanguage();
+  return <div className="px-4 py-6 text-sm text-muted-foreground sm:px-6 sm:py-8">{t("common.loading")}</div>;
 }

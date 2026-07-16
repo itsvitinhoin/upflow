@@ -10,7 +10,7 @@ function read(rel: string) {
 }
 
 test("projects and clients expose card delete actions backed by DELETE routes", () => {
-  const projectsPage = read("src/app/(dashboard)/projects/page.tsx");
+  const projectsPage = read("src/components/projects/project-directory.tsx");
   const projectDetailPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const clientsPage = read("src/app/(dashboard)/clients/page.tsx");
   const projectRoute = read("src/app/api/projects/[id]/route.ts");
@@ -26,10 +26,10 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   const sidebarTree = read("src/components/layout/sidebar/space-tree.tsx");
 
   assert.match(projectsPage, /Trash2/);
-  assert.match(projectsPage, /t\("projects\.deleteProject"\)/);
+  assert.match(projectsPage, /t\("common\.delete"\)/);
   assert.match(projectsPage, /fetch\(`\/api\/projects\/\$\{project\.id\}`,\s*\{\s*method:\s*"DELETE",?\s*\}\)/);
   assert.match(projectsPage, /deletingProjectId/);
-  assert.match(projectsPage, /setProjects\(\(current\) =>\s*current\.filter/);
+  assert.match(projectsPage, /setRefreshKey\(\(value\) => value \+ 1\)/);
   assert.match(projectsPage, /t\("projects\.deleted"\)/);
   assert.match(projectRoute, /prisma\.\$transaction/);
   assert.match(projectRoute, /deleteProjectsByIds/);
@@ -78,6 +78,10 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(companyRoute, /async function DELETE_handler/);
   assert.match(companyRoute, /isWorkspaceAdminFor\(auth, company\.workspace_id\)/);
   assert.match(companyRoute, /type:\s*"company_deleted"/);
-  assert.match(companyRoute, /prisma\.company\.delete/);
+  assert.match(companyRoute, /kind:\s*\{\s*in:\s*\["client", "onboarding"\]/);
+  assert.match(companyRoute, /kind:\s*"internal"/);
+  assert.match(companyRoute, /FOR UPDATE[\s\S]*project\.updateMany/);
+  assert.doesNotMatch(companyRoute, /TransactionIsolationLevel\.Serializable/);
+  assert.match(companyRoute, /tx\.company\.delete/);
   assert.match(companyRoute, /export const DELETE = withErrorReporting\("api:companies\/id:DELETE", DELETE_handler\)/);
 });

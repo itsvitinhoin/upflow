@@ -64,11 +64,25 @@ Run in this order:
 
 2. Check the staging query plans for dashboard and substring search. The search queries must use the new trigram indexes rather than sequential scans at representative pilot volume.
 
-3. Deploy the same migrations against production. Never run arbitrary Prisma migrations during a Vercel build.
+3. If the release changes how records are classified (including the `Project.kind`
+   directory migration), place the app in a brief read-only window before applying
+   the migration. Block every project/client lifecycle mutation during this window:
+   project and client create/update/delete, onboarding starts or edits, template
+   application, and department-default provisioning. Keep the window in place until
+   the new app bundle is serving production. This prevents the previous app version
+   from writing rows with the new column's fallback value between migration and
+   redeploy.
 
-4. Redeploy the Vercel app from `main` only after migrations complete.
+4. Deploy the rehearsed migrations against production. Never run arbitrary Prisma migrations during a Vercel build.
 
-5. Confirm health:
+   ```bash
+   pnpm db:migrate:status
+   pnpm db:migrate:deploy
+   ```
+
+5. Redeploy the Vercel app from `main` only after migrations complete.
+
+6. End the read-only window when one was required, resume lifecycle mutations, then confirm health:
 
    - `GET /api/health` returns `status: "ok"`.
    - `/admin/health` shows `Ready for internal rollout`.

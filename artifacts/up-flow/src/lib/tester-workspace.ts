@@ -110,6 +110,7 @@ async function seedTesterWorkspace(workspaceId: string, ownerId: string) {
         company_id: company.id,
         name: "Client onboarding",
         description: "Representative project for invited testers.",
+        kind: "client",
         due_date: nextWeek,
       },
     });

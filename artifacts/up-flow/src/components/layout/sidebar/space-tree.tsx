@@ -178,7 +178,7 @@ export function SpaceNode({
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5"
               >
-                <Plus className="w-3 h-3" /> {t("folder.newList")}
+                <Plus className="w-3 h-3" /> {t("sidebar.newProject")}
               </button>
               <button
                 role="menuitem"
@@ -233,7 +233,7 @@ export function SpaceNode({
               "rounded-xl border border-border/70 bg-muted/25 px-2 py-1.5 text-[11px] text-muted-foreground/70 italic dark:border-white/5 dark:bg-white/[0.15]",
               !isActive && !isSearching && "hidden",
             )}>
-              {t("sidebar.noFoldersOrLists")}
+              {t("sidebar.noFoldersOrProjects")}
             </p>
           )}
           {visibleFolders.map((f) => (
@@ -425,7 +425,7 @@ export function FolderNode({
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5"
               >
-                <Plus className="w-3 h-3" /> {t("folder.newList")}
+                <Plus className="w-3 h-3" /> {t("sidebar.newProject")}
               </button>
               <button
                 role="menuitem"
@@ -471,7 +471,7 @@ export function FolderNode({
                 !isActive && !isSearching && "hidden",
               )}
             >
-              {t("sidebar.noFoldersOrLists")}
+              {t("sidebar.noFoldersOrProjects")}
             </p>
           ) : (
             <>
@@ -560,9 +560,17 @@ export function UnassignedNode({
       <div className="flex items-center gap-1 rounded-xl px-1 py-1 transition-colors hover:bg-accent/70 dark:hover:bg-white/[0.15]">
         <button
           onClick={() => toggleCollapse(id)}
-          aria-label={t(isCollapsed ? "sidebar.expandUnassignedLists" : "sidebar.collapseUnassignedLists")}
+          aria-label={t(
+            isCollapsed
+              ? "sidebar.expandUnassignedProjects"
+              : "sidebar.collapseUnassignedProjects",
+          )}
           aria-expanded={!isCollapsed}
-          title={t(isCollapsed ? "sidebar.expandUnassignedLists" : "sidebar.collapseUnassignedLists")}
+          title={
+            isCollapsed
+              ? t("sidebar.expandUnassignedProjects")
+              : t("sidebar.collapseUnassignedProjects")
+          }
           className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:hover:bg-white/10"
         >
           {isCollapsed ? (
@@ -607,7 +615,7 @@ export function UnassignedNode({
               onClick={onNavigate}
               className="block rounded-xl border border-primary/[0.35] bg-primary/[0.15] px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10 dark:border-blue-300/10 dark:text-blue-200 dark:hover:bg-blue-500/10"
             >
-              {t("sidebar.viewAllLists", { count: hiddenCount })}
+              {t("sidebar.viewAllProjects", { count: hiddenCount })}
             </Link>
           )}
         </div>

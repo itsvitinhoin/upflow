@@ -9,8 +9,8 @@ import {
 
 /**
  * Projects index + project detail page coverage:
- *   * /projects: hover-revealed "Move" button opens MoveToSpaceDialog,
- *     header "New Project" opens the dialog.
+ *   * /projects: client-first directory tabs, URL-backed filters,
+ *     keyboard-accessible actions, and the header New Project dialog.
  *   * /projects/[id]: ProjectToolbar (list/board toggle, search filter,
  *     filter popover, group/sort dropdowns, column toggle), kanban DnD
  *     (via keyboard sensor — hello-pangea/dnd supports space + arrows),
@@ -44,7 +44,7 @@ test.describe("Projects index", () => {
     await ctx.close();
   });
 
-  test("Move button on a project card opens the MoveToSpaceDialog", async ({
+  test("directory tabs, URL filters, and project action menu work", async ({
     browser,
     baseURL,
   }) => {
@@ -53,21 +53,54 @@ test.describe("Projects index", () => {
     await createProjectViaApi(ctx, name);
 
     const page = await ctx.newPage();
-    await page.goto("/projects");
+    await page.goto("/projects?tab=internal&q=" + encodeURIComponent(name));
+    await expect(page.getByRole("tab", { name: /Internal/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByPlaceholder(/Search by project/)).toHaveValue(name);
 
-    const card = page
-      .locator("h3", { hasText: name })
-      .locator("..")
-      .locator("..")
-      .locator("..");
-    // The Move button uses opacity-0 + group-hover. Force-click via hover.
-    await card.hover();
-    const move = card.getByRole("button", { name: /Move/ }).first();
-    await move.click({ force: true });
+    const row = page.locator("[data-project-id]").filter({ hasText: name });
+    await expect(row).toBeVisible();
+    await row.getByLabel(`Actions for ${name}`).click();
+    await row.getByRole("button", { name: /^Move$/ }).click();
     const dialog = page.getByRole("dialog", { name: "Move project" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(name, { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
+
+    await page.reload();
+    await expect(page.getByPlaceholder(/Search by project/)).toHaveValue(name);
+    await expect(row).toBeVisible();
+
+    await ctx.close();
+  });
+
+  test("client directory shows one expandable client for projects across the workspace", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const companyName = uniq("DirectoryClient");
+    const companyResponse = await ctx.request.post("/api/companies", {
+      data: { name: companyName },
+    });
+    expect(companyResponse.ok()).toBeTruthy();
+    const company = (await companyResponse.json()) as { id: string };
+    const firstProject = uniq("ClientProjectOne");
+    const secondProject = uniq("ClientProjectTwo");
+    await createProjectViaApi(ctx, firstProject, { company_id: company.id });
+    await createProjectViaApi(ctx, secondProject, { company_id: company.id });
+
+    const page = await ctx.newPage();
+    await page.goto(`/projects?q=${encodeURIComponent(companyName)}`);
+    const clientGroup = page.getByRole("button", { name: new RegExp(companyName) });
+    await expect(clientGroup).toHaveCount(1);
+    if ((await clientGroup.getAttribute("aria-expanded")) !== "true") {
+      await clientGroup.click();
+    }
+    await expect(page.getByRole("link", { name: firstProject })).toBeVisible();
+    await expect(page.getByRole("link", { name: secondProject })).toBeVisible();
 
     await ctx.close();
   });

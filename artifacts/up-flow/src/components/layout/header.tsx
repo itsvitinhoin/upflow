@@ -9,6 +9,7 @@ import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
 import { useTheme } from "@/components/theme-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isCommercialDepartmentName } from "@/lib/project-creation-access";
 import { getCachedJson } from "@/lib/client-cache";
 import { getNotificationHref } from "@/lib/notification-links";
 import { memberJoinedNotificationLabel } from "@/lib/notification-copy";
@@ -189,7 +190,9 @@ export default function Header({ title }: HeaderProps) {
   const canCreateProject =
     user?.isSuperAdmin ||
     user?.currentRole === "owner" ||
-    user?.currentRole === "admin";
+    user?.currentRole === "admin" ||
+    (user?.currentRole !== "guest" &&
+      isCommercialDepartmentName(user?.currentDepartmentName));
 
   const fetchNotifications = useCallback(async (
     force = false,
@@ -374,9 +377,14 @@ export default function Header({ title }: HeaderProps) {
               })}
               className="upflow-shell-search upflow-focus-glow h-10 w-full rounded-full border border-border bg-background/95 pl-11 pr-4 text-sm shadow-sm backdrop-blur-md transition placeholder:text-muted-foreground hover:border-primary/[0.35] hover:bg-background focus:border-sky-400/70 dark:border-blue-300/10 dark:bg-[#050a18]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] dark:hover:border-blue-300/25 dark:hover:bg-[#070d1f]/90 sm:h-11 md:pr-16"
             />
-            <kbd className="upflow-shell-kbd absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground dark:border-blue-300/10 dark:bg-white/5 md:flex">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("upflow:command-palette-open"))}
+              aria-label={t("header.openCommandPalette")}
+              className="upflow-shell-kbd absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:border-blue-300/10 dark:bg-white/5 md:flex"
+            >
               Ctrl K
-            </kbd>
+            </button>
           </div>
         </form>
 

@@ -112,6 +112,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
               pathname={pathname}
               workspaces={workspaces}
               currentWorkspaceId={user.currentWorkspaceId ?? ""}
+              currentUserId={user.id}
               currentRole={user.currentRole ?? null}
               userName={user.name || user.email}
               isSuperAdmin={user.isSuperAdmin === true}
@@ -146,6 +147,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
                 pathname={pathname}
                 workspaces={workspaces}
                 currentWorkspaceId={user.currentWorkspaceId ?? ""}
+                currentUserId={user.id}
                 currentRole={user.currentRole ?? null}
                 userName={user.name || user.email}
                 isSuperAdmin={user.isSuperAdmin === true}

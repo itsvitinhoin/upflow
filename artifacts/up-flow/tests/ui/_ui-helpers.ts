@@ -81,9 +81,10 @@ export async function openCommandPalette(page: Page): Promise<void> {
 export async function createProjectViaApi(
   ctx: APIRequestContext | BrowserContext,
   name: string,
+  options?: Record<string, unknown>,
 ): Promise<string> {
   const req = "post" in ctx ? ctx : ctx.request;
-  const res = await req.post("/api/projects", { data: { name } });
+  const res = await req.post("/api/projects", { data: { name, ...options } });
   expect(res.ok(), `create project failed: ${res.status()}`).toBeTruthy();
   const body = (await res.json()) as { id: string };
   return body.id;

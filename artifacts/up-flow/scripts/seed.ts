@@ -67,12 +67,13 @@ async function main() {
 
   const p1 = await prisma.project.upsert({
     where: { id: "project-website-redesign" },
-    update: { workspace_id: acme.id },
+    update: { workspace_id: acme.id, kind: "internal" },
     create: {
       id: "project-website-redesign",
       name: "Website Redesign",
       description: "Modernize the company website with new branding and improved UX.",
       status: "active",
+      kind: "internal",
       workspace_id: acme.id,
       owner_id: admin.id,
     },
@@ -80,12 +81,13 @@ async function main() {
 
   const p2 = await prisma.project.upsert({
     where: { id: "project-mobile-app" },
-    update: { workspace_id: acme.id },
+    update: { workspace_id: acme.id, kind: "internal" },
     create: {
       id: "project-mobile-app",
       name: "Mobile App Launch",
       description: "Build and launch the iOS and Android mobile application.",
       status: "active",
+      kind: "internal",
       workspace_id: acme.id,
       owner_id: sarah.id,
     },
@@ -93,12 +95,13 @@ async function main() {
 
   const p3 = await prisma.project.upsert({
     where: { id: "project-api-v2" },
-    update: { workspace_id: acme.id },
+    update: { workspace_id: acme.id, kind: "internal" },
     create: {
       id: "project-api-v2",
       name: "API v2 Migration",
       description: "Migrate all endpoints to RESTful v2 API with OpenAPI docs.",
       status: "active",
+      kind: "internal",
       workspace_id: acme.id,
       owner_id: mike.id,
     },
