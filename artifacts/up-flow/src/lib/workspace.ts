@@ -118,9 +118,9 @@ export function resolveCurrentWorkspaceId(
   return memberships[0]?.workspace_id ?? "";
 }
 
-export function readWorkspaceCookie(): string | undefined {
+export async function readWorkspaceCookie(): Promise<string | undefined> {
   try {
-    return cookies().get(WORKSPACE_COOKIE)?.value;
+    return (await cookies()).get(WORKSPACE_COOKIE)?.value;
   } catch {
     return undefined;
   }

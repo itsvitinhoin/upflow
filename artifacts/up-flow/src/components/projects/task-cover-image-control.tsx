@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Link2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
+import { getTaskAssetPath, getTaskCoverDisplayUrl } from "@/lib/task-images";
 
 interface TaskCoverImageControlProps {
   value: string | null | undefined;
@@ -17,7 +18,7 @@ const MAX_IMAGE_BYTES = 2_000_000;
 function isImageUrl(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
+    return url.protocol === "https:";
   } catch {
     return false;
   }
@@ -31,11 +32,14 @@ export default function TaskCoverImageControl({
 }: TaskCoverImageControlProps) {
   const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [url, setUrl] = useState(value?.startsWith("data:") ? "" : value ?? "");
+  const [url, setUrl] = useState(
+    value?.startsWith("data:") || getTaskAssetPath(value) ? "" : value ?? "",
+  );
   const [saving, setSaving] = useState(false);
+  const displayUrl = getTaskCoverDisplayUrl(value);
 
   useEffect(() => {
-    setUrl(value?.startsWith("data:") ? "" : value ?? "");
+    setUrl(value?.startsWith("data:") || getTaskAssetPath(value) ? "" : value ?? "");
   }, [value]);
 
   const save = async (nextValue: string | null) => {
@@ -78,12 +82,12 @@ export default function TaskCoverImageControl({
         method: "POST",
         body: form,
       });
-      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
+      const data = (await res.json().catch(() => ({}))) as { reference?: string; error?: string };
+      if (!res.ok || !data.reference) {
         throw new Error(data.error || t("taskCover.couldNotUpload"));
       }
       setUrl("");
-      await onChange(data.url);
+      await onChange(data.reference);
       toast.success(t("taskCover.uploaded"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("taskCover.couldNotUpload"));
@@ -95,11 +99,17 @@ export default function TaskCoverImageControl({
 
   return (
     <div className="space-y-3">
-      {value ? (
-        <div className={compact ? "flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-2" : "overflow-hidden rounded-lg border border-border bg-muted/30"}>
+      {displayUrl ? (
+        <div
+          className={
+            compact
+              ? "flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-2"
+              : "overflow-hidden rounded-lg border border-border bg-muted/30"
+          }
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={value}
+            src={displayUrl}
             alt={t("taskCover.alt")}
             className={compact ? "h-14 w-20 rounded-md object-cover" : "aspect-video w-full object-cover"}
             loading="lazy"
@@ -119,7 +129,8 @@ export default function TaskCoverImageControl({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onBlur={() => {
-              const currentUrlValue = value?.startsWith("data:") ? "" : value ?? "";
+              const currentUrlValue =
+                value?.startsWith("data:") || getTaskAssetPath(value) ? "" : value ?? "";
               if (currentUrlValue !== url.trim()) void applyUrl();
             }}
             placeholder={t("taskCover.pasteUrl")}

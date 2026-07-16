@@ -25,6 +25,11 @@ export interface RateLimitOptions {
   windowMs: number;
   max: number;
   key?: string;
+  /**
+   * Identity and invitation flows must use a shared store in production.
+   * Per-instance memory counters are not a meaningful protection there.
+   */
+  requireSharedStore?: boolean;
 }
 
 export interface RateLimitResult {
@@ -39,14 +44,18 @@ export interface RateLimitResult {
    * "happy memory path (store unconfigured)" from "outage pass-through".
    */
   degraded?: boolean;
+  /** The endpoint requires Redis but it is unavailable in production. */
+  unavailable?: boolean;
 }
 
 function getClientIp(req: NextRequest): string {
+  const vercel = req.headers.get("x-vercel-forwarded-for");
+  if (vercel) return vercel.split(",")[0]!.trim();
   const fwd = req.headers.get("x-forwarded-for");
   if (fwd) return fwd.split(",")[0]!.trim();
   const real = req.headers.get("x-real-ip");
   if (real) return real.trim();
-  return req.ip ?? "unknown";
+  return "unknown";
 }
 
 /**
@@ -279,6 +288,21 @@ function memoryCheck(
   };
 }
 
+function sharedStoreRequired(opts: RateLimitOptions): boolean {
+  return Boolean(opts.requireSharedStore && process.env.NODE_ENV === "production");
+}
+
+function unavailableResult(opts: RateLimitOptions): RateLimitResult {
+  return {
+    ok: false,
+    remaining: 0,
+    retryAfter: 60,
+    backend: "memory",
+    degraded: true,
+    unavailable: true,
+  };
+}
+
 /**
  * Check the rate limit for the caller's IP + the given window. Async because
  * Redis is a network call; existing callers `await` the one-line result.
@@ -304,6 +328,7 @@ export async function checkRateLimit(
   const redisUrl = redisUrlConfig();
   if (!cfg && !redisUrl) {
     warnOnce("UPSTASH_REDIS_REST_URL / TOKEN or REDIS_URL not configured");
+    if (sharedStoreRequired(opts)) return unavailableResult(opts);
     return memoryCheck(bucketKey, opts, { bucket, ipHash });
   }
 
@@ -355,6 +380,7 @@ export async function checkRateLimit(
     // explicitly forbids. Memory limits only apply when the store is
     // *unconfigured* (see early-return above).
     logError("rate-limit:redis-unavailable", err, { bucket });
+    if (sharedStoreRequired(opts)) return unavailableResult(opts);
     return {
       ok: true,
       remaining: opts.max,
@@ -366,6 +392,18 @@ export async function checkRateLimit(
 }
 
 export function rateLimitResponse(result: RateLimitResult): NextResponse {
+  if (result.unavailable) {
+    return NextResponse.json(
+      { error: "Security protection is temporarily unavailable. Please try again shortly." },
+      {
+        status: 503,
+        headers: {
+          "Retry-After": String(Math.max(1, result.retryAfter)),
+          "X-RateLimit-Remaining": "0",
+        },
+      },
+    );
+  }
   return NextResponse.json(
     { error: "Too many requests. Please try again shortly." },
     {
@@ -386,24 +424,33 @@ export async function pingRateLimiter(): Promise<{
   configured: boolean;
   ok: boolean;
   backend: "redis" | "memory";
+  required: boolean;
   error?: string;
 }> {
+  const required = process.env.NODE_ENV === "production";
   const cfg = upstashConfig();
   const redisUrl = redisUrlConfig();
   if (!cfg && !redisUrl) {
-    return { configured: false, ok: true, backend: "memory" };
+    return {
+      configured: false,
+      ok: !required,
+      backend: "memory",
+      required,
+      ...(required ? { error: "shared rate-limit store is not configured" } : {}),
+    };
   }
   try {
     const [pong] = cfg
       ? await upstashPipeline(cfg, [["PING"]], 500)
       : await redisUrlPipeline(redisUrl!, [["PING"]], 500);
     if (pong !== "PONG") throw new Error(`unexpected ping result: ${String(pong)}`);
-    return { configured: true, ok: true, backend: "redis" };
+    return { configured: true, ok: true, backend: "redis", required };
   } catch (err) {
     return {
       configured: true,
       ok: false,
       backend: "memory",
+      required,
       error: err instanceof Error ? err.message : String(err),
     };
   }

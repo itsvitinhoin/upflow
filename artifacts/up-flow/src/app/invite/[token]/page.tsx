@@ -6,13 +6,13 @@ import Link from "next/link";
 import { useLanguage } from "@/components/language-provider";
 
 interface InviteInfo {
-  email: string;
+  email_hint: string;
   role: "owner" | "admin" | "member" | "guest";
   tester_invite?: boolean;
   invite_mode?: "personal_workspace" | "workspace_access";
-  last_sent_at?: string | null;
-  workspace: { id: string; name: string };
-  inviter: { name: string; email: string } | null;
+  expires_at?: string;
+  workspace: { name: string };
+  inviter: { name: string } | null;
 }
 
 export default function AcceptInvitePage({
@@ -30,6 +30,7 @@ export default function AcceptInvitePage({
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [signInEmail, setSignInEmail] = useState("");
   const [signInPassword, setSignInPassword] = useState("");
 
   useEffect(() => {
@@ -42,7 +43,6 @@ export default function AcceptInvitePage({
         }
         const data = (await r.json()) as InviteInfo;
         setInfo(data);
-        setAccountEmail(data.email);
       })
       .catch(() => setError(t("invite.loadFailed")));
   }, [params.token, t]);
@@ -79,7 +79,7 @@ export default function AcceptInvitePage({
     const loginRes = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: info.email, password: signInPassword }),
+      body: JSON.stringify({ email: signInEmail, password: signInPassword }),
     });
     const loginData = await loginRes.json().catch(() => ({}));
     if (!loginRes.ok) {
@@ -121,13 +121,12 @@ export default function AcceptInvitePage({
     });
     const data = await r.json().catch(() => ({}));
     if (r.status === 202 && data.code === "SIGN_IN_REQUIRED") {
-      router.push(
-        `/login?next=${encodeURIComponent(`/invite/${params.token}`)}&email=${encodeURIComponent(info?.email ?? "")}`,
-      );
+      router.push(`/login?next=${encodeURIComponent(`/invite/${params.token}`)}`);
       return;
     }
     if (r.status === 409 && data.code === "ACCOUNT_EXISTS") {
       setMode("signin");
+      setSignInEmail(accountEmail);
       setError(data.error || t("invite.accountExists"));
       setBusy(false);
       return;
@@ -169,7 +168,7 @@ export default function AcceptInvitePage({
                 : t("invite.productName")}
             </p>
             <p className="text-xs text-muted-foreground mb-6">
-              {t("invite.inviteFor")} <span className="text-foreground">{info.email}</span>
+              {t("invite.inviteFor")} <span className="text-foreground">{info.email_hint}</span>
             </p>
             <p className="mb-6 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-muted-foreground">
               {info.tester_invite ? (
@@ -293,9 +292,13 @@ export default function AcceptInvitePage({
                   </label>
                   <input
                     type="email"
-                    value={info.email}
-                    readOnly
-                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-muted-foreground outline-none"
+                    name="email"
+                    autoComplete="email"
+                    value={signInEmail}
+                    onChange={(e) => setSignInEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                    className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground outline-none focus:border-primary/60"
                   />
                 </div>
                 <div>
@@ -329,7 +332,7 @@ export default function AcceptInvitePage({
                 <p className="text-center text-xs text-muted-foreground">
                   {t("invite.fullLoginPrompt")}{" "}
                   <Link
-                    href={`/login?next=${encodeURIComponent(`/invite/${params.token}`)}&email=${encodeURIComponent(info.email)}`}
+                    href={`/login?next=${encodeURIComponent(`/invite/${params.token}`)}`}
                     className="underline"
                   >
                     {t("invite.openSignIn")}

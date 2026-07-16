@@ -4,7 +4,8 @@ export interface PendingInvite {
   id: string;
   email: string;
   role: "admin" | "member" | "guest";
-  token: string;
+  expires_at?: string;
+  expired?: boolean;
   tester_invite?: boolean;
   invite_mode?: "personal_workspace" | "workspace_access";
   send_status?: "pending" | "sent" | "failed";

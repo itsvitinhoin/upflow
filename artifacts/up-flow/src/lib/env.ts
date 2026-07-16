@@ -10,6 +10,8 @@ const PRODUCTION_REQUIRED = [
   "EMAIL_FROM",
   "APP_URL",
   "CRON_SECRET",
+  "SENTRY_DSN",
+  "NEXT_PUBLIC_SENTRY_DSN",
 ] as const;
 
 const OPTIONAL = [
@@ -25,8 +27,8 @@ const OPTIONAL = [
   "APP_URL",
   // Shared secret required by production cron endpoints.
   "CRON_SECRET",
-  // Shared rate-limit store. When unset, rate-limit.ts falls back to an
-  // in-process Map and logs a degraded-protection warning at startup.
+  // Shared rate-limit store. It is mandatory in production and optional in
+  // local development, where rate-limit.ts uses a short-lived memory store.
   "REDIS_URL",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
@@ -54,10 +56,19 @@ export class MissingEnvError extends Error {
 }
 
 export function validateEnv(): { ok: boolean; missing: string[] } {
+  const production = process.env.NODE_ENV === "production";
+  const hasRedis = Boolean(process.env.REDIS_URL?.trim());
+  const hasUpstash = Boolean(
+    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
+      process.env.UPSTASH_REDIS_REST_TOKEN?.trim(),
+  );
   const missing = [
     ...REQUIRED.filter((k) => !process.env[k]),
-    ...(process.env.NODE_ENV === "production"
+    ...(production
       ? PRODUCTION_REQUIRED.filter((k) => !process.env[k])
+      : []),
+    ...(production && !hasRedis && !hasUpstash
+      ? ["REDIS_URL or UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN"]
       : []),
   ];
   if (!validated) {
@@ -75,20 +86,6 @@ export function validateEnv(): { ok: boolean; missing: string[] } {
       console.warn(
         `[env] missing required environment variables (dev only, not fatal): ${missing.join(", ")}`,
       );
-    }
-    // Observability readiness gate (production only). We don't want a prod
-    // build to silently ship with no error tracking, but we also don't
-    // want to wedge deployments that intentionally opt out (e.g. internal
-    // staging mirror). Require either SENTRY_DSN to be set OR an explicit
-    // `OBSERVABILITY_DISABLED=1` ack.
-    if (
-      process.env.NODE_ENV === "production" &&
-      !process.env.SENTRY_DSN &&
-      process.env.OBSERVABILITY_DISABLED !== "1"
-    ) {
-      throw new MissingEnvError([
-        "SENTRY_DSN (or set OBSERVABILITY_DISABLED=1 to acknowledge)",
-      ]);
     }
   }
   return { ok: missing.length === 0, missing };

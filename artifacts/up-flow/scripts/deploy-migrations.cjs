@@ -16,18 +16,15 @@ const baselineMigrations = [
 const isWindows = process.platform === "win32";
 const prismaCommand = isWindows ? "prisma.cmd" : "prisma";
 const shouldBaseline = process.env.PRISMA_BASELINE_EXISTING_DB === "1";
-const shouldRunOnVercel = process.env.RUN_PRISMA_MIGRATIONS === "1";
 const invokedFromBuild = process.env.npm_lifecycle_event === "build";
 const shouldFallbackToDatabaseUrl = process.env.PRISMA_MIGRATION_FALLBACK_TO_DATABASE_URL === "1";
 
-if (invokedFromBuild && !shouldRunOnVercel) {
-  console.log("Skipping Prisma migrations during build. Set RUN_PRISMA_MIGRATIONS=1 to run them.");
-  process.exit(0);
-}
-
-if (process.env.VERCEL === "1" && !shouldRunOnVercel) {
-  console.log("Skipping Prisma migrations during Vercel build. Run migrations manually or set RUN_PRISMA_MIGRATIONS=1.");
-  process.exit(0);
+if (invokedFromBuild || process.env.VERCEL === "1") {
+  console.error(
+    "Refusing to run Prisma migrations from an application build or Vercel. " +
+      "Run pnpm db:migrate:deploy from the release runner before promoting the deployment.",
+  );
+  process.exit(1);
 }
 
 function writeCapturedOutput(result) {

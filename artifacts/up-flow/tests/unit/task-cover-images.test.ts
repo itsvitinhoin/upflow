@@ -15,6 +15,8 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
   const uploadRoute = read("src/app/api/uploads/task-cover/route.ts");
+  const assetRoute = read("src/app/api/task-assets/[...path]/route.ts");
+  const taskImages = read("src/lib/task-images.ts");
   const board = read("src/components/projects/kanban-board.tsx");
   const sheet = read("src/components/projects/task-detail-sheet.tsx");
   const taskCreator = read("src/components/projects/task-create-sheet.tsx");
@@ -27,6 +29,14 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   assert.match(uploadRoute, /isWorkspaceAdminFor\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(uploadRoute, /TASK_STORAGE_NOT_CONFIGURED/);
   assert.match(uploadRoute, /TASK_COVER_UPLOAD_FAILED/);
+  assert.match(uploadRoute, /imageTypeFromBytes/);
+  assert.match(uploadRoute, /createTaskAssetReference/);
+  assert.doesNotMatch(uploadRoute, /getPublicUrl/);
+  assert.match(taskImages, /TASK_ASSET_PREFIX/);
+  assert.match(taskImages, /getTaskCoverDisplayUrl/);
+  assert.match(assetRoute, /createSignedUrl\(path, 60\)/);
+  assert.match(assetRoute, /canAccessWorkspace/);
+  assert.match(assetRoute, /Cache-Control/);
   assert.match(control, /\/api\/uploads\/task-cover/);
   assert.doesNotMatch(tasksRoute, /data:image/);
   assert.doesNotMatch(taskRoute, /data:image/);

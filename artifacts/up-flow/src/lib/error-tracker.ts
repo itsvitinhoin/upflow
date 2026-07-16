@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubSensitiveContext } from "@/lib/sensitive-data";
 
 /**
  * Thin wrapper over the error-tracking SDK so the rest of the app never
@@ -8,7 +9,7 @@ import * as Sentry from "@sentry/nextjs";
  *
  * Init is performed in two bootstrap files Next.js picks up automatically:
  *  - `src/instrumentation.ts`     -> server / edge
- *  - `sentry.client.config.ts`    -> browser
+ *  - `src/instrumentation-client.ts` -> browser
  *
  * Error capture is funneled through `logError()` (see `log-error.ts`),
  * which forwards here via `sendToTracker()` when initialized. That means
@@ -25,6 +26,10 @@ export function markInitialized(): void {
 /** True when the tracker SDK has been initialized this process. */
 export function isTrackerConfigured(): boolean {
   return Boolean(process.env.SENTRY_DSN);
+}
+
+export function isBrowserTrackerConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN);
 }
 
 export function isTrackerInitialized(): boolean {
@@ -53,7 +58,7 @@ export function sendToTracker(
   try {
     const eventId = Sentry.captureException(error, {
       tags: { scope },
-      extra: scrub(context),
+      extra: scrubSensitiveContext(context),
     });
     return eventId ?? null;
   } catch {
@@ -128,6 +133,16 @@ export function pingTracker(): {
   };
 }
 
+export function pingBrowserTracker(): {
+  configured: boolean;
+  release: string | null;
+} {
+  return {
+    configured: isBrowserTrackerConfigured(),
+    release: getTrackerRelease(),
+  };
+}
+
 function hasActiveSentryClient(): boolean {
   try {
     const sentry = Sentry as unknown as { getClient?: () => unknown };
@@ -135,23 +150,4 @@ function hasActiveSentryClient(): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Strip obvious secret-shaped keys before sending. Sentry's own
- * `beforeSend` (configured in init) handles the deep redaction; this is
- * a defense-in-depth pass on the explicit `extra` payloads we add.
- */
-const SECRET_KEY = /(?:authorization|cookie|password|token|api[_-]?key|secret|dsn)/i;
-function scrub(input?: Record<string, unknown>): Record<string, unknown> | undefined {
-  if (!input) return undefined;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(input)) {
-    if (SECRET_KEY.test(k)) {
-      out[k] = "[redacted]";
-      continue;
-    }
-    out[k] = v;
-  }
-  return out;
 }

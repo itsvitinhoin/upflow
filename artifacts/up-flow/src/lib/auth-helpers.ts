@@ -62,13 +62,14 @@ export async function getAuthResult(): Promise<AuthResult> {
   // Dev/CI-only bypass - see `lib/test-auth.ts`. Hard-gated on
   // NODE_ENV !== "production" AND a TEST_LOGIN_TOKEN env var being set,
   // so this is a no-op in any deployed environment.
-  const testEmail = await verifyTestAuthCookie(cookies().get(TEST_AUTH_COOKIE)?.value);
+  const cookieStore = await cookies();
+  const testEmail = await verifyTestAuthCookie(cookieStore.get(TEST_AUTH_COOKIE)?.value);
   if (testEmail) {
     email = testEmail;
     supabaseId = `test:${testEmail}`;
   } else {
     try {
-      const supabase = createSupabaseServerClient();
+      const supabase = await createSupabaseServerClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -145,7 +146,7 @@ export async function getAuthResult(): Promise<AuthResult> {
     }
     const currentWorkspaceId = resolveCurrentWorkspaceId(
       memberships,
-      readWorkspaceCookie(),
+      await readWorkspaceCookie(),
     );
     const currentRole =
       memberships.find((m) => m.workspace_id === currentWorkspaceId)?.role ?? null;

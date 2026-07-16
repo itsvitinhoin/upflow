@@ -203,7 +203,7 @@ async function PATCH_handler(
   const parsedCoverImage = cover_image_url === undefined ? undefined : parseTaskImageUrl(cover_image_url);
   if (parsedCoverImage === "invalid") {
     return NextResponse.json(
-      { error: "Invalid cover_image_url. Upload images first or use a valid image URL." },
+      { error: "Invalid cover_image_url. Upload an image or use an HTTPS image URL." },
       { status: 400 },
     );
   }

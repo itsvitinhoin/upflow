@@ -1,7 +1,7 @@
 {
   "name": "workspace",
   "version": "0.0.0",
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.13.1",
   "license": "MIT",
   "scripts": {
     "preinstall": "node scripts/ensure-pnpm.mjs",

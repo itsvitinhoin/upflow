@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
  *      blocks at the documented threshold (with a degraded-protection log).
  *   2. Upstash configured and reachable -> uses the REST API and trips
  *      at the right count using the count returned by INCR.
- *   3. Upstash configured but unreachable -> fails OPEN (still serves)
- *      and logs the outage; never silently fails closed.
+ *   3. Upstash configured but unreachable -> ordinary endpoints fail OPEN,
+ *      while production identity endpoints fail closed.
  */
 
 async function importFresh() {
@@ -203,5 +203,42 @@ test("pingRateLimiter reports error when Upstash configured but PING fails", asy
     if (originalToken !== undefined) process.env.UPSTASH_REDIS_REST_TOKEN = originalToken;
     else delete process.env.UPSTASH_REDIS_REST_TOKEN;
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("production identity limits fail closed when no shared store is configured", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const originalToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  const originalRedisUrl = process.env.REDIS_URL;
+  process.env.NODE_ENV = "production";
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  delete process.env.REDIS_URL;
+
+  try {
+    const { checkRateLimit, pingRateLimiter, rateLimitResponse } = await importFresh();
+    const result = await checkRateLimit(mockReq("8.8.8.8"), {
+      windowMs: 60_000,
+      max: 5,
+      key: "identity-test",
+      requireSharedStore: true,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.unavailable, true);
+    assert.equal(rateLimitResponse(result).status, 503);
+
+    const health = await pingRateLimiter();
+    assert.equal(health.required, true);
+    assert.equal(health.ok, false);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
+    else process.env.UPSTASH_REDIS_REST_URL = originalUrl;
+    if (originalToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
+    else process.env.UPSTASH_REDIS_REST_TOKEN = originalToken;
+    if (originalRedisUrl === undefined) delete process.env.REDIS_URL;
+    else process.env.REDIS_URL = originalRedisUrl;
   }
 });

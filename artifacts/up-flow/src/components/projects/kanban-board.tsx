@@ -6,6 +6,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { toast } from "sonner";
 import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
 import { cn, getInitials, isOverdue, relativeDueDateLabel } from "@/lib/utils";
+import { getTaskCoverDisplayUrl } from "@/lib/task-images";
 import { useLanguage } from "@/components/language-provider";
 import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
 import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
@@ -298,6 +299,7 @@ export default function KanbanBoard({
                         (task.custom_field_values ?? []).map((v) => [v.definition_id, v.value]),
                       );
                       const isSelected = selectedTaskIds?.has(task.id) ?? false;
+                      const coverImageUrl = getTaskCoverDisplayUrl(task.cover_image_url);
                       return (
                         <Draggable
                           key={task.id}
@@ -353,11 +355,11 @@ export default function KanbanBoard({
                                   </button>
                                 </div>
                               )}
-                              {task.cover_image_url && (
+                              {coverImageUrl && (
                                 <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-xl border-b border-border bg-muted/30">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={task.cover_image_url}
+                                    src={coverImageUrl}
                                     alt=""
                                     className="aspect-video w-full object-cover"
                                     loading="lazy"

@@ -12,7 +12,12 @@ import { isPhoneLikeName, normalizeDisplayName, normalizePhone } from "@/lib/use
 // Workspace-admin-only direct provisioning. Creates the auth user in
 // Supabase and adds them as a member of the caller's active workspace.
 async function POST_handler(req: NextRequest) {
-  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 10, key: "register" });
+  const rl = await checkRateLimit(req, {
+    windowMs: 60_000,
+    max: 10,
+    key: "register",
+    requireSharedStore: true,
+  });
   if (!rl.ok) return rateLimitResponse(rl);
 
   const _r = await requireAuth();
@@ -106,36 +111,32 @@ async function POST_handler(req: NextRequest) {
   if (existing) {
     // If the user already exists in Prisma, attach them to this workspace
     // if not already a member, then return neutral.
-    await prisma.workspaceMember
-      .upsert({
-        where: {
-          workspace_id_user_id: {
-            workspace_id: targetWorkspaceId,
-            user_id: existing.id,
-          },
-        },
-        create: {
+    await prisma.workspaceMember.upsert({
+      where: {
+        workspace_id_user_id: {
           workspace_id: targetWorkspaceId,
           user_id: existing.id,
-          role,
         },
-        update: { role, status: "active" },
-      })
-      .catch((err) => {
-        logError("users:register:wsm-upsert", err, { user_id: existing.id });
-      });
+      },
+      create: {
+        workspace_id: targetWorkspaceId,
+        user_id: existing.id,
+        role,
+      },
+      update: { role, status: "active" },
+    });
     return acceptedResponse(202, true);
   }
 
   const supabase = createClient(supabaseUrl, serviceKey);
-  const { error: supabaseErr } = await supabase.auth.admin.createUser({
+  const { data: createdAuth, error: supabaseErr } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
     user_metadata: { name, full_name: name, phone },
   });
-  if (supabaseErr) {
-    const msg = supabaseErr.message.toLowerCase();
+  if (supabaseErr || !createdAuth.user) {
+    const msg = supabaseErr?.message?.toLowerCase() ?? "";
     if (msg.includes("already") || msg.includes("registered") || msg.includes("exists")) {
       const user = await prisma.user.upsert({
         where: { email },
@@ -155,25 +156,37 @@ async function POST_handler(req: NextRequest) {
       });
       return acceptedResponse(202, true);
     }
-    return NextResponse.json({ error: supabaseErr.message }, { status: 400 });
+    logError("users:register:supabase", supabaseErr ?? new Error("missing auth user"));
+    return NextResponse.json(
+      { error: "Unable to create the account. Please verify the information and try again." },
+      { status: 400 },
+    );
   }
 
-  const created = await prisma.user.create({
-    data: { email, name, phone, role: "member" },
-    select: { id: true },
-  });
-
-  await prisma.workspaceMember
-    .create({
-      data: {
-        workspace_id: targetWorkspaceId,
-        user_id: created.id,
-        role,
-      },
-    })
-    .catch((err) => {
-      logError("users:register:wsm-create", err, { user_id: created.id });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { email, name, phone, role: "member" },
+        select: { id: true },
+      });
+      await tx.workspaceMember.create({
+        data: {
+          workspace_id: targetWorkspaceId,
+          user_id: created.id,
+          role,
+        },
+      });
     });
+  } catch (error) {
+    logError("users:register:prisma", error, { workspace_id: targetWorkspaceId });
+    await supabase.auth.admin.deleteUser(createdAuth.user.id).catch((deleteError) => {
+      logError("users:register:auth-rollback", deleteError, { workspace_id: targetWorkspaceId });
+    });
+    return NextResponse.json(
+      { error: "Account creation is temporarily unavailable. Please try again." },
+      { status: 503 },
+    );
+  }
 
   return acceptedResponse(201, false);
 }

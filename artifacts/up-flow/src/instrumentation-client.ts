@@ -1,10 +1,7 @@
-/**
- * Browser-side Sentry init. Picked up automatically by `@sentry/nextjs`.
- * No-op when SENTRY_DSN_PUBLIC is missing so the bundle adds zero network
- * traffic in dev / unconfigured environments.
- */
 import * as Sentry from "@sentry/nextjs";
 import { markInitialized } from "@/lib/error-tracker";
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const release =
@@ -21,10 +18,11 @@ if (dsn) {
     ),
     sendDefaultPii: false,
     beforeSend(event) {
-      // Defense-in-depth: scrub a few obvious leaks before they leave the
-      // browser. Don't expose URLs containing reset-tokens etc.
       if (event.request?.url) {
-        event.request.url = event.request.url.replace(/([?&](?:token|code)=)[^&]+/gi, "$1[redacted]");
+        event.request.url = event.request.url.replace(
+          /([?&](?:token|code)=)[^&]+/gi,
+          "$1[redacted]",
+        );
       }
       if (event.user) {
         delete event.user.email;

@@ -65,21 +65,23 @@ export default function GlobalError({
           <p style={{ color: "#9aa0ad", margin: "0 0 24px", fontSize: 14 }}>
             {copy.description}
           </p>
-          <a
-            href="/"
+          <button
+            type="button"
+            onClick={() => window.location.assign("/")}
             style={{
               display: "inline-block",
               padding: "8px 16px",
               borderRadius: 6,
+              border: 0,
               background: "#6f5cff",
               color: "white",
-              textDecoration: "none",
               fontSize: 14,
               fontWeight: 500,
+              cursor: "pointer",
             }}
           >
             {copy.reload}
-          </a>
+          </button>
         </div>
       </body>
     </html>

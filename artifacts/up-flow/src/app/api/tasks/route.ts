@@ -164,7 +164,7 @@ async function postHandler(req: NextRequest) {
   const coverImageUrl = parseTaskImageUrl(body.cover_image_url);
   if (coverImageUrl === "invalid") {
     return NextResponse.json(
-      { error: "Invalid cover_image_url. Upload images first or use a valid image URL." },
+      { error: "Invalid cover_image_url. Upload an image or use an HTTPS image URL." },
       { status: 400 },
     );
   }

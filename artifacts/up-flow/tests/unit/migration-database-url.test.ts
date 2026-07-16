@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const { getMigrationDatabaseUrl } = require("../../scripts/migration-database-url.cjs") as {
   getMigrationDatabaseUrl: (databaseUrl: string | undefined) => string | undefined;
 };
+
+const migrationDeployScript = readFileSync(
+  new URL("../../scripts/deploy-migrations.cjs", import.meta.url),
+  "utf8",
+);
+const packageJson = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
 
 test("uses the Supabase session pooler for Prisma migrations", () => {
   const applicationUrl =
@@ -27,4 +34,11 @@ test("does not rewrite non-Supabase database URLs", () => {
 test("leaves missing or malformed database URLs unchanged", () => {
   assert.equal(getMigrationDatabaseUrl(undefined), undefined);
   assert.equal(getMigrationDatabaseUrl("not-a-database-url"), "not-a-database-url");
+});
+
+test("migrations cannot run from an application build or Vercel", () => {
+  assert.match(migrationDeployScript, /invokedFromBuild \|\| process\.env\.VERCEL === "1"/);
+  assert.match(migrationDeployScript, /Refusing to run Prisma migrations/);
+  assert.doesNotMatch(migrationDeployScript, /RUN_PRISMA_MIGRATIONS/);
+  assert.doesNotMatch(packageJson, /"build": "node scripts\/deploy-migrations\.cjs/);
 });

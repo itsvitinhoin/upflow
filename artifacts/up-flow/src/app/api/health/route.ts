@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { validateEnv } from "@/lib/env";
 import { logError } from "@/lib/log-error";
 import { pingRateLimiter } from "@/lib/rate-limit";
-import { pingTracker } from "@/lib/error-tracker";
+import { pingBrowserTracker, pingTracker } from "@/lib/error-tracker";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -23,26 +23,37 @@ async function getHandler() {
   }
 
   const rl = await pingRateLimiter();
-  if (rl.configured && !rl.ok) {
+  if (!rl.ok) {
     logError("health:rate-limit", new Error(rl.error ?? "redis unreachable"));
   }
 
   const tracker = pingTracker();
+  const browserTracker = pingBrowserTracker();
   // Surface a misconfigured tracker (DSN set but SDK never initialized,
   // typically a build/instrumentation regression) as a server-side log.
-  // Does NOT flip overall status - observability outage shouldn't take
-  // the app down.
   if (tracker.configured && !tracker.initialized) {
     logError(
       "health:error-tracker",
       new Error("SENTRY_DSN set but SDK not initialized"),
     );
   }
+  if (process.env.NODE_ENV === "production" && !browserTracker.configured) {
+    logError(
+      "health:browser-error-tracker",
+      new Error("NEXT_PUBLIC_SENTRY_DSN is not configured"),
+    );
+  }
 
-  // Rate-limit connectivity is reported but does NOT flip overall status to
-  // degraded - we fail-open by design, so a Redis blip shouldn't make
-  // health-checks fail and recycle the container.
-  const ok = env.ok && db === "ok";
+  const production = process.env.NODE_ENV === "production";
+  const serverObservabilityReady =
+    !production || (tracker.configured && tracker.initialized);
+  const browserObservabilityReady = !production || browserTracker.configured;
+  const ok =
+    env.ok &&
+    db === "ok" &&
+    rl.ok &&
+    serverObservabilityReady &&
+    browserObservabilityReady;
   return NextResponse.json(
     {
       status: ok ? "ok" : "degraded",
@@ -52,11 +63,16 @@ async function getHandler() {
         configured: rl.configured,
         ok: rl.ok,
         backend: rl.backend,
+        required: rl.required,
+        ...(rl.error ? { error: "unavailable" } : {}),
       },
       error_tracker: {
-        configured: tracker.configured,
-        initialized: tracker.initialized,
-        release: tracker.release,
+        server: {
+          configured: tracker.configured,
+          initialized: tracker.initialized,
+          release: tracker.release,
+        },
+        browser: browserTracker,
       },
     },
     { status: ok ? 200 : 503 },

@@ -4,6 +4,15 @@ packages:
   - lib/integrations/*
   - scripts
 
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@sentry/cli': true
+  esbuild: true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
+
 autoInstallPeers: false
 
 catalog:
@@ -46,6 +55,7 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  '@opentelemetry/core': 2.9.0
   '@esbuild-kit/esm-loader': npm:tsx@^4.21.0
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64': '-'
   '@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64': '-'
@@ -68,6 +78,12 @@ overrides:
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-arm64-msvc': '-'
   '@tailwindcss/oxide>@tailwindcss/oxide-win32-x64-msvc': '-'
   esbuild: 0.27.3
+  linkify-it: 5.0.2
+  markdown-it: 14.3.0
+  path-to-regexp: 8.4.2
+  picomatch: 4.0.5
+  postcss: 8.5.19
+  qs: 6.15.3
   esbuild>@esbuild/aix-ppc64: '-'
   esbuild>@esbuild/android-arm: '-'
   esbuild>@esbuild/android-arm64: '-'

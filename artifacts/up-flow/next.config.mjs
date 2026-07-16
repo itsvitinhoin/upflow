@@ -29,10 +29,7 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: ["@prisma/client", "prisma"],
-    instrumentationHook: true,
-  },
+  serverExternalPackages: ["@prisma/client", "prisma"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -214,7 +214,8 @@ model WorkspaceInvite {
   workspace_id  String
   email         String
   role          WorkspaceRole    @default(member)
-  token         String           @unique
+  token_hash    String           @unique
+  expires_at    DateTime
   invited_by    String
   tester_invite Boolean          @default(false)
   invite_mode   String           @default("personal_workspace")
@@ -232,6 +233,7 @@ model WorkspaceInvite {
   @@index([tester_invite])
   @@index([invite_mode])
   @@index([send_status])
+  @@index([workspace_id, accepted_at, expires_at])
 }
 
 model Space {
@@ -241,6 +243,7 @@ model Space {
   workspace_id String
   owner_id     String
   position     Int       @default(0)
+  sidebar_hidden Boolean @default(false)
   created_at   DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   owner        User      @relation(fields: [owner_id], references: [id])
@@ -249,6 +252,7 @@ model Space {
 
   @@index([workspace_id])
   @@index([workspace_id, position, created_at])
+  @@index([workspace_id, sidebar_hidden])
 }
 
 model Folder {

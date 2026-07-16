@@ -32,7 +32,7 @@ export function logError(
             }
           })();
   const stack = error instanceof Error ? error.stack : undefined;
-  const ctx = context && Object.keys(context).length > 0 ? context : undefined;
+  const ctx = scrubSensitiveContext(context);
   // Use a single console.error call so log shippers keep the entry together.
   if (stack) {
     console.error(`[upflow] ${scope}`, message, ctx ?? "", "\n", stack);
@@ -63,3 +63,4 @@ function forwardToTracker(
   }
   trackerSendRef(scope, error, ctx);
 }
+import { scrubSensitiveContext } from "@/lib/sensitive-data";

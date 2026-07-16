@@ -99,7 +99,7 @@ test("invite route blocks missing email configuration before creating invites", 
 
 test("invite route treats provider failure as failed invite delivery", () => {
   assert.match(route, /EMAIL_SEND_FAILED/);
-  assert.match(route, /workspaceInvite\s*\n\s*\.delete/);
+  assert.match(route, /workspaceInvite\.delete/);
   assert.match(route, /recipientHash:\s*emailFingerprint/);
   assert.doesNotMatch(
     route,
@@ -188,7 +188,7 @@ test("invite modes support personal workspaces and current workspace access", ()
   assert.match(acceptRoute, /fresh\.invite_mode === "workspace_access"/);
   assert.match(inviteRegisterRoute, /ensureOwnedWorkspace/);
   assert.match(inviteRegisterRoute, /source_workspace_id/);
-  assert.match(inviteRegisterRoute, /invite\.invite_mode === "workspace_access"/);
+  assert.match(inviteRegisterRoute, /fresh\.invite_mode === "workspace_access"/);
   assert.match(inviteReconciliation, /tester_invite:\s*true/);
   assert.match(inviteReconciliation, /invite_mode:\s*"workspace_access"/);
   assert.match(acceptPage, /t\("invite\.personalWorkspaceExplanation"/);
@@ -206,16 +206,42 @@ test("admin health exposes actionable production diagnostics without secrets", (
   assert.match(adminHealthRoute, /APP_URL/);
   assert.match(adminHealthRoute, /checkObservability/);
   assert.match(adminHealthRoute, /SENTRY_DSN/);
-  assert.match(adminHealthRoute, /OBSERVABILITY_DISABLED=1/);
+  assert.match(adminHealthRoute, /NEXT_PUBLIC_SENTRY_DSN/);
+  assert.match(adminHealthRoute, /checkRateLimitStore/);
+  assert.match(adminHealthRoute, /Task image storage bucket is public/);
   assert.match(adminHealthRoute, /"_prisma_migrations"/);
   assert.match(adminHealthRoute, /getLatestBundledMigration/);
-  assert.match(adminHealthRoute, /Run npm run db:migrate:deploy before redeploying/);
+  assert.match(adminHealthRoute, /Run pnpm db:migrate:deploy before redeploying/);
   assert.doesNotMatch(adminHealthRoute, /process\.env\.RESEND_API_KEY\s*,/);
   assert.match(adminHealthPage, /t\("adminHealth\.heading"\)/);
   assert.match(adminHealthPage, /t\("adminHealth\.ready"\)/);
   assert.match(adminHealthPage, /t\("adminHealth\.blocked"\)/);
   assert.match(adminHealthPage, /t\("adminHealth\.finalSequence"\)/);
   assert.match(adminHealthPage, /\/api\/admin\/health/);
+});
+
+test("invite secrets are hashed, expiring, and absent from public previews", () => {
+  const inviteToken = read("src/lib/invite-token.ts");
+  const secureMigration = read(
+    "prisma/migrations/20260716180000_secure_workspace_invites/migration.sql",
+  );
+
+  assert.match(schema, /token_hash\s+String\s+@unique/);
+  assert.match(schema, /expires_at\s+DateTime/);
+  assert.match(secureMigration, /digest\("token", 'sha256'\)/);
+  assert.match(secureMigration, /DROP COLUMN "token"/);
+  assert.match(inviteToken, /INVITE_TTL_MS/);
+  assert.match(route, /token_hash: tokenHash/);
+  assert.match(route, /expires_at: inviteExpiry\(\)/);
+  assert.match(acceptRoute, /hashInviteToken/);
+  assert.match(acceptRoute, /maskInviteEmail/);
+  assert.match(acceptRoute, /isInviteExpired/);
+  assert.match(acceptRoute, /workspaceInvite\.updateMany/);
+  assert.match(acceptRoute, /accepted_at:\s*null/);
+  assert.match(acceptRoute, /expires_at:\s*\{ gt: new Date\(\) \}/);
+  assert.match(inviteRegisterRoute, /workspaceInvite\.updateMany/);
+  assert.doesNotMatch(acceptRoute, /inviter: \{ select: \{ name: true, email: true \} \}/);
+  assert.doesNotMatch(acceptPage, /\{info\.email\}/);
 });
 
 test("tester invites remain available as optional sandbox tools", () => {

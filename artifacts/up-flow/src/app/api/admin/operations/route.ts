@@ -25,6 +25,7 @@ async function GET_handler() {
     inviteFailures,
     permissionChanges,
     clients,
+    overdueTaskCompanies,
     latestRuns,
   ] = await Promise.all([
     prisma.automationRun.count({
@@ -59,10 +60,19 @@ async function GET_handler() {
         service_type: true,
         contacts: { select: { id: true } },
         projects: { select: { id: true }, take: 1 },
-        tasks: { select: { id: true, status: true, due_date: true } },
         activity_events: { select: { created_at: true }, orderBy: [{ created_at: "desc" }, { id: "asc" }], take: 1 },
       },
       take: 100,
+    }),
+    prisma.task.groupBy({
+      by: ["company_id"],
+      where: {
+        company_id: { not: null },
+        status: { not: "done" },
+        due_date: { not: null, lt: today },
+        project: { workspace_id: scope.workspaceId },
+      },
+      _count: { _all: true },
     }),
     prisma.automationRun.findMany({
       where: { workspace_id: scope.workspaceId },
@@ -72,10 +82,15 @@ async function GET_handler() {
     }),
   ]);
 
+  const overdueCompanyIds = new Set(
+    overdueTaskCompanies
+      .map((row) => row.company_id)
+      .filter((companyId): companyId is string => Boolean(companyId)),
+  );
   const clientsAtRisk = clients.filter((company) => {
     const latest = company.activity_events[0]?.created_at ?? null;
     const stale = !latest || latest < sevenDaysAgo;
-    const overdue = company.tasks.some((task) => task.status !== "done" && task.due_date && task.due_date < today);
+    const overdue = overdueCompanyIds.has(company.id);
     return (
       stale ||
       overdue ||

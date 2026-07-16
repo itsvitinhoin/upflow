@@ -16,7 +16,12 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
  * request does not silently succeed without sending anything.
  */
 async function POST_handler(req: NextRequest) {
-  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 5, key: "forgot" });
+  const rl = await checkRateLimit(req, {
+    windowMs: 60_000,
+    max: 5,
+    key: "forgot",
+    requireSharedStore: true,
+  });
   if (!rl.ok) return rateLimitResponse(rl);
 
   const body = (await req.json().catch(() => ({}))) as { email?: string };

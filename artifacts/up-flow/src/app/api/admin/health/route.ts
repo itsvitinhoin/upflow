@@ -5,6 +5,7 @@ import { isWorkspaceAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { prisma } from "@/lib/prisma";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import { pingRateLimiter } from "@/lib/rate-limit";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type HealthCheck = {
@@ -35,6 +36,7 @@ async function GET_handler() {
     resend: checkResend(),
     app_url: checkAppUrl(),
     observability: checkObservability(),
+    rate_limit: await checkRateLimitStore(),
     active_workspace: checkActiveWorkspace(auth.currentWorkspaceId, auth.currentRole),
     migration: await checkLatestMigration(),
   };
@@ -69,14 +71,14 @@ async function checkStorage(): Promise<HealthCheck> {
       return {
         ok: false,
         label: "Task image storage bucket missing",
-        message: `Create a public Supabase Storage bucket named "${bucket}" or set TASK_ASSETS_BUCKET to the configured bucket.`,
+        message: `Create a private Supabase Storage bucket named "${bucket}" or set TASK_ASSETS_BUCKET to the configured bucket.`,
       };
     }
-    if (data && "public" in data && !data.public) {
+    if (data && "public" in data && data.public) {
       return {
         ok: false,
-        label: "Task image storage bucket private",
-        message: `Make Supabase Storage bucket "${bucket}" public so task cover images can render in board cards.`,
+        label: "Task image storage bucket is public",
+        message: `Make Supabase Storage bucket "${bucket}" private before rollout.`,
       };
     }
     return {
@@ -214,29 +216,33 @@ function checkAppUrl(): HealthCheck {
 }
 
 function checkObservability(): HealthCheck {
-  const disabled = process.env.OBSERVABILITY_DISABLED === "1";
-  const sentryDsn = process.env.SENTRY_DSN?.trim();
+  const missing = [
+    !process.env.SENTRY_DSN?.trim() && "SENTRY_DSN",
+    !process.env.NEXT_PUBLIC_SENTRY_DSN?.trim() && "NEXT_PUBLIC_SENTRY_DSN",
+  ].filter(Boolean);
 
-  if (sentryDsn) {
+  if (missing.length === 0) {
     return {
       ok: true,
       label: "Error monitoring configured",
-      message: "SENTRY_DSN is configured so production errors can be captured.",
+      message: "Server and browser error monitoring are configured.",
     };
   }
-
-  if (disabled) {
-    return {
-      ok: true,
-      label: "Error monitoring intentionally disabled",
-      message: "OBSERVABILITY_DISABLED=1 is set. Keep Vercel runtime logs open during the pilot.",
-    };
-  }
-
   return {
     ok: false,
     label: "Error monitoring not configured",
-    message: "Set SENTRY_DSN or OBSERVABILITY_DISABLED=1 before rollout so monitoring status is explicit.",
+    message: `Set ${missing.join(" and ")} before rollout.`,
+  };
+}
+
+async function checkRateLimitStore(): Promise<HealthCheck> {
+  const rateLimit = await pingRateLimiter();
+  return {
+    ok: rateLimit.ok,
+    label: rateLimit.ok ? "Shared rate limiting ready" : "Shared rate limiting unavailable",
+    message: rateLimit.ok
+      ? `Requests are protected by ${rateLimit.backend}.`
+      : "Configure and verify Redis or Upstash before rollout.",
   };
 }
 
@@ -265,7 +271,7 @@ async function checkLatestMigration(): Promise<HealthCheck> {
       return {
         ok: false,
         label: "Production migrations behind",
-        message: `Database latest migration is ${latest}; app bundle expects ${expected}. Run npm run db:migrate:deploy before redeploying.`,
+        message: `Database latest migration is ${latest}; app bundle expects ${expected}. Run pnpm db:migrate:deploy before redeploying.`,
       };
     }
     return {
@@ -304,8 +310,12 @@ function getLatestBundledMigration(): string | null {
 function buildRolloutSteps(): ReadinessStep[] {
   return [
     {
-      title: "Run migrations before redeploy",
-      detail: "Use npm run db:migrate:deploy against production, then redeploy the Vercel project.",
+      title: "Rehearse and run migrations before redeploy",
+      detail: "Back up the database, rehearse pnpm db:migrate:deploy in staging, then apply it to production before redeploying.",
+    },
+    {
+      title: "Keep task assets private",
+      detail: "Migrate legacy public task images, then make the task-assets Storage bucket private and verify signed access for each role.",
     },
     {
       title: "Verify core flows",

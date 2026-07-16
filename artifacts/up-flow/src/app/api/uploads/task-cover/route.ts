@@ -2,14 +2,38 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { createTaskAssetReference } from "@/lib/task-images";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const MAX_IMAGE_BYTES = 2_000_000;
-const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const BUCKET = process.env.TASK_ASSETS_BUCKET || "task-assets";
 
-function extensionFor(type: string) {
+type ImageType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+function imageTypeFromBytes(bytes: Buffer): ImageType | null {
+  if (
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  const gifHeader = bytes.subarray(0, 6).toString("ascii");
+  if (gifHeader === "GIF87a" || gifHeader === "GIF89a") return "image/gif";
+  return null;
+}
+
+function extensionFor(type: ImageType) {
   switch (type) {
     case "image/png":
       return "png";
@@ -19,8 +43,6 @@ function extensionFor(type: string) {
       return "webp";
     case "image/gif":
       return "gif";
-    default:
-      return "bin";
   }
 }
 
@@ -41,8 +63,7 @@ async function POST_handler(req: NextRequest) {
   ) {
     return NextResponse.json(
       {
-        error:
-          "Task image storage is not configured. Add Supabase URL, service role key, and a public task assets bucket.",
+        error: "Task image storage is not configured. Add Supabase URL, service role key, and a private task assets bucket.",
         code: "TASK_STORAGE_NOT_CONFIGURED",
       },
       { status: 503 },
@@ -54,13 +75,7 @@ async function POST_handler(req: NextRequest) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Image file is required" }, { status: 400 });
   }
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: "Upload a PNG, JPG, WebP, or GIF image" },
-      { status: 400 },
-    );
-  }
-  if (file.size > MAX_IMAGE_BYTES) {
+  if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
     return NextResponse.json(
       { error: "Image is too large. Use an image under 2 MB." },
       { status: 400 },
@@ -68,16 +83,26 @@ async function POST_handler(req: NextRequest) {
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
+  const imageType = imageTypeFromBytes(bytes);
+  if (!imageType) {
+    return NextResponse.json(
+      { error: "Upload a real PNG, JPG, WebP, or GIF image." },
+      { status: 400 },
+    );
+  }
+
   const path = [
     auth.currentWorkspaceId,
     auth.prismaUser.id,
-    `${Date.now()}-${randomUUID()}.${extensionFor(file.type)}`,
+    `${Date.now()}-${randomUUID()}.${extensionFor(imageType)}`,
   ].join("/");
+  const reference = createTaskAssetReference(path);
+  if (!reference) throw new Error("generated task asset path failed validation");
 
   const supabase = getSupabaseAdminClient();
   const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, {
-    contentType: file.type,
-    cacheControl: "31536000",
+    contentType: imageType,
+    cacheControl: "3600",
     upsert: false,
   });
 
@@ -85,22 +110,14 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Could not upload task cover image. Confirm the Supabase Storage bucket exists and accepts uploads.",
+          "Could not upload task cover image. Confirm the private Supabase Storage bucket exists and accepts uploads.",
         code: "TASK_COVER_UPLOAD_FAILED",
       },
       { status: 503 },
     );
   }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  if (!data.publicUrl) {
-    return NextResponse.json(
-      { error: "Image uploaded, but no public URL was returned." },
-      { status: 503 },
-    );
-  }
-
-  return NextResponse.json({ url: data.publicUrl, path });
+  return NextResponse.json({ reference, path });
 }
 
 export const POST = withErrorReporting("api:uploads/task-cover:POST", POST_handler);

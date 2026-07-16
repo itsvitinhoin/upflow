@@ -1,5 +1,5 @@
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdmin, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
@@ -8,6 +8,7 @@ import { emailIsConfigured, sendEmail } from "@/lib/email/send";
 import { inviteEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { reconcileAcceptedWorkspaceInvites } from "@/lib/invite-reconciliation";
+import { generateInviteToken, hashInviteToken, inviteExpiry, isInviteExpired } from "@/lib/invite-token";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -16,10 +17,6 @@ type InviteFailureCode =
   | "EMAIL_NOT_CONFIGURED"
   | "EMAIL_SEND_FAILED";
 type InviteMode = "workspace_access" | "personal_workspace";
-
-function generateToken(): string {
-  return randomBytes(24).toString("base64url");
-}
 
 function inviteFailure(
   code: InviteFailureCode,
@@ -33,7 +30,8 @@ function emailFingerprint(email: string): string {
   return createHash("sha256").update(email).digest("hex").slice(0, 12);
 }
 
-// GET: list pending invites for the active workspace (admin only)
+// GET: list pending invites for the active workspace (admin only).
+// Never return token hashes or bearer links from this endpoint.
 async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
@@ -65,7 +63,6 @@ async function GET_handler(req: NextRequest) {
       id: true,
       email: true,
       role: true,
-      token: true,
       tester_invite: true,
       invite_mode: true,
       send_status: true,
@@ -73,17 +70,28 @@ async function GET_handler(req: NextRequest) {
       last_sent_at: true,
       accepted_by: true,
       accepted_at: true,
+      expires_at: true,
       created_at: true,
       workspace: { select: { id: true, name: true, slug: true } },
       inviter: { select: { id: true, name: true, email: true } },
     },
   });
-  return NextResponse.json(invites);
+  return NextResponse.json(
+    invites.map((invite) => ({
+      ...invite,
+      expired: !invite.accepted_at && isInviteExpired(invite.expires_at),
+    })),
+  );
 }
 
-// POST: create one invite per email and return tokens / accept links.
+// POST: create one invite per email and send the only copy of each bearer link.
 async function POST_handler(req: NextRequest) {
-  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 20, key: "invite" });
+  const rl = await checkRateLimit(req, {
+    windowMs: 60_000,
+    max: 20,
+    key: "invite",
+    requireSharedStore: true,
+  });
   if (!rl.ok) return rateLimitResponse(rl);
 
   const _r = await requireAuth();
@@ -101,29 +109,21 @@ async function POST_handler(req: NextRequest) {
     mode?: InviteMode;
   };
   const emails = (body.emails || [])
-    .map((e) => (typeof e === "string" ? e.trim().toLowerCase() : ""))
+    .map((email) => (typeof email === "string" ? email.trim().toLowerCase() : ""))
     .filter(Boolean);
 
   if (emails.length === 0) {
-    return NextResponse.json(
-      { error: "At least one email is required" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "At least one email is required" }, { status: 400 });
   }
   if (emails.length > 50) {
-    return NextResponse.json(
-      { error: "Too many invites in one request" },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "Too many invites in one request" }, { status: 400 });
   }
   const re = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-  const invalid = emails.find((e) => !re.test(e));
+  const invalid = emails.find((email) => !re.test(email));
   if (invalid) {
-    return NextResponse.json(
-      { error: `Invalid email: ${invalid}` },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: `Invalid email: ${invalid}` }, { status: 400 });
   }
+
   const targetWorkspaceId = body.workspace_id?.trim() || auth.currentWorkspaceId;
   const testerInvite = body.tester_invite === true;
   const inviteMode: InviteMode = testerInvite
@@ -142,12 +142,7 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // De-duplicate.
   const unique = Array.from(new Set(emails));
-
-  // Invite links are only useful when they can be emailed. In production,
-  // fail before creating tokens if the canonical app URL or provider config
-  // is missing so admins never see a misleading "invited" success.
   let origin: string;
   try {
     origin = getEmailOrigin(req);
@@ -176,7 +171,6 @@ async function POST_handler(req: NextRequest) {
     );
   }
 
-  // Pull workspace name once for the email body.
   const workspace = await prisma.workspace.findUnique({
     where: { id: targetWorkspaceId },
     select: { name: true },
@@ -184,9 +178,6 @@ async function POST_handler(req: NextRequest) {
   const inviterName = auth.prismaUser.name || auth.prismaUser.email;
   const inviterEmail = auth.prismaUser.email;
 
-  // Reuse an existing pending invite (workspace_id + email + role) so admins
-  // calling this endpoint twice with the same address don't generate a pile
-  // of dead tokens. If only the role differs we still create a fresh invite.
   const created = await Promise.all(
     unique.map(async (email) => {
       const existing = await prisma.workspaceInvite.findFirst({
@@ -197,70 +188,50 @@ async function POST_handler(req: NextRequest) {
           invite_mode: inviteMode,
           accepted_at: null,
         },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          token: true,
-          tester_invite: true,
-          invite_mode: true,
-          send_status: true,
-          send_error: true,
-          last_sent_at: true,
-          accepted_at: true,
-          created_at: true,
-        },
+        select: { id: true },
       });
-      if (existing && testerInvite && !existing.tester_invite) {
-        await prisma.workspaceInvite.update({
-          where: { id: existing.id },
-          data: { tester_invite: true, invite_mode: inviteMode },
-        });
-      }
-      if (existing && existing.invite_mode !== inviteMode) {
-        await prisma.workspaceInvite.update({
-          where: { id: existing.id },
-          data: { invite_mode: inviteMode },
-        });
-      }
-      const invite =
-        existing ??
-        (await prisma.workspaceInvite.create({
-          data: {
-            workspace_id: targetWorkspaceId,
-            email,
-            role,
-            token: generateToken(),
-            invited_by: auth.prismaUser.id,
-            tester_invite: testerInvite,
-            invite_mode: inviteMode,
-          },
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            token: true,
-            tester_invite: true,
-            invite_mode: true,
-            send_status: true,
-            send_error: true,
-            last_sent_at: true,
-            accepted_at: true,
-            created_at: true,
-          },
-        }));
+
+      const token = generateInviteToken();
+      const tokenHash = hashInviteToken(token);
+      if (!tokenHash) throw new Error("generated invite token failed validation");
+      const data = {
+        token_hash: tokenHash,
+        expires_at: inviteExpiry(),
+        invited_by: auth.prismaUser.id,
+        tester_invite: testerInvite,
+        invite_mode: inviteMode,
+        send_status: "pending" as const,
+        send_error: null,
+      };
+      const select = {
+        id: true,
+        email: true,
+        role: true,
+        tester_invite: true,
+        invite_mode: true,
+        send_status: true,
+        send_error: true,
+        last_sent_at: true,
+        accepted_at: true,
+        expires_at: true,
+        created_at: true,
+      } as const;
+      const invite = existing
+        ? await prisma.workspaceInvite.update({ where: { id: existing.id }, data, select })
+        : await prisma.workspaceInvite.create({
+            data: { workspace_id: targetWorkspaceId, email, role, ...data },
+            select,
+          });
+
       return {
         ...invite,
-        invite_mode: inviteMode,
-        accept_url: `${origin}/invite/${invite.token}`,
-        reused: existing !== null,
+        token,
+        acceptUrl: `${origin}/invite/${token}`,
+        reused: Boolean(existing),
       };
     }),
   );
 
-  // Send the invite emails. Production success means every provider call was
-  // accepted; new records whose send fails are removed so pending invites do
-  // not imply that an email actually went out.
   let mailed = 0;
   for (const invite of created) {
     const rendered = inviteEmail({
@@ -268,7 +239,7 @@ async function POST_handler(req: NextRequest) {
         inviteMode === "workspace_access" ? workspace?.name ?? "your workspace" : "Up Flow",
       inviterName,
       inviterEmail,
-      acceptUrl: invite.accept_url,
+      acceptUrl: invite.acceptUrl,
       role: invite.role === "admin" ? "admin" : invite.role === "guest" ? "guest" : "member",
     });
     const result = await sendEmail({
@@ -283,35 +254,24 @@ async function POST_handler(req: NextRequest) {
       mailed += 1;
       await prisma.workspaceInvite.update({
         where: { id: invite.id },
-        data: {
-          send_status: "sent",
-          send_error: null,
-          last_sent_at: new Date(),
-          ...(testerInvite ? { tester_invite: true } : {}),
-          invite_mode: inviteMode,
-        },
+        data: { send_status: "sent", send_error: null, last_sent_at: new Date() },
       });
       continue;
     }
 
     if (!invite.reused) {
-      await prisma.workspaceInvite
-        .delete({ where: { id: invite.id } })
-        .catch((err) => {
-          logError("invites:send:rollback", err, {
-            invite_id: invite.id,
-            recipientHash: emailFingerprint(invite.email),
-          });
+      await prisma.workspaceInvite.delete({ where: { id: invite.id } }).catch((err) => {
+        logError("invites:send:rollback", err, {
+          invite_id: invite.id,
+          recipientHash: emailFingerprint(invite.email),
         });
-    }
-    if (invite.reused) {
+      });
+    } else {
       await prisma.workspaceInvite.update({
         where: { id: invite.id },
         data: {
           send_status: "failed",
           send_error: result.error || "Email provider rejected the invite.",
-          ...(testerInvite ? { tester_invite: true } : {}),
-          invite_mode: inviteMode,
         },
       });
     }
@@ -328,8 +288,15 @@ async function POST_handler(req: NextRequest) {
     );
   }
 
+  // Deliberately omit bearer tokens and accept URLs. Email delivery is the
+  // only path that receives an invite credential after it is created.
   return NextResponse.json(
-    { success: true, sent: created.length, mailed, invites: created },
+    {
+      success: true,
+      sent: created.length,
+      mailed,
+      invites: created.map(({ token: _token, acceptUrl: _acceptUrl, ...invite }) => invite),
+    },
     { status: 201 },
   );
 }
@@ -353,16 +320,13 @@ async function DELETE_handler(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (invite.accepted_at) {
-    return NextResponse.json(
-      { error: "Accepted invites cannot be canceled" },
-      { status: 409 },
-    );
+    return NextResponse.json({ error: "Accepted invites cannot be canceled" }, { status: 409 });
   }
 
   await prisma.workspaceInvite.delete({ where: { id: invite.id } });
-
   return NextResponse.json({ success: true });
 }
+
 export const GET = withErrorReporting("api:invites:GET", GET_handler);
 export const POST = withErrorReporting("api:invites:POST", POST_handler);
 export const DELETE = withErrorReporting("api:invites:DELETE", DELETE_handler);

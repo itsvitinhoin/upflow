@@ -41,6 +41,17 @@ export async function register() {
   }
 }
 
+/**
+ * Captures App Router render, route, action, and middleware failures that
+ * Next handles before an application boundary can see them.
+ */
+export async function onRequestError(
+  ...args: Parameters<typeof import("@sentry/nextjs").captureRequestError>
+) {
+  const Sentry = await import("@sentry/nextjs");
+  await Sentry.captureRequestError(...args);
+}
+
 // `beforeSend`: strip cookies/auth headers and emails from every event.
 // Sentry's defaults do not redact our session cookies.
 function redactSensitive<

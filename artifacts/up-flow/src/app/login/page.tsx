@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { useLanguage } from "@/components/language-provider";
+import { safeInternalPath } from "@/lib/safe-internal-path";
 import { useTheme } from "@/components/theme-provider";
 
 const logoSrc = "/assets/UP_LOGO_1778594851568.png";
@@ -297,7 +298,7 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     const inviteEmail = params.get("email");
-    if (next?.startsWith("/")) setNextPath(next);
+    setNextPath(safeInternalPath(next));
     if (inviteEmail) setEmail(inviteEmail);
   }, []);
 

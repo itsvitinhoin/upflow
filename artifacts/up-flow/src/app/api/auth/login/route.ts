@@ -55,7 +55,12 @@ async function tryDevPasswordLogin(email: string, password: string) {
 }
 
 async function POST_handler(req: NextRequest) {
-  const rl = await checkRateLimit(req, { windowMs: 60_000, max: 10, key: "login" });
+  const rl = await checkRateLimit(req, {
+    windowMs: 60_000,
+    max: 10,
+    key: "login",
+    requireSharedStore: true,
+  });
   if (!rl.ok) return rateLimitResponse(rl);
   try {
     const { email, password } = await req.json();
@@ -66,10 +71,11 @@ async function POST_handler(req: NextRequest) {
     const devLogin = await tryDevPasswordLogin(email, password);
     if (devLogin) return devLogin;
 
-    const supabase = createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 401 });
+      logError("api:auth/login:invalid-credentials", error, { email });
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
     if (!data.session) {
       return NextResponse.json({ error: "No session created" }, { status: 401 });
