@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
+import { onboardingTitleLabel } from "@/lib/onboarding-labels";
 import type { AppUser, ClientOnboarding, OnboardingChecklistItem } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -301,14 +302,14 @@ function ReadinessBoard({ item, t, locale }: { item: ClientOnboarding; t: Transl
               status={technicalItem?.status === "complete" ? t("onboardingBoard.completed") : technicalItem?.status === "in_progress" ? t("onboardingBoard.inProgress") : t("onboardingBoard.pending")}
               tone={technicalItem?.status === "complete" ? "green" : "amber"}
               meta={[
-                technicalItem?.title ?? t("onboardingBoard.configureUpZero"),
+                technicalItem ? onboardingTitleLabel(technicalItem.title, t) : t("onboardingBoard.configureUpZero"),
                 t("onboardingBoard.owner", { owner: technicalItem?.owner?.name ?? t("onboardingBoard.technicalSupportPending") }),
               ]}
               action={t("onboardingBoard.openTask")}
             />
           ) : null}
           <WorkflowRow index={usesUpZero(item) ? 7 : 6} icon={ClipboardCheck} title={t("onboardingBoard.marketingB2BOnboarding")} status={upZeroBlocked ? t("onboardingBoard.blocked") : statusFromDepartment(item, "Marketing B2B", t)} tone={upZeroBlocked ? "amber" : "purple"} meta={upZeroBlocked ? [t("onboardingBoard.blocker.upZero")] : [t("onboardingBoard.openForm"), t("onboardingBoard.requestMissingInfo"), t("onboardingBoard.markComplete")]} action={t("onboardingBoard.openForm")} />
-          <WorkflowRow index={usesUpZero(item) ? 8 : 7} icon={Palette} title={t("onboardingBoard.stage.creative")} status={statusFromDepartment(item, "Creative", t)} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${entry.title}: ${entry.status === "complete" ? t("onboardingBoard.completed") : t("onboardingBoard.pending")}`) : [t("onboardingBoard.brandGuidelineMeeting"), t("onboardingBoard.technicalVisit")]} action={t("onboardingBoard.openCreativeTasks")} />
+          <WorkflowRow index={usesUpZero(item) ? 8 : 7} icon={Palette} title={t("onboardingBoard.stage.creative")} status={statusFromDepartment(item, "Creative", t)} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${onboardingTitleLabel(entry.title, t)}: ${entry.status === "complete" ? t("onboardingBoard.completed") : t("onboardingBoard.pending")}`) : [t("onboardingBoard.brandGuidelineMeeting"), t("onboardingBoard.technicalVisit")]} action={t("onboardingBoard.openCreativeTasks")} />
           <WorkflowRow index={usesUpZero(item) ? 9 : 8} icon={CalendarDays} title={t("onboardingBoard.meetings")} status={(item.meetings ?? []).every((meeting) => meeting.scheduled) ? t("onboardingBoard.scheduledPlural") : t("onboardingBoard.notScheduled")} tone="rose" meta={(item.meetings ?? []).slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? t("onboardingBoard.scheduled") : t("onboardingBoard.notScheduled")}`)} action={t("common.save")} />
         </section>
 
@@ -322,7 +323,7 @@ function ReadinessBoard({ item, t, locale }: { item: ClientOnboarding; t: Transl
             <div className="mt-3 space-y-2 text-sm text-muted-foreground dark:text-slate-400">
               {(item.checklist_items ?? []).slice(0, 5).map((check) => (
                 <div key={check.id} className="flex items-center justify-between gap-3">
-                  <span className="truncate">{check.title}</span>
+                  <span className="truncate">{onboardingTitleLabel(check.title, t)}</span>
                   <span className="shrink-0 text-xs text-muted-foreground dark:text-slate-500">{check.completed_at ? formatDate(check.completed_at, locale) : t("onboardingBoard.pending")}</span>
                 </div>
               ))}
@@ -343,7 +344,7 @@ function ReadinessBoard({ item, t, locale }: { item: ClientOnboarding; t: Transl
         </section>
         <section className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
           <h4 className="flex items-center gap-2 font-black text-foreground dark:text-white"><Rocket className="h-4 w-4 text-blue-600 dark:text-blue-300" /> {t("onboardingBoard.nextAction")}</h4>
-          <p className="mt-4 font-black text-foreground dark:text-white">{upZeroBlocked ? t("onboardingBoard.configureUpZero") : next?.title ?? t("onboardingBoard.readyToStart")}</p>
+          <p className="mt-4 font-black text-foreground dark:text-white">{upZeroBlocked ? t("onboardingBoard.configureUpZero") : next ? onboardingTitleLabel(next.title, t) : t("onboardingBoard.readyToStart")}</p>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{upZeroBlocked ? t("onboardingBoard.blocker.upZero") : next ? t("onboardingBoard.completeStepToUnlock") : t("onboardingBoard.allRequiredComplete")}</p>
           <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-primary-foreground">{t("onboardingBoard.openWorkflow")}</Link>
         </section>

@@ -235,7 +235,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
 
   const subtasks = currentTask.subtasks ?? [];
   const doneCount = subtasks.filter((s) => s.status === "done").length;
-  const structuredBrief = parseTaskBrief(currentTask.description);
+  const structuredBrief = parseTaskBrief(currentTask.description, language);
   const insertMention = (
     userId: string,
     setText: Dispatch<SetStateAction<string>>,

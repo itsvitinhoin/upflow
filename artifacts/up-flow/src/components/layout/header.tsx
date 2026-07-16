@@ -398,8 +398,8 @@ export default function Header({ title }: HeaderProps) {
           <button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
+            title={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
             className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
           >
             {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}

@@ -17,6 +17,7 @@ import {
   UserRound,
 } from "lucide-react";
 import Header from "@/components/layout/header";
+import { activityEntityLabel, activityEventLabel } from "@/lib/activity-labels";
 import type { ActivityEvent } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
@@ -192,7 +193,6 @@ export default function ActivityAuditPage() {
     </>
   );
 }
-
 function AuditRow({
   event,
   t,
@@ -212,9 +212,9 @@ function AuditRow({
             <Activity className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="truncate font-semibold text-foreground dark:text-white">{humanize(event.type)}</p>
+            <p className="truncate font-semibold text-foreground dark:text-white">{activityEventLabel(event.type, t)}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {event.entity_type}
+              {activityEntityLabel(event.entity_type, t)}
               {event.entity_id ? ` · ${event.entity_id}` : ""}
             </p>
           </div>
@@ -236,7 +236,6 @@ function AuditRow({
     </article>
   );
 }
-
 function AuditStat({ icon, label, value, tone }: { icon: ReactNode; label: string; value: number; tone: "info" | "danger" | "success" }) {
   const toneClass = {
     info: "border-blue-400/30 bg-blue-500/10 text-blue-700 dark:border-blue-400/20 dark:text-blue-200",
@@ -264,8 +263,4 @@ function InlineField({ icon, label, value, mono = false }: { icon: ReactNode; la
       <p className={cn("truncate text-sm text-foreground dark:text-blue-50/80", mono && "font-mono text-xs")}>{value}</p>
     </div>
   );
-}
-
-function humanize(value: string) {
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

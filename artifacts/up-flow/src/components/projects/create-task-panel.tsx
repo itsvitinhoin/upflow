@@ -55,7 +55,7 @@ export default function CreateTaskPanel({
   users,
   onCreated,
 }: Props) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [taskTemplateId, setTaskTemplateId] =
@@ -112,6 +112,7 @@ export default function CreateTaskPanel({
             templateId: taskTemplateId,
             values: templateValues,
             notes: description,
+            locale: language,
           }),
           status,
           priority,
@@ -131,8 +132,8 @@ export default function CreateTaskPanel({
       onCreated();
       toast.success(
         selectedAssigneeName
-          ? `${t("dashboard.taskCreated")} ${selectedAssigneeName} was notified.`
-          : `${t("dashboard.taskCreated")} No assignee selected yet.`,
+          ? `${t("dashboard.taskCreated")} ${t("task.assigneeNotified", { name: selectedAssigneeName })}`
+          : `${t("dashboard.taskCreated")} ${t("task.noAssigneeSelected")}`,
       );
     } catch (e) {
       toast.error((e as Error).message);

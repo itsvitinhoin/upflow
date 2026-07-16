@@ -1,6 +1,6 @@
 "use client";
 
-import { TASK_TEMPLATES, type TaskTemplateId, getTaskTemplate } from "@/lib/task-templates";
+import { TASK_TEMPLATES, type TaskTemplateId, getLocalizedTaskTemplate } from "@/lib/task-templates";
 import { useLanguage } from "@/components/language-provider";
 
 interface TaskTemplateFieldsProps {
@@ -16,15 +16,8 @@ export default function TaskTemplateFields({
   onTemplateChange,
   onValuesChange,
 }: TaskTemplateFieldsProps) {
-  const { t } = useLanguage();
-  const template = getTaskTemplate(templateId);
-  const templateLabel = localizedTemplateText(t, template.id, "label", template.label);
-  const templateDescription = localizedTemplateText(
-    t,
-    template.id,
-    "description",
-    template.description,
-  );
+  const { language, t } = useLanguage();
+  const template = getLocalizedTaskTemplate(templateId, language);
 
   return (
     <section className="rounded-xl border border-border bg-muted/30 p-3 dark:border-white/10 dark:bg-white/[0.15]">
@@ -43,14 +36,14 @@ export default function TaskTemplateFields({
           >
             {TASK_TEMPLATES.map((item) => (
               <option key={item.id} value={item.id}>
-                {localizedTemplateText(t, item.id, "label", item.label)}
+                {getLocalizedTaskTemplate(item.id, language).label}
               </option>
             ))}
           </select>
         </div>
         <div className="min-w-0 self-end rounded-lg bg-black/10 px-3 py-2 text-xs text-muted-foreground">
-          <span className="sr-only">{templateLabel}: </span>
-          {templateDescription}
+          <span className="sr-only">{template.label}: </span>
+          {template.description}
         </div>
       </div>
 
@@ -86,15 +79,4 @@ export default function TaskTemplateFields({
       </div>
     </section>
   );
-}
-
-function localizedTemplateText(
-  t: (key: string) => string,
-  id: TaskTemplateId,
-  field: "label" | "description",
-  fallback: string,
-) {
-  const key = `taskTemplate.${id}.${field}`;
-  const value = t(key);
-  return value === key ? fallback : value;
 }

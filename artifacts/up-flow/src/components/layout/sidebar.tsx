@@ -126,7 +126,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
       <div className="fixed left-3 top-3 z-[60] md:hidden">
         <button
           onClick={() => setMobileOpen((v) => !v)}
-          aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+          aria-label={mobileOpen ? t("sidebar.closeNavigation") : t("sidebar.openNavigation")}
           className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg"
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}

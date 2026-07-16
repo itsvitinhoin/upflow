@@ -36,7 +36,7 @@ export default function NewTaskDialog({
   defaultTemplateId = DEFAULT_TASK_TEMPLATE_ID,
   defaultDueDate = "",
 }: NewTaskDialogProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [taskTemplateId, setTaskTemplateId] =
@@ -127,6 +127,7 @@ export default function NewTaskDialog({
             templateId: taskTemplateId,
             values: templateValues,
             notes: description,
+            locale: language,
           }),
           priority,
           status: defaultStatus,
