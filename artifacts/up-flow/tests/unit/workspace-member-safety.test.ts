@@ -58,6 +58,6 @@ test("workspace data reset is owner-only and preserves access records", () => {
   assert.doesNotMatch(route, /workspaceInvite\.deleteMany/);
   assert.match(settingsPage, /\/settings\/qa-reset/);
   assert.match(qaResetPage, /RESET WORKSPACE DATA/);
-  assert.match(qaResetPage, /Clean workspace data/);
+  assert.match(qaResetPage, /t\("qaReset\.title"\)/);
   assert.match(qaResetPage, /\/api\/workspaces\/\$\{current\.id\}\/reset-test-data/);
 });

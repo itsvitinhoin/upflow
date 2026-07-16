@@ -28,7 +28,7 @@ test("activity audit center is available from navigation", () => {
   const translations = read("src/lib/i18n/translations.ts");
 
   assert.match(page, /\/api\/activity/);
-  assert.match(page, /Activity and audit log/);
+  assert.match(page, /t\("activity\.title"\)/);
   assert.match(page, /metadata/);
   assert.match(page, /entity_type/);
   assert.match(rail, /href:\s*"\/activity"/);

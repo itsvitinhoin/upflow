@@ -5,6 +5,7 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
 import { validateCustomFieldValue } from "@/lib/custom-field-validator";
+import { useLanguage } from "@/components/language-provider";
 
 interface Props {
   definition: CustomFieldDefinition;
@@ -178,6 +179,7 @@ function PeoplePicker({
   onChange: (ids: string[]) => void;
   compact?: boolean;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
   const selectedUsers = users.filter((u) => selected.includes(u.id));
@@ -225,7 +227,7 @@ function PeoplePicker({
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute z-20 mt-1 left-0 min-w-[220px] bg-popover border border-border rounded-lg shadow-xl p-1 max-h-64 overflow-y-auto">
             {users.length === 0 && (
-              <div className="px-3 py-2 text-xs text-muted-foreground">No teammates</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground">{t("customFields.noTeammates")}</div>
             )}
             {users.map((u) => {
               const on = selected.includes(u.id);
@@ -250,7 +252,7 @@ function PeoplePicker({
                 onClick={() => onChange([])}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted border-t border-border mt-1"
               >
-                <X className="w-3.5 h-3.5" /> Clear
+                <X className="w-3.5 h-3.5" /> {t("common.clear")}
               </button>
             )}
           </div>

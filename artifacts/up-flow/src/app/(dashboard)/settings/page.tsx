@@ -79,7 +79,7 @@ export default function SettingsPage() {
         const response = await fetch("/api/auth/me", { cache: "no-store" });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(data.error || "Could not load your profile");
+          throw new Error(data.error || t("settings.couldNotLoadProfile"));
         }
         if (!active) return;
         const nextProfile = {
@@ -92,7 +92,7 @@ export default function SettingsPage() {
         setProfileError(null);
       } catch (err) {
         if (!active) return;
-        const message = err instanceof Error ? err.message : "Could not load your profile";
+        const message = err instanceof Error ? err.message : t("settings.couldNotLoadProfile");
         setProfileError(message);
       } finally {
         if (active) setLoadingProfile(false);
@@ -104,7 +104,7 @@ export default function SettingsPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,7 +123,7 @@ export default function SettingsPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || "Could not update your profile");
+        throw new Error(data.error || t("settings.couldNotUpdateProfile"));
       }
 
       const nextProfile = {
@@ -135,12 +135,12 @@ export default function SettingsPage() {
       setInitialEmail(nextProfile.email);
       toast.success(
         initialEmail && initialEmail !== nextProfile.email
-          ? "Profile updated. Use the new email the next time you sign in."
-          : "Profile updated.",
+          ? t("settings.profileUpdatedWithEmail")
+          : t("settings.profileUpdated"),
       );
       router.refresh();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not update your profile";
+      const message = err instanceof Error ? err.message : t("settings.couldNotUpdateProfile");
       setProfileError(message);
       toast.error(message);
     } finally {
@@ -173,11 +173,11 @@ export default function SettingsPage() {
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-primary">
                 <UserRound className="h-4 w-4" />
-                Account
+                {t("settings.account")}
               </div>
-              <h2 className="mt-2 text-xl font-semibold text-foreground">Profile settings</h2>
+              <h2 className="mt-2 text-xl font-semibold text-foreground">{t("settings.profileSettings")}</h2>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-                Update the name, login email, and phone number attached to your account.
+                {t("settings.profileDescription")}
               </p>
             </div>
           </div>
@@ -193,14 +193,14 @@ export default function SettingsPage() {
               <label className="space-y-2 text-sm font-medium text-foreground">
                 <span className="flex items-center gap-2">
                   <UserRound className="h-4 w-4 text-muted-foreground" />
-                  Name
+                  {t("settings.name")}
                 </span>
                 <input
                   value={profile.name}
                   onChange={(event) => setProfile((current) => ({ ...current, name: event.target.value }))}
                   className={inputClassName}
                   disabled={loadingProfile || savingProfile}
-                  placeholder="Your name"
+                  placeholder={t("settings.yourName")}
                   required
                 />
               </label>
@@ -208,7 +208,7 @@ export default function SettingsPage() {
               <label className="space-y-2 text-sm font-medium text-foreground">
                 <span className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-muted-foreground" />
-                  Email
+                  {t("settings.email")}
                 </span>
                 <input
                   type="email"
@@ -224,21 +224,21 @@ export default function SettingsPage() {
               <label className="space-y-2 text-sm font-medium text-foreground md:col-span-2">
                 <span className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  Phone
+                  {t("settings.phone")}
                 </span>
                 <input
                   value={profile.phone}
                   onChange={(event) => setProfile((current) => ({ ...current, phone: event.target.value }))}
                   className={inputClassName}
                   disabled={loadingProfile || savingProfile}
-                  placeholder="Optional"
+                  placeholder={t("settings.optional")}
                 />
               </label>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs leading-5 text-muted-foreground">
-                Your email is used for login. Updating it also updates your Supabase Auth account.
+                {t("settings.emailLoginHint")}
               </p>
               <button
                 type="submit"
@@ -246,7 +246,7 @@ export default function SettingsPage() {
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save profile
+                {t("settings.saveProfile")}
               </button>
             </div>
           </form>

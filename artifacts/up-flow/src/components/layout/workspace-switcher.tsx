@@ -128,16 +128,19 @@ export default function WorkspaceSwitcher({
   async function deleteWorkspace(workspace: WorkspaceLite) {
     if (!data || deletingId) return;
     if (!canDeleteWorkspace(workspace)) {
-      toast.error("Only workspace owners can delete workspaces.");
+      toast.error(t("workspace.onlyOwnersCanDelete"));
       return;
     }
     if (data.workspaces.length <= 1 && !data.is_super_admin) {
-      toast.error("Create another workspace before deleting your only workspace.");
+      toast.error(t("workspace.createAnotherBeforeDelete"));
       return;
     }
 
     const confirmed = window.confirm(
-      `Delete workspace "${workspace.name}"?\n\nThis permanently removes its spaces, folders, lists, tasks, calendar events, clients, and activity history. This cannot be undone.`,
+      [
+        t("workspace.deleteConfirmTitle", { name: workspace.name }),
+        t("workspace.deleteConfirmBody"),
+      ].join("\n\n"),
     );
     if (!confirmed) return;
 
@@ -150,10 +153,10 @@ export default function WorkspaceSwitcher({
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(payload.error || "Could not delete workspace.");
+        throw new Error(payload.error || t("workspace.couldNotDelete"));
       }
 
-      toast.success("Workspace deleted.");
+      toast.success(t("workspace.deleted"));
       if (workspace.id === data.current_workspace_id) {
         window.location.href = "/";
         return;
@@ -167,7 +170,7 @@ export default function WorkspaceSwitcher({
       primeCachedJson("workspaces", nextData);
     } catch (err) {
       logError("workspace-switcher:delete", err);
-      toast.error(err instanceof Error ? err.message : "Could not delete workspace.");
+      toast.error(err instanceof Error ? err.message : t("workspace.couldNotDelete"));
     } finally {
       setDeletingId(null);
     }
@@ -280,8 +283,8 @@ export default function WorkspaceSwitcher({
                           void deleteWorkspace(w);
                         }}
                         disabled={isDeleting}
-                        title={`Delete ${w.name}`}
-                        aria-label={`Delete workspace ${w.name}`}
+                        title={t("workspace.deleteNamed", { name: w.name })}
+                        aria-label={t("workspace.deleteNamedAria", { name: w.name })}
                         className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/[0.35] text-red-600 transition hover:bg-red-500/10 hover:text-red-700 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground dark:border-red-400/25 dark:text-red-200 dark:hover:bg-red-500/[0.15] dark:hover:text-red-100 dark:disabled:border-white/10"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

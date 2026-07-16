@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import * as Sentry from "@sentry/nextjs";
 
 /**
@@ -14,12 +14,37 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [isPortuguese, setIsPortuguese] = useState(false);
+
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
 
+  useEffect(() => {
+    try {
+      setIsPortuguese(
+        window.localStorage.getItem("upflow.language") === "pt-BR" ||
+          document.documentElement.lang === "pt-BR",
+      );
+    } catch {
+      setIsPortuguese(document.documentElement.lang === "pt-BR");
+    }
+  }, []);
+
+  const copy = isPortuguese
+    ? {
+        title: "O Up Flow está temporariamente indisponível",
+        description: "Encontramos um erro crítico ao carregar o aplicativo. Nossa equipe foi avisada. Atualize a página em instantes.",
+        reload: "Recarregar",
+      }
+    : {
+        title: "Up Flow is temporarily unavailable",
+        description: "We hit a critical error loading the app. Our team has been notified. Please refresh in a moment.",
+        reload: "Reload",
+      };
+
   return (
-    <html lang="en">
+    <html lang={isPortuguese ? "pt-BR" : "en"}>
       <body
         style={{
           margin: 0,
@@ -35,11 +60,10 @@ export default function GlobalError({
       >
         <div style={{ maxWidth: 480, padding: 32, textAlign: "center" }}>
           <h1 style={{ fontSize: 20, margin: "0 0 8px" }}>
-            Up Flow is temporarily unavailable
+            {copy.title}
           </h1>
           <p style={{ color: "#9aa0ad", margin: "0 0 24px", fontSize: 14 }}>
-            We hit a critical error loading the app. Our team has been
-            notified. Please refresh in a moment.
+            {copy.description}
           </p>
           <a
             href="/"
@@ -54,7 +78,7 @@ export default function GlobalError({
               fontWeight: 500,
             }}
           >
-            Reload
+            {copy.reload}
           </a>
         </div>
       </body>

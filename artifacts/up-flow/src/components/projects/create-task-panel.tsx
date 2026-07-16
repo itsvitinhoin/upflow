@@ -94,7 +94,7 @@ export default function CreateTaskPanel({
     if (submitting) return;
     const cleanTitle = title.trim() || getTaskTitleFromTemplateValues(templateValues);
     if (!cleanTitle) {
-      toast.error("Add a deliverable title or fill Objective before creating it.");
+      toast.error(t("task.titleOrObjectiveRequired"));
       return;
     }
     setSubmitting(true);
@@ -160,7 +160,7 @@ export default function CreateTaskPanel({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close task creation"
+              aria-label={t("common.close")}
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted"
             >
               <X className="w-4 h-4" />
@@ -186,14 +186,14 @@ export default function CreateTaskPanel({
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={`${t("task.taskName")} or use Objective below`}
+                placeholder={t("task.taskNameOrObjective", { taskName: t("task.taskName") })}
                 autoFocus
                 aria-required="true"
                 className="flex-1 bg-transparent text-xl font-semibold text-foreground placeholder:text-muted-foreground/60 focus:outline-none py-1"
               />
             </div>
             <p className="mb-3 text-xs text-muted-foreground">
-              Add a direct title here, or fill the Objective/Deliverable field below and UP Flow will use it as the title.
+              {t("task.directTitleHint")}
             </p>
             <textarea
               value={description}

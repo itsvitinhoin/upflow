@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
+import { useLanguage } from "@/components/language-provider";
 
 interface PaletteProject {
   id: string;
@@ -43,6 +44,7 @@ interface PaletteTask {
 
 export default function CommandPalette() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
   const [showClientOnboarding, setShowClientOnboarding] = useState(false);
@@ -100,11 +102,11 @@ export default function CommandPalette() {
   return (
     <>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Type a command, page, project, or task…" />
+        <CommandInput placeholder={t("command.placeholder")} />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandEmpty>{t("command.noResults")}</CommandEmpty>
 
-          <CommandGroup heading="Actions">
+          <CommandGroup heading={t("command.actions")}>
             <CommandItem
               onSelect={() => {
                 setOpen(false);
@@ -112,7 +114,7 @@ export default function CommandPalette() {
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
-              <span>New Project</span>
+              <span>{t("header.newProject")}</span>
             </CommandItem>
             <CommandItem
               onSelect={() => {
@@ -121,47 +123,47 @@ export default function CommandPalette() {
               }}
             >
               <Building2 className="mr-2 h-4 w-4" />
-              <span>New Client + Onboarding</span>
+              <span>{t("command.newClientOnboarding")}</span>
             </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Navigate">
+          <CommandGroup heading={t("command.navigate")}>
             <CommandItem onSelect={() => go("/dashboard")}>
               <LayoutDashboard className="mr-2 h-4 w-4" />
-              <span>Dashboard</span>
+              <span>{t("nav.dashboard")}</span>
             </CommandItem>
             <CommandItem onSelect={() => go("/inbox")}>
               <Inbox className="mr-2 h-4 w-4" />
-              <span>Inbox</span>
+              <span>{t("nav.inbox")}</span>
             </CommandItem>
             <CommandItem onSelect={() => go("/projects")}>
               <Folder className="mr-2 h-4 w-4" />
-              <span>Projects</span>
+              <span>{t("nav.projects")}</span>
             </CommandItem>
             <CommandItem onSelect={() => go("/calendar")}>
               <Calendar className="mr-2 h-4 w-4" />
-              <span>Calendar</span>
+              <span>{t("nav.calendar")}</span>
             </CommandItem>
             <CommandItem onSelect={() => go("/docs")}>
               <FileText className="mr-2 h-4 w-4" />
-              <span>Docs</span>
+              <span>{t("command.docs")}</span>
             </CommandItem>
             <CommandItem onSelect={() => go("/team")}>
               <Users className="mr-2 h-4 w-4" />
-              <span>Team</span>
+              <span>{t("nav.team")}</span>
             </CommandItem>
             <CommandItem onSelect={() => go("/time")}>
               <Clock className="mr-2 h-4 w-4" />
-              <span>Time</span>
+              <span>{t("nav.timeTracking")}</span>
             </CommandItem>
           </CommandGroup>
 
           {spaces.length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Spaces">
+              <CommandGroup heading={t("sidebar.spaces")}>
                 {spaces.map((s) => (
                   <CommandItem
                     key={s.id}
@@ -178,7 +180,7 @@ export default function CommandPalette() {
           {projects.length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="Projects">
+              <CommandGroup heading={t("nav.projects")}>
                 {projects.slice(0, 25).map((p) => (
                   <CommandItem
                     key={p.id}
@@ -195,7 +197,7 @@ export default function CommandPalette() {
           {tasks.length > 0 && (
             <>
               <CommandSeparator />
-              <CommandGroup heading="My Tasks">
+              <CommandGroup heading={t("command.myTasks")}>
                 {tasks.map((t) => (
                   <CommandItem
                     key={t.id}

@@ -3,111 +3,111 @@ export type PermissionLevel = "manage" | "view" | "none" | "owner_only";
 
 export const permissionRoles: Array<{
   id: PermissionRole;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
 }> = [
   {
     id: "owner",
-    label: "Owner",
-    description: "Full workspace control, billing-level ownership, and destructive workspace actions.",
+    labelKey: "permissions.role.owner",
+    descriptionKey: "permissions.role.ownerDescription",
   },
   {
     id: "admin",
-    label: "Admin",
-    description: "Can create, edit, delete, invite, configure, and run workspace operations.",
+    labelKey: "permissions.role.admin",
+    descriptionKey: "permissions.role.adminDescription",
   },
   {
     id: "member",
-    label: "Member",
-    description: "Read-only workspace visibility for internal teammates without mutation access.",
+    labelKey: "permissions.role.member",
+    descriptionKey: "permissions.role.memberDescription",
   },
   {
     id: "guest",
-    label: "Guest",
-    description: "Read-only workspace visibility for external or limited-access collaborators.",
+    labelKey: "permissions.role.guest",
+    descriptionKey: "permissions.role.guestDescription",
   },
 ];
 
-export const permissionLevelLabels: Record<PermissionLevel, string> = {
-  manage: "Manage",
-  view: "View only",
-  none: "No access",
-  owner_only: "Owner only",
+export const permissionLevelLabelKeys: Record<PermissionLevel, string> = {
+  manage: "permissions.level.manage",
+  view: "permissions.level.view",
+  none: "permissions.level.none",
+  owner_only: "permissions.level.ownerOnly",
 };
 
 export const permissionMatrixSections: Array<{
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   capabilities: Array<{
-    label: string;
-    detail: string;
+    labelKey: string;
+    detailKey: string;
     levels: Record<PermissionRole, PermissionLevel>;
   }>;
 }> = [
   {
-    title: "Workspace administration",
-    description: "Controls workspace setup, member access, and destructive account-level actions.",
+    titleKey: "permissions.section.workspaceAdministration",
+    descriptionKey: "permissions.section.workspaceAdministrationDescription",
     capabilities: [
       {
-        label: "View workspace content",
-        detail: "Open dashboards, clients, projects, spaces, docs, calendar, and activity.",
+        labelKey: "permissions.capability.viewWorkspaceContent",
+        detailKey: "permissions.capability.viewWorkspaceContentDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
       {
-        label: "Manage members and invites",
-        detail: "Invite users, change roles, remove members, and assign departments.",
+        labelKey: "permissions.capability.manageMembers",
+        detailKey: "permissions.capability.manageMembersDescription",
         levels: { owner: "manage", admin: "manage", member: "none", guest: "none" },
       },
       {
-        label: "Delete workspace",
-        detail: "Permanently delete the workspace and move the active session to another workspace.",
+        labelKey: "permissions.capability.deleteWorkspace",
+        detailKey: "permissions.capability.deleteWorkspaceDescription",
         levels: { owner: "owner_only", admin: "none", member: "none", guest: "none" },
       },
     ],
   },
   {
-    title: "Operational records",
-    description: "Controls the records that change agency work, client data, and delivery state.",
+    titleKey: "permissions.section.operationalRecords",
+    descriptionKey: "permissions.section.operationalRecordsDescription",
     capabilities: [
       {
-        label: "Spaces, folders, and lists",
-        detail: "Create, rename, move, and delete workspace organization.",
+        labelKey: "permissions.capability.spacesFoldersLists",
+        detailKey: "permissions.capability.spacesFoldersListsDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
       {
-        label: "Projects, tasks, docs, and comments",
-        detail: "Create and update delivery work, docs, task status, assignment, and discussions.",
+        labelKey: "permissions.capability.projectsTasksDocs",
+        detailKey: "permissions.capability.projectsTasksDocsDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
       {
-        label: "Clients, contacts, notes, and reports",
-        detail: "Maintain client records, plan data, contacts, activity notes, and client reporting.",
+        labelKey: "permissions.capability.clientsContactsNotes",
+        detailKey: "permissions.capability.clientsContactsNotesDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
       {
-        label: "Calendar events and time entries",
-        detail: "Schedule meetings, track work time, and edit operational history.",
+        labelKey: "permissions.capability.calendarTime",
+        detailKey: "permissions.capability.calendarTimeDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
     ],
   },
   {
-    title: "Workflow systems",
-    description: "Controls repeatable processes and internal operating rules.",
+    titleKey: "permissions.section.workflowSystems",
+    descriptionKey: "permissions.section.workflowSystemsDescription",
     capabilities: [
       {
-        label: "Templates and playbooks",
-        detail: "Create reusable templates and apply them to generate real project work.",
+        labelKey: "permissions.capability.templatesPlaybooks",
+        detailKey: "permissions.capability.templatesPlaybooksDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
       {
-        label: "Automations and goals",
-        detail: "Configure automation rules, operating goals, owners, and progress targets.",
+        labelKey: "permissions.capability.automationsGoals",
+        detailKey: "permissions.capability.automationsGoalsDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
       {
-        label: "Settings and health checks",
-        detail: "Review production readiness, workspace setup, and permission policies.",
+        labelKey: "permissions.capability.settingsHealth",
+        detailKey: "permissions.capability.settingsHealthDescription",
         levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
       },
     ],

@@ -39,7 +39,7 @@ export function TodayFocusPanel({
   onOpenMeetings: () => void;
   updating: boolean;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const visibleMeetings = meetings.slice(0, 3);
   const hasFocusItems = tasks.length > 0 || visibleMeetings.length > 0;
 
@@ -119,7 +119,7 @@ export function TodayFocusPanel({
                         {meeting.title}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {formatTime(meeting.starts_at)}
+                        {formatTime(meeting.starts_at, language)}
                       </span>
                     </span>
                     <CalendarIcon className="h-4 w-4 shrink-0 text-primary" />
@@ -161,7 +161,7 @@ export function TaskRow({
   onDelete: () => void;
   disabled: boolean;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -218,14 +218,14 @@ export function TaskRow({
               "font-medium text-upflow-danger",
           )}
         >
-          {formatDate(task.due_date)}
+          {formatDate(task.due_date, language)}
         </span>
       )}
       <div className="relative" ref={menuRef}>
         <button
           type="button"
           onClick={() => setMenuOpen((v) => !v)}
-          aria-label={`Actions for ${task.title}`}
+          aria-label={t("task.actionsFor", { title: task.title })}
           aria-expanded={menuOpen}
           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         >
@@ -309,7 +309,7 @@ export function TaskStatusDrawer({
       onClick={onClose}
     >
       <aside
-        aria-label={`${label} tasks`}
+        aria-label={t("dashboard.tasksForStatus", { status: label })}
         className="glass-strong absolute right-0 top-0 h-dvh w-full max-w-md overflow-y-auto border-l border-white/10 p-4 sm:p-5"
         onClick={(event) => event.stopPropagation()}
       >
@@ -329,7 +329,7 @@ export function TaskStatusDrawer({
             type="button"
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-white/10 hover:text-foreground"
-            aria-label="Close task drawer"
+            aria-label={t("dashboard.closeTaskDrawer")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -353,7 +353,7 @@ export function TaskStatusDrawer({
                 onOpen={() => onOpenTask(task)}
                 onMarkDone={() => onStatusChange(task, "done")}
                 onDelete={() => {
-                  if (confirm(`Delete "${task.title}"?`)) onDelete(task);
+                  if (confirm(t("task.deleteNamedConfirm", { title: task.title }))) onDelete(task);
                 }}
                 disabled={updating}
               />

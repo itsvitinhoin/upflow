@@ -43,11 +43,11 @@ export default function FolderContainerPage() {
         return;
       }
       if (!res.ok) {
-        throw new Error("Failed to load");
+        throw new Error(t("folder.loadErrorTitle"));
       }
       setData((await res.json()) as FolderContainerData);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      setError(err instanceof Error ? err.message : t("folder.loadErrorTitle"));
     } finally {
       if (!options?.silent) setLoading(false);
     }
@@ -265,11 +265,12 @@ export default function FolderContainerPage() {
 }
 
 function FolderSkeleton() {
+  const { t } = useLanguage();
   return (
     <>
-      <Header title="Folder" />
+      <Header title={t("folder.title")} />
       <div className="space-y-6 p-4 sm:p-6" role="status" aria-busy="true">
-        <span className="sr-only">Loading...</span>
+        <span className="sr-only">{t("common.loading")}</span>
         <div className="glass rounded-xl p-5">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-white/5 animate-pulse" />

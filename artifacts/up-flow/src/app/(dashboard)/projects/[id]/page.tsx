@@ -42,8 +42,9 @@ interface CreateTaskDefaults {
 }
 
 function OnboardingFormLoader() {
+  const { t } = useLanguage();
   return (
-    <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-border bg-card p-6" aria-label="Loading onboarding form">
+    <div className="flex min-h-[360px] items-center justify-center rounded-2xl border border-border bg-card p-6" aria-label={t("common.loading")}>
       <div className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
     </div>
   );

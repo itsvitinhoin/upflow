@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import { cn, statusColor, statusLabel } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 interface SearchTask {
   id: string;
@@ -40,6 +41,7 @@ interface SearchResponse {
 }
 
 function SearchResults() {
+  const { t } = useLanguage();
   const params = useSearchParams();
   const q = params?.get("q") ?? "";
   const [data, setData] = useState<SearchResponse | null>(null);
@@ -61,30 +63,30 @@ function SearchResults() {
 
   return (
     <>
-      <Header title="Search" />
+      <Header title={t("search.title")} />
       <div className="max-w-4xl overflow-x-hidden px-4 py-6 sm:px-6 sm:py-8">
         <div className="flex items-center gap-3 mb-6">
           <SearchIcon className="w-5 h-5 text-muted-foreground" />
           <h1 className="text-xl font-semibold">
-            {q ? <>Results for &ldquo;{q}&rdquo;</> : "Search"}
+            {q ? t("search.resultsFor", { query: q }) : t("search.title")}
           </h1>
           {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
         </div>
 
         {!q && (
           <p className="text-sm text-muted-foreground">
-            Use the search bar at the top, or press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded">⌘K</kbd> to open the command palette.
+            {t("search.hint", { shortcut: "Ctrl K" })}
           </p>
         )}
 
         {q && !loading && total === 0 && (
           <div className="py-16 text-center text-sm text-muted-foreground">
-            No matches found.
+            {t("search.noMatches")}
           </div>
         )}
 
         {data && data.projects.length > 0 && (
-          <Section title="Projects" count={data.projects.length}>
+          <Section title={t("nav.projects")} count={data.projects.length}>
             {data.projects.map((p) => (
               <Link
                 key={p.id}
@@ -96,7 +98,7 @@ function SearchResults() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{p.name}</span>
                     <span className={cn("text-xs px-1.5 py-0.5 rounded", statusColor(p.status))}>
-                      {statusLabel(p.status)}
+                      {statusLabel(p.status, t)}
                     </span>
                   </div>
                   {p.description && (
@@ -114,24 +116,24 @@ function SearchResults() {
         )}
 
         {data && data.tasks.length > 0 && (
-          <Section title="Tasks" count={data.tasks.length}>
-            {data.tasks.map((t) => (
+          <Section title={t("command.myTasks")} count={data.tasks.length}>
+            {data.tasks.map((task) => (
               <Link
-                key={t.id}
-                href={t.project ? `/projects/${t.project.id}?task=${t.id}` : "/projects"}
+                key={task.id}
+                href={task.project ? `/projects/${task.project.id}?task=${task.id}` : "/projects"}
                 className="flex items-start gap-3 px-4 py-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
               >
                 <CheckSquare className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm truncate block">{t.title}</span>
-                  {t.project?.name && (
+                  <span className="text-sm truncate block">{task.title}</span>
+                  {task.project?.name && (
                     <p className="text-xs text-muted-foreground truncate mt-0.5">
-                      {t.project.name}
+                      {task.project.name}
                     </p>
                   )}
                 </div>
-                <span className={cn("text-xs px-1.5 py-0.5 rounded flex-shrink-0", statusColor(t.status))}>
-                  {statusLabel(t.status)}
+                <span className={cn("text-xs px-1.5 py-0.5 rounded flex-shrink-0", statusColor(task.status))}>
+                  {statusLabel(task.status, t)}
                 </span>
               </Link>
             ))}
@@ -139,7 +141,7 @@ function SearchResults() {
         )}
 
         {data && data.docs.length > 0 && (
-          <Section title="Docs" count={data.docs.length}>
+          <Section title={t("docs.title")} count={data.docs.length}>
             {data.docs.map((d) => (
               <Link
                 key={d.id}
@@ -185,8 +187,9 @@ function Section({
 }
 
 export default function SearchPage() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<div className="px-4 py-6 text-sm text-muted-foreground sm:px-6 sm:py-8">Loading…</div>}>
+    <Suspense fallback={<div className="px-4 py-6 text-sm text-muted-foreground sm:px-6 sm:py-8">{t("common.loading")}</div>}>
       <SearchResults />
     </Suspense>
   );

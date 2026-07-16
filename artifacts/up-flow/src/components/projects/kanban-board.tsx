@@ -73,7 +73,7 @@ export default function KanbanBoard({
   onToggleTaskSelection,
   selectionMode = false,
 }: KanbanBoardProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const rhBoardField = customFields.find(
     (field) =>
       field.name === RH_BOARD_FIELD_NAME &&
@@ -412,7 +412,7 @@ export default function KanbanBoard({
                                     )}
                                   >
                                     <Calendar className="w-3 h-3" />
-                                    {relativeDueDateLabel(task.due_date)}
+                                    {relativeDueDateLabel(task.due_date, language)}
                                   </span>
                                 )}
                                 {(task._count?.comments ?? 0) > 0 && (
@@ -423,7 +423,7 @@ export default function KanbanBoard({
                                 )}
                                 {(task._count?.subtasks ?? 0) > 0 && (
                                   <span className="text-[11px] text-muted-foreground">
-                                    {task._count?.subtasks} sub
+                                    {t("task.subtasksCount", { count: task._count?.subtasks ?? 0 })}
                                   </span>
                                 )}
                                 {task.assignee && (

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { logError } from "@/lib/log-error";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
+import { useLanguage } from "@/components/language-provider";
 
 type FolderTarget =
   | { kind: "space"; space: Space }
@@ -53,6 +54,7 @@ export function SpaceDialog({
   const [name, setName] = useState(space?.name ?? "");
   const [icon, setIcon] = useState(space?.icon ?? ICONS[0]);
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,14 +68,21 @@ export function SpaceDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), icon }),
       });
-      if (!res.ok) throw new Error(await readApiError(res, `Could not ${mode} space`));
+      if (!res.ok) {
+        throw new Error(
+          await readApiError(
+            res,
+            mode === "create" ? t("sidebarDialog.couldNotCreateSpace") : t("sidebarDialog.couldNotRenameSpace")
+          )
+        );
+      }
       const saved = (await res.json()) as Space;
-      toast.success(mode === "create" ? "Space created" : "Space renamed");
+      toast.success(mode === "create" ? t("sidebarDialog.spaceCreated") : t("sidebarDialog.spaceRenamed"));
       broadcastSidebarRefresh();
       onSaved(saved);
     } catch (err) {
       logError("sidebar:space-dialog", err, { mode });
-      toast.error(err instanceof Error ? err.message : "Could not save space");
+      toast.error(err instanceof Error ? err.message : t("sidebarDialog.couldNotSaveSpace"));
     } finally {
       setLoading(false);
     }
@@ -91,21 +100,26 @@ export function SpaceDialog({
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-base font-semibold text-foreground">
-            {mode === "create" ? "New space" : "Rename space"}
+            {mode === "create" ? t("sidebar.newSpace") : t("sidebarDialog.renameSpace")}
           </h3>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("common.close")}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Name</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">{t("common.name")}</label>
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Marketing"
+          placeholder={t("sidebarDialog.spaceNamePlaceholder")}
           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
-        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Icon</label>
+        <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">{t("common.icon")}</label>
         <div className="flex flex-wrap gap-1.5">
           {ICONS.map((i) => (
             <button
@@ -129,14 +143,14 @@ export function SpaceDialog({
             onClick={onClose}
             className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={loading || !name.trim()}
             className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
           >
-            {mode === "create" ? "Create" : "Save"}
+            {mode === "create" ? t("common.create") : t("common.save")}
           </button>
         </div>
       </form>
@@ -165,6 +179,7 @@ export function MoveProjectDialog({
       : "";
   const [target, setTarget] = useState<string>(initial);
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const save = async () => {
     setLoading(true);
@@ -183,13 +198,13 @@ export function MoveProjectDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ space_id, folder_id }),
       });
-      if (!res.ok) throw new Error(await readApiError(res, "Could not move list"));
-      toast.success("List moved");
+      if (!res.ok) throw new Error(await readApiError(res, t("sidebarDialog.couldNotMoveList")));
+      toast.success(t("sidebarDialog.listMoved"));
       broadcastSidebarRefresh();
       onSaved();
     } catch (err) {
       logError("sidebar:move-project-dialog", err, { id: project.id });
-      toast.error(err instanceof Error ? err.message : "Could not move list");
+      toast.error(err instanceof Error ? err.message : t("sidebarDialog.couldNotMoveList"));
     } finally {
       setLoading(false);
     }
@@ -206,25 +221,25 @@ export function MoveProjectDialog({
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">Move list</h3>
+            <h3 className="text-base font-semibold text-foreground">{t("sidebarDialog.moveList")}</h3>
             <p className="text-xs text-muted-foreground mt-0.5 truncate">{project.name}</p>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button onClick={onClose} aria-label={t("common.close")} className="text-muted-foreground hover:text-foreground">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Destination</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">{t("common.destination")}</label>
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         >
-          <option value="">— Unassigned —</option>
+          <option value="">— {t("sidebar.unassigned")} —</option>
           {spaces.map((sp) => {
             const fs = folders.filter((f) => f.space_id === sp.id);
             return (
               <optgroup key={sp.id} label={`${sp.icon || "🗂️"} ${sp.name}`}>
-                <option value={`space:${sp.id}`}>↳ (directly in space)</option>
+                <option value={`space:${sp.id}`}>↳ {t("sidebarDialog.directlyInSpace")}</option>
                 {fs.map((f) => (
                   <option key={f.id} value={`folder:${f.id}`}>
                     📁 {folderPath(f, folders)}
@@ -239,14 +254,14 @@ export function MoveProjectDialog({
             onClick={onClose}
             className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={save}
             disabled={loading}
             className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
           >
-            Move
+            {t("common.move")}
           </button>
         </div>
       </div>
@@ -269,6 +284,7 @@ export function FolderDialog({
 }) {
   const [name, setName] = useState(folder?.name ?? "");
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
   const space =
     target?.kind === "space"
       ? target.space
@@ -296,13 +312,20 @@ export function FolderDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await readApiError(res, `Could not ${mode} folder`));
-      toast.success(mode === "create" ? "Folder created" : "Folder renamed");
+      if (!res.ok) {
+        throw new Error(
+          await readApiError(
+            res,
+            mode === "create" ? t("sidebarDialog.couldNotCreateFolder") : t("sidebarDialog.couldNotRenameFolder")
+          )
+        );
+      }
+      toast.success(mode === "create" ? t("sidebarDialog.folderCreated") : t("sidebarDialog.folderRenamed"));
       broadcastSidebarRefresh();
       onSaved();
     } catch (err) {
       logError("sidebar:folder-dialog", err, { mode });
-      toast.error(err instanceof Error ? err.message : "Could not save folder");
+      toast.error(err instanceof Error ? err.message : t("sidebarDialog.couldNotSaveFolder"));
     } finally {
       setLoading(false);
     }
@@ -321,24 +344,29 @@ export function FolderDialog({
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-base font-semibold text-foreground">
-              {mode === "create" ? "New folder" : "Rename folder"}
+              {mode === "create" ? t("folder.newFolder") : t("sidebarDialog.renameFolder")}
             </h3>
             {mode === "create" && target && space && (
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                in {space.icon || "🗂️"} {space.name}
+                {t("common.inLocation", { location: `${space.icon || "🗂️"} ${space.name}` })}
               </p>
             )}
           </div>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("common.close")}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Name</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">{t("common.name")}</label>
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Q1 initiatives"
+          placeholder={t("sidebarDialog.folderNamePlaceholder")}
           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <div className="mt-6 grid gap-2 sm:flex">
@@ -347,14 +375,14 @@ export function FolderDialog({
             onClick={onClose}
             className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={loading || !name.trim()}
             className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
           >
-            {mode === "create" ? "Create" : "Save"}
+            {mode === "create" ? t("common.create") : t("common.save")}
           </button>
         </div>
       </form>
@@ -378,6 +406,7 @@ export function NewListDialog({
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -402,15 +431,15 @@ export function NewListDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await readApiError(res, "Could not create list"));
+      if (!res.ok) throw new Error(await readApiError(res, t("sidebarDialog.couldNotCreateList")));
       const created = (await res.json()) as Project;
-      toast.success("List created");
+      toast.success(t("sidebarDialog.listCreated"));
       broadcastSidebarRefresh();
       onSaved(created);
       router.push(`/projects/${created.id}`);
     } catch (err) {
       logError("sidebar:new-list-dialog", err);
-      toast.error(err instanceof Error ? err.message : "Could not create list");
+      toast.error(err instanceof Error ? err.message : t("sidebarDialog.couldNotCreateList"));
     } finally {
       setLoading(false);
     }
@@ -433,33 +462,40 @@ export function NewListDialog({
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-semibold text-foreground">New list</h3>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">in {locationLabel}</p>
+            <h3 className="text-base font-semibold text-foreground">{t("folder.newList")}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+              {t("common.inLocation", { location: locationLabel })}
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("common.close")}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">Name</label>
+        <label className="block text-xs font-medium text-foreground mb-1.5">{t("common.name")}</label>
         <input
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Sprint 12"
+          placeholder={t("sidebarDialog.listNamePlaceholder")}
           className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
-          Description <span className="text-muted-foreground font-normal">(optional)</span>
+          {t("common.description")} <span className="text-muted-foreground font-normal">({t("common.optional")})</span>
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
-          placeholder="What is this list about?"
+          placeholder={t("sidebarDialog.listDescriptionPlaceholder")}
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
-          Due date <span className="text-muted-foreground font-normal">(optional)</span>
+          {t("projects.dueDate")} <span className="text-muted-foreground font-normal">({t("common.optional")})</span>
         </label>
         <BrazilianDateInput
           value={dueDate}
@@ -472,14 +508,14 @@ export function NewListDialog({
             onClick={onClose}
             className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={loading || !name.trim()}
             className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium py-2 rounded-lg"
           >
-            Create
+            {t("common.create")}
           </button>
         </div>
       </form>

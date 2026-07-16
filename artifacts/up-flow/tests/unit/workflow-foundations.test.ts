@@ -112,13 +112,13 @@ test("client report endpoint uses real records and returns a markdown report", (
   assert.match(actions, /send_to_client/);
   assert.match(actions, /archive_report/);
   assert.match(actions, /client_report_archived/);
-  assert.match(page, /Narrative editor/);
-  assert.match(page, /Approve internally/);
-  assert.match(page, /Export markdown/);
-  assert.match(page, /Export PDF/);
-  assert.match(page, /Mark sent to client/);
-  assert.match(page, /Archive report history/);
-  assert.match(detail, /Report workflow/);
+  assert.match(page, /t\("report\.narrativeEditor"\)/);
+  assert.match(page, /t\("report\.approveInternally"\)/);
+  assert.match(page, /t\("report\.exportMarkdown"\)/);
+  assert.match(page, /t\("report\.exportPdf"\)/);
+  assert.match(page, /t\("report\.markSent"\)/);
+  assert.match(page, /t\("report\.archiveHistory"\)/);
+  assert.match(detail, /t\("clientDetail\.reportWorkflow"\)/);
 });
 
 test("critical readiness e2e coverage documents permission, health, reporting, and audit flows", () => {

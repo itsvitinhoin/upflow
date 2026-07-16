@@ -4,6 +4,17 @@ import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { cn, formatDate, isOverdue, priorityColor } from "@/lib/utils";
+import { priorityLabel } from "@/components/projects/priority-ui";
+import { useLanguage } from "@/components/language-provider";
+
+function statusLabel(
+  status: Task["status"],
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (status === "in_progress") return t("status.inProgress");
+  if (status === "done") return t("status.done");
+  return t("status.todo");
+}
 
 export function TaskDetailModal({
   task,
@@ -18,6 +29,8 @@ export function TaskDetailModal({
   onStatusChange: (task: Task, status: Task["status"]) => void;
   onDelete: (task: Task) => void;
 }) {
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const titleId = `task-modal-title-${task.id}`;
@@ -72,7 +85,7 @@ export function TaskDetailModal({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              {task.project?.name || "Task"}
+              {task.project?.name || t("task.newTask")}
             </p>
             <h3 id={titleId} className="mt-1 text-lg font-bold text-foreground">
               {task.title}
@@ -81,7 +94,7 @@ export function TaskDetailModal({
           <button
             ref={closeBtnRef}
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
           >
             <X className="h-5 w-5" />
@@ -95,10 +108,10 @@ export function TaskDetailModal({
               priorityColor(task.priority),
             )}
           >
-            {task.priority}
+            {priorityLabel(task.priority, t)}
           </span>
           <span className="rounded-full bg-white/5 px-2 py-1 capitalize text-foreground/80">
-            {task.status.replace("_", " ")}
+            {statusLabel(task.status, t)}
           </span>
           {task.due_date && (
             <span
@@ -109,7 +122,7 @@ export function TaskDetailModal({
                   : "text-foreground/80",
               )}
             >
-              Due {formatDate(task.due_date)}
+              {t("task.due", { date: formatDate(task.due_date, locale) })}
             </span>
           )}
         </div>
@@ -126,32 +139,32 @@ export function TaskDetailModal({
             disabled={updating || task.status === "todo"}
             className="rounded-xl bg-white/5 py-2 text-xs font-medium transition-colors hover:bg-white/10 disabled:opacity-40"
           >
-            To do
+            {t("status.todo")}
           </button>
           <button
             onClick={() => onStatusChange(task, "in_progress")}
             disabled={updating || task.status === "in_progress"}
             className="rounded-xl bg-upflow-warning/20 py-2 text-xs font-medium text-upflow-warning transition-colors hover:bg-upflow-warning/30 disabled:opacity-40"
           >
-            In progress
+            {t("status.inProgress")}
           </button>
           <button
             onClick={() => onStatusChange(task, "done")}
             disabled={updating || task.status === "done"}
             className="rounded-xl bg-upflow-success/20 py-2 text-xs font-medium text-upflow-success transition-colors hover:bg-upflow-success/30 disabled:opacity-40"
           >
-            Mark done
+            {t("task.markDone")}
           </button>
         </div>
 
         <button
           onClick={() => {
-            if (confirm(`Delete "${task.title}"?`)) onDelete(task);
+            if (confirm(t("task.deleteNamed", { title: task.title }))) onDelete(task);
           }}
           disabled={updating}
           className="mt-3 w-full rounded-xl py-2 text-xs font-medium text-upflow-danger transition-colors hover:bg-upflow-danger/10 disabled:opacity-40"
         >
-          Delete task
+          {t("task.deleteTask")}
         </button>
       </div>
     </div>

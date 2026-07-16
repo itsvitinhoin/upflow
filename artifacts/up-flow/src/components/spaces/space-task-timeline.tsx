@@ -22,7 +22,7 @@ export function SpaceTaskTimeline({
   tasks: Task[];
   onCreateTask: () => void;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
   const totalHours = 11;
   const [currentHour, setCurrentHour] = useState<number | null>(null);
@@ -36,8 +36,8 @@ export function SpaceTaskTimeline({
   useEffect(() => {
     const now = new Date();
     setCurrentHour(now.getHours());
-    setTodayLabel(formatLongDate(now));
-  }, []);
+    setTodayLabel(formatLongDate(now, language));
+  }, [language]);
 
   const timelineItems = useMemo<TaskTimelineItem[]>(() => {
     const now = new Date();
@@ -64,8 +64,10 @@ export function SpaceTaskTimeline({
   const overdueCount = timelineItems.filter((item) => item.overdue).length;
   const dueTodayCount = timelineItems.length - overdueCount;
 
-  const formatHour = (n: number) =>
-    n > 12 ? `${n - 12}pm` : n === 12 ? "12pm" : `${n}am`;
+  const formatHour = (n: number) => {
+    if (language === "pt-BR") return String(n).padStart(2, "0") + "h";
+    return n > 12 ? String(n - 12) + "pm" : n === 12 ? "12pm" : String(n) + "am";
+  };
 
   return (
     <section className="glass rounded-xl p-5">
@@ -159,7 +161,7 @@ export function SpaceTaskTimeline({
                         </p>
                         <p className="truncate text-[11px] text-muted-foreground">
                           {task.project?.name || t("spaceDashboard.list")} -{" "}
-                          {overdue ? t("spaceDashboard.overdue") : formatDate(task.due_date)}
+                          {overdue ? t("spaceDashboard.overdue") : formatDate(task.due_date, language)}
                         </p>
                       </div>
                     </div>
@@ -176,7 +178,7 @@ export function SpaceTaskTimeline({
                         ))}
                       </div>
                       <div
-                        title={`${task.title} - ${overdue ? t("spaceDashboard.overdue") : formatTime(due)}`}
+                        title={`${task.title} - ${overdue ? t("spaceDashboard.overdue") : formatTime(due, language)}`}
                         className={cn(
                           "absolute bottom-1 top-1 flex items-center rounded-md border-l-2 px-2 text-[10px] font-medium transition-opacity",
                           taskTimelineClass(task, overdue),

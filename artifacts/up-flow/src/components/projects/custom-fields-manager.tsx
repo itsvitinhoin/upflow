@@ -277,7 +277,7 @@ export default function CustomFieldsManager({
                   value={optionsText}
                   onChange={(e) => setOptionsText(e.target.value)}
                   rows={3}
-                  placeholder="To do&#10;Doing&#10;Done"
+                  placeholder={t("customFields.optionsPlaceholder")}
                   className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
                 />
               </div>

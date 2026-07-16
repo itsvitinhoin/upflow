@@ -4,6 +4,7 @@
  * flight, instead of flashing a blank screen.
  */
 export default function DashboardLoading() {
+  const { t } = useLanguage();
   return (
     <div
       className="space-y-4 p-6"
@@ -11,7 +12,7 @@ export default function DashboardLoading() {
       aria-live="polite"
       aria-busy="true"
     >
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{t("common.loading")}</span>
       <div className="h-7 w-48 animate-pulse rounded-md bg-muted/60" />
       <div className="h-4 w-72 animate-pulse rounded-md bg-muted/40" />
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -25,3 +26,6 @@ export default function DashboardLoading() {
     </div>
   );
 }
+"use client";
+
+import { useLanguage } from "@/components/language-provider";

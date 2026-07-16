@@ -126,3 +126,13 @@ test("core rollout surfaces are wired to the language provider", () => {
   assert.match(errorPage, /t\("error\.pageTitle"\)/);
   assert.match(notFoundPage, /t\("error\.notFoundTitle"\)/);
 });
+
+test("English and Portuguese catalogues expose the same translation keys", () => {
+  const source = read("src/lib/i18n/translations.ts");
+  const [english, portuguese] = source.split('  "pt-BR": {');
+  const translationKeys = (catalogue: string) =>
+    [...catalogue.matchAll(/^\s+"([^"]+)":/gm)].map((match) => match[1]).sort();
+
+  assert.ok(portuguese, "Portuguese catalogue should be present");
+  assert.deepEqual(translationKeys(english), translationKeys(portuguese));
+});

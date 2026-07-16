@@ -28,7 +28,7 @@ interface DetailTask extends Omit<Task, "subtasks"> {
 }
 
 export default function TaskDetailSheet({ task, users: initialUsers, onClose, onUpdate }: TaskDetailSheetProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [currentTask, setCurrentTask] = useState<DetailTask>(task as DetailTask);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -270,7 +270,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             </button>
             <button
               onClick={onClose}
-              aria-label="Close task details"
+              aria-label={t("task.closeDetails")}
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
             >
               <X className="w-4 h-4" />
@@ -327,7 +327,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 />
                 {currentTask.due_date && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {relativeDueDateLabel(currentTask.due_date)}
+                    {relativeDueDateLabel(currentTask.due_date, language)}
                   </p>
                 )}
               </div>
@@ -532,7 +532,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                             {c.author?.name}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {formatDate(c.created_at)}
+                            {formatDate(c.created_at, language)}
                           </span>
                         </div>
                         <p className="text-sm text-foreground">{displayCommentBody(c.body)}</p>
@@ -562,7 +562,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                                 {r.author?.name}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {formatDate(r.created_at)}
+                                {formatDate(r.created_at, language)}
                               </span>
                             </div>
                             <p className="text-sm text-foreground">{displayCommentBody(r.body)}</p>
@@ -625,7 +625,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
               <input
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder={`${t("task.addComment")} - mention teammates from the picker`}
+                placeholder={t("task.addCommentWithMentions", { action: t("task.addComment") })}
                 className="min-w-0 flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
@@ -663,6 +663,7 @@ function MentionPicker({
   users: TaskAssignee[];
   onPick: (userId: string) => void;
 }) {
+  const { t } = useLanguage();
   if (users.length === 0) return null;
   return (
     <select
@@ -671,9 +672,9 @@ function MentionPicker({
         if (event.target.value) onPick(event.target.value);
       }}
       className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-      aria-label="Mention teammate"
+      aria-label={t("task.mentionTeammate")}
     >
-      <option value="">@ Mention</option>
+      <option value="">@ {t("task.mention")}</option>
       {users.map((user) => (
         <option key={user.id} value={user.id}>
           @{user.name}

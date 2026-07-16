@@ -19,24 +19,27 @@ import {
 import Header from "@/components/layout/header";
 import type { ActivityEvent } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 const ENTITY_OPTIONS = [
-  ["", "All records"],
-  ["workspace", "Workspace"],
-  ["workspace_member", "Roles and access"],
-  ["invite", "Invites"],
-  ["space", "Spaces"],
-  ["folder", "Folders"],
-  ["list", "Lists"],
-  ["project", "Projects"],
-  ["task", "Tasks"],
-  ["company", "Clients"],
-  ["contact", "Contacts"],
-  ["note", "Notes"],
-  ["time_entry", "Time"],
+  ["", "activity.allRecords"],
+  ["workspace", "activity.workspace"],
+  ["workspace_member", "activity.rolesAndAccess"],
+  ["invite", "activity.invites"],
+  ["space", "activity.spaces"],
+  ["folder", "activity.folders"],
+  ["list", "activity.lists"],
+  ["project", "activity.projects"],
+  ["task", "activity.tasks"],
+  ["company", "activity.clients"],
+  ["contact", "activity.contacts"],
+  ["note", "activity.notes"],
+  ["time_entry", "activity.time"],
 ] as const;
 
 export default function ActivityAuditPage() {
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -58,15 +61,15 @@ export default function ActivityAuditPage() {
         nextCursor?: string | null;
         error?: string;
       };
-      if (!res.ok) throw new Error(data.error || `Could not load activity (${res.status})`);
+      if (!res.ok) throw new Error(data.error || t("activity.couldNotLoadWithStatus", { status: res.status }));
       setEvents((current) => (cursor ? [...current, ...(data.items ?? [])] : data.items ?? []));
       setNextCursor(data.nextCursor ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load activity");
+      setError(err instanceof Error ? err.message : t("activity.couldNotLoad"));
     } finally {
       setLoading(false);
     }
-  }, [entityType, query]);
+  }, [entityType, query, t]);
 
   useEffect(() => {
     loadActivity(null);
@@ -83,18 +86,18 @@ export default function ActivityAuditPage() {
 
   return (
     <>
-      <Header title="Activity" />
+      <Header title={t("activity.title")} />
       <main className="space-y-5 p-4 sm:p-6">
         <section className="rounded-2xl border border-border bg-card p-5 shadow-lg dark:border-blue-400/20 dark:bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.18),transparent_34%),rgba(2,6,23,0.74)] dark:shadow-[0_20px_80px_rgba(2,6,23,0.35)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-700 dark:border-blue-400/20 dark:text-blue-100">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Audit center
+                {t("activity.auditCenter")}
               </div>
-              <h1 className="mt-4 text-2xl font-bold text-foreground dark:text-white">Activity and audit log</h1>
+              <h1 className="mt-4 text-2xl font-bold text-foreground dark:text-white">{t("activity.auditLog")}</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Review who changed what across clients, projects, tasks, roles, invites, permissions, and workspace-level actions.
+                {t("activity.description")}
               </p>
             </div>
             <button
@@ -103,13 +106,13 @@ export default function ActivityAuditPage() {
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-accent dark:border-white/10 dark:bg-white/[0.15] dark:text-blue-100 dark:hover:bg-white/[0.15]"
             >
               <RefreshCcw className="h-4 w-4" />
-              Refresh
+              {t("common.refresh")}
             </button>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <AuditStat icon={<ShieldCheck className="h-4 w-4" />} label="Access changes" value={summary.accessEvents} tone="info" />
-            <AuditStat icon={<AlertTriangle className="h-4 w-4" />} label="Deleted or removed" value={summary.destructiveEvents} tone="danger" />
-            <AuditStat icon={<Building2 className="h-4 w-4" />} label="Client history" value={summary.clientEvents} tone="success" />
+            <AuditStat icon={<ShieldCheck className="h-4 w-4" />} label={t("activity.accessChanges")} value={summary.accessEvents} tone="info" />
+            <AuditStat icon={<AlertTriangle className="h-4 w-4" />} label={t("activity.deletedOrRemoved")} value={summary.destructiveEvents} tone="danger" />
+            <AuditStat icon={<Building2 className="h-4 w-4" />} label={t("activity.clientHistory")} value={summary.clientEvents} tone="success" />
           </div>
         </section>
 
@@ -123,7 +126,7 @@ export default function ActivityAuditPage() {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") loadActivity(null);
                 }}
-                placeholder="Search type, actor, client, or record id..."
+                placeholder={t("activity.searchPlaceholder")}
                 className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
               />
             </label>
@@ -136,7 +139,7 @@ export default function ActivityAuditPage() {
               >
                 {ENTITY_OPTIONS.map(([value, label]) => (
                   <option key={value || "all"} value={value} className="bg-popover text-popover-foreground">
-                    {label}
+                    {t(label)}
                   </option>
                 ))}
               </select>
@@ -146,7 +149,7 @@ export default function ActivityAuditPage() {
               onClick={() => loadActivity(null)}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
             >
-              Apply
+              {t("activity.apply")}
             </button>
           </div>
         </section>
@@ -156,19 +159,19 @@ export default function ActivityAuditPage() {
         ) : (
           <section className="overflow-hidden rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-[#07101f]/[0.86]">
             <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_1fr_1.4fr] gap-4 border-b border-border px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:border-white/10 dark:text-blue-100/50 max-xl:hidden">
-              <span>Event</span>
-              <span>Actor</span>
-              <span>Client</span>
-              <span>When</span>
-              <span>Metadata</span>
+              <span>{t("activity.event")}</span>
+              <span>{t("activity.actor")}</span>
+              <span>{t("activity.client")}</span>
+              <span>{t("activity.when")}</span>
+              <span>{t("activity.metadata")}</span>
             </div>
             <div className="divide-y divide-border dark:divide-white/10">
               {loading && events.length === 0 ? (
                 [1, 2, 3, 4].map((item) => <div key={item} className="h-20 animate-pulse bg-muted/50 dark:bg-white/[0.15]" />)
               ) : events.length === 0 ? (
-                <div className="p-8 text-center text-sm text-muted-foreground">No matching audit events.</div>
+                <div className="p-8 text-center text-sm text-muted-foreground">{t("activity.noMatchingAuditEvents")}</div>
               ) : (
-                events.map((event) => <AuditRow key={event.id} event={event} />)
+                events.map((event) => <AuditRow key={event.id} event={event} t={t} locale={locale} />)
               )}
             </div>
             {nextCursor ? (
@@ -178,7 +181,7 @@ export default function ActivityAuditPage() {
                   onClick={() => loadActivity(nextCursor)}
                   className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-accent dark:border-white/10 dark:bg-white/[0.15] dark:text-blue-100 dark:hover:bg-white/[0.15]"
                 >
-                  Load more
+                  {t("activity.loadMore")}
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
@@ -190,9 +193,17 @@ export default function ActivityAuditPage() {
   );
 }
 
-function AuditRow({ event }: { event: ActivityEvent }) {
-  const actor = event.actor?.name || event.actor?.email || "System";
-  const metadata = event.metadata ? JSON.stringify(event.metadata) : "No metadata";
+function AuditRow({
+  event,
+  t,
+  locale,
+}: {
+  event: ActivityEvent;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+  locale: string;
+}) {
+  const actor = event.actor?.name || event.actor?.email || t("activity.system");
+  const metadata = event.metadata ? JSON.stringify(event.metadata) : t("activity.noMetadata");
   return (
     <article className="grid gap-3 px-4 py-4 text-sm text-foreground dark:text-blue-50/[0.85] xl:grid-cols-[1.1fr_0.9fr_0.9fr_1fr_1.4fr] xl:items-center">
       <div className="min-w-0">
@@ -209,7 +220,7 @@ function AuditRow({ event }: { event: ActivityEvent }) {
           </div>
         </div>
       </div>
-      <InlineField icon={<UserRound className="h-4 w-4" />} label="Actor" value={actor} />
+      <InlineField icon={<UserRound className="h-4 w-4" />} label={t("activity.actor")} value={actor} />
       <div className="min-w-0">
         {event.company ? (
           <Link href={`/clients/${event.company.id}`} className="inline-flex min-w-0 items-center gap-2 text-blue-700 hover:text-foreground dark:text-blue-100 dark:hover:text-white">
@@ -217,11 +228,11 @@ function AuditRow({ event }: { event: ActivityEvent }) {
             <span className="truncate">{event.company.name}</span>
           </Link>
         ) : (
-          <InlineField icon={<Building2 className="h-4 w-4" />} label="Client" value="Not linked" />
+          <InlineField icon={<Building2 className="h-4 w-4" />} label={t("activity.client")} value={t("activity.notLinked")} />
         )}
       </div>
-      <InlineField icon={<Clock3 className="h-4 w-4" />} label="When" value={formatDate(event.created_at)} />
-      <InlineField icon={<Database className="h-4 w-4" />} label="Metadata" value={metadata} mono />
+      <InlineField icon={<Clock3 className="h-4 w-4" />} label={t("activity.when")} value={formatDate(event.created_at, locale)} />
+      <InlineField icon={<Database className="h-4 w-4" />} label={t("activity.metadata")} value={metadata} mono />
     </article>
   );
 }

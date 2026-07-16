@@ -2,6 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { cn, formatDate, getInitials } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 import type { CustomFieldDefinition, TaskAssignee } from "@/lib/types";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function CustomFieldChip({ definition, value, users = [] }: Props) {
+  const { language } = useLanguage();
   if (value === null || value === undefined || value === "") {
     if (definition.type !== "checkbox") return null;
   }
@@ -33,7 +35,7 @@ export default function CustomFieldChip({ definition, value, users = [] }: Props
 
   let display: string | null = null;
   if (definition.type === "date" && typeof value === "string") {
-    display = formatDate(value);
+    display = formatDate(value, language);
   } else if (definition.type === "people" && Array.isArray(value)) {
     const ids = value as string[];
     const selected = users.filter((u) => ids.includes(u.id));

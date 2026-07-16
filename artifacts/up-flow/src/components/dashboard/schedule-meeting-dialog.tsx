@@ -239,7 +239,7 @@ export default function ScheduleMeetingDialog({
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">Data</label>
+            <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldDate")}</label>
             <input
               type="date"
               value={date}
@@ -409,7 +409,7 @@ export default function ScheduleMeetingDialog({
                   key={c}
                   type="button"
                   onClick={() => setColorIdx(i)}
-                  aria-label={`Color ${i + 1}`}
+                  aria-label={t("calendar.colorOption", { count: i + 1 })}
                   className={`w-8 h-8 rounded-lg ${c} ${
                     colorIdx === i ? "ring-2 ring-foreground/40" : ""
                   }`}

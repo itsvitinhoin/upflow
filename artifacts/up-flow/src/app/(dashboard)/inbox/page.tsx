@@ -36,6 +36,7 @@ type Filter =
   | "member_joined"
   | "status_changed"
   | "mentioned";
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
 const SNOOZED_NOTIFICATIONS_KEY = "upflow:snoozed-notifications";
 const SNOOZE_MS = 60 * 60 * 1000;
@@ -45,10 +46,10 @@ const ACTION_NEEDED_TYPES = new Set<Notification["type"]>([
   "due_soon",
 ]);
 
-const STATUS_LABEL: Record<string, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  done: "Done",
+const STATUS_KEY: Record<string, string> = {
+  todo: "status.todo",
+  in_progress: "status.inProgress",
+  done: "status.done",
 };
 
 function iconFor(type: string) {
@@ -63,7 +64,7 @@ function iconFor(type: string) {
   return <Clock className="w-4 h-4 text-upflow-warning" />;
 }
 
-function labelFor(n: Notification, language: "en" | "pt" | "pt-BR" = "en") {
+function labelFor(n: Notification, language: "en" | "pt" | "pt-BR", t: Translate) {
   if (n.type === "member_joined") {
     return memberJoinedNotificationLabel(n, language);
   }
@@ -73,35 +74,35 @@ function labelFor(n: Notification, language: "en" | "pt" | "pt-BR" = "en") {
     actor_name?: string;
     task_title?: string;
   };
-  const taskTitle = n.task?.title || data.task_title || "a task";
-  if (n.type === "assigned") return `You were assigned to "${taskTitle}"`;
-  if (n.type === "commented") return `New comment on "${taskTitle}"`;
-  if (n.type === "due_soon") return `"${taskTitle}" is due soon`;
+  const taskTitle = n.task?.title || data.task_title || t("inbox.aTask");
+  if (n.type === "assigned") return t("inbox.notification.assigned", { task: taskTitle });
+  if (n.type === "commented") return t("inbox.notification.commented", { task: taskTitle });
+  if (n.type === "due_soon") return t("inbox.notification.dueSoon", { task: taskTitle });
   if (n.type === "status_changed") {
-    const actor = data.actor_name || "Someone";
-    const newLabel = data.new_status ? STATUS_LABEL[data.new_status] ?? data.new_status : "a new status";
-    return `${actor} moved "${taskTitle}" to ${newLabel}`;
+    const actor = data.actor_name || t("inbox.someone");
+    const newLabel = data.new_status ? t(STATUS_KEY[data.new_status] ?? data.new_status) : t("inbox.newStatus");
+    return t("inbox.notification.statusChanged", { actor, task: taskTitle, status: newLabel });
   }
   if (n.type === "mentioned") {
     const data = (n.data ?? {}) as { actor_name?: string };
-    const actor = data.actor_name || "Someone";
-    return `${actor} mentioned you on "${taskTitle}"`;
+    const actor = data.actor_name || t("inbox.someone");
+    return t("inbox.notification.mentioned", { actor, task: taskTitle });
   }
   return taskTitle;
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, t: Translate, locale: string) {
   const now = Date.now();
   const then = new Date(iso).getTime();
   const diff = Math.max(0, now - then);
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return t("inbox.justNow");
+  if (m < 60) return t("inbox.minutesAgo", { count: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t("inbox.hoursAgo", { count: h });
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return formatDate(iso);
+  if (d < 7) return t("inbox.daysAgo", { count: d });
+  return formatDate(iso, locale);
 }
 
 function readSnoozedNotifications() {
@@ -125,7 +126,8 @@ function writeSnoozedNotifications(value: Record<string, number>) {
 }
 
 export default function InboxPage() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
@@ -206,14 +208,14 @@ export default function InboxPage() {
         })
       )
     );
-    toast.success(`Marked ${unread.length} notification${unread.length === 1 ? "" : "s"} as read`);
+    toast.success(t("inbox.markedRead", { count: unread.length }));
   };
 
   const snoozeNotification = (id: string) => {
     const next = { ...readSnoozedNotifications(), [id]: Date.now() + SNOOZE_MS };
     writeSnoozedNotifications(next);
     setSnoozedUntil(next);
-    toast.success("Snoozed for 1 hour");
+    toast.success(t("inbox.snoozedForOneHour"));
   };
 
   const toggleAssistantPopups = () => {
@@ -225,36 +227,36 @@ export default function InboxPage() {
     setNotificationPreferences(next);
     toast.success(
       next.assistantPopups
-        ? "Assignment popups turned on"
-        : "Assignment popups turned off",
+        ? t("inbox.assignmentPopupsEnabled")
+        : t("inbox.assignmentPopupsDisabled"),
     );
   };
 
-  const tabs: { key: Filter; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "action_needed", label: "Action needed" },
-    { key: "unread", label: "Unread" },
-    { key: "assigned", label: "Assigned" },
-    { key: "mentioned", label: "Mentions" },
-    { key: "commented", label: "Comments" },
-    { key: "status_changed", label: "Status" },
-    { key: "due_soon", label: "Due soon" },
-    { key: "member_joined", label: "Joined" },
+  const tabs: { key: Filter; labelKey: string }[] = [
+    { key: "all", labelKey: "inbox.filter.all" },
+    { key: "action_needed", labelKey: "inbox.filter.actionNeeded" },
+    { key: "unread", labelKey: "inbox.filter.unread" },
+    { key: "assigned", labelKey: "inbox.filter.assigned" },
+    { key: "mentioned", labelKey: "inbox.filter.mentions" },
+    { key: "commented", labelKey: "inbox.filter.comments" },
+    { key: "status_changed", labelKey: "inbox.filter.status" },
+    { key: "due_soon", labelKey: "inbox.filter.dueSoon" },
+    { key: "member_joined", labelKey: "inbox.filter.joined" },
   ];
 
   return (
     <>
-      <Header title="Inbox" />
+      <Header title={t("inbox.title")} />
       <div className="mx-auto max-w-3xl space-y-4 overflow-x-hidden p-4 sm:p-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2 flex-wrap">
-            {tabs.map((t) => {
-              const active = filter === t.key;
-              const count = counts[t.key];
+            {tabs.map((tab) => {
+              const active = filter === tab.key;
+              const count = counts[tab.key];
               return (
                 <button
-                  key={t.key}
-                  onClick={() => setFilter(t.key)}
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
                   className={cn(
                     "px-3 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center gap-1.5",
                     active
@@ -262,7 +264,7 @@ export default function InboxPage() {
                       : "bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
                   )}
                 >
-                  {t.label}
+                  {t(tab.labelKey)}
                   <span
                     className={cn(
                       "tabular-nums text-[10px] px-1.5 rounded-full",
@@ -281,38 +283,40 @@ export default function InboxPage() {
               className="flex items-center gap-1.5 text-xs text-primary hover:underline"
             >
               <CheckCheck className="w-3.5 h-3.5" />
-              Mark all read
+              {t("inbox.markAllRead")}
             </button>
           )}
           <button
             onClick={toggleAssistantPopups}
             className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-sky-400/35 hover:bg-sky-400/10 hover:text-foreground"
           >
-            Assignment popups: {notificationPreferences.assistantPopups ? "On" : "Off"}
+            {notificationPreferences.assistantPopups
+              ? t("inbox.assignmentPopupsOn")
+              : t("inbox.assignmentPopupsOff")}
           </button>
         </div>
 
         <section className="glass rounded-2xl overflow-hidden">
           {loading ? (
             <div className="py-16 text-center text-sm text-muted-foreground">
-              Loading…
+              {t("common.loading")}
             </div>
           ) : visible.length === 0 ? (
             <div className="py-16 text-center">
               <InboxIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
               <p className="text-sm font-medium text-foreground">
                 {filter === "unread"
-                  ? "No unread notifications"
+                  ? t("inbox.emptyUnreadTitle")
                   : filter === "action_needed"
-                    ? "No action needed"
-                    : "Nothing here yet"}
+                    ? t("inbox.emptyActionNeededTitle")
+                    : t("inbox.emptyTitle")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {filter === "unread"
-                  ? "You're all caught up."
+                  ? t("inbox.emptyUnreadBody")
                   : filter === "action_needed"
-                    ? "Assignments, mentions, and due-soon reminders will appear here."
-                    : "Mentions, replies, and assignments will appear here."}
+                    ? t("inbox.emptyActionNeededBody")
+                    : t("inbox.emptyBody")}
               </p>
             </div>
           ) : (
@@ -330,7 +334,7 @@ export default function InboxPage() {
                     <div className="mt-0.5 flex-shrink-0">{iconFor(n.type)}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground leading-snug">
-                        {labelFor(n, language)}
+                        {labelFor(n, language, t)}
                       </p>
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                         {n.task?.project?.name ? (
@@ -344,7 +348,7 @@ export default function InboxPage() {
                             <span>·</span>
                           </>
                         ) : null}
-                        <span>{timeAgo(n.created_at)}</span>
+                        <span>{timeAgo(n.created_at, t, locale)}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -358,7 +362,7 @@ export default function InboxPage() {
                             }}
                             className="text-[11px] text-primary hover:underline"
                           >
-                            Mark read
+                            {t("inbox.markRead")}
                           </button>
                           <button
                             onClick={(e) => {
@@ -368,7 +372,7 @@ export default function InboxPage() {
                             }}
                             className="text-[11px] text-muted-foreground hover:text-primary hover:underline"
                           >
-                            Snooze 1h
+                            {t("inbox.snoozeOneHour")}
                           </button>
                           <span className="w-2 h-2 rounded-full bg-primary mt-0.5" />
                         </>
@@ -381,7 +385,7 @@ export default function InboxPage() {
                           }}
                           className="text-[11px] text-muted-foreground hover:text-primary hover:underline"
                         >
-                          Snooze 1h
+                          {t("inbox.snoozeOneHour")}
                         </button>
                       ) : null}
                     </div>

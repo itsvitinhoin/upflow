@@ -9,10 +9,13 @@ import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-pan
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import type { Company, CompanyContact, CompanyNote, TimeEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 type ClientPayload = Company & { time_entries?: TimeEntry[] };
 
 export default function ClientDetailPage() {
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const params = useParams();
   const id = (params?.id ?? "") as string;
   const [company, setCompany] = useState<ClientPayload | null>(null);
@@ -71,7 +74,7 @@ export default function ClientDetailPage() {
     try {
       const payload = (await res.json()) as { error?: string };
       if (payload.error === "Forbidden") {
-        return "You do not have permission to manage this client record.";
+        return t("clientDetail.permissionDenied");
       }
       return payload.error || fallback;
     } catch {
@@ -101,9 +104,9 @@ export default function ClientDetailPage() {
       setContactName("");
       setContactEmail("");
       await loadCompany({ silent: true });
-      showClientMutationSuccess("Contact added.");
+      showClientMutationSuccess(t("clientDetail.contactAdded"));
     } else {
-      showClientMutationError(await parseErrorMessage(res, "Could not add contact. Check the fields and try again."));
+      showClientMutationError(await parseErrorMessage(res, t("clientDetail.couldNotAddContact")));
     }
     setPendingClientAction(null);
   };
@@ -121,9 +124,9 @@ export default function ClientDetailPage() {
     if (res.ok) {
       setNoteBody("");
       await loadCompany({ silent: true });
-      showClientMutationSuccess("Note added.");
+      showClientMutationSuccess(t("clientDetail.noteAdded"));
     } else {
-      showClientMutationError(await parseErrorMessage(res, "Could not add note. Add note text and try again."));
+      showClientMutationError(await parseErrorMessage(res, t("clientDetail.couldNotAddNote")));
     }
     setPendingClientAction(null);
   };
@@ -131,7 +134,7 @@ export default function ClientDetailPage() {
   const saveContact = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!editingContact?.name.trim()) {
-      showClientMutationError("Contact name is required.");
+      showClientMutationError(t("clientDetail.contactNameRequired"));
       return;
     }
     setPendingClientAction(`contact:update:${editingContact.id}`);
@@ -149,23 +152,23 @@ export default function ClientDetailPage() {
     if (res.ok) {
       setEditingContact(null);
       await loadCompany({ silent: true });
-      showClientMutationSuccess("Contact updated.");
+      showClientMutationSuccess(t("clientDetail.contactUpdated"));
     } else {
-      showClientMutationError(await parseErrorMessage(res, "Could not update contact. Check the fields and try again."));
+      showClientMutationError(await parseErrorMessage(res, t("clientDetail.couldNotUpdateContact")));
     }
     setPendingClientAction(null);
   };
 
   const deleteContact = async (contact: CompanyContact) => {
-    if (!window.confirm(`Delete ${contact.name}? This cannot be undone.`)) return;
+    if (!window.confirm(t("clientDetail.deleteContactConfirm", { name: contact.name }))) return;
     setPendingClientAction(`contact:delete:${contact.id}`);
     setClientMutationError(null);
     const res = await fetch(`/api/companies/${id}/contacts/${contact.id}`, { method: "DELETE" });
     if (res.ok) {
       await loadCompany({ silent: true });
-      showClientMutationSuccess("Contact deleted.");
+      showClientMutationSuccess(t("clientDetail.contactDeleted"));
     } else {
-      showClientMutationError(await parseErrorMessage(res, "Could not delete contact."));
+      showClientMutationError(await parseErrorMessage(res, t("clientDetail.couldNotDeleteContact")));
     }
     setPendingClientAction(null);
   };
@@ -173,7 +176,7 @@ export default function ClientDetailPage() {
   const saveNote = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!editingNote?.body.trim()) {
-      showClientMutationError("Note text is required.");
+      showClientMutationError(t("clientDetail.noteRequired"));
       return;
     }
     setPendingClientAction(`note:update:${editingNote.id}`);
@@ -186,23 +189,23 @@ export default function ClientDetailPage() {
     if (res.ok) {
       setEditingNote(null);
       await loadCompany({ silent: true });
-      showClientMutationSuccess("Note updated.");
+      showClientMutationSuccess(t("clientDetail.noteUpdated"));
     } else {
-      showClientMutationError(await parseErrorMessage(res, "Could not update note."));
+      showClientMutationError(await parseErrorMessage(res, t("clientDetail.couldNotUpdateNote")));
     }
     setPendingClientAction(null);
   };
 
   const deleteNote = async (note: CompanyNote) => {
-    if (!window.confirm("Delete this note? This cannot be undone.")) return;
+    if (!window.confirm(t("clientDetail.deleteNoteConfirm"))) return;
     setPendingClientAction(`note:delete:${note.id}`);
     setClientMutationError(null);
     const res = await fetch(`/api/companies/${id}/notes/${note.id}`, { method: "DELETE" });
     if (res.ok) {
       await loadCompany({ silent: true });
-      showClientMutationSuccess("Note deleted.");
+      showClientMutationSuccess(t("clientDetail.noteDeleted"));
     } else {
-      showClientMutationError(await parseErrorMessage(res, "Could not delete note."));
+      showClientMutationError(await parseErrorMessage(res, t("clientDetail.couldNotDeleteNote")));
     }
     setPendingClientAction(null);
   };
@@ -230,7 +233,7 @@ export default function ClientDetailPage() {
 
     if (!res.ok) {
       setSavingPlan(false);
-      setPlanError("Could not save service plan. Try again.");
+      setPlanError(t("clientDetail.couldNotSavePlan"));
       return;
     }
 
@@ -246,7 +249,7 @@ export default function ClientDetailPage() {
   if (loading || !company) {
     return (
       <>
-        <Header title="Client" />
+        <Header title={t("clientDetail.title")} />
         <div className="space-y-4 p-4 sm:p-6" role="status" aria-busy="true">
           <div className="h-32 animate-pulse rounded-xl bg-white/5" />
           <div className="grid gap-4 lg:grid-cols-3">
@@ -259,7 +262,7 @@ export default function ClientDetailPage() {
     );
   }
   const summary = company.summary;
-  const clientHealth = getClientHealth(company);
+  const clientHealth = getClientHealth(company, t);
 
   return (
     <>
@@ -272,7 +275,7 @@ export default function ClientDetailPage() {
                 <Building2 className="h-6 w-6" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Client</p>
+                <p className="text-xs text-muted-foreground">{t("clientDetail.title")}</p>
                 <h2 className="break-words text-2xl font-bold text-foreground">{company.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {company.commercial_status || company.status}
@@ -281,11 +284,11 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <div className="grid gap-2 text-left text-xs text-muted-foreground sm:text-right">
-              <span>Contract: {money(company.contract_value)}</span>
-              <span>Commission: {money(company.commission)}</span>
+              <span>{t("clientDetail.contract", { value: money(company.contract_value, locale, t) })}</span>
+              <span>{t("clientDetail.commission", { value: money(company.commission, locale, t) })}</span>
               {company.website && (
                 <a href={company.website} className="text-primary hover:underline" target="_blank" rel="noreferrer">
-                  Website
+                  {t("clientDetail.website")}
                 </a>
               )}
               <Link
@@ -293,7 +296,7 @@ export default function ClientDetailPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-foreground hover:bg-white/5"
               >
                 <FileText className="h-4 w-4" />
-                Report workflow
+                {t("clientDetail.reportWorkflow")}
               </Link>
               <button
                 type="button"
@@ -301,7 +304,7 @@ export default function ClientDetailPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <Plus className="h-4 w-4" />
-                New project
+                {t("clientDetail.newProject")}
               </button>
             </div>
           </div>
@@ -312,29 +315,29 @@ export default function ClientDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-                  Client operations snapshot
+                  {t("clientDetail.snapshot")}
                 </p>
                 <h3 className="mt-2 text-lg font-semibold text-foreground">
-                  Plan, delivery, deadline, and owner context
+                  {t("clientDetail.snapshotTitle")}
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Built only from linked projects, tasks, contacts, activity, and commercial fields.
+                  {t("clientDetail.snapshotDescription")}
                 </p>
               </div>
               <StatusPill status={clientHealth.status} />
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <PlanFact label="Plan" value={company.plan_name || "Not set"} hint={company.service_type || "Service type not set"} />
+              <PlanFact label={t("clientDetail.plan")} value={company.plan_name || t("clientHealth.notSet")} hint={company.service_type || t("clientDetail.serviceTypeNotSet")} />
               <PlanFact
-                label="Next deadline"
-                value={summary?.next_deadline ? formatDate(summary.next_deadline) : "Not scheduled"}
-                hint="From linked project or open task due dates"
+                label={t("clientHealth.nextDeadline")}
+                value={summary?.next_deadline ? formatDate(summary.next_deadline, locale) : t("clientDetail.notScheduled")}
+                hint={t("clientDetail.deadlineHint")}
               />
-              <PlanFact label="Client owner" value={company.owner?.name ?? "Not assigned"} hint={company.owner?.email ?? "Assign owner for accountability"} />
+              <PlanFact label={t("clientDetail.clientOwner")} value={company.owner?.name ?? t("clientHealth.notAssigned")} hint={company.owner?.email ?? t("clientDetail.assignOwnerHint")} />
               <PlanFact
-                label="Delivery load"
-                value={`${summary?.open_task_count ?? 0} open`}
-                hint={`${summary?.project_count ?? 0} linked projects`}
+                label={t("clientDetail.deliveryLoad")}
+                value={t("clientDetail.openCount", { count: summary?.open_task_count ?? 0 })}
+                hint={t("clientDetail.linkedProjects", { count: summary?.project_count ?? 0 })}
               />
             </div>
           </div>
@@ -342,7 +345,7 @@ export default function ClientDetailPage() {
           <div className="glass rounded-xl p-5">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <AlertCircle className="h-4 w-4 text-upflow-warning" />
-              Health trace
+              {t("clientDetail.healthTrace")}
             </h3>
             {clientHealth.reasons.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -354,7 +357,7 @@ export default function ClientDetailPage() {
               </div>
             ) : (
               <p className="mt-3 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-3 text-xs text-muted-foreground">
-                No traceable client health issues from current records.
+                {t("clientDetail.noTraceableHealthIssues")}
               </p>
             )}
           </div>
@@ -362,42 +365,42 @@ export default function ClientDetailPage() {
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard
-            label="Open work"
+            label={t("clientDetail.openWork")}
             value={summary?.open_task_count ?? 0}
-            hint={`${summary?.overdue_task_count ?? 0} overdue`}
+            hint={t("clientDetail.overdueCount", { count: summary?.overdue_task_count ?? 0 })}
             icon={<CheckSquare className="h-4 w-4" />}
             danger={(summary?.overdue_task_count ?? 0) > 0}
           />
           <MetricCard
-            label="Tracked time"
-            value={formatSeconds(summary?.tracked_seconds ?? 0)}
-            hint="Linked project time only"
+            label={t("clientHealth.trackedTime")}
+            value={formatSeconds(summary?.tracked_seconds ?? 0, t)}
+            hint={t("clientDetail.linkedProjectTime")}
             icon={<Timer className="h-4 w-4" />}
           />
           <MetricCard
-            label="Contract value"
-            value={money(company.contract_value)}
-            hint={`Commission ${money(company.commission)}`}
+            label={t("clientDetail.contractValue")}
+            value={money(company.contract_value, locale, t)}
+            hint={t("clientDetail.commission", { value: money(company.commission, locale, t) })}
             icon={<DollarSign className="h-4 w-4" />}
           />
           <MetricCard
-            label="Value / hour"
+            label={t("clientDetail.valuePerHour")}
             value={
               summary?.contract_value_per_tracked_hour != null
-                ? money(summary.contract_value_per_tracked_hour)
-                : "No tracked time"
+                ? money(summary.contract_value_per_tracked_hour, locale, t)
+                : t("clientDetail.noTrackedTime")
             }
             hint={
               summary?.commission_per_tracked_hour != null
-                ? `Commission / hour ${money(summary.commission_per_tracked_hour)}`
-                : "Track time to calculate profitability"
+                ? t("clientDetail.commissionPerHour", { value: money(summary.commission_per_tracked_hour, locale, t) })
+                : t("clientDetail.trackTimeHint")
             }
             icon={<TrendingUp className="h-4 w-4" />}
           />
           <MetricCard
-            label="Risk"
+            label={t("clientDetail.risk")}
             value={summary?.risk_reasons.length ?? 0}
-            hint={summary?.risk_reasons[0] ?? "No current client risk"}
+            hint={summary?.risk_reasons[0] ?? t("clientDetail.noCurrentRisk")}
             icon={<AlertCircle className="h-4 w-4" />}
             danger={(summary?.risk_reasons.length ?? 0) > 0}
           />
@@ -407,7 +410,7 @@ export default function ClientDetailPage() {
           <section className="rounded-xl border border-upflow-danger/20 bg-upflow-danger/10 p-4">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-upflow-danger">
               <AlertCircle className="h-4 w-4" />
-              Client risk checklist
+              {t("clientDetail.riskChecklist")}
             </h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {summary.risk_reasons.map((reason) => (
@@ -430,7 +433,7 @@ export default function ClientDetailPage() {
             <div>
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 <PackageCheck className="h-4 w-4" />
-                Services and plan
+                {t("clientDetail.servicesPlan")}
               </h3>
             </div>
             {editingPlan ? (
@@ -445,7 +448,7 @@ export default function ClientDetailPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5"
                 >
                   <X className="h-4 w-4" />
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   type="submit"
@@ -454,7 +457,7 @@ export default function ClientDetailPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Save className="h-4 w-4" />
-                  {savingPlan ? "Saving..." : "Save plan"}
+                  {savingPlan ? t("docs.saving") : t("clientDetail.savePlan")}
                 </button>
               </div>
             ) : (
@@ -464,7 +467,7 @@ export default function ClientDetailPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-foreground hover:bg-white/5"
               >
                 <Pencil className="h-4 w-4" />
-                Edit plan
+                {t("clientDetail.editPlan")}
               </button>
             )}
           </div>
@@ -472,54 +475,54 @@ export default function ClientDetailPage() {
           {editingPlan ? (
             <form id="client-plan-form" onSubmit={savePlan} className="mt-5 grid gap-4 lg:grid-cols-3">
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
-                Service type
+                {t("clientDetail.serviceType")}
                 <input
                   value={planForm.service_type}
                   onChange={(e) => setPlanForm((form) => ({ ...form, service_type: e.target.value }))}
-                  placeholder="Paid media, SEO, content..."
+                  placeholder={t("clientDetail.serviceTypePlaceholder")}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
                 />
               </label>
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
-                Plan
+                {t("clientDetail.plan")}
                 <input
                   value={planForm.plan_name}
                   onChange={(e) => setPlanForm((form) => ({ ...form, plan_name: e.target.value }))}
-                  placeholder="Starter, Growth, Premium..."
+                  placeholder={t("clientDetail.planPlaceholder")}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
                 />
               </label>
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
-                Billing cycle
+                {t("clientDetail.billingCycle")}
                 <select
                   value={planForm.billing_cycle}
                   onChange={(e) => setPlanForm((form) => ({ ...form, billing_cycle: e.target.value }))}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
                 >
-                  <option value="">Not set</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="annual">Annual</option>
-                  <option value="project">Per project</option>
+                  <option value="">{t("clientHealth.notSet")}</option>
+                  <option value="monthly">{t("clientDetail.monthly")}</option>
+                  <option value="quarterly">{t("clientDetail.quarterly")}</option>
+                  <option value="annual">{t("clientDetail.annual")}</option>
+                  <option value="project">{t("clientDetail.perProject")}</option>
                 </select>
               </label>
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground lg:col-span-2">
-                Included services
+                {t("clientDetail.includedServices")}
                 <textarea
                   value={planForm.included_services}
                   onChange={(e) => setPlanForm((form) => ({ ...form, included_services: e.target.value }))}
                   rows={4}
-                  placeholder={"Meta Ads management\nCreative approvals\nMonthly performance report"}
+                  placeholder={t("clientDetail.includedServicesPlaceholder")}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
                 />
               </label>
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
-                Plan notes
+                {t("clientDetail.planNotes")}
                 <textarea
                   value={planForm.plan_notes}
                   onChange={(e) => setPlanForm((form) => ({ ...form, plan_notes: e.target.value }))}
                   rows={4}
-                  placeholder="Limits, add-ons, renewal terms..."
+                  placeholder={t("clientDetail.planNotesPlaceholder")}
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
                 />
               </label>
@@ -527,10 +530,10 @@ export default function ClientDetailPage() {
             </form>
           ) : (
             <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_2fr]">
-              <PlanFact label="Service type" value={company.service_type || "Not set"} />
-              <PlanFact label="Plan" value={company.plan_name || "Not set"} hint={formatBillingCycle(company.billing_cycle)} />
+              <PlanFact label={t("clientDetail.serviceType")} value={company.service_type || t("clientHealth.notSet")} />
+              <PlanFact label={t("clientDetail.plan")} value={company.plan_name || t("clientHealth.notSet")} hint={formatBillingCycle(company.billing_cycle, t)} />
               <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">Included services</p>
+                <p className="text-xs font-semibold uppercase text-muted-foreground">{t("clientDetail.includedServices")}</p>
                 {company.included_services?.length ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {company.included_services.map((service) => (
@@ -540,7 +543,7 @@ export default function ClientDetailPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-muted-foreground">No services listed yet</p>
+                  <p className="mt-3 text-sm text-muted-foreground">{t("clientDetail.noServices")}</p>
                 )}
                 {company.plan_notes ? <p className="mt-4 text-sm text-muted-foreground">{company.plan_notes}</p> : null}
               </div>
@@ -551,47 +554,47 @@ export default function ClientDetailPage() {
         <ClientMutationFeedback error={clientMutationError} success={clientMutationSuccess} />
 
         <div className="grid gap-4 xl:grid-cols-3">
-          <Panel title="Contacts" icon={<Users className="h-4 w-4" />}>
+          <Panel title={t("clientDetail.contacts")} icon={<Users className="h-4 w-4" />}>
             <form onSubmit={addContact} className="grid gap-2">
-              <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder="Contact name" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="Email address" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder={t("clientDetail.contactName")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder={t("clientDetail.emailAddress")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
               <button
                 type="submit"
                 disabled={!contactName.trim() || pendingClientAction === "contact:create"}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Plus className="h-4 w-4" /> {pendingClientAction === "contact:create" ? "Adding..." : "Add contact"}
+                <Plus className="h-4 w-4" /> {pendingClientAction === "contact:create" ? t("clientDetail.adding") : t("clientDetail.addContact")}
               </button>
             </form>
-            <List items={company.contacts ?? []} empty="No contacts yet" render={(contact: CompanyContact) => (
+            <List items={company.contacts ?? []} empty={t("clientDetail.noContacts")} render={(contact: CompanyContact) => (
               editingContact?.id === contact.id ? (
                 <form onSubmit={saveContact} className="grid gap-2">
                   <input
                     value={editingContact.name}
                     onChange={(e) => setEditingContact((current) => current ? { ...current, name: e.target.value } : current)}
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
-                    aria-label="Contact name"
+                    aria-label={t("clientDetail.contactName")}
                   />
                   <input
                     value={editingContact.email}
                     onChange={(e) => setEditingContact((current) => current ? { ...current, email: e.target.value } : current)}
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
-                    aria-label="Contact email"
-                    placeholder="Email"
+                    aria-label={t("clientDetail.contactEmail")}
+                    placeholder={t("settings.email")}
                   />
                   <input
                     value={editingContact.phone}
                     onChange={(e) => setEditingContact((current) => current ? { ...current, phone: e.target.value } : current)}
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
-                    aria-label="Contact phone"
-                    placeholder="Phone"
+                    aria-label={t("clientDetail.contactPhone")}
+                    placeholder={t("settings.phone")}
                   />
                   <input
                     value={editingContact.role}
                     onChange={(e) => setEditingContact((current) => current ? { ...current, role: e.target.value } : current)}
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
-                    aria-label="Contact role"
-                    placeholder="Role"
+                    aria-label={t("clientDetail.contactRole")}
+                    placeholder={t("clientDetail.role")}
                   />
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -599,14 +602,14 @@ export default function ClientDetailPage() {
                       disabled={pendingClientAction === `contact:update:${contact.id}`}
                       className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
                     >
-                      <Save className="h-3.5 w-3.5" /> Save
+                      <Save className="h-3.5 w-3.5" /> {t("common.save")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingContact(null)}
                       className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-1.5 text-xs text-muted-foreground"
                     >
-                      <X className="h-3.5 w-3.5" /> Cancel
+                      <X className="h-3.5 w-3.5" /> {t("common.cancel")}
                     </button>
                   </div>
                 </form>
@@ -614,7 +617,7 @@ export default function ClientDetailPage() {
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="break-words text-sm font-medium text-foreground">{contact.name}</p>
-                    <p className="break-words text-xs text-muted-foreground">{contact.email || contact.phone || "No contact info"}</p>
+                    <p className="break-words text-xs text-muted-foreground">{contact.email || contact.phone || t("clientDetail.noContactInfo")}</p>
                     {contact.role ? <p className="mt-1 text-xs text-muted-foreground">{contact.role}</p> : null}
                   </div>
                   <div className="flex shrink-0 gap-1">
@@ -628,7 +631,7 @@ export default function ClientDetailPage() {
                         role: contact.role ?? "",
                       })}
                       className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
-                      aria-label={`Edit ${contact.name}`}
+                      aria-label={t("clientDetail.editContact", { name: contact.name })}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -637,7 +640,7 @@ export default function ClientDetailPage() {
                       onClick={() => deleteContact(contact)}
                       disabled={pendingClientAction === `contact:delete:${contact.id}`}
                       className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
-                      aria-label={`Delete ${contact.name}`}
+                      aria-label={t("clientDetail.deleteContact", { name: contact.name })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -647,8 +650,8 @@ export default function ClientDetailPage() {
             )} />
           </Panel>
 
-          <Panel title="Linked work" icon={<FolderKanban className="h-4 w-4" />}>
-            <List items={company.projects ?? []} empty="No linked projects" render={(project) => (
+          <Panel title={t("clientDetail.linkedWork")} icon={<FolderKanban className="h-4 w-4" />}>
+            <List items={company.projects ?? []} empty={t("clientDetail.noLinkedProjects")} render={(project) => (
               <Link href={`/projects/${project.id}`} className="block">
                 <p className="text-sm font-medium text-foreground">{project.name}</p>
                 <p className="text-xs text-muted-foreground">{project.status}</p>
@@ -656,26 +659,26 @@ export default function ClientDetailPage() {
             )} />
             <div className="mt-4 border-t border-white/5 pt-4">
               <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
-                <CheckSquare className="h-3.5 w-3.5" /> Tasks
+                <CheckSquare className="h-3.5 w-3.5" /> {t("clientDetail.tasks")}
               </h4>
-              <List items={company.tasks ?? []} empty="No linked tasks" render={(task) => (
+              <List items={company.tasks ?? []} empty={t("clientDetail.noLinkedTasks")} render={(task) => (
                 <p className="text-sm text-foreground">{task.title}</p>
               )} />
             </div>
           </Panel>
 
-          <Panel title="Notes" icon={<FileText className="h-4 w-4" />}>
+          <Panel title={t("clientDetail.notes")} icon={<FileText className="h-4 w-4" />}>
             <form onSubmit={addNote} className="grid gap-2">
-              <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} placeholder="Add a note" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+              <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} placeholder={t("clientDetail.addNote")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
               <button
                 type="submit"
                 disabled={!noteBody.trim() || pendingClientAction === "note:create"}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Plus className="h-4 w-4" /> {pendingClientAction === "note:create" ? "Adding..." : "Add note"}
+                <Plus className="h-4 w-4" /> {pendingClientAction === "note:create" ? t("clientDetail.adding") : t("clientDetail.addNote")}
               </button>
             </form>
-            <List items={company.notes_log ?? []} empty="No notes yet" render={(note: CompanyNote) => (
+            <List items={company.notes_log ?? []} empty={t("clientDetail.noNotes")} render={(note: CompanyNote) => (
               editingNote?.id === note.id ? (
                 <form onSubmit={saveNote} className="grid gap-2">
                   <textarea
@@ -683,7 +686,7 @@ export default function ClientDetailPage() {
                     onChange={(e) => setEditingNote((current) => current ? { ...current, body: e.target.value } : current)}
                     rows={3}
                     className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm"
-                    aria-label="Note text"
+                    aria-label={t("clientDetail.noteText")}
                   />
                   <div className="flex flex-wrap gap-2">
                     <button
@@ -691,14 +694,14 @@ export default function ClientDetailPage() {
                       disabled={pendingClientAction === `note:update:${note.id}`}
                       className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
                     >
-                      <Save className="h-3.5 w-3.5" /> Save
+                      <Save className="h-3.5 w-3.5" /> {t("common.save")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingNote(null)}
                       className="inline-flex items-center gap-2 rounded-md border border-white/10 px-3 py-1.5 text-xs text-muted-foreground"
                     >
-                      <X className="h-3.5 w-3.5" /> Cancel
+                      <X className="h-3.5 w-3.5" /> {t("common.cancel")}
                     </button>
                   </div>
                 </form>
@@ -706,14 +709,14 @@ export default function ClientDetailPage() {
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="break-words text-sm text-foreground">{note.body}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? "Unknown"} - {formatDate(note.created_at)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? t("clientDetail.unknown")} - {formatDate(note.created_at, locale)}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <button
                       type="button"
                       onClick={() => setEditingNote({ id: note.id, body: note.body })}
                       className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
-                      aria-label="Edit note"
+                      aria-label={t("clientDetail.editNote")}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
@@ -722,7 +725,7 @@ export default function ClientDetailPage() {
                       onClick={() => deleteNote(note)}
                       disabled={pendingClientAction === `note:delete:${note.id}`}
                       className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
-                      aria-label="Delete note"
+                      aria-label={t("clientDetail.deleteNote")}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -734,19 +737,19 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <Panel title="Meetings" icon={<Calendar className="h-4 w-4" />}>
-            <List items={company.calendar_events ?? []} empty="No linked meetings" render={(event) => (
+          <Panel title={t("clientDetail.meetings")} icon={<Calendar className="h-4 w-4" />}>
+            <List items={company.calendar_events ?? []} empty={t("clientDetail.noLinkedMeetings")} render={(event) => (
               <div>
                 <p className="text-sm font-medium text-foreground">{event.title}</p>
-                <p className="text-xs text-muted-foreground">{formatDate(event.starts_at)}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(event.starts_at, locale)}</p>
               </div>
             )} />
           </Panel>
-          <Panel title="Activity" icon={<RefreshCcw className="h-4 w-4" />}>
-            <List items={company.activity_events ?? []} empty="No client activity" render={(event) => (
+          <Panel title={t("clientDetail.activity")} icon={<RefreshCcw className="h-4 w-4" />}>
+            <List items={company.activity_events ?? []} empty={t("clientDetail.noClientActivity")} render={(event) => (
               <div>
                 <p className="text-sm font-medium text-foreground">{event.type.replaceAll("_", " ")}</p>
-                <p className="text-xs text-muted-foreground">{formatDate(event.created_at)}</p>
+                <p className="text-xs text-muted-foreground">{formatDate(event.created_at, locale)}</p>
               </div>
             )} />
           </Panel>
@@ -813,6 +816,7 @@ function PlanFact({ label, value, hint }: { label: string; value: string; hint?:
 }
 
 function StatusPill({ status }: { status: "healthy" | "attention" | "risk" | "not_enough_data" }) {
+  const { t } = useLanguage();
   const styles = {
     healthy: "bg-upflow-success/15 text-upflow-success",
     attention: "bg-upflow-warning/15 text-upflow-warning",
@@ -820,10 +824,10 @@ function StatusPill({ status }: { status: "healthy" | "attention" | "risk" | "no
     not_enough_data: "bg-white/10 text-muted-foreground",
   };
   const labels = {
-    healthy: "Healthy",
-    attention: "Needs attention",
-    risk: "At risk",
-    not_enough_data: "Not enough data",
+    healthy: t("clientHealth.healthy"),
+    attention: t("clientHealth.needsAttention"),
+    risk: t("clientHealth.atRisk"),
+    not_enough_data: t("clientDetail.notEnoughData"),
   };
 
   return (
@@ -879,24 +883,43 @@ function cleanNullable(value: string) {
   return trimmed.length ? trimmed : null;
 }
 
-function formatBillingCycle(value: string | null) {
-  if (!value) return "Billing cycle not set";
-  return value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
+function formatBillingCycle(
+  value: string | null,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (!value) return t("clientDetail.billingCycleNotSet");
+  const labels: Record<string, string> = {
+    monthly: "clientDetail.monthly",
+    quarterly: "clientDetail.quarterly",
+    annual: "clientDetail.annual",
+    project: "clientDetail.perProject",
+  };
+  return labels[value] ? t(labels[value]) : value.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
-function money(value: number | null) {
-  if (value == null) return "Not set";
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(value);
+function money(
+  value: number | null,
+  locale: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (value == null) return t("clientHealth.notSet");
+  return new Intl.NumberFormat(locale, { style: "currency", currency: "USD" }).format(value);
 }
 
-function formatSeconds(totalSeconds: number) {
+function formatSeconds(
+  totalSeconds: number,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  if (hours > 0) return t("clientDetail.hoursMinutes", { hours, minutes });
+  return t("clientDetail.minutes", { minutes });
 }
 
-function getClientHealth(company: ClientPayload) {
+function getClientHealth(
+  company: ClientPayload,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
   const reasons = company.summary?.risk_reasons ?? [];
   const hasAnyClientOpsData = Boolean(
     company.plan_name ||
@@ -908,7 +931,7 @@ function getClientHealth(company: ClientPayload) {
   );
 
   if (!hasAnyClientOpsData) {
-    return { status: "not_enough_data" as const, reasons: ["Add plan, contacts, linked work, or activity"] };
+    return { status: "not_enough_data" as const, reasons: [t("clientDetail.addDataHealthHint")] };
   }
   if ((company.summary?.overdue_task_count ?? 0) > 0) {
     return { status: "risk" as const, reasons };

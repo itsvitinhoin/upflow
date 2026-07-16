@@ -124,6 +124,6 @@ test("client health center is linked from clients and supports scale controls", 
   assert.match(healthPage, /\/api\/companies\?limit=100/);
   assert.match(healthPage, /needs_attention/);
   assert.match(healthPage, /ClientHealthTable/);
-  assert.match(healthPage, /Needs attention queue/);
+  assert.match(healthPage, /t\("clientHealth\.attentionQueue"\)/);
   assert.match(healthPage, /value_per_hour/);
 });

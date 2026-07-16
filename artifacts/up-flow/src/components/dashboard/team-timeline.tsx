@@ -6,7 +6,9 @@ import { MoreHorizontal, Users2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CalendarEvent, TeamMember, TimeEntry } from "@/lib/types";
 import { appTimeInputValue, cn, formatLongDate, formatTime, getInitials } from "@/lib/utils";
+import type { Language } from "@/lib/i18n/translations";
 import { sameLocalDate } from "@/components/dashboard/dashboard-utils";
+import { useLanguage } from "@/components/language-provider";
 
 type TimelineBlock = {
   start: number;
@@ -16,6 +18,13 @@ type TimelineBlock = {
   endLabel: string;
   kind: "meeting" | "tracked_time";
 };
+
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+function timelineHourLabel(hour: number, language: Language) {
+  if (language === "pt-BR") return `${String(hour).padStart(2, "0")}:00`;
+  return `${hour % 12 || 12} ${hour >= 12 ? "PM" : "AM"}`;
+}
 
 function decimalHour(value: string) {
   const [hours, minutes] = appTimeInputValue(value).split(":").map(Number);
@@ -40,6 +49,8 @@ function buildTimelineRowsFromData(
   users: TeamMember[],
   timeEntries: TimeEntry[],
   events: CalendarEvent[],
+  t: Translate,
+  locale: string,
 ) {
   const today = new Date();
   const colors = [
@@ -67,9 +78,9 @@ function buildTimelineRowsFromData(
         if (block) {
           blocks.push({
             ...block,
-            label: entry.project?.name ?? "Tracked time",
-            startLabel: formatTime(entry.started_at),
-            endLabel: entry.stopped_at ? formatTime(entry.stopped_at) : formatTime(new Date()),
+            label: entry.project?.name ?? t("timeline.trackedTime"),
+            startLabel: formatTime(entry.started_at, locale),
+            endLabel: entry.stopped_at ? formatTime(entry.stopped_at, locale) : formatTime(new Date(), locale),
             kind: "tracked_time",
           });
         }
@@ -89,10 +100,10 @@ function buildTimelineRowsFromData(
           blocks.push({
             ...block,
             label: event.title,
-            startLabel: formatTime(event.starts_at),
+            startLabel: formatTime(event.starts_at, locale),
             endLabel: event.ends_at
-              ? formatTime(event.ends_at)
-              : formatTime(new Date(new Date(event.starts_at).getTime() + 30 * 60 * 1000)),
+              ? formatTime(event.ends_at, locale)
+              : formatTime(new Date(new Date(event.starts_at).getTime() + 30 * 60 * 1000), locale),
             kind: "meeting",
           });
         }
@@ -117,6 +128,8 @@ export function TeamTimeline({
   timeEntries: TimeEntry[];
   events: CalendarEvent[];
 }) {
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const focusedLabel = null as string | null;
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
   const totalHours = 11;
@@ -130,8 +143,8 @@ export function TeamTimeline({
   useEffect(() => {
     const now = new Date();
     setCurrentHour(now.getHours());
-    setTodayLabel(formatLongDate(now));
-  }, []);
+    setTodayLabel(formatLongDate(now, locale));
+  }, [locale]);
 
   useEffect(() => {
     function handle(e: MouseEvent) {
@@ -144,8 +157,8 @@ export function TeamTimeline({
   }, [optionsOpen]);
 
   const rows = useMemo(
-    () => buildTimelineRowsFromData(users, timeEntries, events),
-    [users, timeEntries, events],
+    () => buildTimelineRowsFromData(users, timeEntries, events, t, locale),
+    [users, timeEntries, events, t, locale],
   );
   const scheduledBlocks = rows.reduce((sum, row) => sum + row.blocks.length, 0);
 
@@ -163,10 +176,10 @@ export function TeamTimeline({
             </span>
             <div className="min-w-0">
               <h3 className="text-base font-semibold text-foreground">
-                Team timeline
+                {t("timeline.title")}
               </h3>
               <p className="text-xs text-muted-foreground">
-                Live schedule from meetings and tracked time
+                {t("timeline.subtitle")}
               </p>
             </div>
           </div>
@@ -176,7 +189,7 @@ export function TeamTimeline({
               <>
                 {" - "}
                 <span className="text-primary">
-                  Showing {focusedLabel.toLowerCase()}s
+                  {t("timeline.showing", { label: focusedLabel.toLowerCase() })}
                 </span>
               </>
             )}
@@ -187,7 +200,7 @@ export function TeamTimeline({
                   onClick={() => setFocusHour(null)}
                   className="text-primary hover:underline"
                 >
-                  Clear focus
+                  {t("timeline.clearFocus")}
                 </button>
               </>
             )}
@@ -196,15 +209,15 @@ export function TeamTimeline({
 
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground">
-            {rows.length} people
+            {t("timeline.peopleCount", { count: rows.length })}
           </span>
           <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.14)]">
-            {scheduledBlocks} blocks
+            {t("timeline.blocksCount", { count: scheduledBlocks })}
           </span>
           <div className="relative" ref={optionsRef}>
             <button
               onClick={() => setOptionsOpen((v) => !v)}
-              aria-label="Timeline options"
+              aria-label={t("timeline.options")}
               aria-expanded={optionsOpen}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
@@ -225,7 +238,7 @@ export function TeamTimeline({
                   }}
                   className="w-full px-3 py-2 text-left hover:bg-white/5 disabled:opacity-40 focus:outline-none focus-visible:bg-white/10"
                 >
-                  Clear focus window
+                  {t("timeline.clearFocusWindow")}
                 </button>
                 <button
                   role="menuitem"
@@ -236,7 +249,7 @@ export function TeamTimeline({
                   }}
                   className="w-full border-t border-white/5 px-3 py-2 text-left hover:bg-white/5 focus:outline-none focus-visible:bg-white/10"
                 >
-                  {compact ? "Comfortable density" : "Compact density"}
+                  {compact ? t("timeline.comfortableDensity") : t("timeline.compactDensity")}
                 </button>
                 <Link
                   role="menuitem"
@@ -244,7 +257,7 @@ export function TeamTimeline({
                   onClick={() => setOptionsOpen(false)}
                   className="block w-full border-t border-white/5 px-3 py-2 text-left hover:bg-white/5 focus:outline-none focus-visible:bg-white/10"
                 >
-                  Open team page
+                  {t("timeline.openTeamPage")}
                 </Link>
               </div>
             )}
@@ -262,9 +275,7 @@ export function TeamTimeline({
               key={h}
               onClick={() => setFocusHour((f) => (f === h ? null : h))}
               aria-pressed={isFocus}
-              title={`Focus around ${
-                h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`
-              }`}
+              title={t("timeline.focusAround", { hour: timelineHourLabel(h, language) })}
               className={cn(
                 "min-w-[48px] flex-1 rounded-xl px-2 py-2 text-center text-xs font-medium transition-all hover:text-foreground",
                 isFocus
@@ -276,7 +287,7 @@ export function TeamTimeline({
                       : "bg-white/[0.06] text-muted-foreground hover:bg-white/10",
               )}
             >
-              {h > 12 ? `${h - 12}pm` : h === 12 ? "12pm" : `${h}am`}
+              {timelineHourLabel(h, language)}
             </button>
           );
         })}
@@ -285,11 +296,11 @@ export function TeamTimeline({
       <div className={cn("mt-2", compact ? "space-y-1" : "space-y-2")}>
         {loading ? (
           <div className="py-4 text-center text-xs text-muted-foreground">
-            Loading...
+            {t("timeline.loading")}
           </div>
         ) : rows.length === 0 ? (
           <div className="py-4 text-center text-xs text-muted-foreground">
-            No teammates to show
+            {t("timeline.noTeammates")}
           </div>
         ) : (
           rows.map(({ user: u, blocks, color }) => {
@@ -299,7 +310,7 @@ export function TeamTimeline({
             return (
               <button
                 key={u.id}
-                onClick={() => toast(`Open ${u.name}'s schedule`)}
+                onClick={() => toast(t("timeline.openSchedule", { name: u.name }))}
                 className={cn(
                   "-mx-1 flex w-full items-center gap-3 rounded-xl p-1 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
                   !rowMatches && "opacity-30",
@@ -342,7 +353,11 @@ export function TeamTimeline({
                     const dimByHour =
                       focusHour !== null &&
                       !(b.start <= focusHour + 2 && b.end >= focusHour - 2);
-                    const tooltip = `${u.name} - ${b.label} - ${b.startLabel} to ${b.endLabel}`;
+                    const timeRange = t("timeline.timeRange", {
+                      start: b.startLabel,
+                      end: b.endLabel,
+                    });
+                    const tooltip = `${u.name} - ${b.label} - ${timeRange}`;
                     return (
                       <div
                         key={i}
@@ -364,7 +379,7 @@ export function TeamTimeline({
                         <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-40 hidden min-w-64 max-w-96 -translate-x-1/2 rounded-lg border border-border bg-popover/95 px-3 py-2 text-left text-[11px] font-medium text-popover-foreground shadow-lg backdrop-blur-xl group-hover:block group-focus-within:block dark:border-blue-300/20 dark:bg-[#070b18]/95 dark:shadow-[0_18px_46px_rgba(0,0,0,0.5)]">
                           <span className="block truncate text-blue-100">{b.label}</span>
                           <span className="mt-0.5 block text-muted-foreground">
-                            {u.name} - {b.startLabel} to {b.endLabel}
+                            {u.name} - {timeRange}
                           </span>
                         </span>
                       </div>

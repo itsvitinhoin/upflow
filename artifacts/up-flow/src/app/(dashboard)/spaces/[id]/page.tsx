@@ -296,7 +296,10 @@ export default function SpaceContainerPage() {
                   {space.name}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  {departmentPreset?.description ?? `${space.icon || "Space"} command center`}
+                  {departmentPreset?.description ??
+                    t("space.commandCenterFallback", {
+                      icon: space.icon || t("space.defaultIcon"),
+                    })}
                 </p>
               </div>
             </div>

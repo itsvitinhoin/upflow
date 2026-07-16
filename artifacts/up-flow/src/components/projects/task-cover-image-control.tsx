@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Link2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useLanguage } from "@/components/language-provider";
 
 interface TaskCoverImageControlProps {
   value: string | null | undefined;
@@ -26,6 +27,7 @@ export default function TaskCoverImageControl({
   onChange,
   disabled = false,
 }: TaskCoverImageControlProps) {
+  const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [url, setUrl] = useState(value?.startsWith("data:") ? "" : value ?? "");
   const [saving, setSaving] = useState(false);
@@ -50,7 +52,7 @@ export default function TaskCoverImageControl({
       return;
     }
     if (!isImageUrl(trimmed)) {
-      toast.error("Use an image URL or upload an image file");
+      toast.error(t("taskCover.invalidImage"));
       return;
     }
     await save(trimmed);
@@ -59,11 +61,11 @@ export default function TaskCoverImageControl({
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Choose an image file");
+      toast.error(t("taskCover.chooseImage"));
       return;
     }
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("Image is too large. Use an image under 2 MB.");
+      toast.error(t("taskCover.imageTooLarge"));
       return;
     }
     setSaving(true);
@@ -76,13 +78,13 @@ export default function TaskCoverImageControl({
       });
       const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
-        throw new Error(data.error || "Could not upload image");
+        throw new Error(data.error || t("taskCover.couldNotUpload"));
       }
       setUrl("");
       await onChange(data.url);
-      toast.success("Cover image uploaded");
+      toast.success(t("taskCover.uploaded"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not upload image");
+      toast.error(err instanceof Error ? err.message : t("taskCover.couldNotUpload"));
     } finally {
       setSaving(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -96,14 +98,14 @@ export default function TaskCoverImageControl({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
-            alt="Task cover"
+            alt={t("taskCover.alt")}
             className="aspect-video w-full object-cover"
             loading="lazy"
           />
         </div>
       ) : (
         <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
-          No cover image
+          {t("taskCover.none")}
         </div>
       )}
 
@@ -117,7 +119,7 @@ export default function TaskCoverImageControl({
               const currentUrlValue = value?.startsWith("data:") ? "" : value ?? "";
               if (currentUrlValue !== url.trim()) void applyUrl();
             }}
-            placeholder="Paste image URL..."
+            placeholder={t("taskCover.pasteUrl")}
             disabled={disabled || saving}
             className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
           />
@@ -136,7 +138,7 @@ export default function TaskCoverImageControl({
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-          Upload
+          {t("taskCover.upload")}
         </button>
         {value && (
           <button
@@ -147,15 +149,15 @@ export default function TaskCoverImageControl({
             }}
             disabled={disabled || saving}
             className="inline-flex items-center rounded-lg border border-border px-3 py-2 text-destructive hover:bg-destructive/10 disabled:opacity-60"
-            aria-label="Remove cover image"
-            title="Remove cover image"
+            aria-label={t("taskCover.remove")}
+            title={t("taskCover.remove")}
           >
             <Trash2 className="h-4 w-4" />
           </button>
         )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Upload stores the image in Supabase Storage, or paste an existing image URL.
+        {t("taskCover.help")}
       </p>
     </div>
   );

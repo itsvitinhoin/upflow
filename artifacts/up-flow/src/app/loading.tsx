@@ -1,4 +1,7 @@
+"use client";
+
 import { Loader2 } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 
 /**
  * Top-level loading fallback shown during initial route resolution
@@ -6,6 +9,7 @@ import { Loader2 } from "lucide-react";
  * their layouts (see `app/(dashboard)/loading.tsx`).
  */
 export default function RootLoading() {
+  const { t } = useLanguage();
   return (
     <div
       className="flex min-h-dvh w-full items-center justify-center bg-background text-muted-foreground"
@@ -13,7 +17,7 @@ export default function RootLoading() {
       aria-live="polite"
     >
       <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{t("common.loading")}</span>
     </div>
   );
 }

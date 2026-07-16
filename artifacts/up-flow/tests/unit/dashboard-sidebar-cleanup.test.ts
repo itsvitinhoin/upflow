@@ -23,7 +23,7 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(page, /components\/dashboard\/team-timeline/);
   assert.match(page, /agency-operations-panel/);
   assert.match(agencyPanel, /t\("dashboard\.agencyOperationsTitle"\)/);
-  assert.match(teamTimeline, /Live schedule from meetings and tracked time/);
+  assert.match(teamTimeline, /t\("timeline\.subtitle"\)/);
   assert.match(teamTimeline, /buildTimelineRowsFromData/);
   assert.match(teamTimeline, /appTimeInputValue/);
   assert.match(teamTimeline, /formatTime/);
@@ -42,7 +42,7 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(page, /components\/dashboard\/task-detail-modal/);
   assert.match(taskDetailModal, /aria-modal="true"/);
   assert.match(taskDetailModal, /focusables/);
-  assert.match(taskDetailModal, /Delete task/);
+  assert.match(taskDetailModal, /t\("task\.deleteTask"\)/);
 });
 
 test("desktop sidebar exposes a clear sliding drawer toggle", () => {

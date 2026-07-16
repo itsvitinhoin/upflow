@@ -98,9 +98,9 @@ export function SpaceNode({
         )}
         <button
           onClick={() => toggleCollapse(sp.id)}
-          aria-label={isCollapsed ? "Expand" : "Collapse"}
+          aria-label={t(isCollapsed ? "sidebar.expandSpace" : "sidebar.collapseSpace", { name: sp.name })}
           aria-expanded={!isCollapsed}
-          title={isCollapsed ? "Expand space" : "Collapse space"}
+          title={t(isCollapsed ? "sidebar.expandSpace" : "sidebar.collapseSpace", { name: sp.name })}
           className="relative z-10 flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:text-blue-100/[0.55] dark:hover:bg-white/10"
         >
           {isCollapsed ? (
@@ -157,7 +157,7 @@ export function SpaceNode({
               e.stopPropagation();
               setMenuOpenId((id) => (id === sp.id ? null : sp.id));
             }}
-            aria-label={`Actions for ${sp.name}`}
+            aria-label={t("sidebar.actionsFor", { name: sp.name })}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             data-menu-trigger
@@ -178,7 +178,7 @@ export function SpaceNode({
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5"
               >
-                <Plus className="w-3 h-3" /> New list
+                <Plus className="w-3 h-3" /> {t("folder.newList")}
               </button>
               <button
                 role="menuitem"
@@ -188,7 +188,7 @@ export function SpaceNode({
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5"
               >
-                <Folder className="w-3 h-3" /> New folder
+                <Folder className="w-3 h-3" /> {t("folder.newFolder")}
               </button>
               <button
                 role="menuitem"
@@ -198,7 +198,7 @@ export function SpaceNode({
                 }}
                 className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
               >
-                <Pencil className="w-3 h-3" /> Rename
+                <Pencil className="w-3 h-3" /> {t("common.rename")}
               </button>
               <button
                 role="menuitem"
@@ -218,7 +218,7 @@ export function SpaceNode({
                 }}
                 className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left text-upflow-danger hover:bg-upflow-danger/10 dark:border-white/5"
               >
-                <Trash2 className="w-3 h-3" /> Delete
+                <Trash2 className="w-3 h-3" /> {t("common.delete")}
               </button>
             </div>
           )}
@@ -233,7 +233,7 @@ export function SpaceNode({
               "rounded-xl border border-border/70 bg-muted/25 px-2 py-1.5 text-[11px] text-muted-foreground/70 italic dark:border-white/5 dark:bg-white/[0.15]",
               !isActive && !isSearching && "hidden",
             )}>
-              No folders or lists yet
+              {t("sidebar.noFoldersOrLists")}
             </p>
           )}
           {visibleFolders.map((f) => (
@@ -277,7 +277,7 @@ export function SpaceNode({
               onClick={onNavigate}
               className="block rounded-xl border border-primary/[0.35] bg-primary/[0.15] px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10 dark:border-blue-300/10 dark:text-blue-200 dark:hover:bg-blue-500/10"
             >
-              View all in space ({hiddenChildCount} more)
+              {t("sidebar.viewAllInSpace", { count: hiddenChildCount })}
             </Link>
           )}
         </div>
@@ -331,6 +331,7 @@ export function FolderNode({
   setCreateListFor,
   handleDeleteFolder,
 }: FolderNodeProps) {
+  const { t } = useLanguage();
   const fCollapsed = !!collapsed[f.id];
   const fMenuOpen = menuOpenId === f.id;
   const isActive = pathname === `/folders/${f.id}`;
@@ -355,9 +356,9 @@ export function FolderNode({
         )}
         <button
           onClick={() => toggleCollapse(f.id)}
-          aria-label={fCollapsed ? "Expand" : "Collapse"}
+          aria-label={t(fCollapsed ? "sidebar.expandFolder" : "sidebar.collapseFolder", { name: f.name })}
           aria-expanded={!fCollapsed}
-          title={fCollapsed ? "Expand folder" : "Collapse folder"}
+          title={t(fCollapsed ? "sidebar.expandFolder" : "sidebar.collapseFolder", { name: f.name })}
           className="relative z-10 flex h-6 w-5 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:hover:bg-white/10"
         >
           {fCollapsed ? (
@@ -403,7 +404,7 @@ export function FolderNode({
               e.stopPropagation();
               setMenuOpenId((id) => (id === f.id ? null : f.id));
             }}
-            aria-label={`Actions for ${f.name}`}
+            aria-label={t("sidebar.actionsFor", { name: f.name })}
             aria-haspopup="menu"
             aria-expanded={fMenuOpen}
             data-menu-trigger
@@ -424,7 +425,7 @@ export function FolderNode({
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5"
               >
-                <Plus className="w-3 h-3" /> New list
+                <Plus className="w-3 h-3" /> {t("folder.newList")}
               </button>
               <button
                 role="menuitem"
@@ -434,7 +435,7 @@ export function FolderNode({
                 }}
                 className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
               >
-                <Folder className="w-3 h-3" /> New folder
+                <Folder className="w-3 h-3" /> {t("folder.newFolder")}
               </button>
               <button
                 role="menuitem"
@@ -444,7 +445,7 @@ export function FolderNode({
                 }}
                 className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
               >
-                <Pencil className="w-3 h-3" /> Rename
+                <Pencil className="w-3 h-3" /> {t("common.rename")}
               </button>
               <button
                 role="menuitem"
@@ -454,7 +455,7 @@ export function FolderNode({
                 }}
                 className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left text-upflow-danger hover:bg-upflow-danger/10 dark:border-white/5"
               >
-                <Trash2 className="w-3 h-3" /> Delete
+                <Trash2 className="w-3 h-3" /> {t("common.delete")}
               </button>
             </div>
           )}
@@ -470,7 +471,7 @@ export function FolderNode({
                 !isActive && !isSearching && "hidden",
               )}
             >
-              No folders or lists yet
+              {t("sidebar.noFoldersOrLists")}
             </p>
           ) : (
             <>
@@ -515,7 +516,7 @@ export function FolderNode({
                   onClick={onNavigate}
                   className="block rounded-xl border border-primary/[0.35] bg-primary/[0.15] px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10 dark:border-blue-300/10 dark:text-blue-200 dark:hover:bg-blue-500/10"
                 >
-                  View all in folder ({hiddenChildCount} more)
+                  {t("sidebar.viewAllInFolder", { count: hiddenChildCount })}
                 </Link>
               )}
             </>
@@ -549,6 +550,7 @@ export function UnassignedNode({
   isSearching,
   canManageWorkspace,
 }: UnassignedNodeProps) {
+  const { t } = useLanguage();
   const id = "__unassigned__";
   const isCollapsed = !!collapsed[id];
   const visibleItems = isSearching ? items : items.slice(0, MAX_VISIBLE_CHILDREN);
@@ -558,9 +560,9 @@ export function UnassignedNode({
       <div className="flex items-center gap-1 rounded-xl px-1 py-1 transition-colors hover:bg-accent/70 dark:hover:bg-white/[0.15]">
         <button
           onClick={() => toggleCollapse(id)}
-          aria-label={isCollapsed ? "Expand" : "Collapse"}
+          aria-label={t(isCollapsed ? "sidebar.expandUnassignedLists" : "sidebar.collapseUnassignedLists")}
           aria-expanded={!isCollapsed}
-          title={isCollapsed ? "Expand unassigned lists" : "Collapse unassigned lists"}
+          title={t(isCollapsed ? "sidebar.expandUnassignedLists" : "sidebar.collapseUnassignedLists")}
           className="flex h-7 w-6 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:hover:bg-white/10"
         >
           {isCollapsed ? (
@@ -574,7 +576,7 @@ export function UnassignedNode({
           onClick={() => toggleCollapse(id)}
           className="min-w-0 flex-1 truncate rounded-lg px-1.5 py-1.5 text-left text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-primary/60 dark:focus-visible:bg-white/10"
         >
-          Unassigned
+          {t("sidebar.unassigned")}
         </button>
         <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground dark:bg-white/[0.15]">
           {items.length}
@@ -584,7 +586,7 @@ export function UnassignedNode({
         <div className="ml-6 mt-1 space-y-1 border-l border-border pl-3 dark:border-blue-300/10">
           {items.length === 0 ? (
             <p className="rounded-xl border border-border/70 bg-muted/25 px-2 py-1.5 text-[11px] italic text-muted-foreground/70 dark:border-white/5 dark:bg-white/[0.15]">
-              Nothing here
+              {t("sidebar.nothingHere")}
             </p>
           ) : (
             visibleItems.map((p) => (
@@ -605,7 +607,7 @@ export function UnassignedNode({
               onClick={onNavigate}
               className="block rounded-xl border border-primary/[0.35] bg-primary/[0.15] px-2 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/10 dark:border-blue-300/10 dark:text-blue-200 dark:hover:bg-blue-500/10"
             >
-              View all lists ({hiddenCount} more)
+              {t("sidebar.viewAllLists", { count: hiddenCount })}
             </Link>
           )}
         </div>

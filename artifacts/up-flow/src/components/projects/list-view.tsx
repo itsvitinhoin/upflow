@@ -126,7 +126,7 @@ export default function ListView({
               <button
                 type="button"
                 onClick={() => setCollapsed((p) => ({ ...p, [g.key]: !p[g.key] }))}
-                aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${g.label}`}
+                aria-label={`${isCollapsed ? t("common.expand") : t("common.collapse")} ${g.label}`}
                 aria-expanded={!isCollapsed}
                 className="text-muted-foreground hover:text-foreground p-0.5"
               >
@@ -226,7 +226,7 @@ export default function ListView({
                         )}
                         {(task._count?.subtasks ?? 0) > 0 && (
                           <span className="text-[10px] text-muted-foreground">
-                            {task._count?.subtasks} sub
+                            {t("task.subtasksCount", { count: task._count?.subtasks ?? 0 })}
                           </span>
                         )}
                       </div>

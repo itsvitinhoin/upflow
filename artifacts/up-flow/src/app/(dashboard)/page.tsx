@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppUser } from "@/components/user-provider";
@@ -102,7 +102,7 @@ export default function DashboardPage() {
     setGreeting(greetingTime());
   }, []);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     setLoadError(null);
     fetch("/api/dashboard/summary")
       .then(async (r) => {
@@ -110,7 +110,7 @@ export default function DashboardPage() {
           error?: string;
         };
         if (!r.ok) {
-          throw new Error(data.error || `Dashboard unavailable (${r.status})`);
+          throw new Error(data.error || t("dashboard.unavailableWithStatus", { status: r.status }));
         }
         return data;
       })
@@ -130,14 +130,14 @@ export default function DashboardPage() {
         setLoading(false);
       })
       .catch((err: unknown) => {
-        setLoadError(err instanceof Error ? err.message : "Dashboard unavailable");
+        setLoadError(err instanceof Error ? err.message : t("dashboard.unavailable"));
         setLoading(false);
       });
-  };
+  }, [t]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+  }, [loadData]);
   const handleOpenTask = (task: Task) => {
     const action = getOnboardingTaskAction(task, task.project_id);
     if (action) {
@@ -319,11 +319,10 @@ export default function DashboardPage() {
               <AlertCircle className="mt-1 h-5 w-5 flex-shrink-0 text-upflow-danger" />
               <div>
                 <h1 className="text-lg font-semibold text-foreground">
-                  Dashboard data could not load
+                  {t("dashboard.loadFailedTitle")}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {loadError}. Check database connectivity, workspace access, and
-                  the dashboard summary API.
+                  {t("dashboard.loadFailedBody", { error: loadError })}
                 </p>
                 <button
                   type="button"
@@ -331,7 +330,7 @@ export default function DashboardPage() {
                   className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  Retry
+                  {t("common.retry")}
                 </button>
               </div>
             </div>
@@ -1064,7 +1063,7 @@ function CommandCenterDrawer({
   onCreateProject: () => void;
   onCalendarChanged: () => void;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [manageMeetings, setManageMeetings] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<CalendarEvent | null>(null);
   const titleMap: Record<CommandDrawer, string> = {
@@ -1121,7 +1120,7 @@ function CommandCenterDrawer({
                 >
                   <p className="text-sm font-medium text-foreground">{task.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {task.project?.name ?? t("dashboard.noProject")} {task.due_date ? `- ${formatDate(task.due_date)}` : ""}
+                    {task.project?.name ?? t("dashboard.noProject")} {task.due_date ? `- ${formatDate(task.due_date, language)}` : ""}
                   </p>
                 </button>
               ))
@@ -1140,7 +1139,11 @@ function CommandCenterDrawer({
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {item.open_tasks} open - {item.overdue_tasks} overdue - {formatSecondsShort(item.tracked_seconds_today)} today
+                  {t("dashboard.workloadSummary", {
+                    open: item.open_tasks,
+                    overdue: item.overdue_tasks,
+                    time: formatSecondsShort(item.tracked_seconds_today),
+                  })}
                 </p>
                 {item.tasks.length > 0 ? (
                   <div className="mt-3 space-y-2 border-t border-white/5 pt-3">
@@ -1154,7 +1157,7 @@ function CommandCenterDrawer({
                         <span className="block truncate font-medium text-foreground">{task.title}</span>
                         <span className="mt-0.5 block truncate">
                           {task.project?.name ?? t("dashboard.noProject")}
-                          {task.due_date ? ` - ${t("dashboard.due", { date: formatDate(task.due_date) })}` : ""}
+                          {task.due_date ? ` - ${t("dashboard.due", { date: formatDate(task.due_date, language) })}` : ""}
                         </span>
                       </button>
                     ))}
@@ -1226,14 +1229,14 @@ function CommandCenterDrawer({
                   >
                     <Link href="/calendar" className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{formatDate(event.starts_at)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatDate(event.starts_at, language)}</p>
                     </Link>
                     {manageMeetings && (
                       <div className="flex flex-shrink-0 items-center gap-1">
                         <button
                           type="button"
                           onClick={() => setEditingMeeting(event)}
-                          aria-label={`Edit ${event.title}`}
+                          aria-label={t("dashboard.editMeeting", { title: event.title })}
                           className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
                         >
                           <Pencil className="h-4 w-4" />
@@ -1262,7 +1265,7 @@ function CommandCenterDrawer({
                   <p className="text-sm font-medium text-foreground">
                     {dashboardActivityText(event).what} {dashboardActivityText(event).target}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{formatDate(event.created_at)}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{formatDate(event.created_at, language)}</p>
                 </div>
               ))
             ))}
@@ -1341,7 +1344,7 @@ function CommandCenterDrawer({
                       {t("dashboard.activeProjectsCount", { count: item.active_projects })} -{" "}
                       {t("dashboard.openTasksCount", { count: item.open_tasks })}
                       {item.next_deadline
-                        ? ` - ${t("dashboard.nextDeadline", { date: formatDate(item.next_deadline) })}`
+                        ? ` - ${t("dashboard.nextDeadline", { date: formatDate(item.next_deadline, language) })}`
                         : ` - ${t("dashboard.noDeadline")}`}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -1378,7 +1381,7 @@ function CommandCenterDrawer({
                     {t("dashboard.openTasksCount", { count: item.open_tasks })} -{" "}
                     {t("dashboard.overdueCount", { count: item.overdue_tasks })}
                     {item.next_deadline
-                      ? ` - ${t("dashboard.nextDeadline", { date: formatDate(item.next_deadline) })}`
+                      ? ` - ${t("dashboard.nextDeadline", { date: formatDate(item.next_deadline, language) })}`
                       : ` - ${t("dashboard.noDeadline")}`}
                   </p>
                 </Link>
@@ -1405,7 +1408,7 @@ function CommandCenterDrawer({
                         <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
                         <p className="mt-1 truncate text-xs text-muted-foreground">
                           {task.project?.name ?? t("dashboard.noProject")}
-                          {task.due_date ? ` - ${formatDate(task.due_date)}` : ""}
+                          {task.due_date ? ` - ${formatDate(task.due_date, language)}` : ""}
                         </p>
                       </div>
                       <span className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
@@ -1455,13 +1458,13 @@ function CommandCenterDrawer({
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Contract value</p>
+                  <p className="text-xs text-muted-foreground">{t("clientDetail.contractValue")}</p>
                   <p className="mt-1 text-xl font-bold text-foreground">
                     {moneyCompact(data.revenue_snapshot.total_contract_value)}
                   </p>
                 </div>
                 <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Commission</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.commission")}</p>
                   <p className="mt-1 text-xl font-bold text-foreground">
                     {moneyCompact(data.revenue_snapshot.total_commission)}
                   </p>
@@ -1469,14 +1472,14 @@ function CommandCenterDrawer({
               </div>
               <div className="rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
                 <p className="text-sm font-medium text-foreground">
-                  {data.revenue_snapshot.active_clients} active clients
+                  {t("dashboard.activeClients", { count: data.revenue_snapshot.active_clients })}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {data.revenue_snapshot.clients_without_contract_value} missing contract value
+                  {t("dashboard.missingContractValue", { count: data.revenue_snapshot.clients_without_contract_value })}
                 </p>
               </div>
               {data.revenue_snapshot.top_clients.length === 0 ? (
-                <DrawerEmpty title="No contract values yet" text="Add contract values to client records to make this operational." />
+                <DrawerEmpty title={t("dashboard.noContractValues")} text={t("dashboard.noContractValuesHint")} />
               ) : (
                 data.revenue_snapshot.top_clients.map((company) => (
                   <Link
@@ -1486,7 +1489,10 @@ function CommandCenterDrawer({
                   >
                     <p className="text-sm font-medium text-foreground">{company.name}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Contract {moneyCompact(company.contract_value)} - Commission {moneyCompact(company.commission)}
+                      {t("dashboard.contractCommission", {
+                        contract: moneyCompact(company.contract_value),
+                        commission: moneyCompact(company.commission),
+                      })}
                     </p>
                   </Link>
                 ))
@@ -2128,7 +2134,7 @@ function RightPanel({
                         className="flex items-center gap-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors -mx-2 px-2"
                       >
                         <button
-                          onClick={() => toast(`Joining ${mt.title}…`, { icon: "📹" })}
+                          onClick={() => toast(t("dashboard.joiningMeeting", { title: mt.title }), { icon: "📹" })}
                           className="flex items-center gap-3 flex-1 min-w-0 text-left rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                         >
                           <span className="font-mono text-xs font-semibold text-foreground/90 tabular-nums w-12 flex-shrink-0">
@@ -2149,7 +2155,7 @@ function RightPanel({
                             }))
                           }
                           aria-pressed={open}
-                          aria-label={`Toggle ${mt.title}`}
+                          aria-label={t("dashboard.toggleMeeting", { title: mt.title })}
                           className={cn(
                             "relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0",
                             open ? "bg-primary" : "bg-white/10"
@@ -2167,7 +2173,7 @@ function RightPanel({
                             <button
                               type="button"
                               onClick={() => setEditingMeeting(mt.event)}
-                              aria-label={`Edit ${mt.title}`}
+                              aria-label={t("dashboard.editMeeting", { title: mt.title })}
                               className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-white/10 hover:text-foreground"
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -2211,7 +2217,7 @@ function RightPanel({
       <div className="glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Activity
+            {t("dashboard.activity")}
           </p>
           {activeDay !== null ? (
             <button

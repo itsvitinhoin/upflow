@@ -54,7 +54,7 @@ test("report history is persisted as first-class client report records", () => {
   assert.match(actionsRoute, /sent_at/);
   assert.match(actionsRoute, /archived_at/);
   assert.match(reportRoute, /report_history/);
-  assert.match(page, /Report history/);
+  assert.match(page, /t\("report\.history"\)/);
 });
 
 test("automation scheduler records durable run history", () => {
@@ -81,6 +81,6 @@ test("operational admin center aggregates rollout risks", () => {
   assert.match(route, /clients_at_risk/);
   assert.match(route, /invite_failures/);
   assert.match(route, /permission_changes_7d/);
-  assert.match(page, /Operational readiness center/);
-  assert.match(page, /Hard verification/);
+  assert.match(page, /t\("adminOps\.heading"\)/);
+  assert.match(page, /t\("adminOps\.hardVerification"\)/);
 });

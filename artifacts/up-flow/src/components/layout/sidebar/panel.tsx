@@ -179,36 +179,36 @@ export default function Panel({
     );
 
   const handleDeleteSpace = async (sp: Space) => {
-    if (!confirm(`Delete space "${sp.name}"? Folders inside will be deleted; lists will become unfiled.`)) return;
+    if (!confirm(t("sidebar.deleteSpaceConfirm", { name: sp.name }))) return;
     try {
       const res = await fetch(`/api/spaces/${sp.id}`, { method: "DELETE" });
       if (res.ok) {
-        toast.success("Space deleted");
+        toast.success(t("sidebar.spaceDeleted"));
         loadPanel({ force: true });
       } else {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(body?.error ?? "Could not delete space");
+        toast.error(body?.error ?? t("sidebar.couldNotDeleteSpace"));
       }
     } catch (err) {
       logError("sidebar:delete-space", err, { id: sp.id });
-      toast.error("Could not delete space");
+      toast.error(t("sidebar.couldNotDeleteSpace"));
     }
   };
 
   const handleDeleteFolder = async (f: FolderT) => {
-    if (!confirm(`Delete folder "${f.name}"? Child folders and lists will move up one level.`)) return;
+    if (!confirm(t("sidebar.deleteFolderConfirm", { name: f.name }))) return;
     try {
       const res = await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
       if (res.ok) {
-        toast.success("Folder deleted");
+        toast.success(t("sidebar.folderDeleted"));
         loadPanel({ force: true });
       } else {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(body?.error ?? "Could not delete folder");
+        toast.error(body?.error ?? t("sidebar.couldNotDeleteFolder"));
       }
     } catch (err) {
       logError("sidebar:delete-folder", err, { id: f.id });
-      toast.error("Could not delete folder");
+      toast.error(t("sidebar.couldNotDeleteFolder"));
     }
   };
 

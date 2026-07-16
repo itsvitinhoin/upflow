@@ -66,7 +66,7 @@ export default function NewTaskDialog({
     setProjectsError(null);
     fetch("/api/projects")
       .then((r) => {
-        if (!r.ok) throw new Error("Could not load available lists.");
+        if (!r.ok) throw new Error(t("task.couldNotLoadLists"));
         return r.json() as Promise<{ items: Project[] }>;
       })
       .then((p) => {
@@ -75,13 +75,13 @@ export default function NewTaskDialog({
       .catch((err) => {
         logError("new-task-dialog:load", err);
         setProjects([]);
-        setProjectsError("Could not load lists. Close and reopen this dialog, then try again.");
-        toast.error("Could not load available lists. Try again before creating the task.");
+        setProjectsError(t("task.listLoadError"));
+        toast.error(t("task.couldNotLoadLists"));
       })
       .finally(() => {
         setProjectsLoading(false);
       });
-  }, [open, projectId, defaultTemplateId, defaultDueDate]);
+  }, [open, projectId, defaultTemplateId, defaultDueDate, t]);
 
   useEffect(() => {
     if (!open || !selectedProject) {
@@ -98,9 +98,9 @@ export default function NewTaskDialog({
       .then((u) => setUsers(u.items ?? []))
       .catch((err) => {
         logError("new-task-dialog:load-users", err);
-        toast.error("Could not load assignees for this project.");
+        toast.error(t("task.couldNotLoadAssignees"));
       });
-  }, [open, projects, selectedProject]);
+  }, [open, projects, selectedProject, t]);
 
   if (!open) return null;
 
@@ -109,11 +109,11 @@ export default function NewTaskDialog({
     if (loading) return;
     const cleanTitle = title.trim() || getTaskTitleFromTemplateValues(templateValues);
     if (!cleanTitle) {
-      toast.error("Add a deliverable title or fill Objective before creating it.");
+      toast.error(t("task.titleOrObjectiveRequired"));
       return;
     }
     if (!selectedProject) {
-      toast.error("Choose the list or campaign where this task belongs.");
+      toast.error(t("task.chooseList"));
       return;
     }
     setLoading(true);
@@ -149,8 +149,15 @@ export default function NewTaskDialog({
       setAssigneeId("");
       toast.success(
         [
-          `${cleanTitle} created${selectedProjectName ? ` in ${selectedProjectName}` : ""}.`,
-          selectedAssigneeName ? `${selectedAssigneeName} was notified.` : "No assignee selected yet.",
+          selectedProjectName
+            ? t("task.createdInList", {
+                title: cleanTitle,
+                location: t("common.inLocation", { location: selectedProjectName }),
+              })
+            : t("task.created", { title: cleanTitle }),
+          selectedAssigneeName
+            ? t("task.assigneeNotified", { name: selectedAssigneeName })
+            : t("task.noAssigneeSelected"),
         ].join(" "),
       );
       onCreated();
@@ -178,16 +185,16 @@ export default function NewTaskDialog({
       >
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Create deliverable</h2>
+            <h2 className="text-lg font-semibold text-foreground">{t("task.createTask")}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Add client work, campaign actions, creative requests, or internal agency operations.
+              {t("task.createDeliverableSubtitle")}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            aria-label="Close task creation"
+            aria-label={t("common.close")}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
@@ -197,26 +204,26 @@ export default function NewTaskDialog({
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">
-              Deliverable / action title <span className="text-destructive">*</span>
+              {t("task.deliverableActionTitle")} <span className="text-destructive">*</span>
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Example: Approve Meta Ads creative set, or fill Objective below"
+              placeholder={t("task.deliverableActionPlaceholder")}
               aria-required="true"
               autoFocus
               className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              If you start from the structured brief, Objective or Deliverable can be used as the task title.
+              {t("task.structuredTitleHint")}
             </p>
           </div>
 
           {!projectId && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Client work / campaign list <span className="text-destructive">*</span>
+                {t("task.clientWorkList")} <span className="text-destructive">*</span>
               </label>
               <select
                 value={selectedProject}
@@ -226,7 +233,7 @@ export default function NewTaskDialog({
                 className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
               >
                 <option value="">
-                  {projectsLoading ? "Loading lists..." : "Choose where this deliverable belongs"}
+                  {projectsLoading ? t("task.loadingLists") : t("task.chooseDeliverableList")}
                 </option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -238,18 +245,18 @@ export default function NewTaskDialog({
                 <p className="mt-1 text-xs text-upflow-danger">{projectsError}</p>
               ) : !projectsLoading && projects.length === 0 ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  No lists are available yet. Create a project/list first, then add tasks.
+                  {t("task.noListsAvailable")}
                 </p>
               ) : null}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Context and acceptance notes</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">{t("task.contextNotes")}</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief, links, client expectations, approval notes, or performance context"
+              placeholder={t("task.contextNotesPlaceholder")}
               rows={2}
               className="w-full resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
@@ -289,8 +296,8 @@ export default function NewTaskDialog({
               className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Use the real client deadline. This powers dashboard risk and delivery views.
-              {selectedProjectName ? ` Selected list: ${selectedProjectName}.` : ""}
+              {t("task.dueDateHint")}
+              {selectedProjectName ? ` ${t("task.selectedList", { name: selectedProjectName })}` : ""}
             </p>
           </div>
 

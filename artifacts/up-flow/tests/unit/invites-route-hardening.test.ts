@@ -211,10 +211,10 @@ test("admin health exposes actionable production diagnostics without secrets", (
   assert.match(adminHealthRoute, /getLatestBundledMigration/);
   assert.match(adminHealthRoute, /Run npm run db:migrate:deploy before redeploying/);
   assert.doesNotMatch(adminHealthRoute, /process\.env\.RESEND_API_KEY\s*,/);
-  assert.match(adminHealthPage, /UP Flow admin health/);
-  assert.match(adminHealthPage, /Ready for internal rollout/);
-  assert.match(adminHealthPage, /Rollout blocked/);
-  assert.match(adminHealthPage, /Final rollout sequence/);
+  assert.match(adminHealthPage, /t\("adminHealth\.heading"\)/);
+  assert.match(adminHealthPage, /t\("adminHealth\.ready"\)/);
+  assert.match(adminHealthPage, /t\("adminHealth\.blocked"\)/);
+  assert.match(adminHealthPage, /t\("adminHealth\.finalSequence"\)/);
   assert.match(adminHealthPage, /\/api\/admin\/health/);
 });
 

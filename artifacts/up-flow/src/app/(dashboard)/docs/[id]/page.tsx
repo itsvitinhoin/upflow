@@ -7,10 +7,12 @@ import { ArrowLeft, Loader2, Check, Trash2 } from "lucide-react";
 import Link from "next/link";
 import TiptapEditor from "@/components/docs/tiptap-editor";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
 export default function DocPage() {
+  const { t } = useLanguage();
   const params = useParams();
   const router = useRouter();
   const id = (params?.id ?? "") as string;
@@ -58,14 +60,14 @@ export default function DocPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: titleVal, content: contentVal }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) throw new Error(t("docs.saveFailed"));
       setSaveState("saved");
       savedTimerRef.current = setTimeout(() => setSaveState("idle"), 2000);
     } catch {
       setSaveState("error");
-      toast.error("Failed to save");
+      toast.error(t("docs.saveFailed"));
     }
-  }, [id]);
+  }, [id, t]);
 
   const scheduleSave = useCallback((titleVal: string, contentVal: unknown) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -152,6 +154,7 @@ export default function DocPage() {
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border bg-background px-4 py-3 sm:px-6">
         <Link
           href="/docs"
+          aria-label={t("docs.back")}
           className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -160,7 +163,7 @@ export default function DocPage() {
           value={title}
           onChange={handleTitleChange}
           className="flex-1 text-lg font-semibold bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground"
-          placeholder="Untitled"
+          placeholder={t("docs.untitled")}
         />
         <div className="flex items-center gap-3 flex-shrink-0">
           <span
@@ -170,25 +173,25 @@ export default function DocPage() {
               saveState === "idle" ? "opacity-0 pointer-events-none" : "opacity-100"
             )}
             aria-label={
-              saveState === "saving" ? "Autosave in progress" :
-              saveState === "saved" ? "Document saved" :
-              saveState === "error" ? "Save failed" : undefined
+              saveState === "saving" ? t("docs.autosave") :
+              saveState === "saved" ? t("docs.documentSaved") :
+              saveState === "error" ? t("docs.saveFailed") : undefined
             }
           >
             {saveState === "saving" && (
               <>
                 <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-                <span className="text-muted-foreground">Saving…</span>
+                <span className="text-muted-foreground">{t("docs.saving")}</span>
               </>
             )}
             {saveState === "saved" && (
               <>
                 <Check className="w-3 h-3 text-upflow-success" />
-                <span className="text-upflow-success">Saved</span>
+                <span className="text-upflow-success">{t("docs.saved")}</span>
               </>
             )}
             {saveState === "error" && (
-              <span className="text-destructive">Save failed</span>
+              <span className="text-destructive">{t("docs.saveFailed")}</span>
             )}
           </span>
           <button
@@ -199,22 +202,22 @@ export default function DocPage() {
             disabled={saveState === "saving"}
             className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
           >
-            Save
+            {t("common.save")}
           </button>
           <button
             onClick={async () => {
-              if (!confirm(`Delete "${title || "this doc"}"? This cannot be undone.`)) return;
+              if (!confirm(t("docs.deleteConfirm", { title: title || t("docs.thisDoc") }))) return;
               try {
                 const res = await fetch(`/api/docs/${id}`, { method: "DELETE" });
                 if (!res.ok) throw new Error();
-                toast.success("Doc deleted");
+                toast.success(t("docs.deleted"));
                 router.push("/docs");
               } catch {
-                toast.error("Failed to delete doc");
+                toast.error(t("docs.deleteFailed"));
               }
             }}
-            title="Delete doc"
-            aria-label="Delete doc"
+            title={t("docs.delete")}
+            aria-label={t("docs.delete")}
             className="flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
           >
             <Trash2 className="w-4 h-4" />

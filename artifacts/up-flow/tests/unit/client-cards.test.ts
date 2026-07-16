@@ -31,8 +31,8 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(clientsPage, /lg:grid-cols-2 2xl:grid-cols-3/);
   assert.doesNotMatch(clientsPage, /deadlineLabel/);
   assert.doesNotMatch(clientsPage, /MetricTile/);
-  assert.match(clientDetail, /Value \/ hour/);
-  assert.match(clientDetail, /Linked project time only/);
+  assert.match(clientDetail, /t\("clientDetail\.valuePerHour"\)/);
+  assert.match(clientDetail, /t\("clientDetail\.linkedProjectTime"\)/);
   assert.match(clientDetail, /commission_per_tracked_hour/);
   assert.match(createDialog, /service_type/);
   assert.match(createDialog, /included_services/);

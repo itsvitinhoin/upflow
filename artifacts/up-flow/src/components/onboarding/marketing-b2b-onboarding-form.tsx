@@ -29,6 +29,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useLanguage } from "@/components/language-provider";
 import { cn, formatDate } from "@/lib/utils";
 
 type JsonFormValue =
@@ -41,6 +42,7 @@ type JsonFormValue =
 
 type FormValues = Record<string, JsonFormValue>;
 type TeamUser = { id: string; name: string; email: string; avatar_url?: string | null };
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
 type ClientAddress = {
   id?: string;
@@ -153,120 +155,130 @@ type SectionSummary = {
   required?: boolean;
 };
 
-const OPTIONAL_HELPER = "Opcional - use este campo para adicionar contexto extra.";
-
-const b2bFormLabels = {
-  brandSection: "Sobre a marca",
-  brandName: "Nome da marca",
-  brandOwner: "Proprietário / dono",
-  cnpj: "CNPJ",
-  website: "Site oficial",
-  instagram: "Instagram",
-  competitors: "Concorrentes",
-  generalNotes: "Observações gerais",
-  addresses: "Endereços do cliente",
-  commercialRulesSection: "Regras comerciais",
-  acceptedDocumentRule: "Documento aceito",
-  minimumOrder: "Pedido mínimo",
-  paymentMethods: "Formas de pagamento",
-  discountPolicy: "Política de desconto",
-  commercialRestrictions: "Restrições comerciais",
-  sizeRange: "Grade de tamanhos",
-  ownManufacturing: "Fabricação própria?",
-  nationalShipping: "Envio nacional?",
-  commercialNotes: "Observações comerciais",
-  targetSection: "Público e posicionamento",
-  positioning: "Posicionamento da marca",
-  brandStyle: "Estilo da marca",
-  mainAudience: "Público-alvo",
-  researchLink: "Benchmarking",
-  behaviorNotes: "Observações de compra",
-  brandResponsiblesSection: "Responsáveis da marca",
-  brandResponsiblesNotes: "Observações dos responsáveis",
-  upResponsiblesSection: "Responsáveis UP por serviço",
-  accessSection: "Acessos",
-  accessNotes: "Observações de acesso",
-  validationSection: "Validação final",
-  finalNotes: "Observações finais",
-  editSection: "Editar seção",
-  saveSection: "Salvar",
-  editMode: "Modo de edição",
-  editModeHelp: "Você está editando esta seção.",
-  sectionSaved: "Seção salva",
+const b2bFormLabelKeys = {
+  brandSection: "marketingB2B.brandSection",
+  brandName: "marketingB2B.brandName",
+  brandOwner: "marketingB2B.brandOwner",
+  cnpj: "marketingB2B.cnpj",
+  website: "marketingB2B.website",
+  instagram: "marketingB2B.instagram",
+  competitors: "marketingB2B.competitors",
+  generalNotes: "marketingB2B.generalNotes",
+  addresses: "marketingB2B.addresses",
+  commercialRulesSection: "marketingB2B.commercialRulesSection",
+  acceptedDocumentRule: "marketingB2B.acceptedDocumentRule",
+  minimumOrder: "marketingB2B.minimumOrder",
+  paymentMethods: "marketingB2B.paymentMethods",
+  discountPolicy: "marketingB2B.discountPolicy",
+  commercialRestrictions: "marketingB2B.commercialRestrictions",
+  sizeRange: "marketingB2B.sizeRange",
+  ownManufacturing: "marketingB2B.ownManufacturing",
+  nationalShipping: "marketingB2B.nationalShipping",
+  commercialNotes: "marketingB2B.commercialNotes",
+  targetSection: "marketingB2B.targetSection",
+  positioning: "marketingB2B.positioning",
+  brandStyle: "marketingB2B.brandStyle",
+  mainAudience: "marketingB2B.mainAudience",
+  researchLink: "marketingB2B.researchLink",
+  behaviorNotes: "marketingB2B.behaviorNotes",
+  brandResponsiblesSection: "marketingB2B.brandResponsiblesSection",
+  brandResponsiblesNotes: "marketingB2B.brandResponsiblesNotes",
+  upResponsiblesSection: "marketingB2B.upResponsiblesSection",
+  accessSection: "marketingB2B.accessSection",
+  accessNotes: "marketingB2B.accessNotes",
+  validationSection: "marketingB2B.validationSection",
+  finalNotes: "marketingB2B.finalNotes",
+  editSection: "marketingB2B.editSection",
+  saveSection: "marketingB2B.saveSection",
+  editMode: "marketingB2B.editMode",
+  editModeHelp: "marketingB2B.editModeHelp",
+  sectionSaved: "marketingB2B.sectionSaved",
 };
 
 const documentRuleOptions = [
   {
     value: "clothing_cnae",
-    label: "CNAE de vestuário",
-    description: "Compra permitida para empresas com CNAE relacionado a vestuário.",
+    labelKey: "marketingB2B.documentRule.clothingCnae.label",
+    descriptionKey: "marketingB2B.documentRule.clothingCnae.description",
   },
   {
     value: "all_cnpjs",
-    label: "Todos CNPJs",
-    description: "Compra permitida para qualquer empresa com CNPJ.",
+    labelKey: "marketingB2B.documentRule.allCnpjs.label",
+    descriptionKey: "marketingB2B.documentRule.allCnpjs.description",
   },
   {
     value: "cnpj_or_cpf",
-    label: "Aceita CNPJ e CPF",
-    description: "Compra permitida para empresas e pessoas físicas.",
+    labelKey: "marketingB2B.documentRule.cnpjOrCpf.label",
+    descriptionKey: "marketingB2B.documentRule.cnpjOrCpf.description",
   },
 ];
 
-const booleanishOptions = ["Sim", "Não", "Parcial"];
-const shippingOptions = ["Sim", "Não", "Algumas regiões"];
-const accessStatusOptions = ["Concedido", "Pendente", "Não se aplica"];
+const booleanishOptions = [
+  { value: "Sim", labelKey: "marketingB2B.option.yes" },
+  { value: "Não", labelKey: "marketingB2B.option.no" },
+  { value: "Parcial", labelKey: "marketingB2B.option.partial" },
+];
+const shippingOptions = [
+  { value: "Sim", labelKey: "marketingB2B.option.yes" },
+  { value: "Não", labelKey: "marketingB2B.option.no" },
+  { value: "Algumas regiões", labelKey: "marketingB2B.option.someRegions" },
+];
+const accessStatusOptions = [
+  { value: "Concedido", labelKey: "marketingB2B.option.granted" },
+  { value: "Pendente", labelKey: "marketingB2B.option.pending" },
+  { value: "Não se aplica", labelKey: "marketingB2B.option.notApplicable" },
+];
 
 const addressTypes = [
-  "Loja",
-  "Fábrica",
-  "Showroom",
-  "Escritório",
-  "Centro de distribuição",
-  "Estúdio",
-  "Outro",
+  { value: "Loja", labelKey: "marketingB2B.addressType.store" },
+  { value: "Fábrica", labelKey: "marketingB2B.addressType.factory" },
+  { value: "Showroom", labelKey: "marketingB2B.addressType.showroom" },
+  { value: "Escritório", labelKey: "marketingB2B.addressType.office" },
+  { value: "Centro de distribuição", labelKey: "marketingB2B.addressType.distributionCenter" },
+  { value: "Estúdio", labelKey: "marketingB2B.addressType.studio" },
+  { value: "Outro", labelKey: "marketingB2B.addressType.other" },
 ];
 
 const departmentUsageOptions = [
-  "Marketing B2B",
-  "Marketing B2C",
-  "Creative & Design",
-  "Production",
-  "Performance",
-  "Technical Support",
-  "Comercial",
-  "Finance",
+  { value: "Marketing B2B", labelKey: "marketingB2B.department.marketingB2B" },
+  { value: "Marketing B2C", labelKey: "marketingB2B.department.marketingB2C" },
+  { value: "Creative & Design", labelKey: "marketingB2B.department.creative" },
+  { value: "Production", labelKey: "marketingB2B.department.production" },
+  { value: "Performance", labelKey: "marketingB2B.department.performance" },
+  { value: "Technical Support", labelKey: "marketingB2B.department.technicalSupport" },
+  { value: "Comercial", labelKey: "marketingB2B.department.commercial" },
+  { value: "Finance", labelKey: "marketingB2B.department.finance" },
 ];
 
 const brandResponsibleRows = [
-  ["finance", "Financeiro"],
-  ["marketing", "Marketing"],
-  ["manager", "Gerente"],
+  ["finance", "marketingB2B.responsible.finance"],
+  ["marketing", "marketingB2B.responsible.marketing"],
+  ["manager", "marketingB2B.responsible.manager"],
 ] as const;
 
 const responsibleColumns = [
-  ["name", "Nome"],
-  ["role", "Cargo"],
-  ["phone", "WhatsApp / Telefone"],
-  ["email", "E-mail"],
-  ["note", "Link / Observação"],
+  ["name", "marketingB2B.column.name"],
+  ["role", "marketingB2B.column.role"],
+  ["phone", "marketingB2B.column.phone"],
+  ["email", "marketingB2B.column.email"],
+  ["note", "marketingB2B.column.note"],
 ] as const;
 
 const accessRows = [
-  ["vestiUpZero", "Vesti / UP Zero"],
-  ["dashboard", "Acesso ao dashboard"],
-  ["metaAds", "Meta Ads"],
-  ["googleAds", "Google Ads"],
-  ["ga4Gtm", "GA4 / GTM"],
-  ["domainDns", "Domínio / DNS"],
-  ["driveFolder", "Drive / materiais"],
+  ["vestiUpZero", "marketingB2B.access.vestiUpZero"],
+  ["dashboard", "marketingB2B.access.dashboard"],
+  ["metaAds", "marketingB2B.access.metaAds"],
+  ["googleAds", "marketingB2B.access.googleAds"],
+  ["ga4Gtm", "marketingB2B.access.ga4Gtm"],
+  ["domainDns", "marketingB2B.access.domainDns"],
+  ["driveFolder", "marketingB2B.access.driveFolder"],
 ] as const;
 
 const upResponsibleServices = [
-  ["performance", "Performance"],
-  ["upMotion", "UP Motion"],
-  ["upZero", "UP Zero"],
-  ["socialMedia", "Social media"],
+  ["performance", "marketingB2B.service.performance"],
+  ["upMotion", "marketingB2B.service.upMotion"],
+  ["upZero", "marketingB2B.service.upZero"],
+  ["socialMedia", "marketingB2B.service.socialMedia"],
 ] as const;
 
 const NO_UP_RESPONSIBLE = "__none__";
@@ -568,26 +580,22 @@ function cleanAddresses(addresses: ClientAddress[]) {
 
 function statusTone(status: string) {
   const normalized = status.toLowerCase();
-  if (normalized.includes("concedido") || normalized.includes("complete") || normalized.includes("assigned") || normalized.includes("definido") || normalized.includes("não se aplica") || normalized.includes("nao se aplica")) {
+  if (normalized.includes("concedido") || normalized.includes("granted") || normalized.includes("complete") || normalized.includes("assigned") || normalized.includes("definido") || normalized.includes("defined") || normalized.includes("não se aplica") || normalized.includes("nao se aplica") || normalized.includes("not applicable")) {
     return "border-emerald-400/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300";
   }
   if (normalized.includes("bloqueado") || normalized.includes("needs")) {
     return "border-red-400/30 bg-red-500/10 text-red-600 dark:text-red-300";
   }
-  if (normalized.includes("parcial")) return "border-cyan-400/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300";
+  if (normalized.includes("parcial") || normalized.includes("partial")) return "border-cyan-400/30 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300";
   return "border-amber-400/30 bg-amber-500/10 text-amber-600 dark:text-amber-300";
 }
 
-function documentRuleLabel(value: string) {
-  return documentRuleOptions.find((option) => option.value === value)?.label ?? value;
-}
-
-function calculateSectionProgress(values: FormValues, addresses: ClientAddress[], extraBrandResponsibles: BrandResponsibleExtra[]): SectionSummary[] {
+function calculateSectionProgress(values: FormValues, addresses: ClientAddress[], extraBrandResponsibles: BrandResponsibleExtra[], t: Translate): SectionSummary[] {
   const extraResponsibleTotal = extraBrandResponsibles.length;
   const sections: SectionSummary[] = [
     {
       id: "brand",
-      title: b2bFormLabels.brandSection,
+      title: t(b2bFormLabelKeys.brandSection),
       accent: "blue",
       total: 6,
       done:
@@ -600,7 +608,7 @@ function calculateSectionProgress(values: FormValues, addresses: ClientAddress[]
     },
     {
       id: "commercial",
-      title: b2bFormLabels.commercialRulesSection,
+      title: t(b2bFormLabelKeys.commercialRulesSection),
       accent: "amber",
       total: 8,
       done:
@@ -615,7 +623,7 @@ function calculateSectionProgress(values: FormValues, addresses: ClientAddress[]
     },
     {
       id: "target",
-      title: b2bFormLabels.targetSection,
+      title: t(b2bFormLabelKeys.targetSection),
       accent: "purple",
       total: 3,
       done:
@@ -625,7 +633,7 @@ function calculateSectionProgress(values: FormValues, addresses: ClientAddress[]
     },
     {
       id: "brandResponsibles",
-      title: b2bFormLabels.brandResponsiblesSection,
+      title: t(b2bFormLabelKeys.brandResponsiblesSection),
       accent: "pink",
       total: brandResponsibleRows.length + extraResponsibleTotal,
       done:
@@ -635,14 +643,14 @@ function calculateSectionProgress(values: FormValues, addresses: ClientAddress[]
     },
     {
       id: "upResponsibles",
-      title: b2bFormLabels.upResponsiblesSection,
+      title: t(b2bFormLabelKeys.upResponsiblesSection),
       accent: "cyan",
       total: upResponsibleServices.length,
       done: upResponsibleServices.filter(([serviceKey]) => isUpResponsibleSelected(values, serviceKey)).length,
     },
     {
       id: "access",
-      title: b2bFormLabels.accessSection,
+      title: t(b2bFormLabelKeys.accessSection),
       accent: "teal",
       total: accessRows.length,
       done: accessRows.filter(([rowKey]) => isTextFilled(values, `access.${rowKey}.status`)).length,
@@ -664,6 +672,7 @@ export default function MarketingB2BOnboardingForm({
   onUpdate?: () => void;
   embedded?: boolean;
 }) {
+  const { t } = useLanguage();
   const [form, setForm] = useState<B2BFormResponse | null>(null);
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [addresses, setAddresses] = useState<ClientAddress[]>([emptyAddress(true)]);
@@ -707,7 +716,7 @@ export default function MarketingB2BOnboardingForm({
       const res = await fetch(`/api/onboarding/marketing-b2b-form/${taskId}`);
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || `Nao foi possivel carregar o onboarding B2B (${res.status})`);
+        throw new Error(data.error || t("marketingB2B.loadFailedWithStatus", { status: res.status }));
       }
       const data = (await res.json()) as B2BFormResponse;
       const normalizedValues = normalizeInitialValues(data);
@@ -765,13 +774,13 @@ export default function MarketingB2BOnboardingForm({
         }
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Nao foi possivel carregar o onboarding B2B";
+      const message = err instanceof Error ? err.message : t("marketingB2B.loadFailed");
       setLoadError(message);
       toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, [taskId]);
+  }, [t, taskId]);
 
   useEffect(() => {
     void loadForm();
@@ -782,8 +791,8 @@ export default function MarketingB2BOnboardingForm({
 
   const currentValues = form?.values ?? valuesRef.current;
   const sectionProgress = useMemo(
-    () => calculateSectionProgress(currentValues, addresses, extraBrandResponsibles),
-    [addresses, currentValues, extraBrandResponsibles],
+    () => calculateSectionProgress(currentValues, addresses, extraBrandResponsibles, t),
+    [addresses, currentValues, extraBrandResponsibles, t],
   );
   const requiredSections = sectionProgress.filter((section) => section.required !== false);
   const totalRequired = requiredSections.reduce((sum, section) => sum + section.total, 0);
@@ -836,7 +845,7 @@ export default function MarketingB2BOnboardingForm({
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(data.error || "Não foi possível salvar o formulário B2B");
+          throw new Error(data.error || t("marketingB2B.saveFailed"));
         }
         const data = (await res.json()) as B2BFormResponse;
         setForm({ ...data, values: valuesRef.current });
@@ -844,12 +853,12 @@ export default function MarketingB2BOnboardingForm({
         if (payload.finalize) onUpdate?.();
       } catch (err) {
         setSaveState("error");
-        toast.error(err instanceof Error ? err.message : "Não foi possível salvar o formulário B2B");
+        toast.error(err instanceof Error ? err.message : t("marketingB2B.saveFailed"));
       } finally {
         setSaving(false);
       }
     },
-    [buildSaveValues, canEdit, onUpdate, taskId],
+    [buildSaveValues, canEdit, onUpdate, t, taskId],
   );
 
   const scheduleSave = useCallback(() => {
@@ -908,24 +917,24 @@ export default function MarketingB2BOnboardingForm({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     await savePatch();
     setEditingSections((current) => ({ ...current, [sectionId]: false }));
-    toast.success(b2bFormLabels.sectionSaved);
+    toast.success(t(b2bFormLabelKeys.sectionSaved));
   };
 
   const toggleSection = (id: string) => setOpenSections((current) => ({ ...current, [id]: !current[id] }));
 
   const finalize = async () => {
     if (completedRequired < totalRequired) {
-      toast.error("Complete os campos obrigatórios antes de finalizar o onboarding B2B");
+      toast.error(t("marketingB2B.completeRequiredBeforeFinalize"));
       return;
     }
     if (saveTimer.current) clearTimeout(saveTimer.current);
     await savePatch({ finalize: true });
-    toast.success("Onboarding B2B finalizado");
+    toast.success(t("marketingB2B.finalized"));
   };
 
   const overrideDependency = async () => {
     if (!form?.can_override_dependency || overrideReason.trim().length < 8) {
-      toast.error("Informe um motivo com pelo menos 8 caracteres.");
+      toast.error(t("marketingB2B.overrideReasonTooShort"));
       return;
     }
     setOverridingDependency(true);
@@ -938,8 +947,8 @@ export default function MarketingB2BOnboardingForm({
         }),
       });
       const data = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) throw new Error(data.error || "Nao foi possivel liberar o Marketing B2B.");
-      toast.success("Dependencia liberada com justificativa registrada.");
+      if (!response.ok) throw new Error(data.error || t("marketingB2B.couldNotOverrideDependency"));
+      toast.success(t("marketingB2B.dependencyOverridden"));
       setOverrideReason("");
       workflowRefreshTriggered.current = false;
       await loadForm();
@@ -948,7 +957,7 @@ export default function MarketingB2BOnboardingForm({
       }
       await onUpdateRef.current?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel liberar o Marketing B2B.");
+      toast.error(error instanceof Error ? error.message : t("marketingB2B.couldNotOverrideDependency"));
     } finally {
       setOverridingDependency(false);
     }
@@ -983,21 +992,21 @@ export default function MarketingB2BOnboardingForm({
               <AlertCircle className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <h3 className="text-base font-bold">Formulario B2B nao abriu</h3>
+              <h3 className="text-base font-bold">{t("marketingB2B.formDidNotOpen")}</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                {loadError ?? "Nao foi possivel encontrar o formulario desta tarefa."}
+                {loadError ?? t("marketingB2B.formNotFound")}
               </p>
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             {onClose ? (
               <button type="button" onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted">
-                Fechar
+                {t("common.close")}
               </button>
             ) : null}
             <button type="button" onClick={() => void loadForm()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-500">
               <RefreshCcw className="h-4 w-4" />
-              Tentar novamente
+              {t("common.retry")}
             </button>
           </div>
         </div>
@@ -1005,7 +1014,7 @@ export default function MarketingB2BOnboardingForm({
     );
   }
 
-  const assigneeName = form.task.assignee?.name ?? "Sem responsável";
+  const assigneeName = form.task.assignee?.name ?? t("marketingB2B.noOwner");
 
   return (
     <div className={cn("marketing-b2b-form-shell", !embedded && "fixed inset-0 z-50 overflow-y-auto bg-background dark:bg-[#020817]", embedded && "w-full")}>
@@ -1037,28 +1046,28 @@ export default function MarketingB2BOnboardingForm({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-black uppercase tracking-[0.18em]">
-                        Current owner: {form.up_zero_dependency.current_department}
+                        {t("marketingB2B.currentOwner", { department: form.up_zero_dependency.current_department })}
                       </p>
                       <h2 className="mt-2 text-base font-black">{form.up_zero_dependency.message}</h2>
                       <p className="mt-1 text-sm text-amber-900/75 dark:text-amber-100/75">
-                        {form.up_zero_dependency.technical_support_task?.title ?? "Configure UP Zero website"}
+                        {form.up_zero_dependency.technical_support_task?.title ?? t("marketingB2B.configureUpZero")}
                         {form.up_zero_dependency.technical_support_task?.owner?.name
                           ? ` - ${form.up_zero_dependency.technical_support_task.owner.name}`
                           : ""}
                       </p>
                       <p className="mt-2 text-xs font-bold uppercase tracking-wide text-amber-800/70 dark:text-amber-200/70">
-                        Marketing B2B remains read-only until this dependency is completed.
+                        {t("marketingB2B.dependencyReadOnly")}
                       </p>
                     </div>
                   </div>
                   {form.can_override_dependency ? (
                     <div className="mt-4 border-t border-amber-400/25 pt-4">
-                      <label className="text-xs font-black uppercase tracking-[0.16em]">Admin override reason</label>
+                      <label className="text-xs font-black uppercase tracking-[0.16em]">{t("marketingB2B.adminOverrideReason")}</label>
                       <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                         <input
                           value={overrideReason}
                           onChange={(event) => setOverrideReason(event.target.value)}
-                          placeholder="Explain why Marketing B2B may start early"
+                          placeholder={t("marketingB2B.adminOverridePlaceholder")}
                           className="min-w-0 flex-1 rounded-lg border border-amber-400/30 bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-amber-500"
                         />
                         <button
@@ -1068,7 +1077,7 @@ export default function MarketingB2BOnboardingForm({
                           className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                         >
                           {overridingDependency ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-                          Override dependency
+                          {t("marketingB2B.overrideDependency")}
                         </button>
                       </div>
                     </div>
@@ -1077,8 +1086,8 @@ export default function MarketingB2BOnboardingForm({
               ) : null}
 
               <div className="border-b border-border dark:border-slate-800">
-                <TabButton active={activeTab === "form"} onClick={() => setActiveTab("form")} icon={ClipboardCheck} label="Formulário de Onboarding" />
-                <TabButton active={activeTab === "kanban"} onClick={() => setActiveTab("kanban")} icon={BarChart3} label="Kanban / tarefas" />
+                <TabButton active={activeTab === "form"} onClick={() => setActiveTab("form")} icon={ClipboardCheck} label={t("marketingB2B.onboardingForm")} />
+                <TabButton active={activeTab === "kanban"} onClick={() => setActiveTab("kanban")} icon={BarChart3} label={t("marketingB2B.kanbanTasks")} />
               </div>
 
               {activeTab === "form" ? (
@@ -1221,19 +1230,20 @@ export default function MarketingB2BOnboardingForm({
 }
 
 function TopSearch({ onClose }: { onClose?: () => void }) {
+  const { t } = useLanguage();
   return (
     <div className="mb-4 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600/20 text-blue-500 dark:text-blue-300">
         <Sparkles className="h-5 w-5" />
       </div>
-      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground dark:text-slate-400">Buscar marketing b2b onboarding, projetos, tarefas, docs...</p>
+      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground dark:text-slate-400">{t("marketingB2B.searchPlaceholder")}</p>
       <span className="rounded-full border border-border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground dark:border-slate-700 dark:text-slate-400">Ctrl K</span>
       {onClose && (
         <button
           type="button"
           onClick={onClose}
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-          title="Fechar"
+          title={t("common.close")}
         >
           <X className="h-4 w-4" />
         </button>
@@ -1261,36 +1271,38 @@ function HeaderCard({
   docsHref: string;
   onAddTask: () => void;
 }) {
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   return (
     <section className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f] dark:shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <button onClick={onClose} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-300" type="button">
-            <ArrowLeft className="h-4 w-4" /> Voltar para Marketing B2B
+            <ArrowLeft className="h-4 w-4" /> {t("marketingB2B.backToMarketingB2B")}
           </button>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-black tracking-tight text-foreground dark:text-white sm:text-3xl">Marketing B2B Onboarding</h1>
+            <h1 className="text-2xl font-black tracking-tight text-foreground dark:text-white sm:text-3xl">{t("marketingB2B.title")}</h1>
             <span className="rounded-full border border-emerald-400/25 bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">
-              {status === "complete" ? "Concluído" : "Em andamento"}
+              {status === "complete" ? t("marketingB2B.completed") : t("marketingB2B.inProgress")}
             </span>
           </div>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground dark:text-slate-400">Formulário e execução do onboarding para novos clientes de Marketing B2B.</p>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground dark:text-slate-400">{t("marketingB2B.subtitle")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <a href={docsHref} className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-200">
-            <FileText className="h-4 w-4" /> Docs
+            <FileText className="h-4 w-4" /> {t("marketingB2B.docs")}
           </a>
           <button type="button" onClick={onAddTask} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.25)] hover:brightness-110">
-            <Plus className="h-4 w-4" /> Adicionar tarefa
+            <Plus className="h-4 w-4" /> {t("marketingB2B.addTask")}
           </button>
         </div>
       </div>
 
       <div className="mt-5 grid gap-4 border-t border-border pt-4 dark:border-slate-800 sm:grid-cols-2 xl:grid-cols-4">
-        <InfoBlock label="Cliente" value={companyName} />
-        <InfoBlock label="Responsável" value={assigneeName} avatar={initials(assigneeName)} />
+        <InfoBlock label={t("marketingB2B.client")} value={companyName} />
+        <InfoBlock label={t("marketingB2B.owner")} value={assigneeName} avatar={initials(assigneeName)} />
         <div className="min-w-0">
-          <p className="text-xs font-semibold text-muted-foreground dark:text-slate-500">Progresso geral</p>
+          <p className="text-xs font-semibold text-muted-foreground dark:text-slate-500">{t("marketingB2B.overallProgress")}</p>
           <div className="mt-2 flex items-center gap-3">
             <div className="h-2 min-w-0 flex-1 rounded-full bg-muted dark:bg-slate-800">
               <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${progress}%` }} />
@@ -1298,7 +1310,7 @@ function HeaderCard({
             <p className="text-sm font-black text-foreground dark:text-white">{progress}%</p>
           </div>
         </div>
-        <InfoBlock label="Última atualização" value={updatedAt ? formatDate(updatedAt) : "—"} />
+        <InfoBlock label={t("marketingB2B.lastUpdated")} value={updatedAt ? formatDate(updatedAt, locale) : "—"} />
       </div>
     </section>
   );
@@ -1374,6 +1386,7 @@ function SectionShell({
   onAction: () => void;
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
   const accentClass = accentClasses[accent];
   return (
     <section
@@ -1391,10 +1404,10 @@ function SectionShell({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="break-words text-sm font-black uppercase tracking-[0.04em] text-foreground dark:text-white">{title}</h2>
-              {editing && <span className="rounded-full border border-blue-400/40 bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-300">{b2bFormLabels.editMode}</span>}
+              {editing && <span className="rounded-full border border-blue-400/40 bg-blue-500/10 px-2 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-300">{t(b2bFormLabelKeys.editMode)}</span>}
             </div>
             {description && <p className="mt-1 text-xs text-muted-foreground dark:text-slate-400">{description}</p>}
-            {editing && <p className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-300">{b2bFormLabels.editModeHelp}</p>}
+            {editing && <p className="mt-2 text-xs font-medium text-blue-600 dark:text-blue-300">{t(b2bFormLabelKeys.editModeHelp)}</p>}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
@@ -1414,7 +1427,7 @@ function SectionShell({
               editing && "border-blue-500/60 bg-blue-500/10 text-blue-700 dark:text-blue-200",
             )}
           >
-            {editing ? b2bFormLabels.saveSection : b2bFormLabels.editSection}
+            {editing ? t(b2bFormLabelKeys.saveSection) : t(b2bFormLabelKeys.editSection)}
             {editing ? <Save className="h-4 w-4" /> : <ChevronDown className="h-4 w-4 -rotate-90" />}
           </button>
         </div>
@@ -1448,6 +1461,7 @@ function TextInput({
   span?: "normal" | "full";
   onChange: (value: string) => void;
 }) {
+  const { t } = useLanguage();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const pending = required && !draft.trim();
@@ -1456,8 +1470,8 @@ function TextInput({
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
         <Icon className="h-3.5 w-3.5 text-blue-400 dark:text-blue-300" />
         <span>{label}</span>
-        {optional && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">Opcional</span>}
-        {pending && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">Pendente</span>}
+        {optional && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">{t("common.optional")}</span>}
+        {pending && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">{t("marketingB2B.pending")}</span>}
       </span>
       <input
         value={draft}
@@ -1497,6 +1511,7 @@ function TextAreaInput({
   rows?: number;
   onChange: (value: string) => void;
 }) {
+  const { t } = useLanguage();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
@@ -1504,7 +1519,7 @@ function TextAreaInput({
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
         <Icon className="h-3.5 w-3.5 text-blue-400 dark:text-blue-300" />
         <span>{label}</span>
-        {optional && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">Opcional</span>}
+        {optional && <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">{t("common.optional")}</span>}
       </span>
       {helper && <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">{helper}</p>}
       <textarea
@@ -1542,6 +1557,7 @@ function SelectInput({
   options: Array<string | { value: string; label: string }>;
   onChange: (value: string) => void;
 }) {
+  const { t } = useLanguage();
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const pending = required && !draft.trim();
@@ -1550,7 +1566,7 @@ function SelectInput({
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
         <Icon className="h-3.5 w-3.5 text-blue-400 dark:text-blue-300" />
         <span>{label}</span>
-        {pending && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">Pendente</span>}
+        {pending && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">{t("marketingB2B.pending")}</span>}
       </span>
       <select
         value={draft}
@@ -1562,7 +1578,7 @@ function SelectInput({
         }}
         className="mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
       >
-        <option value="">Selecionar</option>
+        <option value="">{t("marketingB2B.select")}</option>
         {options.map((option) => {
           const valueKey = typeof option === "string" ? option : option.value;
           const labelText = typeof option === "string" ? option : option.label;
@@ -1605,6 +1621,7 @@ function BrandSection({
   onAddressesChange: (addresses: ClientAddress[]) => void;
   onCompetitorsChange: (competitors: Competitor[]) => void;
 }) {
+  const { t } = useLanguage();
   const done =
     Number(isTextFilled(values, "brand.name")) +
     Number(isTextFilled(values, "brand.owner")) +
@@ -1617,7 +1634,7 @@ function BrandSection({
     <SectionShell
       id="brand"
       index={1}
-      title={b2bFormLabels.brandSection}
+      title={t(b2bFormLabelKeys.brandSection)}
       accent="blue"
       open={open}
       editing={editing}
@@ -1629,11 +1646,11 @@ function BrandSection({
       onAction={onAction}
     >
       <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 xl:grid-cols-3">
-        <TextInput label={b2bFormLabels.brandName} value={textValue(values, "brand.name")} icon={Building2} disabled={!canEdit} required placeholder="Ex.: Nome público da marca" onChange={(value) => onFieldChange("brand.name", value)} />
-        <TextInput label={b2bFormLabels.brandOwner} value={textValue(values, "brand.owner")} icon={UserRound} disabled={!canEdit} required placeholder="Nome do proprietário" onChange={(value) => onFieldChange("brand.owner", value)} />
-        <TextInput label={b2bFormLabels.cnpj} value={textValue(values, "brand.cnpj")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="00.000.000/0000-00" onChange={(value) => onFieldChange("brand.cnpj", value)} />
-        <TextInput label={b2bFormLabels.website} value={textValue(values, "brand.website")} icon={Globe2} disabled={!canEdit} required type="url" placeholder="https://exemplo.com" onChange={(value) => onFieldChange("brand.website", value)} />
-        <TextInput label={b2bFormLabels.instagram} value={textValue(values, "brand.instagram")} icon={Instagram} disabled={!canEdit} required placeholder="@marca" onChange={(value) => onFieldChange("brand.instagram", value)} />
+        <TextInput label={t(b2bFormLabelKeys.brandName)} value={textValue(values, "brand.name")} icon={Building2} disabled={!canEdit} required placeholder={t("marketingB2B.placeholder.brandName")} onChange={(value) => onFieldChange("brand.name", value)} />
+        <TextInput label={t(b2bFormLabelKeys.brandOwner)} value={textValue(values, "brand.owner")} icon={UserRound} disabled={!canEdit} required placeholder={t("marketingB2B.placeholder.brandOwner")} onChange={(value) => onFieldChange("brand.owner", value)} />
+        <TextInput label={t(b2bFormLabelKeys.cnpj)} value={textValue(values, "brand.cnpj")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="00.000.000/0000-00" onChange={(value) => onFieldChange("brand.cnpj", value)} />
+        <TextInput label={t(b2bFormLabelKeys.website)} value={textValue(values, "brand.website")} icon={Globe2} disabled={!canEdit} required type="url" placeholder="https://example.com" onChange={(value) => onFieldChange("brand.website", value)} />
+        <TextInput label={t(b2bFormLabelKeys.instagram)} value={textValue(values, "brand.instagram")} icon={Instagram} disabled={!canEdit} required placeholder="@brand" onChange={(value) => onFieldChange("brand.instagram", value)} />
       </div>
 
       <AddressManager addresses={addresses} disabled={!canEdit} onChange={onAddressesChange} />
@@ -1641,13 +1658,13 @@ function BrandSection({
 
       <div className="mt-4 grid gap-4">
         <TextAreaInput
-          label={b2bFormLabels.generalNotes}
+          label={t(b2bFormLabelKeys.generalNotes)}
           value={textValue(values, "brand.notes")}
           icon={FileText}
           disabled={!canEdit}
           optional
-          helper={OPTIONAL_HELPER}
-          placeholder="Contexto extra sobre a marca, operação ou posicionamento."
+          helper={t("marketingB2B.optionalHelper")}
+          placeholder={t("marketingB2B.placeholder.brandNotes")}
           onChange={(value) => onFieldChange("brand.notes", value)}
         />
       </div>
@@ -1664,6 +1681,7 @@ function AddressManager({
   disabled: boolean;
   onChange: (addresses: ClientAddress[]) => void;
 }) {
+  const { t } = useLanguage();
   const updateAddress = (index: number, patch: Partial<ClientAddress>) => {
     const next = addresses.map((address, currentIndex) => {
       if (currentIndex !== index) {
@@ -1679,7 +1697,7 @@ function AddressManager({
     if (!source) return;
     onChange([
       ...addresses.slice(0, index + 1),
-      { ...source, id: createLocalId("address"), locationName: `${source.locationName || "Endereço"} cópia`, isPrimary: false },
+      { ...source, id: createLocalId("address"), locationName: `${source.locationName || t("marketingB2B.address") } ${t("marketingB2B.copy")}`, isPrimary: false },
       ...addresses.slice(index + 1),
     ]);
   };
@@ -1695,10 +1713,10 @@ function AddressManager({
         <div>
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-blue-500 dark:text-blue-300" />
-            <h3 className="text-sm font-black text-foreground dark:text-white">{b2bFormLabels.addresses}</h3>
-            {!isAddressComplete(addresses) && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">Pendente</span>}
+            <h3 className="text-sm font-black text-foreground dark:text-white">{t(b2bFormLabelKeys.addresses)}</h3>
+            {!isAddressComplete(addresses) && <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">{t("marketingB2B.pending")}</span>}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">Cadastre loja, fábrica, showroom, escritório ou outros locais usados pelos departamentos.</p>
+          <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">{t("marketingB2B.addressesDescription")}</p>
         </div>
         <button
           type="button"
@@ -1706,7 +1724,7 @@ function AddressManager({
           onClick={() => onChange([...addresses, emptyAddress(false)])}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-foreground hover:border-blue-400/60 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
         >
-          <Plus className="h-4 w-4" /> Adicionar endereço
+          <Plus className="h-4 w-4" /> {t("marketingB2B.addAddress")}
         </button>
       </div>
 
@@ -1715,46 +1733,46 @@ function AddressManager({
           <div key={address.id ?? index} className="rounded-lg border border-border bg-card p-3 dark:border-slate-800 dark:bg-[#071120]">
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-600 dark:text-blue-300">{address.type || "Endereço"}</span>
-                {address.isPrimary && <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">Principal</span>}
+                <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-xs font-bold text-blue-600 dark:text-blue-300">{address.type || t("marketingB2B.address")}</span>
+                {address.isPrimary && <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">{t("marketingB2B.primary")}</span>}
               </div>
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={disabled || address.isPrimary} onClick={() => updateAddress(index, { isPrimary: true })} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold disabled:opacity-45 dark:border-slate-700">Marcar principal</button>
-                <button type="button" disabled={disabled} onClick={() => duplicateAddress(index)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold disabled:opacity-45 dark:border-slate-700"><Copy className="inline h-3.5 w-3.5" /> Duplicar</button>
-                <button type="button" disabled={disabled} onClick={() => removeAddress(index)} className="rounded-lg border border-red-400/30 px-2.5 py-1.5 text-xs font-bold text-red-500 disabled:opacity-45"><Trash2 className="inline h-3.5 w-3.5" /> Remover</button>
+                <button type="button" disabled={disabled || address.isPrimary} onClick={() => updateAddress(index, { isPrimary: true })} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold disabled:opacity-45 dark:border-slate-700">{t("marketingB2B.markPrimary")}</button>
+                <button type="button" disabled={disabled} onClick={() => duplicateAddress(index)} className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-bold disabled:opacity-45 dark:border-slate-700"><Copy className="inline h-3.5 w-3.5" /> {t("marketingB2B.duplicate")}</button>
+                <button type="button" disabled={disabled} onClick={() => removeAddress(index)} className="rounded-lg border border-red-400/30 px-2.5 py-1.5 text-xs font-bold text-red-500 disabled:opacity-45"><Trash2 className="inline h-3.5 w-3.5" /> {t("common.delete")}</button>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <SelectInput label="Tipo de endereço" value={address.type} icon={MapPin} disabled={disabled} options={addressTypes} onChange={(value) => updateAddress(index, { type: value })} />
-              <TextInput label="Nome da unidade / local" value={address.locationName} icon={Building2} disabled={disabled} placeholder="Ex.: Loja Bom Retiro" onChange={(value) => updateAddress(index, { locationName: value })} />
-              <TextInput label="Endereço completo" value={address.fullAddress} icon={MapPin} disabled={disabled} required placeholder="Rua, número, bairro" onChange={(value) => updateAddress(index, { fullAddress: value })} />
-              <TextInput label="CEP" value={address.zipCode} icon={ClipboardCheck} disabled={disabled} placeholder="00000-000" onChange={(value) => updateAddress(index, { zipCode: value })} />
-              <TextInput label="Cidade" value={address.city} icon={MapPin} disabled={disabled} onChange={(value) => updateAddress(index, { city: value })} />
-              <TextInput label="Estado" value={address.state} icon={MapPin} disabled={disabled} onChange={(value) => updateAddress(index, { state: value })} />
-              <TextInput label="País" value={address.country} icon={Globe2} disabled={disabled} onChange={(value) => updateAddress(index, { country: value })} />
-              <TextInput label="Link Google Maps / Waze" value={address.mapsUrl} icon={Globe2} disabled={disabled} type="url" onChange={(value) => updateAddress(index, { mapsUrl: value })} />
-              <TextInput label="Contato responsável no local" value={address.localContactName} icon={UserRound} disabled={disabled} onChange={(value) => updateAddress(index, { localContactName: value })} />
-              <TextInput label="WhatsApp / Telefone do local" value={address.localContactPhone} icon={UserRound} disabled={disabled} onChange={(value) => updateAddress(index, { localContactPhone: value })} />
+              <SelectInput label={t("marketingB2B.addressType")} value={address.type} icon={MapPin} disabled={disabled} options={addressTypes.map((option) => ({ value: option.value, label: t(option.labelKey) }))} onChange={(value) => updateAddress(index, { type: value })} />
+              <TextInput label={t("marketingB2B.locationName")} value={address.locationName} icon={Building2} disabled={disabled} placeholder={t("marketingB2B.placeholder.locationName")} onChange={(value) => updateAddress(index, { locationName: value })} />
+              <TextInput label={t("marketingB2B.fullAddress")} value={address.fullAddress} icon={MapPin} disabled={disabled} required placeholder={t("marketingB2B.placeholder.fullAddress")} onChange={(value) => updateAddress(index, { fullAddress: value })} />
+              <TextInput label={t("marketingB2B.zipCode")} value={address.zipCode} icon={ClipboardCheck} disabled={disabled} placeholder="00000-000" onChange={(value) => updateAddress(index, { zipCode: value })} />
+              <TextInput label={t("marketingB2B.city")} value={address.city} icon={MapPin} disabled={disabled} onChange={(value) => updateAddress(index, { city: value })} />
+              <TextInput label={t("marketingB2B.state")} value={address.state} icon={MapPin} disabled={disabled} onChange={(value) => updateAddress(index, { state: value })} />
+              <TextInput label={t("marketingB2B.country")} value={address.country} icon={Globe2} disabled={disabled} onChange={(value) => updateAddress(index, { country: value })} />
+              <TextInput label={t("marketingB2B.mapsLink")} value={address.mapsUrl} icon={Globe2} disabled={disabled} type="url" onChange={(value) => updateAddress(index, { mapsUrl: value })} />
+              <TextInput label={t("marketingB2B.localContact")} value={address.localContactName} icon={UserRound} disabled={disabled} onChange={(value) => updateAddress(index, { localContactName: value })} />
+              <TextInput label={t("marketingB2B.localPhone")} value={address.localContactPhone} icon={UserRound} disabled={disabled} onChange={(value) => updateAddress(index, { localContactPhone: value })} />
             </div>
 
             <div className="mt-3 rounded-lg border border-border bg-background/60 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-              <p className="mb-2 text-xs font-bold text-muted-foreground dark:text-slate-400">Usado por quais departamentos?</p>
+              <p className="mb-2 text-xs font-bold text-muted-foreground dark:text-slate-400">{t("marketingB2B.departmentsUsingAddress")}</p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {departmentUsageOptions.map((department) => (
-                  <label key={department} className="flex items-center gap-2 text-xs font-semibold text-foreground dark:text-slate-200">
+                  <label key={department.value} className="flex items-center gap-2 text-xs font-semibold text-foreground dark:text-slate-200">
                     <input
                       type="checkbox"
                       disabled={disabled}
-                      checked={address.departmentUsage.includes(department)}
+                      checked={address.departmentUsage.includes(department.value)}
                       onChange={(event) => {
                         const usage = event.target.checked
-                          ? [...address.departmentUsage, department]
-                          : address.departmentUsage.filter((item) => item !== department);
+                          ? [...address.departmentUsage, department.value]
+                          : address.departmentUsage.filter((item) => item !== department.value);
                         updateAddress(index, { departmentUsage: usage });
                       }}
                     />
-                    {department}
+                    {t(department.labelKey)}
                   </label>
                 ))}
               </div>
@@ -1762,12 +1780,12 @@ function AddressManager({
 
             <div className="mt-3">
               <TextAreaInput
-                label="Observações do endereço"
+                label={t("marketingB2B.addressNotes")}
                 value={address.notes}
                 icon={FileText}
                 disabled={disabled}
                 optional
-                helper={OPTIONAL_HELPER}
+                helper={t("marketingB2B.optionalHelper")}
                 rows={2}
                 onChange={(value) => updateAddress(index, { notes: value })}
               />
@@ -1788,6 +1806,7 @@ function CompetitorManager({
   disabled: boolean;
   onChange: (competitors: Competitor[]) => void;
 }) {
+  const { t } = useLanguage();
   const updateCompetitor = (index: number, patch: Partial<Competitor>) => {
     onChange(competitors.map((competitor, currentIndex) => (currentIndex === index ? { ...competitor, ...patch } : competitor)));
   };
@@ -1798,10 +1817,10 @@ function CompetitorManager({
         <div>
           <div className="flex items-center gap-2">
             <Target className="h-4 w-4 text-blue-500 dark:text-blue-300" />
-            <h3 className="text-sm font-black text-foreground dark:text-white">{b2bFormLabels.competitors}</h3>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">Opcional</span>
+            <h3 className="text-sm font-black text-foreground dark:text-white">{t(b2bFormLabelKeys.competitors)}</h3>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">{t("common.optional")}</span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">Competidores são salvos como uma lista estruturada e não bloqueiam a conclusão da seção.</p>
+          <p className="mt-1 text-xs text-muted-foreground dark:text-slate-500">{t("marketingB2B.competitorsDescription")}</p>
         </div>
         <button
           type="button"
@@ -1809,26 +1828,26 @@ function CompetitorManager({
           onClick={() => onChange([...competitors, { id: createLocalId("competitor"), name: "", instagram: "", website: "" }])}
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-bold text-foreground hover:border-blue-400/60 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
         >
-          <Plus className="h-4 w-4" /> Adicionar concorrente
+          <Plus className="h-4 w-4" /> {t("marketingB2B.addCompetitor")}
         </button>
       </div>
 
       {competitors.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground dark:border-slate-800 dark:text-slate-400">Nenhum concorrente adicionado.</div>
+        <div className="mt-4 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground dark:border-slate-800 dark:text-slate-400">{t("marketingB2B.noCompetitors")}</div>
       ) : (
         <div className="mt-4 space-y-3">
           {competitors.map((competitor, index) => (
             <div key={competitor.id} className="grid gap-3 rounded-lg border border-border bg-card p-3 dark:border-slate-800 dark:bg-[#071120] md:grid-cols-[1fr_1fr_1fr_auto]">
-              <TextInput label="Nome" value={competitor.name} icon={Target} disabled={disabled} required placeholder="Ex.: Namine" onChange={(value) => updateCompetitor(index, { name: value })} />
-              <TextInput label="Instagram" value={competitor.instagram} icon={Instagram} disabled={disabled} placeholder="@concorrente ou URL" onChange={(value) => updateCompetitor(index, { instagram: value })} />
-              <TextInput label="Site" value={competitor.website} icon={Globe2} disabled={disabled} type="url" placeholder="https://..." onChange={(value) => updateCompetitor(index, { website: value })} />
+              <TextInput label={t("marketingB2B.name")} value={competitor.name} icon={Target} disabled={disabled} required placeholder={t("marketingB2B.placeholder.competitorName")} onChange={(value) => updateCompetitor(index, { name: value })} />
+              <TextInput label={t(b2bFormLabelKeys.instagram)} value={competitor.instagram} icon={Instagram} disabled={disabled} placeholder={t("marketingB2B.placeholder.competitorInstagram")} onChange={(value) => updateCompetitor(index, { instagram: value })} />
+              <TextInput label={t(b2bFormLabelKeys.website)} value={competitor.website} icon={Globe2} disabled={disabled} type="url" placeholder="https://..." onChange={(value) => updateCompetitor(index, { website: value })} />
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => onChange(competitors.filter((_, currentIndex) => currentIndex !== index))}
                 className="self-end rounded-lg border border-red-400/30 px-3 py-2 text-xs font-bold text-red-500 disabled:opacity-45"
               >
-                <Trash2 className="inline h-4 w-4" /> Remover
+                <Trash2 className="inline h-4 w-4" /> {t("common.delete")}
               </button>
             </div>
           ))}
@@ -1857,6 +1876,7 @@ function CommercialSection({
   onAction: () => void;
   onFieldChange: (field: string, value: string) => void;
 }) {
+  const { t } = useLanguage();
   const done =
     Number(isTextFilled(values, "commercial.acceptedDocumentRule")) +
     Number(isTextFilled(values, "commercial.minimumOrder")) +
@@ -1867,13 +1887,13 @@ function CommercialSection({
     Number(isTextFilled(values, "commercial.ownManufacturing")) +
     Number(isTextFilled(values, "commercial.nationalShipping"));
   const documentRule = textValue(values, "commercial.acceptedDocumentRule");
-  const selectedExplanation = documentRuleOptions.find((option) => option.value === documentRule)?.description;
+  const selectedExplanation = documentRuleOptions.find((option) => option.value === documentRule)?.descriptionKey;
 
   return (
     <SectionShell
       id="commercial"
       index={2}
-      title={b2bFormLabels.commercialRulesSection}
+      title={t(b2bFormLabelKeys.commercialRulesSection)}
       accent="amber"
       open={open}
       editing={editing}
@@ -1887,25 +1907,25 @@ function CommercialSection({
       <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="xl:col-span-2">
           <SelectInput
-            label={b2bFormLabels.acceptedDocumentRule}
+            label={t(b2bFormLabelKeys.acceptedDocumentRule)}
             value={documentRule}
             icon={ClipboardCheck}
             disabled={!canEdit}
             required
-            helper="Defina qual tipo de cadastro o cliente aceita para compras no atacado."
-            options={documentRuleOptions}
+            helper={t("marketingB2B.acceptedDocumentHelper")}
+            options={documentRuleOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
             onChange={(value) => onFieldChange("commercial.acceptedDocumentRule", value)}
           />
-          {selectedExplanation && <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-200">{selectedExplanation}</p>}
+          {selectedExplanation && <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-200">{t(selectedExplanation)}</p>}
         </div>
-        <TextInput label={b2bFormLabels.minimumOrder} value={textValue(values, "commercial.minimumOrder")} icon={BarChart3} disabled={!canEdit} required placeholder="Ex.: Pedido mínimo de R$150" onChange={(value) => onFieldChange("commercial.minimumOrder", value)} />
-        <TextInput label={b2bFormLabels.paymentMethods} value={textValue(values, "commercial.paymentMethods")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="Pix, cartão, boleto, parcelamento..." onChange={(value) => onFieldChange("commercial.paymentMethods", value)} />
-        <TextInput label={b2bFormLabels.discountPolicy} value={textValue(values, "commercial.discountPolicy")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="Cupons, primeira compra, descontos..." onChange={(value) => onFieldChange("commercial.discountPolicy", value)} />
-        <TextInput label={b2bFormLabels.commercialRestrictions} value={textValue(values, "commercial.restrictions")} icon={ShieldCheck} disabled={!canEdit} required span="full" placeholder="Geografia, categorias, estoque, regras legais..." onChange={(value) => onFieldChange("commercial.restrictions", value)} />
-        <TextInput label={b2bFormLabels.sizeRange} value={textValue(values, "commercial.sizeGrid")} icon={ClipboardCheck} disabled={!canEdit} required placeholder="PP ao GG, 34 ao 48..." onChange={(value) => onFieldChange("commercial.sizeGrid", value)} />
-        <SelectInput label={b2bFormLabels.ownManufacturing} value={textValue(values, "commercial.ownManufacturing")} icon={Building2} disabled={!canEdit} required options={booleanishOptions} onChange={(value) => onFieldChange("commercial.ownManufacturing", value)} />
-        <SelectInput label={b2bFormLabels.nationalShipping} value={textValue(values, "commercial.nationalShipping")} icon={Globe2} disabled={!canEdit} required options={shippingOptions} onChange={(value) => onFieldChange("commercial.nationalShipping", value)} />
-        <TextAreaInput label={b2bFormLabels.commercialNotes} value={textValue(values, "commercial.notes")} icon={FileText} disabled={!canEdit} optional helper={OPTIONAL_HELPER} placeholder="Contexto comercial adicional." onChange={(value) => onFieldChange("commercial.notes", value)} />
+        <TextInput label={t(b2bFormLabelKeys.minimumOrder)} value={textValue(values, "commercial.minimumOrder")} icon={BarChart3} disabled={!canEdit} required placeholder={t("marketingB2B.placeholder.minimumOrder")} onChange={(value) => onFieldChange("commercial.minimumOrder", value)} />
+        <TextInput label={t(b2bFormLabelKeys.paymentMethods)} value={textValue(values, "commercial.paymentMethods")} icon={ClipboardCheck} disabled={!canEdit} required placeholder={t("marketingB2B.placeholder.paymentMethods")} onChange={(value) => onFieldChange("commercial.paymentMethods", value)} />
+        <TextInput label={t(b2bFormLabelKeys.discountPolicy)} value={textValue(values, "commercial.discountPolicy")} icon={ClipboardCheck} disabled={!canEdit} required placeholder={t("marketingB2B.placeholder.discountPolicy")} onChange={(value) => onFieldChange("commercial.discountPolicy", value)} />
+        <TextInput label={t(b2bFormLabelKeys.commercialRestrictions)} value={textValue(values, "commercial.restrictions")} icon={ShieldCheck} disabled={!canEdit} required span="full" placeholder={t("marketingB2B.placeholder.commercialRestrictions")} onChange={(value) => onFieldChange("commercial.restrictions", value)} />
+        <TextInput label={t(b2bFormLabelKeys.sizeRange)} value={textValue(values, "commercial.sizeGrid")} icon={ClipboardCheck} disabled={!canEdit} required placeholder={t("marketingB2B.placeholder.sizeRange")} onChange={(value) => onFieldChange("commercial.sizeGrid", value)} />
+        <SelectInput label={t(b2bFormLabelKeys.ownManufacturing)} value={textValue(values, "commercial.ownManufacturing")} icon={Building2} disabled={!canEdit} required options={booleanishOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))} onChange={(value) => onFieldChange("commercial.ownManufacturing", value)} />
+        <SelectInput label={t(b2bFormLabelKeys.nationalShipping)} value={textValue(values, "commercial.nationalShipping")} icon={Globe2} disabled={!canEdit} required options={shippingOptions.map((option) => ({ value: option.value, label: t(option.labelKey) }))} onChange={(value) => onFieldChange("commercial.nationalShipping", value)} />
+        <TextAreaInput label={t(b2bFormLabelKeys.commercialNotes)} value={textValue(values, "commercial.notes")} icon={FileText} disabled={!canEdit} optional helper={t("marketingB2B.optionalHelper")} placeholder={t("marketingB2B.placeholder.commercialNotes")} onChange={(value) => onFieldChange("commercial.notes", value)} />
       </div>
     </SectionShell>
   );
@@ -1930,6 +1950,7 @@ function TargetSection({
   onAction: () => void;
   onFieldChange: (field: string, value: string) => void;
 }) {
+  const { t } = useLanguage();
   const done =
     Number(isTextFilled(values, "targetPositioning.positioning")) +
     Number(isTextFilled(values, "targetPositioning.brandStyle")) +
@@ -1939,8 +1960,8 @@ function TargetSection({
     <SectionShell
       id="target"
       index={3}
-      title={b2bFormLabels.targetSection}
-      description="Defina como a marca se posiciona, qual estilo comunica e quem é o público comprador principal."
+      title={t(b2bFormLabelKeys.targetSection)}
+      description={t("marketingB2B.targetDescription")}
       accent="purple"
       open={open}
       editing={editing}
@@ -1953,51 +1974,51 @@ function TargetSection({
     >
       <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
         <TextAreaInput
-          label={b2bFormLabels.positioning}
+          label={t(b2bFormLabelKeys.positioning)}
           value={textValue(values, "targetPositioning.positioning")}
           icon={Target}
           disabled={!canEdit}
-          placeholder="Ex.: marca premium de alfaiataria feminina para lojistas que buscam peças sofisticadas..."
+          placeholder={t("marketingB2B.placeholder.positioning")}
           onChange={(value) => onFieldChange("targetPositioning.positioning", value)}
         />
         <TextInput
-          label={b2bFormLabels.brandStyle}
+          label={t(b2bFormLabelKeys.brandStyle)}
           value={textValue(values, "targetPositioning.brandStyle")}
           icon={Sparkles}
           disabled={!canEdit}
           required
-          placeholder="Ex.: moderno, minimalista, casual chic, festa, fitness, romântico..."
+          placeholder={t("marketingB2B.placeholder.brandStyle")}
           span="full"
           onChange={(value) => onFieldChange("targetPositioning.brandStyle", value)}
         />
         <TextAreaInput
-          label={b2bFormLabels.mainAudience}
+          label={t(b2bFormLabelKeys.mainAudience)}
           value={textValue(values, "targetPositioning.mainAudience")}
           icon={Users}
           disabled={!canEdit}
-          placeholder="Ex.: lojistas multimarcas, boutiques, revendedoras, lojas de moda feminina..."
+          placeholder={t("marketingB2B.placeholder.mainAudience")}
           onChange={(value) => onFieldChange("targetPositioning.mainAudience", value)}
         />
         <TextInput
-          label={b2bFormLabels.researchLink}
+          label={t(b2bFormLabelKeys.researchLink)}
           value={textValue(values, "targetPositioning.researchLink")}
           icon={Globe2}
           disabled={!canEdit}
           optional
-          helper={OPTIONAL_HELPER}
+          helper={t("marketingB2B.optionalHelper")}
           type="url"
-          placeholder="Link de pesquisa, referências, benchmarking ou documento estratégico"
+          placeholder={t("marketingB2B.placeholder.researchLink")}
           span="full"
           onChange={(value) => onFieldChange("targetPositioning.researchLink", value)}
         />
         <TextAreaInput
-          label={b2bFormLabels.behaviorNotes}
+          label={t(b2bFormLabelKeys.behaviorNotes)}
           value={textValue(values, "targetPositioning.behaviorNotes")}
           icon={FileText}
           disabled={!canEdit}
           optional
-          helper={OPTIONAL_HELPER}
-          placeholder="Opcional — use este campo para adicionar informações extras sobre compra, sazonalidade, objeções ou comportamento do público."
+          helper={t("marketingB2B.optionalHelper")}
+          placeholder={t("marketingB2B.placeholder.behaviorNotes")}
           onChange={(value) => onFieldChange("targetPositioning.behaviorNotes", value)}
         />
       </div>
@@ -2028,6 +2049,7 @@ function ResponsibleBrandSection({
   onFieldChange: (field: string, value: string) => void;
   onExtraRowsChange: (rows: BrandResponsibleExtra[]) => void;
 }) {
+  const { t } = useLanguage();
   const disabled = !canEdit;
   const fixedDone = brandResponsibleRows.filter(([rowKey]) => isTextFilled(values, `brandResponsible.${rowKey}.name`)).length;
   const extraDone = extraRows.filter((row) => row.area.trim().length > 0 || row.name.trim().length > 0).length;
@@ -2052,7 +2074,7 @@ function ResponsibleBrandSection({
     <SectionShell
       id="brandResponsibles"
       index={4}
-      title={b2bFormLabels.brandResponsiblesSection}
+      title={t(b2bFormLabelKeys.brandResponsiblesSection)}
       accent="pink"
       open={open}
       editing={editing}
@@ -2065,13 +2087,13 @@ function ResponsibleBrandSection({
     >
       <div className="overflow-x-auto rounded-lg border border-border dark:border-slate-800">
         <div className="grid min-w-[1120px] grid-cols-[160px_repeat(5,minmax(140px,1fr))_44px] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
-          <span>Área</span>
-          {responsibleColumns.map(([, label]) => <span key={label}>{label}</span>)}
+          <span>{t("marketingB2B.area")}</span>
+          {responsibleColumns.map(([, labelKey]) => <span key={labelKey}>{t(labelKey)}</span>)}
           <span />
         </div>
-        {brandResponsibleRows.map(([rowKey, label]) => (
+        {brandResponsibleRows.map(([rowKey, labelKey]) => (
           <div key={rowKey} className="grid min-w-[1120px] grid-cols-[160px_repeat(5,minmax(140px,1fr))_44px] gap-3 border-b border-border px-3 py-2 dark:border-slate-800">
-            <span className="self-center text-sm font-bold text-foreground dark:text-white">{label}</span>
+            <span className="self-center text-sm font-bold text-foreground dark:text-white">{t(labelKey)}</span>
             {responsibleColumns.map(([columnKey]) => (
               <input
                 key={columnKey}
@@ -2089,7 +2111,7 @@ function ResponsibleBrandSection({
             <input
               value={row.area}
               disabled={disabled}
-              placeholder="Nova área"
+              placeholder={t("marketingB2B.newArea")}
               onChange={(event) => updateExtraRow(row.id, "area", event.target.value)}
               className="h-9 min-w-0 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-slate-900/60"
             />
@@ -2107,7 +2129,7 @@ function ResponsibleBrandSection({
               onClick={() => removeExtraRow(row.id)}
               disabled={disabled}
               className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:border-red-400 hover:text-red-500 disabled:opacity-40 dark:border-slate-800"
-              title="Remover responsável"
+              title={t("marketingB2B.removeResponsible")}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -2121,17 +2143,17 @@ function ResponsibleBrandSection({
           disabled={disabled}
           className="inline-flex h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-bold text-foreground hover:border-blue-400/60 disabled:opacity-40 dark:border-slate-800 dark:text-slate-100"
         >
-          <Plus className="h-4 w-4" /> Adicionar responsável
+          <Plus className="h-4 w-4" /> {t("marketingB2B.addResponsible")}
         </button>
       </div>
       <div className="mt-4">
         <TextAreaInput
-          label={b2bFormLabels.brandResponsiblesNotes}
+          label={t(b2bFormLabelKeys.brandResponsiblesNotes)}
           value={textValue(values, "brandResponsible.notes")}
           icon={FileText}
           disabled={disabled}
           optional
-          helper={OPTIONAL_HELPER}
+          helper={t("marketingB2B.optionalHelper")}
           rows={2}
           onChange={(value) => onFieldChange("brandResponsible.notes", value)}
         />
@@ -2160,6 +2182,7 @@ function UpResponsibleSection({
   onAction: () => void;
   onFieldChange: (field: string, value: string) => void;
 }) {
+  const { t } = useLanguage();
   const disabled = !canEdit;
   const done = upResponsibleServices.filter(([rowKey]) => isUpResponsibleSelected(values, rowKey)).length;
 
@@ -2167,7 +2190,7 @@ function UpResponsibleSection({
     <SectionShell
       id="upResponsibles"
       index={5}
-      title={b2bFormLabels.upResponsiblesSection}
+      title={t(b2bFormLabelKeys.upResponsiblesSection)}
       accent="cyan"
       open={open}
       editing={editing}
@@ -2180,24 +2203,24 @@ function UpResponsibleSection({
     >
       <div className="overflow-x-auto rounded-lg border border-border dark:border-slate-800">
         <div className="grid min-w-[760px] grid-cols-[1fr_1.25fr_0.9fr] gap-3 border-b border-border bg-muted/60 px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-muted-foreground dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-500">
-          <span>Serviço</span>
-          <span>Responsável UP</span>
-          <span>Status</span>
+          <span>{t("marketingB2B.service")}</span>
+          <span>{t("marketingB2B.upOwner")}</span>
+          <span>{t("marketingB2B.status")}</span>
         </div>
-        {upResponsibleServices.map(([rowKey, label]) => {
+        {upResponsibleServices.map(([rowKey, labelKey]) => {
           const selected = textValue(values, `upResponsible.${rowKey}.leaderId`);
-          const status = selected === NO_UP_RESPONSIBLE ? "Não se aplica" : selected ? "Definido" : "Pendente";
+          const status = selected === NO_UP_RESPONSIBLE ? t("marketingB2B.option.notApplicable") : selected ? t("marketingB2B.defined") : t("marketingB2B.pending");
           return (
             <div key={rowKey} className="grid min-w-[760px] grid-cols-[1fr_1.25fr_0.9fr] gap-3 border-b border-border px-3 py-2 last:border-b-0 dark:border-slate-800">
-              <span className="self-center text-sm font-bold text-foreground dark:text-white">{label}</span>
+              <span className="self-center text-sm font-bold text-foreground dark:text-white">{t(labelKey)}</span>
               <select
                 value={selected}
                 disabled={disabled}
                 onChange={(event) => onFieldChange(`upResponsible.${rowKey}.leaderId`, event.target.value)}
                 className="h-9 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
               >
-                <option value="">Selecionar responsável</option>
-                <option value={NO_UP_RESPONSIBLE}>Nenhum</option>
+                <option value="">{t("marketingB2B.selectOwner")}</option>
+                <option value={NO_UP_RESPONSIBLE}>{t("marketingB2B.none")}</option>
                 {teamUsers.map((user) => <option key={user.id} value={user.id}>{user.name || user.email}</option>)}
               </select>
               <span className={cn("self-center rounded-full px-2.5 py-1 text-xs font-black", statusTone(status))}>
@@ -2209,12 +2232,12 @@ function UpResponsibleSection({
       </div>
       <div className="mt-4">
         <TextAreaInput
-          label="Observações sobre responsáveis UP"
+          label={t("marketingB2B.upResponsibleNotes")}
           value={textValue(values, "upResponsible.notes")}
           icon={FileText}
           disabled={disabled}
           optional
-          helper={OPTIONAL_HELPER}
+          helper={t("marketingB2B.optionalHelper")}
           rows={2}
           onChange={(value) => onFieldChange("upResponsible.notes", value)}
         />
@@ -2241,12 +2264,13 @@ function AccessSection({
   onAction: () => void;
   onFieldChange: (field: string, value: string) => void;
 }) {
+  const { t } = useLanguage();
   const done = accessRows.filter(([rowKey]) => isTextFilled(values, `access.${rowKey}.status`)).length;
   return (
     <SectionShell
       id="access"
       index={6}
-      title={b2bFormLabels.accessSection}
+      title={t(b2bFormLabelKeys.accessSection)}
       accent="teal"
       open={open}
       editing={editing}
@@ -2258,9 +2282,9 @@ function AccessSection({
       onAction={onAction}
     >
       <div className="grid gap-3 lg:grid-cols-2">
-        {accessRows.map(([rowKey, label]) => (
+        {accessRows.map(([rowKey, labelKey]) => (
           <div key={rowKey} className="rounded-lg border border-border bg-background/70 p-3 dark:border-slate-800 dark:bg-slate-950/45">
-            <p className="mb-2 text-sm font-black text-foreground dark:text-white">{label}</p>
+            <p className="mb-2 text-sm font-black text-foreground dark:text-white">{t(labelKey)}</p>
             <div className="grid gap-2 sm:grid-cols-[0.9fr_1.1fr]">
               <select
                 value={textValue(values, `access.${rowKey}.status`)}
@@ -2268,14 +2292,14 @@ function AccessSection({
                 onChange={(event) => onFieldChange(`access.${rowKey}.status`, event.target.value)}
                 className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-bold text-foreground outline-none focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:disabled:bg-slate-900/60"
               >
-                <option value="">Status</option>
-                {accessStatusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                <option value="">{t("marketingB2B.status")}</option>
+                {accessStatusOptions.map((option) => <option key={option.value} value={option.value}>{t(option.labelKey)}</option>)}
               </select>
               <input
                 value={textValue(values, `access.${rowKey}.notes`)}
                 disabled={!canEdit}
                 onChange={(event) => onFieldChange(`access.${rowKey}.notes`, event.target.value)}
-                placeholder="Link, usuário ou observação"
+                placeholder={t("marketingB2B.accessPlaceholder")}
                 className="h-9 rounded-lg border border-border bg-background px-2 text-xs font-semibold text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-blue-500 disabled:bg-muted/50 disabled:opacity-80 dark:border-slate-800 dark:bg-slate-950/70 dark:text-white dark:placeholder:text-slate-600 dark:disabled:bg-slate-900/60"
               />
             </div>
@@ -2284,12 +2308,12 @@ function AccessSection({
       </div>
       <div className="mt-4">
         <TextAreaInput
-          label={b2bFormLabels.accessNotes}
+          label={t(b2bFormLabelKeys.accessNotes)}
           value={textValue(values, "access.notes")}
           icon={FileText}
           disabled={!canEdit}
           optional
-          helper={OPTIONAL_HELPER}
+          helper={t("marketingB2B.optionalHelper")}
           rows={2}
           onChange={(value) => onFieldChange("access.notes", value)}
         />
@@ -2329,11 +2353,12 @@ function ValidationSection({
   onFieldChange: (field: string, value: string) => void;
   onFinalize: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <SectionShell
       id="validation"
       index={7}
-      title={b2bFormLabels.validationSection}
+      title={t(b2bFormLabelKeys.validationSection)}
       accent="green"
       open={open}
       editing={editing}
@@ -2345,26 +2370,26 @@ function ValidationSection({
       onAction={onAction}
     >
       <div className="grid gap-3 sm:grid-cols-2">
-        <ValidationItem label="Campos preenchidos" value={`${progress}%`} ok={progress >= 100} />
-        <ValidationItem label="Seções pendentes" value={String(pendingSections)} ok={pendingSections === 0} />
-        <ValidationItem label="Responsáveis UP pendentes" value={String(upResponsiblePending)} ok={upResponsiblePending === 0} />
-        <ValidationItem label="Acessos pendentes" value={String(accessPending)} ok={accessPending === 0} />
+        <ValidationItem label={t("marketingB2B.fieldsCompleted")} value={`${progress}%`} ok={progress >= 100} />
+        <ValidationItem label={t("marketingB2B.sectionsPending")} value={String(pendingSections)} ok={pendingSections === 0} />
+        <ValidationItem label={t("marketingB2B.upOwnersPending")} value={String(upResponsiblePending)} ok={upResponsiblePending === 0} />
+        <ValidationItem label={t("marketingB2B.accessesPending")} value={String(accessPending)} ok={accessPending === 0} />
       </div>
       <div className="mt-4">
         <TextAreaInput
-          label={b2bFormLabels.finalNotes}
+          label={t(b2bFormLabelKeys.finalNotes)}
           value={textValue(values, "validation.notes")}
           icon={FileText}
           disabled={!canEdit}
           optional
-          helper={OPTIONAL_HELPER}
+          helper={t("marketingB2B.optionalHelper")}
           rows={2}
           onChange={(value) => onFieldChange("validation.notes", value)}
         />
       </div>
       <button type="button" onClick={onFinalize} disabled={!canEdit || saving} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 text-sm font-black text-white shadow-[0_14px_34px_rgba(37,99,235,0.35)] disabled:opacity-50">
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-        Finalizar onboarding B2B
+        {t("marketingB2B.finalize")}
       </button>
     </SectionShell>
   );
@@ -2406,6 +2431,8 @@ function ProgressSidebar({
   onSectionClick: (id: string) => void;
   onFinalize: () => void;
 }) {
+  const { language, t } = useLanguage();
+  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   return (
     <aside
       data-testid="b2b-progress-sidebar"
@@ -2413,7 +2440,7 @@ function ProgressSidebar({
     >
       <section className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f]">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Resumo do Onboarding</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">{t("marketingB2B.onboardingSummary")}</p>
           <Sparkles className="h-4 w-4 text-blue-500 dark:text-blue-300" />
         </div>
         <div className="mt-6 flex flex-col items-center">
@@ -2424,17 +2451,17 @@ function ProgressSidebar({
             <div className="grid h-24 w-24 place-items-center rounded-full bg-card text-center dark:bg-[#06101f]">
               <div>
                 <p className="text-2xl font-black text-foreground dark:text-white">{progress}%</p>
-                <p className="text-xs text-muted-foreground dark:text-slate-400">concluído</p>
+                <p className="text-xs text-muted-foreground dark:text-slate-400">{t("marketingB2B.completed")}</p>
               </div>
             </div>
           </div>
           <p className="mt-4 text-center text-sm text-muted-foreground dark:text-slate-300">
-            <span className="font-bold text-blue-600 dark:text-blue-300">{completed}</span> de {total} campos preenchidos
+            {t("marketingB2B.completedFields", { completed, total })}
           </p>
         </div>
 
         <div className="mt-5 border-t border-border pt-4 dark:border-slate-800">
-          <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Seções</p>
+          <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">{t("marketingB2B.sections")}</p>
           <div className="space-y-2">
             {sections.map((section) => {
               const sectionPercent = section.total > 0 ? Math.round((section.done / section.total) * 100) : 0;
@@ -2463,25 +2490,25 @@ function ProgressSidebar({
       </section>
 
       <section className="rounded-lg border border-blue-500/25 bg-blue-500/10 p-5">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-200">Próxima ação recomendada</p>
-        <h3 className="mt-3 font-black text-foreground dark:text-white">{nextAction ? `Completar ${nextAction.title}` : "Finalizar onboarding"}</h3>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-600 dark:text-blue-200">{t("marketingB2B.recommendedNextAction")}</p>
+        <h3 className="mt-3 font-black text-foreground dark:text-white">{nextAction ? t("marketingB2B.completeSection", { section: nextAction.title }) : t("marketingB2B.finalizeOnboarding")}</h3>
         <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-          {nextAction ? "Complete os campos pendentes desta seção para destravar a validação final." : "Todas as seções principais estão preenchidas."}
+          {nextAction ? t("marketingB2B.completePendingFields") : t("marketingB2B.allSectionsComplete")}
         </p>
         <button
           type="button"
           onClick={() => (nextAction ? onSectionClick(nextAction.id) : onFinalize())}
           className="mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-600 px-3 py-2 text-xs font-bold text-white"
         >
-          {nextAction ? "Ir para a seção" : "Finalizar onboarding B2B"}
+          {nextAction ? t("marketingB2B.goToSection") : t("marketingB2B.finalize")}
         </button>
       </section>
 
       <section className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-slate-800 dark:bg-[#06101f]">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Atividade recente</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">{t("marketingB2B.recentActivity")}</p>
         <div className="mt-4 space-y-3 text-sm text-muted-foreground dark:text-slate-300">
-          <ActivityLine icon={CheckCircle2} title={saveState === "saving" ? "Salvando alterações" : saveState === "error" ? "Erro ao salvar" : "Campos salvam automaticamente"} subtitle={updatedAt ? formatDate(updatedAt) : "Agora"} />
-          <ActivityLine icon={ClipboardCheck} title={formStatus === "complete" ? "Onboarding finalizado" : "Onboarding iniciado"} subtitle={updatedAt ? formatDate(updatedAt) : "UP Flow"} />
+          <ActivityLine icon={CheckCircle2} title={saveState === "saving" ? t("marketingB2B.savingChanges") : saveState === "error" ? t("marketingB2B.saveError") : t("marketingB2B.autoSaveFields")} subtitle={updatedAt ? formatDate(updatedAt, locale) : t("marketingB2B.now")} />
+          <ActivityLine icon={ClipboardCheck} title={formStatus === "complete" ? t("marketingB2B.onboardingFinalized") : t("marketingB2B.onboardingStarted")} subtitle={updatedAt ? formatDate(updatedAt, locale) : "UP Flow"} />
         </div>
       </section>
     </aside>
@@ -2515,6 +2542,7 @@ function BottomSaveBar({
   onSave: () => void;
   onFinalize: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="sticky bottom-4 z-10 mt-5 rounded-lg border border-border bg-card/95 p-4 text-card-foreground shadow-lg backdrop-blur dark:border-slate-800 dark:bg-[#06101f]/95 dark:shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2522,17 +2550,17 @@ function BottomSaveBar({
           <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", saveState === "error" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-500 dark:text-emerald-300")}>
             {saveState === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : saveState === "error" ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}
           </span>
-          <span>{saveState === "saving" ? "Salvando automaticamente..." : saveState === "error" ? "Erro ao salvar. Tente novamente." : "As alterações são salvas automaticamente."}</span>
+          <span>{saveState === "saving" ? t("marketingB2B.savingAutomatically") : saveState === "error" ? t("marketingB2B.saveErrorTryAgain") : t("marketingB2B.autoSaveDescription")}</span>
           <span className={cn("rounded-full px-3 py-1 text-xs font-bold", saveState === "error" ? "bg-red-500/15 text-red-500" : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300")}>
-            {saveState === "saving" ? "Salvando..." : saveState === "error" ? "Erro ao salvar" : "Tudo salvo"}
+            {saveState === "saving" ? t("marketingB2B.saving") : saveState === "error" ? t("marketingB2B.saveError") : t("marketingB2B.allSaved")}
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={onSave} disabled={!canEdit || saving} className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200">
-            <Save className="h-4 w-4" /> Salvar resumo
+            <Save className="h-4 w-4" /> {t("marketingB2B.saveSummary")}
           </button>
           <button type="button" onClick={onFinalize} disabled={!canEdit || saving} className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-5 py-2 text-sm font-black text-white shadow-[0_14px_34px_rgba(37,99,235,0.35)] disabled:opacity-50">
-            <Check className="h-4 w-4" /> Finalizar onboarding B2B
+            <Check className="h-4 w-4" /> {t("marketingB2B.finalize")}
           </button>
         </div>
       </div>
@@ -2541,14 +2569,15 @@ function BottomSaveBar({
 }
 
 function KanbanPlaceholder({ taskTitle, taskStatus }: { taskTitle: string; taskStatus: string }) {
+  const { t } = useLanguage();
   return (
     <section className="rounded-lg border border-border bg-card p-5 text-card-foreground dark:border-slate-800 dark:bg-[#06101f]">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">Kanban / tarefas</p>
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-muted-foreground dark:text-slate-400">{t("marketingB2B.kanbanTasks")}</p>
       <div className="mt-4 rounded-lg border border-border bg-background/70 p-4 dark:border-slate-800 dark:bg-slate-950/45">
         <p className="font-black text-foreground dark:text-white">{taskTitle}</p>
-        <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">Status: {taskStatus}</p>
+        <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">{t("marketingB2B.status")}: {taskStatus}</p>
         <p className="mt-3 text-sm text-muted-foreground dark:text-slate-400">
-          O formulário é a interface principal. A tarefa continua sendo usada como controle de workflow em segundo plano.
+          {t("marketingB2B.kanbanDescription")}
         </p>
       </div>
     </section>

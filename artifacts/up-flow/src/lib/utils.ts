@@ -117,9 +117,19 @@ export function mergeAppDateAndTime(date: Date, time: string): Date {
   return appDateTimeToUtc(parts.year, parts.month, parts.day, hours || 0, minutes || 0);
 }
 
-export function formatDate(date: string | Date | null | undefined): string {
+function activeLocale(locale?: string) {
+  if (locale) return locale;
+  if (typeof document !== "undefined") {
+    const language = document.documentElement.lang;
+    if (language === "pt-BR") return language;
+    if (language === "en") return "en-US";
+  }
+  return APP_LOCALE;
+}
+
+export function formatDate(date: string | Date | null | undefined, locale?: string): string {
   if (!date) return "";
-  return new Intl.DateTimeFormat(APP_LOCALE, {
+  return new Intl.DateTimeFormat(activeLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -127,18 +137,18 @@ export function formatDate(date: string | Date | null | undefined): string {
   }).format(normalizeDate(date));
 }
 
-export function formatShortDate(date: string | Date | null | undefined): string {
+export function formatShortDate(date: string | Date | null | undefined, locale?: string): string {
   if (!date) return "";
-  return new Intl.DateTimeFormat(APP_LOCALE, {
+  return new Intl.DateTimeFormat(activeLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     timeZone: APP_TIME_ZONE,
   }).format(normalizeDate(date));
 }
 
-export function formatLongDate(date: string | Date | null | undefined): string {
+export function formatLongDate(date: string | Date | null | undefined, locale?: string): string {
   if (!date) return "";
-  return new Intl.DateTimeFormat(APP_LOCALE, {
+  return new Intl.DateTimeFormat(activeLocale(locale), {
     weekday: "long",
     day: "2-digit",
     month: "long",
@@ -146,9 +156,9 @@ export function formatLongDate(date: string | Date | null | undefined): string {
   }).format(normalizeDate(date));
 }
 
-export function formatDateTime(date: string | Date | null | undefined): string {
+export function formatDateTime(date: string | Date | null | undefined, locale?: string): string {
   if (!date) return "";
-  return new Intl.DateTimeFormat(APP_LOCALE, {
+  return new Intl.DateTimeFormat(activeLocale(locale), {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -159,9 +169,9 @@ export function formatDateTime(date: string | Date | null | undefined): string {
   }).format(normalizeDate(date));
 }
 
-export function formatTime(date: string | Date | null | undefined): string {
+export function formatTime(date: string | Date | null | undefined, locale?: string): string {
   if (!date) return "";
-  return new Intl.DateTimeFormat(APP_LOCALE, {
+  return new Intl.DateTimeFormat(activeLocale(locale), {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -221,14 +231,16 @@ function appDateOrdinal(date: string | Date) {
   return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000);
 }
 
-export function relativeDueDateLabel(dueDate: string | Date | null | undefined): string {
+export function relativeDueDateLabel(dueDate: string | Date | null | undefined, locale?: string): string {
   if (!dueDate) return "";
+  const resolvedLocale = activeLocale(locale);
+  const isPortuguese = resolvedLocale.toLowerCase().startsWith("pt");
   const diffDays = appDateOrdinal(dueDate) - appDateOrdinal(new Date());
-  if (diffDays < 0) return "Overdue";
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Tomorrow";
-  if (diffDays <= 7) return `In ${diffDays} days`;
-  return formatDate(dueDate);
+  if (diffDays < 0) return isPortuguese ? "Atrasada" : "Overdue";
+  if (diffDays === 0) return isPortuguese ? "Hoje" : "Today";
+  if (diffDays === 1) return isPortuguese ? "Amanhã" : "Tomorrow";
+  if (diffDays <= 7) return isPortuguese ? `Em ${diffDays} dias` : `In ${diffDays} days`;
+  return formatDate(dueDate, resolvedLocale);
 }
 
 export function priorityColor(priority: string): string {
@@ -259,18 +271,21 @@ export function statusColor(status: string): string {
   }
 }
 
-export function statusLabel(status: string): string {
+export function statusLabel(
+  status: string,
+  translate?: (key: string, vars?: Record<string, string | number>) => string,
+): string {
   switch (status) {
     case "todo":
-      return "To Do";
+      return translate ? translate("status.todo") : "To Do";
     case "in_progress":
-      return "In Progress";
+      return translate ? translate("status.inProgress") : "In Progress";
     case "done":
-      return "Done";
+      return translate ? translate("status.done") : "Done";
     case "active":
-      return "Active";
+      return translate ? translate("status.active") : "Active";
     case "archived":
-      return "Archived";
+      return translate ? translate("status.archived") : "Archived";
     default:
       return status;
   }

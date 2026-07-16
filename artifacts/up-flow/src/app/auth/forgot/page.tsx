@@ -4,8 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Loader2, Zap, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useLanguage } from "@/components/language-provider";
 
 export default function ForgotPasswordPage() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -20,14 +22,14 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       });
       if (res.status === 429) {
-        toast.error("Too many requests. Please wait a minute and try again.");
+        toast.error(t("auth.forgot.rateLimited"));
       } else {
         // We always return 202 server-side regardless of whether the address
         // is registered, so the UI confirms unconditionally.
         setSent(true);
       }
     } catch {
-      toast.error("Could not request a reset link. Check your connection and try again.");
+      toast.error(t("auth.forgot.requestFailed"));
     } finally {
       setLoading(false);
     }
@@ -47,9 +49,9 @@ export default function ForgotPasswordPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-primary rounded-2xl mb-4 shadow-lg shadow-primary/30">
             <Zap className="w-7 h-7 text-white" fill="currentColor" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Forgot password?</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t("auth.forgot.title")}</h1>
           <p className="text-muted-foreground mt-1">
-            We&apos;ll email you a link to set a new one.
+            {t("auth.forgot.subtitle")}
           </p>
         </div>
 
@@ -57,25 +59,24 @@ export default function ForgotPasswordPage() {
           {sent ? (
             <div className="space-y-4">
               <p className="text-foreground text-sm">
-                If an account exists for <strong>{email}</strong>, a password
-                reset link is on its way. Check your inbox (and spam folder).
+                {t("auth.forgot.sent", { email })}
               </p>
               <p className="text-muted-foreground text-xs">
-                The link expires in about an hour.
+                {t("auth.forgot.expiry")}
               </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Email address
+                  {t("auth.emailAddress")}
                 </label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="you@company.com"
+                  placeholder={t("auth.emailPlaceholder")}
                   className="w-full px-4 py-2.5 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
                 />
               </div>
@@ -87,10 +88,10 @@ export default function ForgotPasswordPage() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Sending...
+                    {t("auth.forgot.sending")}
                   </>
                 ) : (
-                  "Send reset link"
+                  t("auth.forgot.send")
                 )}
               </button>
             </form>
@@ -102,7 +103,7 @@ export default function ForgotPasswordPage() {
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              Back to sign in
+              {t("auth.backToSignIn")}
             </Link>
           </div>
         </div>

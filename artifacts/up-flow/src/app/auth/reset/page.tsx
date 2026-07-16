@@ -6,6 +6,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Zap, ArrowLeft } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/components/language-provider";
 
 /**
  * Set-a-new-password landing page.
@@ -16,6 +17,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
  */
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export default function ResetPasswordPage() {
 
     if (!accessToken || type !== "recovery") {
       setError(
-        "This reset link is invalid or has expired. Request a new one from the forgot-password page.",
+        t("auth.reset.invalidLink"),
       );
       return;
     }
@@ -46,22 +48,22 @@ export default function ResetPasswordPage() {
       .then(({ error: sErr }) => {
         if (sErr) {
           setError(
-            "This reset link is invalid or has expired. Request a new one from the forgot-password page.",
+            t("auth.reset.invalidLink"),
           );
           return;
         }
         setReady(true);
       });
-  }, []);
+  }, [t]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+      toast.error(t("auth.reset.passwordTooShort"));
       return;
     }
     if (password !== confirm) {
-      toast.error("Passwords don't match.");
+      toast.error(t("auth.reset.passwordsMismatch"));
       return;
     }
     setLoading(true);
@@ -69,15 +71,15 @@ export default function ResetPasswordPage() {
       const supabase = createSupabaseBrowserClient();
       const { error: uErr } = await supabase.auth.updateUser({ password });
       if (uErr) {
-        toast.error(uErr.message || "Couldn't update password");
+        toast.error(uErr.message || t("auth.reset.updateFailed"));
         return;
       }
-      toast.success("Password updated. You're signed in.");
+      toast.success(t("auth.reset.updated"));
       // The recovery session is a normal Supabase session; push to home.
       router.push("/");
       router.refresh();
     } catch {
-      toast.error("Could not update your password. Check your connection and try again.");
+      toast.error(t("auth.reset.updateRequestFailed"));
     } finally {
       setLoading(false);
     }
@@ -97,9 +99,9 @@ export default function ResetPasswordPage() {
           <div className="inline-flex items-center justify-center w-14 h-14 bg-primary rounded-2xl mb-4 shadow-lg shadow-primary/30">
             <Zap className="w-7 h-7 text-white" fill="currentColor" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Set a new password</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t("auth.reset.title")}</h1>
           <p className="text-muted-foreground mt-1">
-            Choose something at least 8 characters long.
+            {t("auth.reset.subtitle")}
           </p>
         </div>
 
@@ -111,7 +113,7 @@ export default function ResetPasswordPage() {
                 href="/auth/forgot"
                 className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2.5 px-4 rounded-lg transition-colors"
               >
-                Request a new link
+                {t("auth.reset.requestNewLink")}
               </Link>
             </div>
           ) : !ready ? (
@@ -122,7 +124,7 @@ export default function ResetPasswordPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  New password
+                  {t("auth.reset.newPassword")}
                 </label>
                 <input
                   type="password"
@@ -136,7 +138,7 @@ export default function ResetPasswordPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1.5">
-                  Confirm password
+                  {t("auth.reset.confirmPassword")}
                 </label>
                 <input
                   type="password"
@@ -156,10 +158,10 @@ export default function ResetPasswordPage() {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Updating...
+                    {t("auth.reset.updating")}
                   </>
                 ) : (
-                  "Update password"
+                  t("auth.reset.updatePassword")
                 )}
               </button>
             </form>
@@ -171,7 +173,7 @@ export default function ResetPasswordPage() {
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              Back to sign in
+              {t("auth.backToSignIn")}
             </Link>
           </div>
         </div>
