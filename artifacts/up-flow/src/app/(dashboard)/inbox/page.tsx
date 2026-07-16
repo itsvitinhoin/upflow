@@ -348,7 +348,7 @@ export default function InboxPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {!n.read && (
+                      {!n.read ? (
                         <>
                           <button
                             onClick={(e) => {
@@ -383,7 +383,7 @@ export default function InboxPage() {
                         >
                           Snooze 1h
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );

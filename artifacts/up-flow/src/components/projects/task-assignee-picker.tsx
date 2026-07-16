@@ -100,7 +100,7 @@ export default function TaskAssigneePicker({
         </p>
       ) : normalizedQuery && visibleUsers.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          No active member matches "{query.trim()}".
+          No active member matches &quot;{query.trim()}&quot;.
         </p>
       ) : (
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">

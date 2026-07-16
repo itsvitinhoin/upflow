@@ -119,6 +119,7 @@ async function GET_handler(
     where: { task_id: task.id },
     select: {
       id: true,
+      task_id: true,
       onboarding_id: true,
       department: true,
       title: true,
