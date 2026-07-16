@@ -178,6 +178,60 @@ model Workspace {
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
   sidebar_client_pins     SidebarClientPin[]
+  import_jobs           ImportJob[]
+}
+
+enum ImportJobStatus {
+  previewed
+  queued
+  running
+  paused
+  completed
+  cancelled
+  failed
+}
+
+model ImportJob {
+  id                  String          @id @default(uuid())
+  workspace_id        String
+  source_workspace_id  String
+  selected_source_ids  Json
+  status              ImportJobStatus @default(previewed)
+  cursor              Int             @default(0)
+  total               Int             @default(0)
+  imported            Int             @default(0)
+  skipped             Int             @default(0)
+  failed              Int             @default(0)
+  report              Json?
+  created_by          String
+  created_at          DateTime        @default(now())
+  updated_at          DateTime        @updatedAt
+  started_at          DateTime?
+  completed_at        DateTime?
+  workspace           Workspace       @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  mappings            ImportMapping[]
+
+  @@index([workspace_id, status])
+  @@index([created_by])
+}
+
+model ImportMapping {
+  id                 String   @id @default(uuid())
+  job_id             String
+  workspace_id       String
+  source_workspace_id String
+  entity_type        String
+  source_id          String
+  target_id          String?
+  status             String   @default("imported")
+  error              String?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  job                ImportJob @relation(fields: [job_id], references: [id], onDelete: Cascade)
+
+  @@unique([source_workspace_id, entity_type, source_id])
+  @@index([job_id, status])
+  @@index([workspace_id, entity_type])
 }
 
 model WorkspaceMember {
