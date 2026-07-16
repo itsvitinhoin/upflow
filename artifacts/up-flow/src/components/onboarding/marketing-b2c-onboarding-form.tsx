@@ -172,17 +172,17 @@ const sections: SectionDefinition[] = [
 const fieldKeys = sections.flatMap((section) => section.fields.map((field) => field.key));
 
 const toneClasses: Record<SectionDefinition["tone"], string> = {
-  blue: "border-sky-400/30 bg-sky-400/10 text-sky-200",
-  amber: "border-amber-400/35 bg-amber-400/10 text-amber-200",
-  violet: "border-violet-400/35 bg-violet-400/10 text-violet-200",
-  rose: "border-rose-400/35 bg-rose-400/10 text-rose-200",
-  emerald: "border-emerald-400/35 bg-emerald-400/10 text-emerald-200",
-  slate: "border-slate-400/30 bg-slate-400/10 text-slate-200",
+  blue: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-200",
+  amber: "border-amber-500/[0.35] bg-amber-500/10 text-amber-700 dark:text-amber-200",
+  violet: "border-violet-500/[0.35] bg-violet-500/10 text-violet-700 dark:text-violet-200",
+  rose: "border-rose-500/[0.35] bg-rose-500/10 text-rose-700 dark:text-rose-200",
+  emerald: "border-emerald-500/[0.35] bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+  slate: "border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-200",
 };
 
 function statusClass(status: string) {
-  if (status === "complete") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
-  return "border-blue-400/30 bg-blue-400/10 text-blue-100";
+  if (status === "complete") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
+  return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-100";
 }
 
 function cleanValues(values: Partial<Record<FieldKey, string>> | undefined) {
@@ -331,20 +331,20 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
 
   return (
     <div className={cn(
-      embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-[#020617]/85 px-3 py-5 backdrop-blur-md sm:px-6",
+      embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-slate-950/60 px-3 py-5 backdrop-blur-md sm:px-6 dark:bg-[#020617]/[0.85]",
     )}>
       <div className={cn(
-        "w-full rounded-2xl border border-blue-300/25 bg-[#050a18] shadow-[0_30px_120px_rgba(37,99,235,0.22)]",
+        "w-full rounded-2xl border border-border bg-card text-card-foreground shadow-[0_30px_120px_rgba(37,99,235,0.16)] dark:border-blue-300/25 dark:bg-[#050a18]",
         !embedded && "mx-auto max-w-[1480px]",
       )}>
         <div className={cn(
-          "border-b border-blue-300/10 bg-[#050a18]/95 px-4 py-4 backdrop-blur sm:px-6",
+          "border-b border-border bg-card/95 px-4 py-4 backdrop-blur dark:border-blue-300/10 dark:bg-[#050a18]/95 sm:px-6",
           !embedded && "sticky top-0 z-10",
         )}>
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-300/20 bg-blue-500/15 text-blue-100">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-400/30 bg-blue-500/[0.15] text-blue-700 dark:border-blue-300/20 dark:text-blue-100">
                   <ShoppingBag className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
@@ -371,19 +371,19 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="min-w-[220px] rounded-xl border border-blue-300/12 bg-white/[0.03] p-3">
+              <div className="min-w-[220px] rounded-xl border border-border bg-muted/30 p-3 dark:border-blue-300/[0.15] dark:bg-white/[0.15]">
                 <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
                   <span>{t("marketingB2CForm.fieldProgress", { done: filledCount, total: fieldKeys.length })}</span>
                   <span>{fieldProgress}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                <div className="h-2 overflow-hidden rounded-full bg-muted dark:bg-white/[0.15]">
                   <div className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400" style={{ width: `${fieldProgress}%` }} />
                 </div>
               </div>
               {onClose && (
                 <button
                   onClick={onClose}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                   title={t("common.close")}
                 >
                   <X className="h-5 w-5" />
@@ -408,7 +408,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                   <section
                     key={section.key}
                     className={cn(
-                      "min-w-0 rounded-2xl border border-blue-300/12 bg-[#0a1223]/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+                      "min-w-0 rounded-2xl border border-border bg-muted/30 p-4 shadow-sm dark:border-blue-300/[0.15] dark:bg-[#0a1223]/[0.82] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
                       index < 4 ? "xl:col-span-3" : "xl:col-span-3",
                     )}
                   >
@@ -442,7 +442,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                         return (
                           <label key={field.key} className={cn("block", field.multiline ? "sm:col-span-2" : "")}>
                             <div className="mb-1.5 flex items-center justify-between gap-3">
-                              <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-blue-100/82">
+                              <span className="flex min-w-0 items-center gap-2 text-xs font-semibold text-blue-700 dark:text-blue-100/[0.55]">
                                 <Icon className="h-3.5 w-3.5 shrink-0 text-blue-300/80" />
                                 <span className="truncate">{fieldLabel(field.key)}</span>
                               </span>
@@ -457,7 +457,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                                 onChange={(event) => scheduleFieldSave(field.key, event.target.value)}
                                 placeholder={fieldPlaceholder(field.key)}
                                 rows={3}
-                                className="w-full resize-none rounded-xl border border-white/10 bg-[#050a18] px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-blue-400 disabled:opacity-60"
+                                className="w-full resize-none rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-blue-400 disabled:opacity-60 dark:border-white/10 dark:bg-[#050a18]"
                               />
                             ) : (
                               <input
@@ -465,7 +465,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                                 disabled={!form?.can_edit}
                                 onChange={(event) => scheduleFieldSave(field.key, event.target.value)}
                                 placeholder={fieldPlaceholder(field.key)}
-                                className="h-11 w-full rounded-xl border border-white/10 bg-[#050a18] px-3 text-sm text-foreground outline-none transition focus:border-blue-400 disabled:opacity-60"
+                                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-blue-400 disabled:opacity-60 dark:border-white/10 dark:bg-[#050a18]"
                               />
                             )}
                           </label>
@@ -476,7 +476,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                 );
               })}
 
-              <section className="min-w-0 rounded-2xl border border-blue-300/12 bg-[#0a1223]/82 p-4 xl:col-span-6">
+              <section className="min-w-0 rounded-2xl border border-border bg-muted/30 p-4 dark:border-blue-300/[0.15] dark:bg-[#0a1223]/[0.82] xl:col-span-6">
                 <div className="grid gap-4 lg:grid-cols-[1fr_260px] lg:items-center">
                   <div className="min-w-0">
                     <div className="mb-2 flex items-center gap-2">
@@ -494,8 +494,8 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                       {t("marketingB2CForm.optionalHint")}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-[#050a18] p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/55">
+                  <div className="rounded-xl border border-border bg-background p-4 dark:border-white/10 dark:bg-[#050a18]">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700/75 dark:text-blue-100/[0.55]">
                       {t("marketingB2CForm.centralProgress")}
                     </p>
                     <p className="mt-2 text-3xl font-bold text-foreground">{form?.onboarding.progress ?? 0}%</p>
@@ -506,7 +506,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
             </div>
 
             <div className={cn(
-              "flex flex-col gap-3 border-t border-blue-300/10 bg-[#050a18]/95 p-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6",
+              "flex flex-col gap-3 border-t border-border bg-card/95 p-4 backdrop-blur dark:border-blue-300/10 dark:bg-[#050a18]/95 sm:flex-row sm:items-center sm:justify-between sm:px-6",
               !embedded && "sticky bottom-0",
             )}>
               <p className="text-xs text-muted-foreground">
@@ -516,7 +516,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
                 <button
                   onClick={saveAllNow}
                   disabled={!form?.can_edit || savingField === "all"}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-300/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-white/10 disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 dark:border-blue-300/[0.15] dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   {savingField === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {t("marketingB2CForm.saveSummary")}

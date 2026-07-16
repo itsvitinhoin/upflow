@@ -48,43 +48,43 @@ const metricToneStyles: Record<
   violet: {
     border: "border-violet-400/25",
     glow: "from-violet-500/20",
-    icon: "bg-violet-500/20 text-violet-200",
-    text: "text-violet-200",
+    icon: "bg-violet-500/[0.15] text-violet-700 dark:bg-violet-500/20 dark:text-violet-200",
+    text: "text-violet-700 dark:text-violet-200",
     line: "stroke-violet-400",
   },
   blue: {
     border: "border-blue-400/25",
     glow: "from-blue-500/20",
-    icon: "bg-blue-500/20 text-blue-200",
-    text: "text-blue-200",
+    icon: "bg-blue-500/[0.15] text-blue-700 dark:bg-blue-500/20 dark:text-blue-200",
+    text: "text-blue-700 dark:text-blue-200",
     line: "stroke-blue-400",
   },
   green: {
     border: "border-emerald-400/25",
     glow: "from-emerald-500/20",
-    icon: "bg-emerald-500/20 text-emerald-200",
-    text: "text-emerald-200",
+    icon: "bg-emerald-500/[0.15] text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+    text: "text-emerald-700 dark:text-emerald-200",
     line: "stroke-emerald-400",
   },
   amber: {
     border: "border-amber-400/25",
     glow: "from-amber-500/20",
-    icon: "bg-amber-500/20 text-amber-200",
-    text: "text-amber-200",
+    icon: "bg-amber-500/[0.15] text-amber-700 dark:bg-amber-500/20 dark:text-amber-200",
+    text: "text-amber-700 dark:text-amber-200",
     line: "stroke-amber-400",
   },
   cyan: {
     border: "border-cyan-400/25",
     glow: "from-cyan-500/20",
-    icon: "bg-cyan-500/20 text-cyan-200",
-    text: "text-cyan-200",
+    icon: "bg-cyan-500/[0.15] text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-200",
+    text: "text-cyan-700 dark:text-cyan-200",
     line: "stroke-cyan-400",
   },
   rose: {
     border: "border-rose-400/25",
     glow: "from-rose-500/20",
-    icon: "bg-rose-500/20 text-rose-200",
-    text: "text-rose-200",
+    icon: "bg-rose-500/[0.15] text-rose-700 dark:bg-rose-500/20 dark:text-rose-200",
+    text: "text-rose-700 dark:text-rose-200",
     line: "stroke-rose-400",
   },
 };
@@ -144,30 +144,30 @@ export function CommercialOperationsHub({
     .slice(0, 5);
 
   return (
-    <div className="space-y-3 rounded-[1.5rem] border border-white/10 bg-[#050816] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-4">
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.26),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(4,8,20,0.98))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-5">
-        <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)] [background-size:44px_44px]" />
+    <div className="space-y-3 rounded-[1.5rem] border border-border bg-card p-3 shadow-lg dark:border-white/10 dark:bg-[#050816] dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)] sm:p-4">
+      <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.26),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(4,8,20,0.98))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-5">
+        <div className="pointer-events-none absolute inset-0 opacity-40 [background-image:linear-gradient(rgba(15,23,42,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(15,23,42,0.03)_1px,transparent_1px)] [background-size:44px_44px] dark:[background-image:linear-gradient(rgba(255,255,255,0.045)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.035)_1px,transparent_1px)]" />
         <div className="relative flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-200">
+              <span className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-violet-700 dark:text-violet-200">
                 {t("commercialDashboard.badge")}
               </span>
               <span
                 className={cn(
                   "rounded-full border px-3 py-1 text-[11px] font-semibold",
                   !hasAttention
-                    ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
-                    : "border-amber-400/25 bg-amber-500/10 text-amber-200",
+                    ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
+                    : "border-amber-400/25 bg-amber-500/10 text-amber-700 dark:text-amber-200",
                 )}
               >
                 {status}
               </span>
             </div>
-            <h3 className="mt-4 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+            <h3 className="mt-4 text-2xl font-bold tracking-tight text-foreground dark:text-white sm:text-3xl">
               {t("commercialDashboard.title")}
             </h3>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground dark:text-slate-400">
               {t("commercialDashboard.subtitle")}
             </p>
           </div>
@@ -260,7 +260,7 @@ export function CommercialOperationsHub({
                         onOpenDrawer(stage.status === "done" ? "status:done" : "status:todo")
                       }
                       className={cn(
-                        "flex h-11 items-center justify-between rounded-md border px-3 text-left text-sm font-semibold text-white shadow-inner transition hover:translate-x-1",
+                        "flex h-11 items-center justify-between rounded-md border px-3 text-left text-sm font-semibold text-foreground shadow-inner transition hover:translate-x-1 dark:text-white",
                         tone.border,
                         `bg-gradient-to-r ${tone.glow} to-transparent`,
                       )}
@@ -272,8 +272,8 @@ export function CommercialOperationsHub({
                   );
                 })}
               </div>
-              <div className="overflow-hidden rounded-xl border border-white/10">
-                <div className="grid grid-cols-[1fr_64px_86px] border-b border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              <div className="overflow-hidden rounded-xl border border-border dark:border-white/10">
+                <div className="grid grid-cols-[1fr_64px_86px] border-b border-border bg-muted/30 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
                   <span>{t("commercialDashboard.stage")}</span>
                   <span className="text-right">{t("commercialDashboard.items")}</span>
                   <span className="text-right">{t("commercialDashboard.value")}</span>
@@ -281,11 +281,11 @@ export function CommercialOperationsHub({
                 {stages.map((stage) => (
                   <div
                     key={stage.name}
-                    className="grid grid-cols-[1fr_64px_86px] items-center border-b border-white/5 px-3 py-3 text-sm last:border-0"
+                    className="grid grid-cols-[1fr_64px_86px] items-center border-b border-border/60 px-3 py-3 text-sm last:border-0 dark:border-white/5"
                   >
-                    <span className="font-medium text-slate-200">{stage.name}</span>
-                    <span className="text-right text-slate-300">{stage.count}</span>
-                    <span className="text-right text-slate-300">
+                    <span className="font-medium text-foreground">{stage.name}</span>
+                    <span className="text-right text-muted-foreground">{stage.count}</span>
+                    <span className="text-right text-foreground dark:text-slate-300">
                       {stage.value > 0 ? formatMoney(stage.value) : "-"}
                     </span>
                   </div>
@@ -300,28 +300,28 @@ export function CommercialOperationsHub({
             onAction={() => onOpenDrawer("projects_at_risk")}
           >
             <div className="flex h-full min-h-[220px] flex-col justify-between">
-              <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+              <div className="rounded-xl border border-border bg-muted/30 p-4 dark:border-white/10 dark:bg-black/20">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                       {t("commercialDashboard.contractValue")}
                     </p>
-                    <p className="mt-2 text-3xl font-bold text-white">
+                    <p className="mt-2 text-3xl font-bold text-foreground dark:text-white">
                       {pipelineValue > 0 ? formatMoney(pipelineValue) : t("commercialDashboard.notSet")}
                     </p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-violet-300" />
+                  <DollarSign className="h-8 w-8 text-violet-600 dark:text-violet-300" />
                 </div>
                 <SparkLine tone="violet" seed={Math.max(1, pipelineValue)} height={76} />
               </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
                 {t("commercialDashboard.valueSourcesHint")}
               </p>
             </div>
           </Panel>
         </div>
 
-        <Panel title={t("commercialDashboard.todaysPulse")} icon={<Activity className="h-4 w-4 text-violet-300" />}>
+        <Panel title={t("commercialDashboard.todaysPulse")} icon={<Activity className="h-4 w-4 text-violet-600 dark:text-violet-300" />}>
           <div className="space-y-2">
             <PulseButton
               label={t("commercialDashboard.urgentActions")}
@@ -351,7 +351,7 @@ export function CommercialOperationsHub({
           <button
             type="button"
             onClick={() => onOpenDrawer("urgent_actions")}
-            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-violet-200 hover:text-white"
+            className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-violet-700 hover:text-foreground dark:text-violet-200 dark:hover:text-white"
           >
             {t("commercialDashboard.viewMyDay")}
             <ArrowRight className="h-4 w-4" />
@@ -448,7 +448,7 @@ function CommercialToolbarButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-white"
+      className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:border-violet-400/40 hover:bg-violet-500/10 hover:text-foreground dark:border-white/10 dark:bg-black/25 dark:text-slate-300 dark:hover:text-white"
     >
       {icon}
       {children}
@@ -475,9 +475,9 @@ function CommercialMetricCard({
 }) {
   const color = metricToneStyles[tone];
   const className = cn(
-    "group min-h-[158px] overflow-hidden rounded-xl border bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition",
+    "group min-h-[158px] overflow-hidden rounded-xl border bg-card p-4 text-left shadow-sm transition dark:bg-[linear-gradient(145deg,rgba(255,255,255,0.055),rgba(255,255,255,0.018))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
     color.border,
-    onClick && "hover:-translate-y-0.5 hover:bg-white/[0.07]",
+    onClick && "hover:-translate-y-0.5 hover:bg-accent dark:hover:bg-white/[0.15]",
   );
   const content = (
     <>
@@ -486,10 +486,10 @@ function CommercialMetricCard({
           {icon}
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.13em] text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground dark:text-slate-400">
             {title}
           </p>
-          <p className="mt-3 truncate text-2xl font-bold text-white">{value}</p>
+          <p className="mt-3 truncate text-2xl font-bold text-foreground dark:text-white">{value}</p>
           <p className={cn("mt-2 truncate text-xs", color.text)}>{detail}</p>
         </div>
       </div>
@@ -554,11 +554,11 @@ function Panel({
   icon?: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-[linear-gradient(145deg,rgba(15,23,42,0.82),rgba(5,8,18,0.94))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm dark:border-white/10 dark:bg-[linear-gradient(145deg,rgba(15,23,42,0.82),rgba(5,8,18,0.94))] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 dark:border-white/10">
         <div className="flex min-w-0 items-center gap-2">
           {icon}
-          <h4 className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">
+          <h4 className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-slate-300">
             {title}
           </h4>
         </div>
@@ -566,7 +566,7 @@ function Panel({
           <button
             type="button"
             onClick={onAction}
-            className="shrink-0 text-xs font-medium text-violet-200 hover:text-white"
+            className="shrink-0 text-xs font-medium text-violet-700 hover:text-foreground dark:text-violet-200 dark:hover:text-white"
           >
             {action}
           </button>
@@ -594,15 +594,15 @@ function PulseButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-3 py-2.5 text-left transition hover:bg-white/[0.07]",
+        "flex w-full items-center justify-between gap-3 rounded-xl border bg-muted/30 px-3 py-2.5 text-left transition hover:bg-accent dark:bg-white/[0.15] dark:hover:bg-white/[0.15]",
         color.border,
       )}
     >
-      <span className="flex items-center gap-2 text-sm font-medium text-slate-200">
+      <span className="flex items-center gap-2 text-sm font-medium text-foreground">
         <span className={cn("h-2 w-2 rounded-full", color.icon)} />
         {label}
       </span>
-      <span className={cn("rounded-full bg-black/25 px-2 py-1 text-xs font-bold", color.text)}>
+      <span className={cn("rounded-full bg-black/[0.15] px-2 py-1 text-xs font-bold dark:bg-black/25", color.text)}>
         {value}
       </span>
     </button>
@@ -627,10 +627,10 @@ function ActivityList({
         <div key={item.id} className="flex items-start gap-3">
           <AvatarLabel label={item.actor?.name ?? "UP"} />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-slate-200">
+            <p className="truncate text-sm font-medium text-foreground">
               {item.actor?.name ?? systemLabel} {humanize(item.type)}
             </p>
-            <p className="mt-1 truncate text-xs text-slate-500">
+            <p className="mt-1 truncate text-xs text-muted-foreground">
               {humanize(item.entity_type)} - {formatRelative(item.created_at)}
             </p>
           </div>
@@ -665,20 +665,20 @@ function TaskList({
       {tasks.map((task) => (
         <div
           key={task.id}
-          className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3"
+          className="grid grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-3 dark:border-white/10 dark:bg-white/[0.15]"
         >
           <button
             type="button"
             disabled={updatingTask || task.status === "done"}
             onClick={() => onTaskStatusChange(task, "done")}
-            className="flex h-5 w-5 items-center justify-center rounded-md border border-white/20 text-slate-500 hover:border-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+            className="flex h-5 w-5 items-center justify-center rounded-md border border-border text-muted-foreground hover:border-emerald-500 hover:text-emerald-600 disabled:opacity-50 dark:border-white/20 dark:hover:text-emerald-300"
             aria-label={markDoneLabel(task.title)}
           >
             {task.status === "done" ? <CheckCircle2 className="h-4 w-4" /> : null}
           </button>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-slate-200">{task.title}</p>
-            <p className="mt-1 truncate text-xs text-slate-500">
+            <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
               {task.project?.name ?? projectLabel} -{" "}
               {task.due_date ? formatDate(task.due_date) : noDueDateLabel}
             </p>
@@ -687,7 +687,7 @@ function TaskList({
             className={cn(
               "rounded-full px-2.5 py-1 text-xs font-semibold capitalize",
               priorityColor(task.priority),
-              "bg-white/[0.06]",
+              "bg-muted dark:bg-white/[0.15]",
             )}
           >
             {task.priority}
@@ -723,11 +723,11 @@ function TopProjects({
         return (
           <div key={project.id} className="grid grid-cols-[minmax(0,1fr)_76px] gap-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-200">{project.name}</p>
-              <p className="truncate text-xs text-slate-500">
+              <p className="truncate text-sm font-semibold text-foreground">{project.name}</p>
+              <p className="truncate text-xs text-muted-foreground">
                 {project.company?.name ?? tasksLabel(project._count?.tasks ?? 0)}
               </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted dark:bg-white/10">
                 <div
                   className={cn("h-full rounded-full", tone.icon)}
                   style={{ width }}
@@ -735,10 +735,10 @@ function TopProjects({
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-bold text-slate-200">
+              <p className="text-sm font-bold text-foreground">
                 {value > 0 ? formatMoney(value) : noValueLabel}
               </p>
-              <p className="text-xs text-slate-500">{project.status}</p>
+              <p className="text-xs text-muted-foreground">{project.status}</p>
             </div>
           </div>
         );
@@ -776,20 +776,20 @@ function TeamPerformance({
             <AvatarLabel label={item.user.name} />
             <div className="min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-medium text-slate-200">{item.user.name}</p>
+                <p className="truncate text-sm font-medium text-foreground">{item.user.name}</p>
                 {item.overdue_tasks > 0 && (
-                  <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[11px] font-semibold text-rose-200">
+                  <span className="rounded-full bg-rose-500/[0.15] px-2 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-200">
                     {lateLabel(item.overdue_tasks)}
                   </span>
                 )}
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted dark:bg-white/10">
                 <div className={cn("h-full rounded-full", tone.icon)} style={{ width }} />
               </div>
             </div>
             <div className="text-right">
-              <p className="text-sm font-bold text-slate-200">{item.open_tasks}</p>
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-bold text-foreground">{item.open_tasks}</p>
+              <p className="text-xs text-muted-foreground">
                 {formatSecondsShort(item.tracked_seconds_today)}
               </p>
             </div>
@@ -819,22 +819,22 @@ function MiniStatusCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-2xl border bg-[linear-gradient(145deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] p-4 text-left transition hover:-translate-y-0.5 hover:bg-white/[0.07]",
+        "rounded-2xl border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:bg-accent dark:bg-[linear-gradient(145deg,rgba(255,255,255,0.05),rgba(255,255,255,0.015))] dark:hover:bg-white/[0.15]",
         color.border,
       )}
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
       </p>
-      <p className="mt-3 text-3xl font-bold text-white">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{detail}</p>
+      <p className="mt-3 text-3xl font-bold text-foreground dark:text-white">{value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
     </button>
   );
 }
 
 function EmptyPanelText({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-8 text-center text-sm text-slate-500">
+    <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
       {children}
     </div>
   );
@@ -848,7 +848,7 @@ function AvatarLabel({ label }: { label: string }) {
     .map((part) => part[0]?.toUpperCase())
     .join("");
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-xs font-bold text-violet-100">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/[0.15] text-xs font-bold text-violet-700 dark:bg-violet-500/20 dark:text-violet-100">
       {initials || "UP"}
     </span>
   );

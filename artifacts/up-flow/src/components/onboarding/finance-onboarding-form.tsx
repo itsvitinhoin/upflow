@@ -116,7 +116,7 @@ function emptyValues(): Values {
 }
 
 const fieldInputClassName =
-  "min-h-12 w-full rounded-xl border border-blue-300/15 bg-[#071024] px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60";
+  "min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-300/[0.15] dark:bg-[#071024]";
 
 function toDateTimeLocal(value: string | null | undefined) {
   if (!value) return "";
@@ -321,11 +321,11 @@ export default function FinanceOnboardingForm({ taskId, onClose, onUpdate, embed
   const completed = form?.checklist_item.status === "complete" || form?.task.status === "done";
 
   return (
-    <div className={cn(embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-[#020617]/85 px-3 py-5 backdrop-blur-md sm:px-6")}>
-      <div className={cn("rounded-3xl border border-blue-300/25 bg-[#050b18] shadow-[0_30px_120px_rgba(37,99,235,0.22)]", embedded ? "w-full" : "mx-auto w-full max-w-[1180px]")}>
-        <div className={cn("flex flex-col gap-6 border-b border-blue-300/10 p-5 sm:p-8 lg:flex-row lg:items-center lg:justify-between", !embedded && "sticky top-0 z-10 bg-[#050b18]/95 backdrop-blur")}>
+    <div className={cn(embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-slate-950/60 px-3 py-5 backdrop-blur-md sm:px-6 dark:bg-[#020617]/[0.85]")}>
+      <div className={cn("rounded-3xl border border-border bg-card text-card-foreground shadow-[0_30px_120px_rgba(37,99,235,0.16)] dark:border-blue-300/25 dark:bg-[#050b18]", embedded ? "w-full" : "mx-auto w-full max-w-[1180px]")}>
+        <div className={cn("flex flex-col gap-6 border-b border-border p-5 dark:border-blue-300/10 sm:p-8 lg:flex-row lg:items-center lg:justify-between", !embedded && "sticky top-0 z-10 bg-card/95 backdrop-blur dark:bg-[#050b18]/95")}>
           <div className="flex min-w-0 items-start gap-5">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/30 bg-blue-500/20 text-blue-100 shadow-[0_0_36px_rgba(59,130,246,0.35)]">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/40 bg-blue-500/[0.15] text-blue-700 shadow-[0_0_36px_rgba(59,130,246,0.2)] dark:border-blue-300/30 dark:bg-blue-500/20 dark:text-blue-100 dark:shadow-[0_0_36px_rgba(59,130,246,0.35)]">
               <FileLock2 className="h-8 w-8" />
             </span>
             <div className="min-w-0">
@@ -345,7 +345,7 @@ export default function FinanceOnboardingForm({ taskId, onClose, onUpdate, embed
           </div>
           <div className="flex items-center gap-2">
             {form && (
-              <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", completed ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-blue-400/30 bg-blue-400/10 text-blue-100")}>
+              <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", completed ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200" : "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-100")}>
                 {completed ? (isPt ? "Concluido" : "Complete") : (isPt ? "Em andamento" : "In progress")}
               </span>
             )}
@@ -353,7 +353,7 @@ export default function FinanceOnboardingForm({ taskId, onClose, onUpdate, embed
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 title={t("common.close")}
               >
                 <X className="h-5 w-5" />
@@ -418,13 +418,13 @@ export default function FinanceOnboardingForm({ taskId, onClose, onUpdate, embed
                 <textarea value={values.billing_notes} disabled={!form?.can_edit} onChange={(event) => setField("billing_notes", event.target.value)} rows={3} className={cn(fieldInputClassName, "resize-none py-3")} />
               </Field>
 
-              <div className="rounded-2xl border border-blue-300/10 bg-white/[0.03] p-4">
+              <div className="rounded-2xl border border-border bg-muted/30 p-4 dark:border-blue-300/10 dark:bg-white/[0.15]">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-sm font-bold text-foreground">
                     <FileLock2 className="h-4 w-4 text-blue-300" />
                     {copy.attachment}
                   </div>
-                  <label className={cn("inline-flex cursor-pointer items-center gap-2 rounded-xl border border-blue-300/20 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-100 hover:bg-blue-500/15", !form?.can_edit && "pointer-events-none opacity-50")}>
+                  <label className={cn("inline-flex cursor-pointer items-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-500/[0.15] dark:border-blue-300/20 dark:text-blue-100", !form?.can_edit && "pointer-events-none opacity-50")}>
                     {savingField === "contract" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     {copy.upload}
                     <input type="file" className="hidden" onChange={(event) => void uploadContract(event.target.files?.[0])} />
@@ -432,13 +432,13 @@ export default function FinanceOnboardingForm({ taskId, onClose, onUpdate, embed
                 </div>
                 <div className="space-y-2">
                   {(form?.onboarding.contracts ?? []).map((contract) => (
-                    <div key={contract.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#071024] px-3 py-2 text-sm text-foreground">
+                    <div key={contract.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground dark:border-white/10 dark:bg-[#071024]">
                       <span className="min-w-0 truncate">{contract.file_name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{formatDate(contract.created_at)}</span>
                     </div>
                   ))}
                   {(form?.onboarding.contracts ?? []).length === 0 && (
-                    <p className="rounded-xl border border-dashed border-white/10 bg-[#071024] px-3 py-3 text-sm text-muted-foreground">
+                    <p className="rounded-xl border border-dashed border-border bg-background px-3 py-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-[#071024]">
                       {isPt ? "Nenhum contrato anexado ainda." : "No contract attached yet."}
                     </p>
                   )}
@@ -446,14 +446,14 @@ export default function FinanceOnboardingForm({ taskId, onClose, onUpdate, embed
               </div>
             </div>
 
-            <div className={cn("flex flex-col gap-3 border-t border-blue-300/10 bg-[#050b18]/95 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-8", !embedded && "sticky bottom-0 backdrop-blur")}>
+            <div className={cn("flex flex-col gap-3 border-t border-border bg-card/95 p-5 dark:border-blue-300/10 dark:bg-[#050b18]/95 sm:flex-row sm:items-center sm:justify-between sm:px-8", !embedded && "sticky bottom-0 backdrop-blur")}>
               <p className="text-xs text-muted-foreground">{form?.can_edit ? copy.autosave : copy.viewOnly}</p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
                   onClick={saveAll}
                   disabled={!form?.can_edit || savingField === "all"}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-300/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-white/10 disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 dark:border-blue-300/[0.15] dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   {savingField === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {isPt ? "Salvar resumo" : "Save summary"}
@@ -481,7 +481,7 @@ function SectionTitle({ title }: { title: string }) {
     <div className="flex items-center gap-3">
       <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_16px_rgba(59,130,246,0.9)]" />
       <h3 className="text-base font-bold text-foreground">{title}</h3>
-      <span className="h-px flex-1 bg-blue-300/12" />
+      <span className="h-px flex-1 bg-blue-300/[0.15]" />
     </div>
   );
 }
@@ -500,7 +500,7 @@ function Field({
   saved?: boolean;
 }) {
   return (
-    <label className="block rounded-2xl border border-blue-300/10 bg-white/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <label className="block rounded-2xl border border-border bg-muted/30 p-4 shadow-sm dark:border-blue-300/10 dark:bg-white/[0.15] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-blue-50">
           <span className="text-blue-400">{icon}</span>

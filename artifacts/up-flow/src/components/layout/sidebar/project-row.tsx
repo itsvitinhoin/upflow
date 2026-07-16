@@ -73,9 +73,9 @@ export function ProjectRow({
   return (
     <div
       className={cn(
-        "group flex items-center gap-1 rounded-xl border border-transparent px-1 py-0.5 transition-all hover:border-blue-300/10 hover:bg-white/[0.045]",
+        "group flex items-center gap-1 rounded-xl border border-transparent px-1 py-0.5 transition-all hover:border-border hover:bg-accent/70 dark:hover:border-blue-300/10 dark:hover:bg-white/[0.15]",
         isActive &&
-          "border-blue-300/20 bg-blue-500/12 shadow-[0_0_18px_rgba(59,130,246,0.14)]"
+          "border-primary/25 bg-primary/10 shadow-sm dark:border-blue-300/20 dark:bg-blue-500/[0.15] dark:shadow-[0_0_18px_rgba(59,130,246,0.14)]"
       )}
     >
       <Link
@@ -85,7 +85,7 @@ export function ProjectRow({
           "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-xs truncate outline-none transition-colors",
           isActive
             ? "text-foreground font-medium"
-            : "text-foreground/85 hover:text-foreground focus-visible:bg-white/10 focus-visible:ring-2 focus-visible:ring-primary/60"
+            : "text-foreground/[0.85] hover:text-foreground focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-primary/60 dark:focus-visible:bg-white/10"
         )}
       >
         <span
@@ -105,14 +105,14 @@ export function ProjectRow({
           aria-label={t("projects.actionsFor", { name: project.name })}
           aria-expanded={open}
           data-menu-trigger
-          className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+          className="flex h-6 w-6 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:hover:bg-white/10"
         >
           <MoreHorizontal className="w-3 h-3" />
         </button>
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-xl border border-blue-300/10 bg-[#080d1d]/95 text-xs shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+            className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-xl border border-border bg-popover/95 text-xs text-popover-foreground shadow-xl backdrop-blur-xl dark:border-blue-300/10 dark:bg-[#080d1d]/95 dark:text-foreground dark:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
           >
             <button
               role="menuitem"
@@ -120,14 +120,14 @@ export function ProjectRow({
                 setOpen(false);
                 onMove();
               }}
-              className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-white/5"
+              className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-accent dark:hover:bg-white/5"
             >
               <Folder className="w-3 h-3" /> {t("projects.moveToSpace")}
             </button>
             <button
               role="menuitem"
               onClick={handleDelete}
-              className="w-full flex items-center gap-2 text-left px-3 py-2 text-upflow-danger hover:bg-upflow-danger/10 border-t border-white/5"
+              className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left text-upflow-danger hover:bg-upflow-danger/10 dark:border-white/5"
             >
               <Trash2 className="w-3 h-3" /> {t("common.delete")}
             </button>

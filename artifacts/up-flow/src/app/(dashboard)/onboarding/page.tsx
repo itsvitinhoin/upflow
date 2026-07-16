@@ -56,10 +56,10 @@ function statusLabel(status: string, t: (key: string) => string) {
 }
 
 function statusClass(status: string) {
-  if (status === "onboarding_complete" || status === "complete" || status === "marketing_b2b_ready") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
-  if (status === "needs_mapping") return "border-rose-400/35 bg-rose-500/12 text-rose-200";
-  if (status.includes("in_progress")) return "border-blue-400/30 bg-blue-400/10 text-blue-100";
-  return "border-amber-400/25 bg-amber-400/10 text-amber-100";
+  if (status === "onboarding_complete" || status === "complete" || status === "marketing_b2b_ready") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-700 dark:text-emerald-200";
+  if (status === "needs_mapping") return "border-rose-400/30 bg-rose-500/10 text-rose-700 dark:text-rose-200";
+  if (status.includes("in_progress")) return "border-blue-400/30 bg-blue-400/10 text-blue-700 dark:text-blue-100";
+  return "border-amber-400/25 bg-amber-400/10 text-amber-800 dark:text-amber-100";
 }
 
 function missingMappings(item: ClientOnboarding) {
@@ -164,14 +164,14 @@ export default function OnboardingQueuePage() {
     <>
       <Header title={t("onboardingQueue.title")} />
       <main className="onboarding-queue-shell min-h-screen space-y-5 bg-background p-4 text-foreground dark:bg-[#020817] dark:text-slate-100 sm:p-6">
-        <section className="rounded-2xl border border-blue-500/25 bg-[#06101f] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
+        <section className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-blue-500/25 dark:bg-[#06101f] dark:shadow-[0_24px_70px_rgba(0,0,0,0.28)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-300">{t("onboardingQueue.eyebrow")}</p>
-              <h2 className="mt-2 text-2xl font-black text-white">{t("onboardingQueue.title")}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-slate-400">{t("onboardingQueue.subtitle")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-blue-600 dark:text-blue-300">{t("onboardingQueue.eyebrow")}</p>
+              <h2 className="mt-2 text-2xl font-black text-foreground dark:text-white">{t("onboardingQueue.title")}</h2>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground dark:text-slate-400">{t("onboardingQueue.subtitle")}</p>
             </div>
-            <button type="button" onClick={load} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-300/20 bg-slate-950/50 px-4 py-2 text-sm font-bold text-slate-100 transition hover:border-blue-400/60">
+            <button type="button" onClick={load} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground transition hover:border-blue-400/60 hover:bg-accent dark:border-blue-300/20 dark:bg-slate-950/50 dark:text-slate-100">
               <RefreshCcw className="h-4 w-4" /> {t("common.refresh")}
             </button>
           </div>
@@ -184,8 +184,8 @@ export default function OnboardingQueuePage() {
                 className={cn(
                   "rounded-xl border px-3 py-2 text-sm font-bold transition",
                   view === preset.key
-                    ? "border-blue-400/55 bg-blue-500/20 text-white"
-                    : "border-slate-800 bg-slate-950/45 text-slate-400 hover:border-blue-400/40 hover:text-white",
+                    ? "border-blue-500 bg-blue-600 text-primary-foreground dark:border-blue-400/60 dark:bg-blue-500/20"
+                    : "border-border bg-background text-muted-foreground hover:border-blue-400/40 hover:bg-accent hover:text-foreground dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400 dark:hover:text-white",
                 )}
               >
                 {t(preset.labelKey)}
@@ -195,16 +195,16 @@ export default function OnboardingQueuePage() {
         </section>
 
         {loading ? (
-          <section className="rounded-2xl border border-slate-800 bg-[#06101f] p-8 text-sm text-slate-400">
+          <section className="rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground dark:border-slate-800 dark:bg-[#06101f] dark:text-slate-400">
             <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> {t("common.loading")}</span>
           </section>
         ) : error ? (
-          <section className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-5 text-sm text-rose-100">{error}</section>
+          <section className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-5 text-sm text-rose-700 dark:text-rose-100">{error}</section>
         ) : filtered.length === 0 ? (
-          <section className="rounded-2xl border border-dashed border-blue-400/25 bg-[#06101f] p-10 text-center">
-            <ClipboardCheck className="mx-auto h-10 w-10 text-blue-300" />
-            <h3 className="mt-3 text-base font-black text-white">{t("onboardingQueue.emptyTitle")}</h3>
-            <p className="mt-1 text-sm text-slate-400">{t("onboardingQueue.emptyBody")}</p>
+          <section className="rounded-2xl border border-dashed border-blue-400/25 bg-card p-10 text-center dark:bg-[#06101f]">
+            <ClipboardCheck className="mx-auto h-10 w-10 text-blue-600 dark:text-blue-300" />
+            <h3 className="mt-3 text-base font-black text-foreground dark:text-white">{t("onboardingQueue.emptyTitle")}</h3>
+            <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">{t("onboardingQueue.emptyBody")}</p>
           </section>
         ) : (
           <section className="space-y-5">
@@ -242,31 +242,31 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
   return (
     <article className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
       <div className="space-y-3">
-        <section className="rounded-2xl border border-blue-500/30 bg-[#07152b] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.32)]">
+        <section className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm dark:border-blue-500/30 dark:bg-[#07152b] dark:shadow-[0_20px_80px_rgba(0,0,0,0.32)]">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex min-w-0 gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-violet-500/20 text-violet-200">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-700 dark:bg-violet-500/20 dark:text-violet-200">
                 <Building2 className="h-7 w-7" />
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
-                  <h3 className="truncate text-2xl font-black text-white">{item.company?.name ?? t("clients.unknownClient")}</h3>
+                  <h3 className="truncate text-2xl font-black text-foreground dark:text-white">{item.company?.name ?? t("clients.unknownClient")}</h3>
                   <span className={cn("rounded-lg border px-3 py-1 text-xs font-black", statusClass(item.status))}>{statusLabel(item.sequence_status || item.status, t)}</span>
                 </div>
-                <p className="mt-1 text-sm text-slate-400">B2B - {services}</p>
+                <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">B2B - {services}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm font-bold text-slate-200 hover:border-blue-400/60">
+              <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 hover:bg-accent dark:border-slate-700 dark:bg-transparent dark:text-slate-200">
                 <FileText className="h-4 w-4" /> Editar cliente
               </Link>
-              <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-sm font-black text-white">
+              <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-sm font-black text-primary-foreground">
                 <Rocket className="h-4 w-4" /> Abrir workflow
               </Link>
             </div>
           </div>
 
-          <div className="mt-5 grid gap-4 border-t border-slate-800 pt-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="mt-5 grid gap-4 border-t border-border pt-4 dark:border-slate-800 md:grid-cols-2 xl:grid-cols-5">
             <MetricPill label="Progresso geral" value={`${item.progress}%`} progress={item.progress} />
             <MetricLine icon={CalendarDays} label="Data de inicio" value={item.expected_start_date ? formatDate(item.expected_start_date) : "Nao definida"} />
             <MetricLine icon={UserRound} label="Comercial responsavel" value={item.salesperson?.name ?? "Nao atribuido"} />
@@ -275,7 +275,7 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
           </div>
         </section>
 
-        <section className="rounded-2xl border border-blue-500/25 bg-[#07152b] p-4">
+        <section className="rounded-2xl border border-border bg-card p-4 dark:border-blue-500/25 dark:bg-[#07152b]">
           <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-[repeat(9,minmax(0,1fr))]">
             {stageDefinitions.map((stage, index) => {
               const check = findStageItem(item.checklist_items ?? [], stage.department, stage.key);
@@ -311,17 +311,17 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-800 bg-[#07152b] p-4">
-            <p className="text-sm font-black text-white">Notas</p>
-            <div className="mt-3 h-20 rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-sm text-slate-500">Escreva uma nota interna...</div>
+          <div className="rounded-2xl border border-border bg-card p-4 dark:border-slate-800 dark:bg-[#07152b]">
+            <p className="text-sm font-black text-foreground dark:text-white">Notas</p>
+            <div className="mt-3 h-20 rounded-xl border border-border bg-muted/40 p-3 text-sm text-muted-foreground dark:border-slate-800 dark:bg-slate-950/50 dark:text-slate-500">Escreva uma nota interna...</div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-[#07152b] p-4">
-            <p className="text-sm font-black text-white">Atividade</p>
-            <div className="mt-3 space-y-2 text-sm text-slate-400">
+          <div className="rounded-2xl border border-border bg-card p-4 dark:border-slate-800 dark:bg-[#07152b]">
+            <p className="text-sm font-black text-foreground dark:text-white">Atividade</p>
+            <div className="mt-3 space-y-2 text-sm text-muted-foreground dark:text-slate-400">
               {(item.checklist_items ?? []).slice(0, 5).map((check) => (
                 <div key={check.id} className="flex items-center justify-between gap-3">
                   <span className="truncate">{check.title}</span>
-                  <span className="shrink-0 text-xs text-slate-500">{check.completed_at ? formatDate(check.completed_at) : "Pendente"}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground dark:text-slate-500">{check.completed_at ? formatDate(check.completed_at) : "Pendente"}</span>
                 </div>
               ))}
             </div>
@@ -331,19 +331,19 @@ function ReadinessBoard({ item, t }: { item: ClientOnboarding; t: (key: string) 
 
       <aside className="space-y-4">
         <SideProgress item={item} completeSteps={completeSteps} totalSteps={totalSteps} />
-        <section className="rounded-2xl border border-rose-400/35 bg-rose-500/10 p-5">
-          <h4 className="flex items-center gap-2 font-black text-rose-100"><AlertTriangle className="h-4 w-4" /> Critical blockers</h4>
+        <section className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-5">
+          <h4 className="flex items-center gap-2 font-black text-rose-800 dark:text-rose-100"><AlertTriangle className="h-4 w-4" /> Critical blockers</h4>
           <div className="mt-4 space-y-3">
             {itemBlockers.length ? itemBlockers.map((blocker) => (
-              <p key={blocker} className="flex items-center gap-2 text-sm text-rose-100/85"><Circle className="h-3 w-3" /> {blocker}</p>
-            )) : <p className="text-sm text-emerald-200">No critical blockers</p>}
+              <p key={blocker} className="flex items-center gap-2 text-sm text-rose-700 dark:text-rose-100/80"><Circle className="h-3 w-3" /> {blocker}</p>
+            )) : <p className="text-sm text-emerald-700 dark:text-emerald-200">No critical blockers</p>}
           </div>
         </section>
-        <section className="rounded-2xl border border-blue-500/35 bg-blue-500/10 p-5">
-          <h4 className="flex items-center gap-2 font-black text-white"><Rocket className="h-4 w-4 text-blue-300" /> Next action</h4>
-          <p className="mt-4 font-black text-white">{upZeroBlocked ? "Configure UP Zero website" : next?.title ?? "Ready to start"}</p>
-          <p className="mt-1 text-sm text-slate-300">{upZeroBlocked ? "Waiting for UP Zero website configuration by Technical Support." : next ? "Complete this step to unlock the next onboarding stage." : "All required onboarding steps are complete."}</p>
-          <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-white">Open Workflow</Link>
+        <section className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5">
+          <h4 className="flex items-center gap-2 font-black text-foreground dark:text-white"><Rocket className="h-4 w-4 text-blue-600 dark:text-blue-300" /> Next action</h4>
+          <p className="mt-4 font-black text-foreground dark:text-white">{upZeroBlocked ? "Configure UP Zero website" : next?.title ?? "Ready to start"}</p>
+          <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{upZeroBlocked ? "Waiting for UP Zero website configuration by Technical Support." : next ? "Complete this step to unlock the next onboarding stage." : "All required onboarding steps are complete."}</p>
+          <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-primary-foreground">Open Workflow</Link>
         </section>
       </aside>
     </article>
@@ -373,15 +373,15 @@ function statusFromDepartment(item: ClientOnboarding, department: string) {
 
 function StageStep({ index, label, state }: { index: number; label: string; state: "done" | "review" | "pending" | "locked" }) {
   const classes = {
-    done: "border-emerald-400 bg-emerald-500/15 text-emerald-200",
-    review: "border-violet-400 bg-violet-500/15 text-violet-200",
-    pending: "border-amber-400 bg-amber-500/15 text-amber-200",
-    locked: "border-slate-600 bg-slate-800/45 text-slate-400",
+    done: "border-emerald-400 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+    review: "border-violet-400 bg-violet-500/10 text-violet-700 dark:text-violet-200",
+    pending: "border-amber-400 bg-amber-500/10 text-amber-800 dark:text-amber-200",
+    locked: "border-border bg-muted text-muted-foreground dark:border-slate-600 dark:bg-slate-800/40 dark:text-slate-400",
   }[state];
   return (
     <div className="min-w-0 text-center">
       <div className={cn("mx-auto flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-black", classes)}>{index}</div>
-      <p className="mt-2 truncate text-xs font-bold text-slate-300">{label}</p>
+      <p className="mt-2 truncate text-xs font-bold text-foreground dark:text-slate-300">{label}</p>
       <span className={cn("mt-2 inline-flex rounded-lg px-2 py-1 text-[11px] font-black", classes)}>{state === "done" ? "Concluido" : state === "locked" ? "Bloqueado" : state === "review" ? "Em revisao" : "Pendente"}</span>
     </div>
   );
@@ -390,10 +390,10 @@ function StageStep({ index, label, state }: { index: number; label: string; stat
 function MetricPill({ label, value, progress }: { label: string; value: string; progress: number }) {
   return (
     <div className="min-w-0">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
+      <p className="text-xs font-semibold text-muted-foreground dark:text-slate-500">{label}</p>
       <div className="mt-2 flex items-center gap-3">
-        <div className="h-10 w-10 rounded-full" style={{ background: `conic-gradient(#1463ff ${progress * 3.6}deg, #16243d 0deg)` }} />
-        <p className="text-lg font-black text-white">{value}</p>
+        <div className="h-10 w-10 rounded-full" style={{ background: `conic-gradient(#1463ff ${progress * 3.6}deg, hsl(var(--muted)) 0deg)` }} />
+        <p className="text-lg font-black text-foreground dark:text-white">{value}</p>
       </div>
     </div>
   );
@@ -401,11 +401,11 @@ function MetricPill({ label, value, progress }: { label: string; value: string; 
 
 function MetricLine({ icon: Icon, label, value }: { icon: ComponentType<{ className?: string }>; label: string; value: string }) {
   return (
-    <div className="min-w-0 border-slate-800 xl:border-l xl:pl-4">
-      <p className="text-xs font-semibold text-slate-500">{label}</p>
+    <div className="min-w-0 border-border dark:border-slate-800 xl:border-l xl:pl-4">
+      <p className="text-xs font-semibold text-muted-foreground dark:text-slate-500">{label}</p>
       <div className="mt-2 flex items-center gap-2">
-        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/15 text-blue-300"><Icon className="h-4 w-4" /></span>
-        <p className="truncate text-sm font-bold text-white">{value}</p>
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-300"><Icon className="h-4 w-4" /></span>
+        <p className="truncate text-sm font-bold text-foreground dark:text-white">{value}</p>
       </div>
     </div>
   );
@@ -413,25 +413,25 @@ function MetricLine({ icon: Icon, label, value }: { icon: ComponentType<{ classN
 
 function WorkflowRow({ index, icon: Icon, title, status, tone, meta, action }: { index: number; icon: ComponentType<{ className?: string }>; title: string; status: string; tone: "green" | "blue" | "amber" | "purple" | "rose"; meta: string[]; action: string }) {
   const toneClass = {
-    green: "border-emerald-400/35 bg-emerald-500/10 text-emerald-300",
-    blue: "border-blue-400/35 bg-blue-500/10 text-blue-300",
-    amber: "border-amber-400/35 bg-amber-500/10 text-amber-300",
-    purple: "border-violet-400/35 bg-violet-500/10 text-violet-300",
-    rose: "border-rose-400/35 bg-rose-500/10 text-rose-300",
+    green: "border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    blue: "border-blue-400/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+    amber: "border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-300",
+    purple: "border-violet-400/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+    rose: "border-rose-400/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   }[tone];
   return (
-    <div className="grid gap-3 rounded-2xl border border-blue-500/20 bg-[#07152b] p-3 lg:grid-cols-[44px_170px_minmax(0,1fr)_150px] lg:items-center">
+    <div className="grid gap-3 rounded-2xl border border-border bg-card p-3 dark:border-blue-500/20 dark:bg-[#07152b] lg:grid-cols-[44px_170px_minmax(0,1fr)_150px] lg:items-center">
       <div className={cn("flex h-9 w-9 items-center justify-center rounded-full border-2 text-sm font-black", toneClass)}>{index}</div>
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-950/70 text-blue-300"><Icon className="h-4 w-4" /></span>
-        <p className="text-sm font-black text-white">{title}</p>
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:bg-slate-950/70 dark:text-blue-300"><Icon className="h-4 w-4" /></span>
+        <p className="text-sm font-black text-foreground dark:text-white">{title}</p>
       </div>
-      <div className="flex min-w-0 flex-wrap gap-x-5 gap-y-1 text-xs text-slate-300">
+      <div className="flex min-w-0 flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground dark:text-slate-300">
         {meta.length ? meta.map((item) => <span key={item} className="truncate">{item}</span>) : <span>-</span>}
       </div>
       <div className="flex items-center gap-2 lg:justify-end">
         <span className={cn("rounded-lg border px-2 py-1 text-[11px] font-black", toneClass)}>{status}</span>
-        <button type="button" className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-black text-slate-200 hover:border-blue-400/60">{action}</button>
+        <button type="button" className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-black text-foreground hover:border-blue-400/60 hover:bg-accent dark:border-slate-700 dark:bg-transparent dark:text-slate-200">{action}</button>
       </div>
     </div>
   );
@@ -441,12 +441,12 @@ function SideProgress({ item, completeSteps, totalSteps }: { item: ClientOnboard
   const pending = Math.max(totalSteps - completeSteps, 0);
   const itemBlockers = blockers(item).length;
   return (
-    <section className="rounded-2xl border border-blue-500/30 bg-[#07152b] p-5 shadow-[0_20px_80px_rgba(0,0,0,0.32)]">
-      <h4 className="font-black text-white">Onboarding readiness</h4>
-      <div className="mx-auto mt-6 flex h-36 w-36 items-center justify-center rounded-full" style={{ background: `conic-gradient(#1463ff ${item.progress * 3.6}deg, #12213a 0deg)` }}>
-        <div className="flex h-28 w-28 items-center justify-center rounded-full bg-[#06101f]"><span className="text-3xl font-black text-white">{item.progress}%</span></div>
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-blue-500/30 dark:bg-[#07152b] dark:shadow-[0_20px_80px_rgba(0,0,0,0.32)]">
+      <h4 className="font-black text-foreground dark:text-white">Onboarding readiness</h4>
+      <div className="mx-auto mt-6 flex h-36 w-36 items-center justify-center rounded-full" style={{ background: `conic-gradient(#1463ff ${item.progress * 3.6}deg, hsl(var(--muted)) 0deg)` }}>
+        <div className="flex h-28 w-28 items-center justify-center rounded-full bg-card dark:bg-[#06101f]"><span className="text-3xl font-black text-foreground dark:text-white">{item.progress}%</span></div>
       </div>
-      <div className="mt-6 space-y-3 text-sm text-slate-300">
+      <div className="mt-6 space-y-3 text-sm text-muted-foreground dark:text-slate-300">
         <p className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-300" /> {completeSteps} of {totalSteps} steps complete</p>
         <p className="flex items-center gap-2"><Circle className="h-4 w-4 text-amber-300" /> {pending} pending items</p>
         <p className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-rose-300" /> {itemBlockers} blockers</p>

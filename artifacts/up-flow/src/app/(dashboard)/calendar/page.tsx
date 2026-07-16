@@ -78,8 +78,8 @@ const EVENT_COLOR_OPTIONS = [
 ] as const;
 
 const USER_EVENT_TONES = [
-  { chip: "border-sky-400/40 bg-sky-400/10 text-sky-100", dot: "bg-sky-400", event: "bg-sky-400/20 text-sky-100 border-l-sky-400" },
-  { chip: "border-violet-400/40 bg-violet-400/10 text-violet-100", dot: "bg-violet-400", event: "bg-violet-400/20 text-violet-100 border-l-violet-400" },
+  { chip: "border-sky-400/40 bg-sky-400/10 text-sky-700 dark:text-sky-100", dot: "bg-sky-400", event: "bg-sky-400/20 text-sky-800 border-l-sky-400 dark:text-sky-100" },
+  { chip: "border-violet-400/40 bg-violet-400/10 text-violet-700 dark:text-violet-100", dot: "bg-violet-400", event: "bg-violet-400/20 text-violet-800 border-l-violet-400 dark:text-violet-100" },
   { chip: "border-emerald-400/40 bg-emerald-400/10 text-emerald-100", dot: "bg-emerald-400", event: "bg-emerald-400/20 text-emerald-100 border-l-emerald-400" },
   { chip: "border-amber-400/40 bg-amber-400/10 text-amber-100", dot: "bg-amber-400", event: "bg-amber-400/20 text-amber-100 border-l-amber-400" },
   { chip: "border-rose-400/40 bg-rose-400/10 text-rose-100", dot: "bg-rose-400", event: "bg-rose-400/20 text-rose-100 border-l-rose-400" },
@@ -425,13 +425,13 @@ export default function CalendarPage() {
               {monthTitle}
             </h3>
             <div className="flex flex-wrap items-center gap-1">
-              <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-0.5">
+              <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5 dark:border-white/10 dark:bg-white/5">
                 <button
                   type="button"
                   onClick={() => setManageEvents(false)}
                   className={cn(
                     "px-3 py-1 text-xs rounded-md transition-colors",
-                    !manageEvents ? "bg-white/10 text-foreground" : "text-muted-foreground hover:text-foreground",
+                    !manageEvents ? "bg-accent text-foreground dark:bg-white/10" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {t("calendar.view")}
@@ -458,28 +458,28 @@ export default function CalendarPage() {
               )}
               <button
                 onClick={goToday}
-                className="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-foreground transition-colors"
+                className="rounded-lg bg-muted/50 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted dark:bg-white/5 dark:hover:bg-white/10"
               >
                 {t("calendar.today")}
               </button>
               <button
                 onClick={goPrev}
                 aria-label={t("calendar.previousMonth")}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:hover:bg-white/5"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={goNext}
                 aria-label={t("calendar.nextMonth")}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:hover:bg-white/5"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+          <div className="mb-4 rounded-xl border border-border bg-muted/30 px-3 py-3 dark:border-white/10 dark:bg-white/[0.15]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-xs font-semibold text-foreground">
@@ -495,7 +495,7 @@ export default function CalendarPage() {
                   value={selectedUserId}
                   onChange={(event) => setSelectedUserId(event.target.value)}
                   disabled={peopleLoading}
-                  className="h-10 w-full rounded-xl border border-white/10 bg-[#080d1b] px-3 pr-9 text-xs font-medium text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-9 text-xs font-medium text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:border-white/10 dark:bg-[#080d1b]"
                 >
                   <option value="">
                     {peopleLoading ? t("common.loading") : t("calendar.allSchedules")}
@@ -539,7 +539,7 @@ export default function CalendarPage() {
                   onClick={() => setSelected(day)}
                   className={cn(
                     "flex h-24 min-h-24 flex-col items-start overflow-hidden rounded-lg border p-1 text-left transition-colors sm:h-32 sm:min-h-32 sm:p-1.5 xl:h-36 xl:min-h-36",
-                    isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-white/5",
+                    isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-accent dark:hover:bg-white/5",
                     !inMonth && "opacity-40",
                   )}
                 >
@@ -590,7 +590,7 @@ export default function CalendarPage() {
                       </div>
                     ))}
                     {hiddenDayItems > 0 && (
-                      <div className="rounded bg-white/5 px-1 py-0.5 text-[9px] font-medium leading-none text-muted-foreground">
+                      <div className="rounded bg-muted px-1 py-0.5 text-[9px] font-medium leading-none text-muted-foreground dark:bg-white/5">
                         {t("calendar.more", { count: hiddenDayItems })}
                       </div>
                     )}
@@ -625,11 +625,11 @@ export default function CalendarPage() {
                   <span>{t("calendar.quickCreateShort")}</span>
                 </button>
                 {quickCreateOpen && (
-                  <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#070b18]/95 p-1 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+                  <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl dark:border-white/10 dark:bg-[#070b18]/95 dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)]">
                     <button
                       type="button"
                       onClick={() => openSchedule("meeting")}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-accent dark:hover:bg-white/10"
                     >
                       <Video className="h-3.5 w-3.5 text-upflow-success" />
                       {t("calendar.quickMeeting")}
@@ -637,7 +637,7 @@ export default function CalendarPage() {
                     <button
                       type="button"
                       onClick={() => openSchedule("reminder")}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-accent dark:hover:bg-white/10"
                     >
                       <Bell className="h-3.5 w-3.5 text-primary" />
                       {t("calendar.quickEvent")}
@@ -645,7 +645,7 @@ export default function CalendarPage() {
                     <button
                       type="button"
                       onClick={openTaskDialog}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-accent dark:hover:bg-white/10"
                     >
                       <CheckSquare className="h-3.5 w-3.5 text-upflow-warning" />
                       {t("calendar.quickTask")}
@@ -672,7 +672,7 @@ export default function CalendarPage() {
               {loading ? (
                 <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
               ) : selectedEvents.length === 0 ? (
-                <div className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-4 text-center">
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-4 text-center dark:border-white/5 dark:bg-white/[0.15]">
                   <p className="text-xs text-muted-foreground">{t("calendar.noEvents")}</p>
                   {manageEvents && (
                     <button
@@ -700,7 +700,7 @@ export default function CalendarPage() {
                         onContextMenu={(e) => openEventMenu(event, e)}
                         onDoubleClick={() => setEditingEvent(event)}
                         className={cn(
-                          "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-white/5",
+                          "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-accent dark:hover:bg-white/5",
                           eventVisualClass(event, display),
                         )}
                       >
@@ -754,7 +754,7 @@ export default function CalendarPage() {
                             }}
                             aria-label={`${t("calendar.editEvent")} ${event.title}`}
                             title={t("calendar.editEvent")}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/10"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -778,7 +778,7 @@ export default function CalendarPage() {
               )}
             </div>
 
-            <div className="mt-5 pt-4 border-t border-white/5">
+            <div className="mt-5 border-t border-border/60 pt-4 dark:border-white/5">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
                 {t("calendar.dueTasks")}
               </p>
@@ -792,7 +792,7 @@ export default function CalendarPage() {
                     <li key={task.id}>
                       <Link
                         href={task.project ? `/projects/${task.project.id}` : "#"}
-                        className={cn("block px-3 py-2 rounded-lg border-l-2 hover:bg-white/5 transition-colors", taskColor[task.priority])}
+                        className={cn("block rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-accent dark:hover:bg-white/5", taskColor[task.priority])}
                       >
                         <p className="text-xs font-medium text-foreground truncate">{task.title}</p>
                         {task.project?.name && (
@@ -902,7 +902,7 @@ export default function CalendarPage() {
           }}
         >
           <div
-            className="absolute w-56 overflow-hidden rounded-xl border border-white/10 bg-[#070b18]/95 p-1 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+            className="absolute w-56 overflow-hidden rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl dark:border-white/10 dark:bg-[#070b18]/95 dark:shadow-[0_20px_50px_rgba(0,0,0,0.45)]"
             style={{
               left: Math.min(eventMenu.x, window.innerWidth - 240),
               top: Math.min(eventMenu.y, window.innerHeight - 280),
@@ -915,7 +915,7 @@ export default function CalendarPage() {
                 setEditingEvent(eventMenu.event);
                 setEventMenu(null);
               }}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-accent dark:hover:bg-white/10"
             >
               <Pencil className="h-3.5 w-3.5" />
               {t("calendar.editEvent")}
@@ -923,12 +923,12 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={() => void updateEventColor(eventMenu.event, COMPLETED_EVENT_COLOR)}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-upflow-success transition hover:bg-white/10"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-upflow-success transition hover:bg-accent dark:hover:bg-white/10"
             >
               <Check className="h-3.5 w-3.5" />
               {t("calendar.markComplete")}
             </button>
-            <div className="my-1 border-t border-white/10" />
+            <div className="my-1 border-t border-border dark:border-white/10" />
             <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               {t("calendar.changeColor")}
             </p>
@@ -937,7 +937,7 @@ export default function CalendarPage() {
                 key={option.key}
                 type="button"
                 onClick={() => void updateEventColor(eventMenu.event, option.color)}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-white/10"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-foreground transition hover:bg-accent dark:hover:bg-white/10"
               >
                 <span className={cn("h-3 w-3 rounded border-l-2", option.className)} />
                 {t(option.labelKey)}
@@ -1053,7 +1053,7 @@ function EventEditor({
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
@@ -1062,7 +1062,7 @@ function EventEditor({
               type="time"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
           </div>
           <div>
@@ -1071,7 +1071,7 @@ function EventEditor({
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               disabled={isRoomBooking}
-              className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
             {isRoomBooking && (
               <p className="mt-1 text-[11px] text-muted-foreground">{t("calendar.roomBookingLocked")}</p>
@@ -1092,7 +1092,7 @@ function EventEditor({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10 disabled:opacity-40"
+            className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/10"
           >
             {t("common.cancel")}
           </button>

@@ -27,7 +27,7 @@ export default function TaskTemplateFields({
   );
 
   return (
-    <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <section className="rounded-xl border border-border bg-muted/30 p-3 dark:border-white/10 dark:bg-white/[0.15]">
       <div className="grid gap-3 sm:grid-cols-[180px,1fr]">
         <div>
           <label className="mb-1.5 block text-xs font-medium text-foreground">
@@ -39,7 +39,7 @@ export default function TaskTemplateFields({
               onTemplateChange(event.target.value as TaskTemplateId);
               onValuesChange({});
             }}
-            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
           >
             {TASK_TEMPLATES.map((item) => (
               <option key={item.id} value={item.id}>
@@ -69,7 +69,7 @@ export default function TaskTemplateFields({
                   onValuesChange({ ...values, [field.key]: event.target.value })
                 }
                 placeholder={field.placeholder}
-                className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
               />
             ) : (
               <input
@@ -78,7 +78,7 @@ export default function TaskTemplateFields({
                   onValuesChange({ ...values, [field.key]: event.target.value })
                 }
                 placeholder={field.placeholder}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
               />
             )}
           </label>

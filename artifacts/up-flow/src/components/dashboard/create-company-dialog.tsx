@@ -154,7 +154,7 @@ async function readApiError(res: Response, fallback: string) {
 }
 
 function SelectIcon({ className }: { className?: string }) {
-  return <ChevronDown className={cn("pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-100/60", className)} />;
+  return <ChevronDown className={cn("pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground dark:text-blue-100/60", className)} />;
 }
 
 function getSelectValue(value: string, options: SelectOption[], custom: boolean) {
@@ -501,37 +501,37 @@ export default function CreateCompanyDialog({
   };
 
   const fieldClass =
-    "h-16 w-full rounded-2xl border border-blue-200/16 bg-[#12192a]/86 pl-14 pr-4 text-base text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-blue-100/45 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/70 focus:shadow-[0_0_24px_rgba(59,130,246,0.32)]";
+    "h-16 w-full rounded-2xl border border-border bg-background pl-14 pr-4 text-base text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 dark:border-blue-200/[0.25] dark:bg-[#12192a]/[0.86] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:placeholder:text-blue-100/[0.55] dark:focus:ring-blue-500/70 dark:focus:shadow-[0_0_24px_rgba(59,130,246,0.32)]";
   const textareaClass =
-    "min-h-28 w-full rounded-2xl border border-blue-200/16 bg-[#12192a]/86 px-14 py-4 text-base text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] outline-none transition placeholder:text-blue-100/45 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/70 focus:shadow-[0_0_24px_rgba(59,130,246,0.32)]";
+    "min-h-28 w-full rounded-2xl border border-border bg-background px-14 py-4 text-base text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 dark:border-blue-200/[0.25] dark:bg-[#12192a]/[0.86] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] dark:placeholder:text-blue-100/[0.55] dark:focus:ring-blue-500/70 dark:focus:shadow-[0_0_24px_rgba(59,130,246,0.32)]";
 
   if (onboardingMode) {
     const onboardingInputClass =
-      "h-14 w-full rounded-xl border border-blue-200/18 bg-[#08142a]/72 px-14 text-base text-white outline-none transition placeholder:text-blue-100/44 focus:border-blue-300 focus:ring-2 focus:ring-blue-500/75 focus:shadow-[0_0_28px_rgba(59,130,246,0.34)]";
+      "h-14 w-full rounded-xl border border-border bg-background px-14 text-base text-foreground outline-none transition placeholder:text-muted-foreground focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30 dark:border-blue-200/[0.25] dark:bg-[#08142a]/[0.72] dark:text-white dark:placeholder:text-blue-100/[0.55] dark:focus:border-blue-300 dark:focus:ring-blue-500/75 dark:focus:shadow-[0_0_28px_rgba(59,130,246,0.34)]";
     const onboardingSelectClass = cn(onboardingInputClass, "appearance-none pr-12");
     const availableServices = ONBOARDING_SERVICE_OPTIONS.filter((option) => !includedServices.includes(option.value));
 
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#020817]/82 p-4 backdrop-blur-xl sm:p-6"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-xl dark:bg-[#020817]/[0.82] sm:p-6"
         onClick={onClose}
       >
         <form
           onSubmit={submit}
-          className="relative my-6 flex max-h-[calc(100dvh-48px)] w-full max-w-6xl flex-col overflow-hidden rounded-[26px] border border-blue-200/55 bg-[radial-gradient(circle_at_16%_8%,rgba(37,99,235,0.32),transparent_28%),radial-gradient(circle_at_88%_0%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(135deg,rgba(10,23,47,0.98),rgba(3,10,24,0.99))] shadow-[0_34px_110px_rgba(0,0,0,0.66),0_0_0_1px_rgba(96,165,250,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]"
+          className="relative my-6 flex max-h-[calc(100dvh-48px)] w-full max-w-6xl flex-col overflow-hidden rounded-[26px] border border-border bg-card text-card-foreground shadow-2xl dark:border-blue-200/[0.25] dark:bg-[radial-gradient(circle_at_16%_8%,rgba(37,99,235,0.32),transparent_28%),radial-gradient(circle_at_88%_0%,rgba(14,165,233,0.18),transparent_34%),linear-gradient(135deg,rgba(10,23,47,0.98),rgba(3,10,24,0.99))] dark:shadow-[0_34px_110px_rgba(0,0,0,0.66),0_0_0_1px_rgba(96,165,250,0.24),inset_0_1px_0_rgba(255,255,255,0.1)]"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="overflow-y-auto px-5 pb-5 pt-6 sm:px-10 sm:pb-8 sm:pt-9">
             <div className="mb-7 flex items-start justify-between gap-5">
               <div className="flex min-w-0 items-center gap-5">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[24px] border border-blue-300/55 bg-blue-500/18 text-blue-100 shadow-[0_0_36px_rgba(59,130,246,0.52),inset_0_1px_0_rgba(255,255,255,0.16)]">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[24px] border border-blue-400/[0.35] bg-blue-500/[0.15] text-blue-700 shadow-[0_0_24px_rgba(59,130,246,0.2)] dark:border-blue-300/[0.15] dark:bg-blue-500/[0.15] dark:text-blue-100 dark:shadow-[0_0_36px_rgba(59,130,246,0.52),inset_0_1px_0_rgba(255,255,255,0.16)]">
                   <Building2 className="h-10 w-10" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                  <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-white sm:text-4xl">
                     {t("companyDialog.onboardingTitle")}
                   </h2>
-                  <p className="mt-2 max-w-2xl text-base text-blue-100/70">
+                  <p className="mt-2 max-w-2xl text-base text-muted-foreground dark:text-blue-100/70">
                     {t("companyDialog.onboardingBrief")}
                   </p>
                 </div>
@@ -539,7 +539,7 @@ export default function CreateCompanyDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-100/20 bg-white/[0.04] text-blue-100/70 transition hover:bg-white/[0.09] hover:text-white"
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted/50 text-muted-foreground transition hover:bg-muted hover:text-foreground dark:border-blue-100/20 dark:bg-white/[0.15] dark:text-blue-100/70 dark:hover:bg-white/[0.15] dark:hover:text-white"
                 aria-label={t("companyDialog.close")}
               >
                 <X className="h-7 w-7" />
@@ -547,7 +547,7 @@ export default function CreateCompanyDialog({
             </div>
 
             <div className="mb-3 flex justify-end">
-              <span className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-500/10 px-5 py-2 text-sm font-semibold text-blue-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+              <span className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-5 py-2 text-sm font-semibold text-blue-700 shadow-sm dark:border-blue-300/20 dark:text-blue-200 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                 <Sparkles className="h-4 w-4" />
                 {t("companyDialog.newClient")}
               </span>
@@ -613,12 +613,12 @@ export default function CreateCompanyDialog({
                     </div>
                   </OnboardingField>
 
-                  <div className="rounded-2xl border border-blue-200/14 bg-blue-950/18 p-5">
-                    <div className="flex items-center gap-3 text-sm font-semibold text-blue-300">
+                  <div className="rounded-2xl border border-border bg-blue-500/5 p-5 dark:border-blue-200/[0.25] dark:bg-blue-950/[0.15]">
+                    <div className="flex items-center gap-3 text-sm font-semibold text-blue-700 dark:text-blue-300">
                       <Sparkles className="h-4 w-4" />
                       {t("companyDialog.availablePlans")}
                     </div>
-                    <p className="mt-3 text-sm leading-7 text-blue-100/68">
+                    <p className="mt-3 text-sm leading-7 text-muted-foreground dark:text-blue-100/[0.55]">
                       {ONBOARDING_PLAN_OPTIONS.map((option) => t(option.labelKey)).join("  •  ")}
                     </p>
                   </div>
@@ -649,7 +649,7 @@ export default function CreateCompanyDialog({
                       {includedServices.map((service) => (
                         <span
                           key={service}
-                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-blue-300/28 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100"
+                          className="inline-flex max-w-full items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-700 dark:border-blue-300/[0.15] dark:text-blue-100"
                         >
                           <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-300" />
                           <span className="truncate">{optionLabel(service, ONBOARDING_SERVICE_OPTIONS, t)}</span>
@@ -657,21 +657,21 @@ export default function CreateCompanyDialog({
                             type="button"
                             onClick={() => removeService(service)}
                             aria-label={t("companyDialog.removeService", { service: optionLabel(service, ONBOARDING_SERVICE_OPTIONS, t) })}
-                            className="rounded-full text-blue-100/54 transition hover:text-white"
+                            className="rounded-full text-blue-700/60 transition hover:text-foreground dark:text-blue-100/[0.55] dark:hover:text-white"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>
                         </span>
                       ))}
                       {includedServices.length === 0 && (
-                        <span className="text-sm text-blue-100/48">{t("companyDialog.noServices")}</span>
+                        <span className="text-sm text-muted-foreground dark:text-blue-100/[0.55]">{t("companyDialog.noServices")}</span>
                       )}
                     </div>
                   </OnboardingField>
 
                   <OnboardingField label={t("companyDialog.negotiatedMonthlyFee")}>
                     <div className="relative">
-                      <span className="absolute left-0 top-0 flex h-14 w-16 items-center justify-center rounded-l-xl border-r border-blue-200/14 text-base font-bold text-blue-300">
+                      <span className="absolute left-0 top-0 flex h-14 w-16 items-center justify-center rounded-l-xl border-r border-blue-200/[0.25] text-base font-bold text-blue-300">
                         R$
                       </span>
                       <input
@@ -688,12 +688,12 @@ export default function CreateCompanyDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 border-t border-blue-200/12 bg-[#071226]/74 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:px-10">
+          <div className="grid gap-4 border-t border-border bg-muted/30 px-5 py-5 dark:border-blue-200/[0.25] dark:bg-[#071226]/[0.74] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] sm:px-10">
             <button
               type="button"
               onClick={saveDraft}
               disabled={submitting || !name.trim()}
-              className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-blue-100/22 bg-white/[0.03] text-base font-semibold text-foreground transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-border bg-background text-base font-semibold text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-[0.45] dark:border-blue-100/[0.35] dark:bg-white/[0.15] dark:hover:bg-white/[0.15]"
             >
               <Save className="h-5 w-5" />
               {t("companyDialog.saveDraft")}
@@ -701,7 +701,7 @@ export default function CreateCompanyDialog({
             <button
               type="submit"
               disabled={submitting || !name.trim() || !serviceType.trim() || includedServices.length === 0}
-              className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-blue-300/55 bg-blue-600 text-base font-bold text-white shadow-[0_0_34px_rgba(59,130,246,0.48),inset_0_1px_0_rgba(255,255,255,0.22)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-45"
+              className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-blue-300/[0.15] bg-blue-600 text-base font-bold text-white shadow-[0_0_34px_rgba(59,130,246,0.48),inset_0_1px_0_rgba(255,255,255,0.22)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-[0.45]"
             >
               <Rocket className="h-5 w-5" />
               {submitting ? t("common.creating") : t("companyDialog.createAndStart")}
@@ -709,7 +709,7 @@ export default function CreateCompanyDialog({
           </div>
 
           {!workspaceId && (
-            <p className="px-10 pb-4 text-center text-xs text-blue-100/45">
+            <p className="px-10 pb-4 text-center text-xs text-muted-foreground dark:text-blue-100/[0.55]">
               {t("companyDialog.teamOptionsUnavailable")}
             </p>
           )}
@@ -720,24 +720,24 @@ export default function CreateCompanyDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#020617]/72 p-4 backdrop-blur-md sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-md dark:bg-[#020617]/[0.72] sm:p-6"
       onClick={onClose}
     >
       <form
         onSubmit={submit}
-        className="relative my-6 max-h-[calc(100dvh-48px)] w-full max-w-5xl overflow-y-auto rounded-[28px] border border-blue-200/35 bg-[radial-gradient(circle_at_20%_0%,rgba(37,99,235,0.23),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(2,8,23,0.98))] p-6 shadow-[0_32px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(96,165,250,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-9 lg:p-12"
+        className="relative my-6 max-h-[calc(100dvh-48px)] w-full max-w-5xl overflow-y-auto rounded-[28px] border border-border bg-card p-6 text-card-foreground shadow-2xl dark:border-blue-200/[0.25] dark:bg-[radial-gradient(circle_at_20%_0%,rgba(37,99,235,0.23),transparent_30%),linear-gradient(135deg,rgba(15,23,42,0.98),rgba(2,8,23,0.98))] dark:shadow-[0_32px_90px_rgba(0,0,0,0.62),0_0_0_1px_rgba(96,165,250,0.22),inset_0_1px_0_rgba(255,255,255,0.08)] sm:p-9 lg:p-12"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-8 flex items-start justify-between gap-5">
           <div className="flex min-w-0 items-center gap-5">
-            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl border border-amber-300/35 bg-amber-400/10 text-upflow-warning shadow-[0_0_32px_rgba(245,158,11,0.22),inset_0_1px_0_rgba(255,255,255,0.1)]">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl border border-amber-300/[0.35] bg-amber-400/10 text-upflow-warning shadow-[0_0_32px_rgba(245,158,11,0.22),inset_0_1px_0_rgba(255,255,255,0.1)]">
               <Building2 className="h-9 w-9" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-3xl font-bold tracking-tight text-white">
+              <h2 className="text-3xl font-bold tracking-tight text-foreground dark:text-white">
                 {dialogTitle}
               </h2>
-              <p className="mt-2 text-base text-blue-100/62">
+              <p className="mt-2 text-base text-muted-foreground dark:text-blue-100/[0.55]">
                 {dialogSubtitle}
               </p>
             </div>
@@ -745,7 +745,7 @@ export default function CreateCompanyDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/5 text-blue-100/70 transition hover:bg-white/10 hover:text-white"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted/50 text-muted-foreground transition hover:bg-muted hover:text-foreground dark:border-white/[0.15] dark:bg-white/5 dark:text-blue-100/70 dark:hover:bg-white/10 dark:hover:text-white"
             aria-label={t("companyDialog.close")}
           >
             <X className="h-7 w-7" />
@@ -802,7 +802,7 @@ export default function CreateCompanyDialog({
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
                   placeholder={t("companyDialog.customIndustryPlaceholder")}
-                  className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#12192a]/86 px-4 text-sm text-foreground outline-none focus:border-blue-400"
+                  className="mt-3 h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-blue-400 dark:border-blue-200/[0.25] dark:bg-[#12192a]/[0.86]"
                 />
               )}
             </Field>
@@ -833,7 +833,7 @@ export default function CreateCompanyDialog({
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value)}
                   placeholder={t("companyDialog.customServiceTypePlaceholder")}
-                  className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#12192a]/86 px-4 text-sm text-foreground outline-none focus:border-blue-400"
+                  className="mt-3 h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-blue-400 dark:border-blue-200/[0.25] dark:bg-[#12192a]/[0.86]"
                 />
               )}
             </Field>
@@ -861,7 +861,7 @@ export default function CreateCompanyDialog({
                   value={planName}
                   onChange={(e) => setPlanName(e.target.value)}
                   placeholder={t("companyDialog.customPlanPlaceholder")}
-                  className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#12192a]/86 px-4 text-sm text-foreground outline-none focus:border-blue-400"
+                  className="mt-3 h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-blue-400 dark:border-blue-200/[0.25] dark:bg-[#12192a]/[0.86]"
                 />
               )}
             </Field>
@@ -1000,7 +1000,7 @@ export default function CreateCompanyDialog({
           </Field>
 
           <Field label={t("companyDialog.includedServices")}>
-            <div className="rounded-2xl border border-blue-200/16 bg-[#12192a]/86 p-4">
+            <div className="rounded-2xl border border-border bg-muted/30 p-4 dark:border-blue-200/[0.25] dark:bg-[#12192a]/[0.86]">
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="relative">
                   <FieldIcon icon={<Sparkles className="h-5 w-5" />} />
@@ -1024,7 +1024,7 @@ export default function CreateCompanyDialog({
                   type="button"
                   onClick={() => addService(customService)}
                   disabled={!customService.trim()}
-                  className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-blue-400/35 bg-blue-500/12 px-5 text-sm font-semibold text-blue-100 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl border border-blue-400/[0.35] bg-blue-500/10 px-5 text-sm font-semibold text-blue-700 transition hover:bg-blue-500/[0.15] disabled:cursor-not-allowed disabled:opacity-40 dark:text-blue-100 dark:hover:bg-blue-500/20"
                 >
                   <Plus className="h-4 w-4" />
                   {t("common.add")}
@@ -1041,28 +1041,28 @@ export default function CreateCompanyDialog({
                     }
                   }}
                   placeholder={t("companyDialog.customServicePlaceholder")}
-                  className="mt-3 h-12 w-full rounded-xl border border-blue-200/16 bg-[#0d1424] px-4 text-sm text-foreground outline-none focus:border-blue-400"
+                  className="mt-3 h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none focus:border-blue-400 dark:border-blue-200/[0.25] dark:bg-[#0d1424]"
                 />
               )}
               <div className="mt-4 flex flex-wrap gap-2">
                 {includedServices.map((service) => (
                   <span
                     key={service}
-                    className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-500/12 px-3 py-1.5 text-sm text-blue-100"
+                    className="inline-flex items-center gap-2 rounded-full border border-blue-400/30 bg-blue-500/10 px-3 py-1.5 text-sm text-blue-700 dark:border-blue-400/25 dark:text-blue-100"
                   >
                     {optionLabel(service, SERVICE_OPTIONS, t)}
                     <button
                       type="button"
                       onClick={() => removeService(service)}
                       aria-label={t("companyDialog.removeService", { service: optionLabel(service, SERVICE_OPTIONS, t) })}
-                      className="rounded-full text-blue-100/60 hover:text-white"
+                      className="rounded-full text-blue-700/60 hover:text-foreground dark:text-blue-100/60 dark:hover:text-white"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </span>
                 ))}
                 {includedServices.length === 0 && (
-                  <span className="text-sm text-blue-100/45">{t("companyDialog.noServices")}</span>
+                  <span className="text-sm text-muted-foreground dark:text-blue-100/[0.55]">{t("companyDialog.noServices")}</span>
                 )}
               </div>
             </div>
@@ -1086,14 +1086,14 @@ export default function CreateCompanyDialog({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="h-16 rounded-2xl border border-white/18 bg-white/[0.02] text-base font-semibold text-foreground transition hover:bg-white/[0.07] disabled:opacity-40"
+            className="h-16 rounded-2xl border border-border bg-background text-base font-semibold text-foreground transition hover:bg-accent disabled:opacity-40 dark:border-white/[0.15] dark:bg-white/[0.15] dark:hover:bg-white/[0.15]"
           >
             {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={submitting || !name.trim() || (onboardingMode && (!expectedStartDate || includedServices.length === 0))}
-            className="inline-flex h-16 items-center justify-center gap-3 rounded-2xl border border-blue-300/40 bg-primary text-base font-bold text-primary-foreground shadow-[0_0_34px_rgba(59,130,246,0.38),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-16 items-center justify-center gap-3 rounded-2xl border border-blue-300/40 bg-primary text-base font-bold text-primary-foreground shadow-[0_0_34px_rgba(59,130,246,0.38),inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-[0.45]"
           >
             <Sparkles className="h-5 w-5" />
             {submitting ? t("common.creating") : submitLabel}
@@ -1101,7 +1101,7 @@ export default function CreateCompanyDialog({
         </div>
 
         {!workspaceId && (
-          <p className="mt-4 text-center text-xs text-blue-100/45">
+          <p className="mt-4 text-center text-xs text-muted-foreground dark:text-blue-100/[0.55]">
             {t("companyDialog.teamOptionsUnavailable")}
           </p>
         )}
@@ -1121,8 +1121,8 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-blue-50/88">
-        {label} {required && <span className="text-rose-300">*</span>}
+      <span className="mb-2 block text-sm font-semibold text-foreground dark:text-blue-50/[0.85]">
+        {label} {required && <span className="text-rose-600 dark:text-rose-300">*</span>}
       </span>
       {children}
     </label>
@@ -1137,7 +1137,7 @@ function FieldIcon({
   className?: string;
 }) {
   return (
-    <span className={cn("absolute left-5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-blue-500/14 text-blue-300", className)}>
+    <span className={cn("absolute left-5 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl bg-blue-500/10 text-blue-700 dark:bg-blue-500/[0.15] dark:text-blue-300", className)}>
       {icon}
     </span>
   );
@@ -1153,9 +1153,9 @@ function OnboardingSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-blue-200/18 bg-[#0b172b]/72 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <div className="mb-4 flex items-center gap-3 text-xl font-bold text-white">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl text-blue-300">
+    <section className="rounded-2xl border border-border bg-muted/30 p-5 shadow-sm dark:border-blue-200/[0.25] dark:bg-[#0b172b]/[0.72] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <div className="mb-4 flex items-center gap-3 text-xl font-bold text-foreground dark:text-white">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl text-blue-700 dark:text-blue-300">
           {icon}
         </span>
         {title}
@@ -1176,8 +1176,8 @@ function OnboardingField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-bold text-blue-50/92">
-        {label} {required && <span className="text-rose-300">*</span>}
+      <span className="mb-2 block text-sm font-bold text-foreground dark:text-blue-50/[0.85]">
+        {label} {required && <span className="text-rose-600 dark:text-rose-300">*</span>}
       </span>
       {children}
     </label>

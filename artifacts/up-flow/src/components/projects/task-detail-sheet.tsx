@@ -348,13 +348,13 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                   </div>
                   <a
                     href={currentTask.onboarding_link.href}
-                    className="rounded-lg border border-primary/35 px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15"
+                    className="rounded-lg border border-primary/[0.35] px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/[0.15]"
                   >
                     {t("task.openClient")}
                   </a>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted dark:bg-white/10">
                     <div
                       className="h-full rounded-full bg-primary"
                       style={{ width: `${currentTask.onboarding_link.progress}%` }}
@@ -371,9 +371,9 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
           <div className="border-b border-border px-4 py-4 sm:px-6">
             <label className="block text-sm font-medium text-foreground mb-2">{t("task.descriptionBrief")}</label>
             {structuredBrief && (
-              <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <div className="mb-3 rounded-xl border border-border bg-muted/30 p-3 dark:border-white/10 dark:bg-white/[0.15]">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                  <span className="rounded-full bg-primary/[0.15] px-2 py-0.5 text-xs font-medium text-primary">
                     {structuredBrief.type}
                   </span>
                   <span className="text-xs text-muted-foreground">{t("task.structuredBrief")}</span>
@@ -393,7 +393,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 {structuredBrief.checklist.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {structuredBrief.checklist.slice(0, 6).map((item) => (
-                      <span key={item} className="rounded-full bg-white/5 px-2 py-0.5 text-[11px] text-muted-foreground">
+                      <span key={item} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground dark:bg-white/5">
                         {item}
                       </span>
                     ))}

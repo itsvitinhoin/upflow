@@ -169,7 +169,7 @@ export default function CustomFieldsManager({
                           <input
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="flex-1 text-sm bg-white/5 border border-white/10 rounded-md px-2 py-1 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
                             autoFocus
                           />
                         ) : (
@@ -225,7 +225,7 @@ export default function CustomFieldsManager({
                           onChange={(e) => setEditOptions(e.target.value)}
                           rows={3}
                           placeholder={t("customFields.optionsPlaceholder")}
-                          className="w-full mt-2 text-xs bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                          className="mt-2 w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
                         />
                       )}
                     </div>
@@ -245,7 +245,7 @@ export default function CustomFieldsManager({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("customFields.namePlaceholder")}
-                className="w-full text-sm bg-white/5 border border-white/10 rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
               />
             </div>
             <div>
@@ -259,8 +259,8 @@ export default function CustomFieldsManager({
                     className={cn(
                       "text-xs px-2 py-1.5 rounded-md border transition-colors",
                       type === item.value
-                        ? "bg-primary/15 border-primary/40 text-primary"
-                        : "bg-white/5 border-white/10 text-foreground hover:bg-white/10",
+                        ? "bg-primary/[0.15] border-primary/40 text-primary"
+                        : "border-border bg-background text-foreground hover:bg-accent dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10",
                     )}
                   >
                     {t(item.labelKey)}
@@ -278,7 +278,7 @@ export default function CustomFieldsManager({
                   onChange={(e) => setOptionsText(e.target.value)}
                   rows={3}
                   placeholder="To do&#10;Doing&#10;Done"
-                  className="w-full text-sm bg-white/5 border border-white/10 rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
                 />
               </div>
             )}

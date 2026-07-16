@@ -173,8 +173,8 @@ export default function Header({ title }: HeaderProps) {
   const router = useRouter();
   const user = useAppUser();
   const { language, toggleLanguage, t } = useLanguage();
-  const { theme, setTheme } = useTheme();
-  const isDark = theme !== "light";
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const [search, setSearch] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -372,9 +372,9 @@ export default function Header({ title }: HeaderProps) {
               placeholder={t("header.searchPlaceholder", {
                 title: title.toLowerCase(),
               })}
-              className="upflow-shell-search upflow-focus-glow h-10 w-full rounded-full border border-blue-300/10 bg-[#050a18]/80 pl-11 pr-4 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] backdrop-blur-md transition placeholder:text-muted-foreground hover:border-blue-300/25 hover:bg-[#070d1f]/90 focus:border-sky-400/70 sm:h-11 md:pr-16"
+              className="upflow-shell-search upflow-focus-glow h-10 w-full rounded-full border border-border bg-background/95 pl-11 pr-4 text-sm shadow-sm backdrop-blur-md transition placeholder:text-muted-foreground hover:border-primary/[0.35] hover:bg-background focus:border-sky-400/70 dark:border-blue-300/10 dark:bg-[#050a18]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] dark:hover:border-blue-300/25 dark:hover:bg-[#070d1f]/90 sm:h-11 md:pr-16"
             />
-            <kbd className="upflow-shell-kbd absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-blue-300/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground md:flex">
+            <kbd className="upflow-shell-kbd absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-lg border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground dark:border-blue-300/10 dark:bg-white/5 md:flex">
               Ctrl K
             </kbd>
           </div>
@@ -390,7 +390,7 @@ export default function Header({ title }: HeaderProps) {
                 ? t("language.portugueseBrazil")
                 : t("language.english")
             }`}
-            className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-blue-300/10 bg-[#071024]/80 px-2.5 text-xs font-semibold text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
+            className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
           >
             <Languages className="h-4 w-4" />
             <span>{language === "en" ? "EN" : "PT"}</span>
@@ -400,7 +400,7 @@ export default function Header({ title }: HeaderProps) {
             onClick={() => setTheme(isDark ? "light" : "dark")}
             aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
             title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-blue-300/10 bg-[#071024]/80 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
+            className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
           >
             {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
           </button>
@@ -408,7 +408,7 @@ export default function Header({ title }: HeaderProps) {
             <button
               onClick={() => setPanelOpen((v) => !v)}
               aria-label={t("header.notifications")}
-              className="upflow-shell-control relative flex h-10 w-10 items-center justify-center rounded-full border border-blue-300/10 bg-[#071024]/80 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-all hover:border-sky-400/45 hover:bg-sky-400/10 hover:text-foreground hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
+              className="upflow-shell-control relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
               {unreadCount > 0 && (
@@ -488,7 +488,7 @@ export default function Header({ title }: HeaderProps) {
         <div
           role="alert"
           aria-live="assertive"
-          className="fixed right-4 top-24 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-sky-300/60 bg-[#071024]/95 p-4 text-foreground shadow-[0_0_0_1px_rgba(125,211,252,0.25),0_24px_90px_rgba(37,99,235,0.52)] backdrop-blur-xl"
+          className="fixed right-4 top-24 z-[60] w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-border bg-popover/95 p-4 text-popover-foreground shadow-xl backdrop-blur-xl dark:border-sky-300/60 dark:bg-[#071024]/95 dark:text-foreground dark:shadow-[0_0_0_1px_rgba(125,211,252,0.25),0_24px_90px_rgba(37,99,235,0.52)]"
         >
           <span className="pointer-events-none absolute inset-0 animate-pulse bg-[radial-gradient(circle_at_12%_0%,rgba(96,165,250,0.32),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(14,165,233,0.26),transparent_32%)]" />
           <span className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 animate-ping rounded-full bg-sky-400/20" />
@@ -511,7 +511,7 @@ export default function Header({ title }: HeaderProps) {
               type="button"
               onClick={() => setAssistantNotification(null)}
               aria-label={t("header.assistantDismiss")}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-accent hover:text-foreground dark:hover:bg-white/10"
             >
               <X className="h-4 w-4" />
             </button>
@@ -524,14 +524,14 @@ export default function Header({ title }: HeaderProps) {
               {assistantContext}
             </p>
           )}
-          <p className="relative mt-3 rounded-lg border border-sky-300/15 bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-100">
+          <p className="relative mt-3 rounded-lg border border-sky-300/30 bg-sky-400/10 px-3 py-2 text-xs font-medium text-sky-800 dark:border-sky-300/[0.35] dark:text-sky-100">
             {t("header.assistantStickyHint")}
           </p>
           <div className="mt-4 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={() => setAssistantNotification(null)}
-              className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+              className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground dark:border-white/10 dark:hover:bg-white/10"
             >
               {t("header.assistantDismiss")}
             </button>

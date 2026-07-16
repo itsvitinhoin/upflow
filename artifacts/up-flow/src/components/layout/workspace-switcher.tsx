@@ -175,13 +175,13 @@ export default function WorkspaceSwitcher({
 
   if (!data) {
     return (
-      <div className="upflow-workspace-card mx-3 mb-3 mt-3 overflow-hidden rounded-[18px] border border-blue-300/15 bg-[#071024]/80 p-3 text-xs text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_34px_rgba(37,99,235,0.12)]">
-        <div className="h-3 w-20 rounded-full bg-white/10" />
+      <div className="upflow-workspace-card mx-3 mb-3 mt-3 overflow-hidden rounded-[18px] border border-border bg-card p-3 text-xs text-muted-foreground shadow-sm dark:border-blue-300/[0.15] dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_34px_rgba(37,99,235,0.12)]">
+        <div className="h-3 w-20 rounded-full bg-muted dark:bg-white/10" />
         <div className="mt-3 flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-blue-500/15" />
+          <div className="h-10 w-10 rounded-xl bg-blue-500/[0.15]" />
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-24 rounded-full bg-white/10" />
-            <div className="h-2 w-16 rounded-full bg-white/5" />
+            <div className="h-3 w-24 rounded-full bg-muted dark:bg-white/10" />
+            <div className="h-2 w-16 rounded-full bg-muted/70 dark:bg-white/5" />
           </div>
         </div>
       </div>
@@ -190,11 +190,11 @@ export default function WorkspaceSwitcher({
 
   return (
     <div ref={wrapRef} className="relative mx-3 mb-3 mt-3">
-      <div className="upflow-workspace-card group relative overflow-hidden rounded-[20px] border border-blue-300/15 bg-[#071024]/80 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_42px_rgba(0,0,0,0.24),0_0_34px_rgba(37,99,235,0.12)] backdrop-blur-xl transition-all hover:border-blue-300/30 hover:bg-[#0a1430]/90 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_18px_48px_rgba(0,0,0,0.28),0_0_42px_rgba(59,130,246,0.18)]">
+      <div className="upflow-workspace-card group relative overflow-hidden rounded-[20px] border border-border bg-card p-2 shadow-sm backdrop-blur-xl transition-all hover:border-primary/[0.35] hover:bg-accent/60 hover:shadow-md dark:border-blue-300/[0.15] dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_16px_42px_rgba(0,0,0,0.24),0_0_34px_rgba(37,99,235,0.12)] dark:hover:border-blue-300/30 dark:hover:bg-[#0a1430]/90 dark:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_18px_48px_rgba(0,0,0,0.28),0_0_42px_rgba(59,130,246,0.18)]">
         <span className="upflow-workspace-glow pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_8%,rgba(59,130,246,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(139,92,246,0.18),transparent_28%)]" />
-        <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/35 to-transparent" />
+        <span className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-blue-200/[0.35] to-transparent" />
         <div className="relative flex items-start justify-between gap-2 px-2 pt-1">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-blue-100/55">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-muted-foreground dark:text-blue-100/[0.55]">
             {t("sidebar.workspace")}
           </p>
           <button
@@ -202,7 +202,7 @@ export default function WorkspaceSwitcher({
             onClick={() => setOpen((v) => !v)}
             disabled={busy}
             aria-label={t("workspace.options")}
-            className="upflow-workspace-control flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-blue-100/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-blue-300/35 hover:bg-blue-400/10 hover:text-blue-50"
+            className="upflow-workspace-control flex h-8 w-8 items-center justify-center rounded-xl border border-border bg-background/70 text-muted-foreground shadow-sm transition-all hover:border-primary/[0.35] hover:bg-accent hover:text-foreground dark:border-white/10 dark:bg-white/[0.15] dark:text-blue-100/70 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] dark:hover:border-blue-300/[0.15] dark:hover:bg-blue-400/10 dark:hover:text-blue-50"
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
           </button>
@@ -211,30 +211,30 @@ export default function WorkspaceSwitcher({
           type="button"
           onClick={() => setOpen((v) => !v)}
           disabled={busy}
-          className="relative mt-1 flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-400/35"
+          className="relative mt-1 flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-blue-400/[0.50]"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-500 text-sm font-bold text-white shadow-[0_0_24px_rgba(59,130,246,0.42)] ring-1 ring-white/15">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-500 text-sm font-bold text-white shadow-[0_0_24px_rgba(59,130,246,0.42)] ring-1 ring-white/[0.15]">
             {userInitial}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-semibold text-white">
+            <span className="block truncate text-[15px] font-semibold text-foreground dark:text-white">
               {userDisplayName}
             </span>
-            <span className="mt-0.5 block truncate text-[11px] capitalize text-blue-100/52">
+            <span className="mt-0.5 block truncate text-[11px] capitalize text-muted-foreground dark:text-blue-100/[0.55]">
               {roleLabel}
             </span>
           </span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 shrink-0 text-blue-100/55 transition-transform",
-              open && "rotate-180 text-blue-100",
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform dark:text-blue-100/[0.55]",
+              open && "rotate-180 text-foreground dark:text-blue-100",
             )}
           />
         </button>
       </div>
 
       {open && (
-        <div className="upflow-workspace-menu absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-[18px] border border-blue-300/20 bg-[#070b18]/95 shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_42px_rgba(37,99,235,0.18)] backdrop-blur-xl">
+        <div className="upflow-workspace-menu absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-[18px] border border-border bg-popover/95 text-popover-foreground shadow-xl backdrop-blur-xl dark:border-blue-300/20 dark:bg-[#070b18]/95 dark:shadow-[0_24px_70px_rgba(0,0,0,0.55),0_0_42px_rgba(37,99,235,0.18)]">
           <ul className="max-h-64 overflow-y-auto py-1">
             {data.workspaces.map((w) => {
               const active = w.id === data.current_workspace_id;
@@ -245,8 +245,8 @@ export default function WorkspaceSwitcher({
                 <li key={w.id} className="px-1">
                   <div
                     className={cn(
-                      "flex items-center gap-1 rounded-xl transition hover:bg-white/[0.06]",
-                      active && "bg-blue-500/12 text-blue-100",
+                      "flex items-center gap-1 rounded-xl transition hover:bg-accent dark:hover:bg-white/[0.15]",
+                      active && "bg-primary/10 text-primary dark:bg-blue-500/[0.15] dark:text-blue-100",
                     )}
                   >
                     <button
@@ -256,7 +256,7 @@ export default function WorkspaceSwitcher({
                       className="flex min-w-0 flex-1 items-center justify-between gap-3 px-2 py-2.5 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <span className="flex min-w-0 items-center gap-2.5">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-[11px] font-bold text-blue-100 ring-1 ring-blue-300/15">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary ring-1 ring-primary/[0.15] dark:bg-blue-500/[0.15] dark:text-blue-100 dark:ring-blue-300/[0.15]">
                           {w.name.trim().charAt(0).toUpperCase() || "U"}
                         </span>
                         <span className="truncate text-foreground">
@@ -268,7 +268,7 @@ export default function WorkspaceSwitcher({
                           {w.role}
                         </span>
                         {active && (
-                          <Check className="h-3.5 w-3.5 text-blue-100" />
+                          <Check className="h-3.5 w-3.5 text-primary dark:text-blue-100" />
                         )}
                       </span>
                     </button>
@@ -282,7 +282,7 @@ export default function WorkspaceSwitcher({
                         disabled={isDeleting}
                         title={`Delete ${w.name}`}
                         aria-label={`Delete workspace ${w.name}`}
-                        className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/25 text-red-200 transition hover:bg-red-500/15 hover:text-red-100 disabled:cursor-not-allowed disabled:border-white/10 disabled:text-muted-foreground"
+                        className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-red-400/[0.35] text-red-600 transition hover:bg-red-500/10 hover:text-red-700 disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground dark:border-red-400/25 dark:text-red-200 dark:hover:bg-red-500/[0.15] dark:hover:text-red-100 dark:disabled:border-white/10"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -292,7 +292,7 @@ export default function WorkspaceSwitcher({
               );
             })}
           </ul>
-          <div className="border-t border-white/10">
+          <div className="border-t border-border dark:border-white/10">
             {canShareCurrent && current && (
               <button
                 type="button"
@@ -300,9 +300,9 @@ export default function WorkspaceSwitcher({
                   setOpen(false);
                   setInviteOpen(true);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-blue-100 transition hover:bg-blue-500/10 hover:text-white"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-primary transition hover:bg-primary/10 hover:text-primary dark:text-blue-100 dark:hover:bg-blue-500/10 dark:hover:text-white"
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 text-blue-100 ring-1 ring-blue-300/15">
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/[0.15] dark:bg-blue-500/[0.15] dark:text-blue-100 dark:ring-blue-300/[0.15]">
                   <UserPlus className="h-3.5 w-3.5" />
                 </span>
                 {t("workspace.share")}
@@ -311,9 +311,9 @@ export default function WorkspaceSwitcher({
             <button
               type="button"
               onClick={createNew}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-white/[0.06] hover:text-foreground"
+              className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15]"
             >
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/15 text-violet-100 ring-1 ring-violet-300/15">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-500/10 text-violet-700 ring-1 ring-violet-500/20 dark:bg-violet-500/[0.15] dark:text-violet-100 dark:ring-violet-300/[0.15]">
                 <Plus className="h-3.5 w-3.5" />
               </span>
               {t("workspace.new")}

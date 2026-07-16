@@ -298,7 +298,7 @@ export default function ProjectPage() {
     <>
       <Header title={project.name} />
       <div className="mx-auto max-w-[1500px] overflow-x-clip p-4 sm:p-6">
-        <div className="mb-5 rounded-2xl border border-blue-300/10 bg-[#050a18]/35 p-4 shadow-[0_20px_70px_rgba(0,0,0,0.18)] sm:p-6">
+        <div className="mb-5 rounded-2xl border border-border bg-card/80 p-4 shadow-sm sm:p-6">
           <Link
             href="/projects"
             className="mb-5 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -339,7 +339,7 @@ export default function ProjectPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href={`/docs?project=${id}`}
-                className="flex items-center gap-2 rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-sm font-semibold text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-all hover:border-sky-400/40 hover:bg-sky-400/10"
+                className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
               >
                 <FileText className="w-4 h-4" /> {t("projects.docs")}
               </Link>
@@ -354,7 +354,7 @@ export default function ProjectPage() {
         </div>
 
         {workflowFormTask && currentWorkflowKind && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-blue-300/10">
+          <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70">
             <button
               type="button"
               onClick={() => router.replace(`/projects/${id}?view=form&task=${workflowFormTask.id}`, { scroll: false })}
@@ -362,7 +362,7 @@ export default function ProjectPage() {
               className={cn(
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
                 showWorkflowFormFirst
-                  ? "border-blue-400 text-blue-100"
+                  ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -375,7 +375,7 @@ export default function ProjectPage() {
               className={cn(
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
                 !showWorkflowFormFirst
-                  ? "border-blue-400 text-blue-100"
+                  ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -415,7 +415,7 @@ export default function ProjectPage() {
             />
 
             {selectionMode && (
-              <div className="mb-3 flex flex-col gap-3 rounded-xl border border-blue-300/15 bg-[#071024]/85 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="mb-3 flex flex-col gap-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-semibold text-foreground">
                   {t("task.bulkSelected", { count: selectedTaskIds.length })}
                 </span>
@@ -424,7 +424,7 @@ export default function ProjectPage() {
                     type="button"
                     onClick={toggleVisibleTaskSelection}
                     disabled={visibleTaskIds.length === 0 || deletingSelectedTasks}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
                     <CheckSquare2 className="h-4 w-4" />
                     {allVisibleTasksSelected
@@ -435,7 +435,7 @@ export default function ProjectPage() {
                     type="button"
                     onClick={toggleSelectionMode}
                     disabled={deletingSelectedTasks}
-                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-accent-foreground"
                   >
                     <X className="h-4 w-4" />
                     {t("common.cancel")}
@@ -444,7 +444,7 @@ export default function ProjectPage() {
                     type="button"
                     onClick={handleDeleteSelectedTasks}
                     disabled={selectedTaskIds.length === 0 || deletingSelectedTasks}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/[0.15] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {deletingSelectedTasks ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

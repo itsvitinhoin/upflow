@@ -83,7 +83,7 @@ export default function ClientsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/clients/health"
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 hover:bg-blue-500/15"
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-400/25 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-500/20 dark:text-blue-100"
             >
               <HeartPulse className="h-4 w-4" />
               {t("clients.healthCenter")}
@@ -102,7 +102,7 @@ export default function ClientsPage() {
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => (
-              <div key={item} className="h-40 animate-pulse rounded-xl bg-white/5" />
+              <div key={item} className="h-40 animate-pulse rounded-xl bg-muted dark:bg-white/5" />
             ))}
           </div>
         ) : error ? (
@@ -149,23 +149,23 @@ export default function ClientsPage() {
               return (
                 <article
                   key={company.id}
-                  className="upflow-client-card group relative min-w-0 overflow-hidden rounded-xl border border-blue-400/25 bg-[#07101f] shadow-sm transition-colors hover:border-blue-300/55 hover:bg-[#091426]"
+                  className="upflow-client-card group relative min-w-0 overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-sm transition-colors hover:border-blue-400/40 hover:bg-accent/40 dark:border-blue-400/25 dark:bg-[#07101f] dark:hover:border-blue-300/50 dark:hover:bg-[#091426]"
                 >
 
                   <div className="relative p-4">
                     <div className="flex min-w-0 items-start justify-between gap-3">
                       <Link href={`/clients/${company.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                        <span className="upflow-client-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/35 bg-gradient-to-br from-blue-600/85 via-indigo-700/75 to-blue-950 text-3xl font-bold text-white shadow-sm">
+                        <span className="upflow-client-avatar flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-blue-300/30 bg-gradient-to-br from-blue-600 via-indigo-700 to-blue-950 text-3xl font-bold text-white shadow-sm">
                           {company.name.trim().charAt(0).toUpperCase() || "C"}
                         </span>
                         <div className="min-w-0">
-                          <p className="upflow-client-muted text-[10px] font-semibold uppercase tracking-[0.18em] text-blue-200/55">
+                          <p className="upflow-client-muted text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground dark:text-blue-200/50">
                             {t("clients.brandName")}
                           </p>
-                          <h3 className="upflow-client-title mt-1 truncate text-2xl font-bold text-white">
+                          <h3 className="upflow-client-title mt-1 truncate text-2xl font-bold text-foreground dark:text-white">
                             {company.name}
                           </h3>
-                          <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-200">
+                          <span className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                             {company.commercial_status || company.status}
                           </span>
@@ -176,21 +176,21 @@ export default function ClientsPage() {
                         <Link
                           href={`/clients/${company.id}`}
                           aria-label={t("clients.openClient")}
-                          className="upflow-client-action flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200/15 bg-white/[0.05] text-blue-100/80 transition hover:border-blue-300/45 hover:bg-blue-500/15 hover:text-white"
+                          className="upflow-client-action flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-blue-700 dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/80 dark:hover:text-white"
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Link>
                         <Link
                           href={`/clients/${company.id}`}
                           aria-label={t("clients.editClient")}
-                          className="upflow-client-action flex h-9 w-9 items-center justify-center rounded-lg border border-blue-200/15 bg-white/[0.05] text-blue-100/80 transition hover:border-blue-300/45 hover:bg-blue-500/15 hover:text-white"
+                          className="upflow-client-action flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-blue-700 dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/80 dark:hover:text-white"
                         >
                           <Edit3 className="h-4 w-4" />
                         </Link>
                         <button
                           type="button"
                           onClick={() => deleteCompany(company)}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-300/20 bg-rose-500/10 text-rose-300 transition hover:border-rose-300/55 hover:bg-rose-500/15"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-rose-300/20 bg-rose-500/10 text-rose-700 transition hover:border-rose-300/50 hover:bg-rose-500/20 dark:text-rose-300"
                           title={t("clients.deleteClient")}
                           aria-label={t("clients.deleteClient")}
                         >
@@ -200,7 +200,7 @@ export default function ClientsPage() {
                     </div>
 
                     <Link href={`/clients/${company.id}`} className="mt-5 block space-y-4">
-                      <div className="upflow-client-surface grid gap-3 rounded-xl border border-blue-200/14 bg-white/[0.035] p-3 sm:grid-cols-2">
+                      <div className="upflow-client-surface grid gap-3 rounded-xl border border-border bg-muted/30 p-3 dark:border-blue-200/20 dark:bg-white/5 sm:grid-cols-2">
                         <ClientFact
                           icon={<Building2 className="h-5 w-5" />}
                           label={t("clients.brandType")}
@@ -216,7 +216,7 @@ export default function ClientsPage() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <PackageCheck className="h-4 w-4 text-blue-400" />
-                          <p className="upflow-client-title text-sm font-bold text-white">{t("clients.planServices")}</p>
+                          <p className="upflow-client-title text-sm font-bold text-foreground dark:text-white">{t("clients.planServices")}</p>
                         </div>
                         {visibleServices.length > 0 ? (
                           <div className="grid gap-2 sm:grid-cols-2">
@@ -224,27 +224,27 @@ export default function ClientsPage() {
                               <PlanServiceTile key={service} service={service} />
                             ))}
                             {remainingServices > 0 ? (
-                              <span className="upflow-client-service flex min-w-0 items-center justify-center rounded-xl border border-blue-200/12 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-blue-100/70">
+                              <span className="upflow-client-service flex min-w-0 items-center justify-center rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm font-semibold text-muted-foreground dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/70">
                                 {t("clients.moreServices", { count: remainingServices })}
                               </span>
                             ) : null}
                           </div>
                         ) : (
-                          <div className="upflow-client-surface rounded-xl border border-blue-200/12 bg-white/[0.04] px-3 py-3 text-sm text-blue-100/55">
+                          <div className="upflow-client-surface rounded-xl border border-border bg-muted/30 px-3 py-3 text-sm text-muted-foreground dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/50">
                             {t("clients.noIncludedServices")}
                           </div>
                         )}
                       </div>
 
-                      <div className="upflow-client-surface flex min-w-0 items-center gap-3 rounded-xl border border-blue-200/12 bg-black/10 px-3 py-3">
-                        <span className="upflow-client-mini-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/12 text-blue-300 ring-1 ring-blue-300/10">
+                      <div className="upflow-client-surface flex min-w-0 items-center gap-3 rounded-xl border border-border bg-muted/30 px-3 py-3 dark:border-blue-200/20 dark:bg-black/10">
+                        <span className="upflow-client-mini-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 ring-1 ring-blue-300/10 dark:text-blue-300">
                           <UserRound className="h-5 w-5" />
                         </span>
                         <div className="min-w-0">
-                          <p className="upflow-client-muted text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-200/55">
+                          <p className="upflow-client-muted text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground dark:text-blue-200/50">
                             {t("clients.responsibleManager")}
                           </p>
-                          <p className="upflow-client-title mt-0.5 truncate text-sm font-bold text-white">{manager}</p>
+                          <p className="upflow-client-title mt-0.5 truncate text-sm font-bold text-foreground dark:text-white">{manager}</p>
                         </div>
                       </div>
                     </Link>
@@ -288,15 +288,15 @@ function ClientFact({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center gap-3 border-blue-200/10 sm:first:border-r sm:first:pr-3">
-      <span className="upflow-client-mini-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/12 text-blue-300 ring-1 ring-blue-300/10">
+    <div className="flex min-w-0 items-center gap-3 border-border dark:border-blue-200/10 sm:first:border-r sm:first:pr-3">
+      <span className="upflow-client-mini-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 ring-1 ring-blue-300/10 dark:text-blue-300">
         {icon}
       </span>
       <div className="min-w-0">
-        <p className="upflow-client-muted truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-200/55">
+        <p className="upflow-client-muted truncate text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground dark:text-blue-200/50">
           {label}
         </p>
-        <p className="upflow-client-title mt-1 truncate text-base font-bold text-white">{value}</p>
+        <p className="upflow-client-title mt-1 truncate text-base font-bold text-foreground dark:text-white">{value}</p>
       </div>
     </div>
   );
@@ -304,8 +304,8 @@ function ClientFact({
 
 function PlanServiceTile({ service }: { service: string }) {
   return (
-    <span className="upflow-client-service flex min-w-0 items-center gap-2 rounded-xl border border-blue-200/14 bg-white/[0.035] px-3 py-2 text-sm font-semibold text-white">
-      <span className="upflow-client-mini-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/12 text-xs font-bold text-blue-300 ring-1 ring-blue-300/10">
+    <span className="upflow-client-service flex min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm font-semibold text-foreground dark:border-blue-200/20 dark:bg-white/5 dark:text-white">
+      <span className="upflow-client-mini-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-xs font-bold text-blue-600 ring-1 ring-blue-300/10 dark:text-blue-300">
         {serviceInitials(service)}
       </span>
       <span className={cn("truncate", service.length > 18 && "text-xs")}>

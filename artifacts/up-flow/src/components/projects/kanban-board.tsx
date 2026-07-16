@@ -280,12 +280,12 @@ export default function KanbanBoard({
                     <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
                       {displayLabel}
                     </span>
-                    <span className="rounded-md bg-white/10 px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                    <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                       {columnTasks.length}
                     </span>
                     <button
                       onClick={() => addTaskToColumn(key)}
-                      className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-white/10 hover:text-foreground"
+                      className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground"
                       title={t("projects.addTask")}
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -330,7 +330,7 @@ export default function KanbanBoard({
                               )}
                             >
                               {!selectionMode && (
-                                <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-lg border border-white/10 bg-[#071024]/95 opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+                                <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded-lg border border-border bg-popover text-popover-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -354,7 +354,7 @@ export default function KanbanBoard({
                                 </div>
                               )}
                               {task.cover_image_url && (
-                                <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-xl border-b border-white/10 bg-muted/30">
+                                <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-xl border-b border-border bg-muted/30">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={task.cover_image_url}
@@ -373,7 +373,7 @@ export default function KanbanBoard({
                                     onClick={(e) => e.stopPropagation()}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     aria-label={t("task.selectTask", { title: task.title })}
-                                    className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-white/20 bg-[#030712] text-blue-500 focus:ring-2 focus:ring-blue-400"
+                                    className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-border bg-background text-primary focus:ring-2 focus:ring-primary/40"
                                   />
                                 )}
                                 <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">
@@ -444,7 +444,7 @@ export default function KanbanBoard({
                     {provided.placeholder}
                     <button
                       onClick={() => addTaskToColumn(key)}
-                      className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2 text-xs text-muted-foreground transition-all hover:border-sky-400/35 hover:bg-sky-400/10 hover:text-foreground"
+                      className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
                     >
                       <Plus className="w-3 h-3" /> {t("projects.addTask")}
                     </button>

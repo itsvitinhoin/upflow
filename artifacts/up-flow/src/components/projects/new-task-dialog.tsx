@@ -206,7 +206,7 @@ export default function NewTaskDialog({
               placeholder="Example: Approve Meta Ads creative set, or fill Objective below"
               aria-required="true"
               autoFocus
-              className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               If you start from the structured brief, Objective or Deliverable can be used as the task title.
@@ -223,7 +223,7 @@ export default function NewTaskDialog({
                 onChange={(e) => setSelectedProject(e.target.value)}
                 aria-required="true"
                 disabled={loading || projectsLoading}
-                className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
               >
                 <option value="">
                   {projectsLoading ? "Loading lists..." : "Choose where this deliverable belongs"}
@@ -251,7 +251,7 @@ export default function NewTaskDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief, links, client expectations, approval notes, or performance context"
               rows={2}
-              className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className="w-full resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
           </div>
 
@@ -276,6 +276,7 @@ export default function NewTaskDialog({
                 label={t("toolbar.assignee")}
                 emptyLabel={t("common.unassigned")}
                 mode="create"
+                selectClassName="border-border bg-background backdrop-blur dark:border-white/10 dark:bg-white/5"
               />
             </div>
           </div>
@@ -285,7 +286,7 @@ export default function NewTaskDialog({
             <BrazilianDateInput
               value={dueDate}
               onChange={setDueDate}
-              className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground backdrop-blur focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
             />
             <p className="mt-1 text-xs text-muted-foreground">
               Use the real client deadline. This powers dashboard risk and delivery views.
@@ -298,7 +299,7 @@ export default function NewTaskDialog({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 border border-white/10 text-foreground text-sm font-medium py-2.5 rounded-lg hover:bg-white/10 transition-colors"
+              className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
             >
               {t("common.cancel")}
             </button>

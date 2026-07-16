@@ -72,8 +72,8 @@ export default function ProjectToolbar({
   ];
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-blue-300/10 py-3">
-      <div className="mr-1 flex items-center rounded-xl border border-blue-300/10 bg-[#071024]/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70 py-3">
+      <div className="mr-1 flex items-center rounded-xl border border-border bg-muted/50 p-1 shadow-sm">
         <ToolbarTab
           active={state.view === "list"}
           onClick={() => set({ view: "list" })}
@@ -94,7 +94,7 @@ export default function ProjectToolbar({
           value={state.search}
           onChange={(e) => set({ search: e.target.value })}
           placeholder={t("toolbar.searchTasks")}
-          className="w-56 rounded-xl border border-blue-300/10 bg-[#071024]/80 py-2 pl-9 pr-3 text-sm text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-sky-400/40"
+          className="w-56 rounded-xl border border-input bg-background py-2 pl-9 pr-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
         />
       </div>
 
@@ -134,7 +134,7 @@ export default function ProjectToolbar({
 
       <button
         onClick={() => set({ sortDir: state.sortDir === "asc" ? "desc" : "asc" })}
-        className="rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground"
+        className="rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
         aria-label={state.sortDir === "asc" ? t("toolbar.sortAscending") : t("toolbar.sortDescending")}
         title={state.sortDir === "asc" ? t("toolbar.sortAscending") : t("toolbar.sortDescending")}
       >
@@ -146,8 +146,8 @@ export default function ProjectToolbar({
         className={cn(
           "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
           state.showClosed
-            ? "border-sky-400/45 bg-sky-400/15 text-sky-200 shadow-[0_0_18px_rgba(59,130,246,0.16)]"
-            : "border-blue-300/10 bg-[#071024]/80 text-muted-foreground hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground",
+            ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
         )}
       >
         {t("toolbar.showClosed")}
@@ -176,8 +176,8 @@ export default function ProjectToolbar({
         className={cn(
           "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
           selectionMode
-            ? "border-sky-400/45 bg-sky-400/15 text-sky-100 shadow-[0_0_18px_rgba(59,130,246,0.16)]"
-            : "border-blue-300/10 bg-[#071024]/80 text-muted-foreground hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground",
+            ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
         )}
       >
         <ListChecks className="h-3.5 w-3.5" />
@@ -189,7 +189,7 @@ export default function ProjectToolbar({
       {canManage && onManageFields && (
         <button
           onClick={onManageFields}
-          className="ml-auto flex items-center gap-1.5 rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground"
+          className="ml-auto flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
         >
           <Settings2 className="w-3.5 h-3.5" /> {t("toolbar.customFields")}
         </button>
@@ -216,7 +216,7 @@ function ToolbarTab({
         "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
         active
           ? "bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-[0_0_24px_rgba(59,130,246,0.32)]"
-          : "text-muted-foreground hover:bg-white/10 hover:text-foreground",
+          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
       )}
     >
       {icon}
@@ -254,14 +254,14 @@ function DropdownButton({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
       >
         {icon}
         {label}
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-2 min-w-[170px] rounded-xl border border-blue-300/10 bg-[#071024] p-1 shadow-[0_24px_60px_rgba(0,0,0,0.42)]">
+        <div className="absolute left-0 z-30 mt-2 min-w-[170px] rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl">
           {items.map((it) => (
             <button
               key={it.value}
@@ -270,8 +270,8 @@ function DropdownButton({
                 setOpen(false);
               }}
               className={cn(
-                "w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-sky-400/10",
-                active === it.value ? "text-sky-200" : "text-foreground",
+                "w-full rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground",
+                active === it.value ? "text-primary" : "text-popover-foreground",
               )}
             >
               {it.label}
@@ -309,14 +309,14 @@ function ColumnsDropdown({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-xl border border-blue-300/10 bg-[#071024]/80 px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground"
+        className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
       >
         <Eye className="w-3.5 h-3.5" />
         {t("toolbar.columns")}
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-2 max-h-72 min-w-[220px] overflow-y-auto rounded-xl border border-blue-300/10 bg-[#071024] p-1 shadow-[0_24px_60px_rgba(0,0,0,0.42)]">
+        <div className="absolute left-0 z-30 mt-2 max-h-72 min-w-[220px] overflow-y-auto rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl">
           {columns.map((c) => {
             const on = visible[c.key] ?? true;
             return (
@@ -324,12 +324,12 @@ function ColumnsDropdown({
                 key={c.key}
                 onClick={() => onToggle(c.key)}
                 aria-pressed={on}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-sky-400/10"
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-popover-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <span
                   className={cn(
                     "flex h-3.5 w-3.5 items-center justify-center rounded border",
-                    on ? "border-sky-400 bg-sky-500" : "border-white/15",
+                    on ? "border-primary bg-primary" : "border-border",
                   )}
                 >
                   {on && <Check className="h-2.5 w-2.5 text-white" />}
@@ -374,8 +374,8 @@ function FilterPopover({
         className={cn(
           "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
           count > 0
-            ? "border-sky-400/45 bg-sky-400/15 text-sky-200 shadow-[0_0_18px_rgba(59,130,246,0.16)]"
-            : "border-blue-300/10 bg-[#071024]/80 text-muted-foreground hover:border-sky-400/30 hover:bg-sky-400/10 hover:text-foreground",
+            ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
         )}
       >
         <Filter className="w-3.5 h-3.5" />
@@ -388,7 +388,7 @@ function FilterPopover({
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
-        <div className="absolute left-0 z-30 mt-2 min-w-[260px] space-y-3 rounded-xl border border-blue-300/10 bg-[#071024] p-3 shadow-[0_24px_60px_rgba(0,0,0,0.42)]">
+        <div className="absolute left-0 z-30 mt-2 min-w-[260px] space-y-3 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-xl">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
               {t("toolbar.priority")}
@@ -401,8 +401,8 @@ function FilterPopover({
                   className={cn(
                     "rounded-lg border px-2 py-1 text-xs capitalize transition-colors",
                     state.filterPriority === p
-                      ? "border-sky-400/45 bg-sky-400/15 text-sky-200"
-                      : "border-white/10 text-muted-foreground hover:bg-sky-400/10",
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
                   {priorityFilterLabel(p, t)}
@@ -419,7 +419,7 @@ function FilterPopover({
               onChange={(e) =>
                 onChange({ filterAssignee: e.target.value as FilterAssignee })
               }
-              className="w-full rounded-lg border border-white/10 bg-[#050a18] px-2 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-sky-400/40"
+              className="w-full rounded-lg border border-input bg-background px-2 py-2 text-xs text-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">{t("common.anyone")}</option>
               <option value="unassigned">{t("common.unassigned")}</option>

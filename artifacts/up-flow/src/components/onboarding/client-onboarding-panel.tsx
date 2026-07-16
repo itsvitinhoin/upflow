@@ -41,9 +41,9 @@ function statusLabel(status: string, t: (key: string) => string) {
 }
 
 function statusClass(status: string) {
-  if (status === "onboarding_complete" || status === "complete") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
-  if (status === "onboarding_in_progress" || status === "in_progress") return "border-blue-400/30 bg-blue-400/10 text-blue-100";
-  return "border-amber-400/25 bg-amber-400/10 text-amber-100";
+  if (status === "onboarding_complete" || status === "complete") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200";
+  if (status === "onboarding_in_progress" || status === "in_progress") return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-100";
+  return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-100";
 }
 
 const MARKETING_B2B_SUMMARY_SECTIONS = [
@@ -524,12 +524,12 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
   };
 
   const renderServiceAssignmentControls = (compact = false) => (
-    <div className={cn("space-y-2", compact && "mt-3 rounded-lg border border-blue-300/10 bg-blue-500/[0.03] p-3")}>
+    <div className={cn("space-y-2", compact && "mt-3 rounded-lg border border-blue-300/10 bg-blue-500/[0.15] p-3")}>
       <p className="text-xs text-muted-foreground">
         {teamOptions.isAdmin ? t("onboardingWorkflow.assignmentsHint") : t("onboardingWorkflow.adminOnlyAssignments")}
       </p>
       {(onboarding?.service_assignments ?? []).length === 0 && (
-        <div className="rounded-lg border border-dashed border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
           {t("onboardingWorkflow.noServiceAssignments")}
         </div>
       )}
@@ -540,7 +540,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
           notes: assignment.notes ?? "",
         };
         return (
-          <div key={assignment.id} className="grid min-w-0 gap-2 rounded-lg border border-white/8 bg-[#050a18]/75 p-2 lg:grid-cols-[minmax(120px,0.9fr)_minmax(120px,1fr)_minmax(120px,1fr)_auto]">
+          <div key={assignment.id} className="grid min-w-0 gap-2 rounded-lg border border-border bg-muted/30 p-2 dark:border-white/[0.15] dark:bg-[#050a18]/75 lg:grid-cols-[minmax(120px,0.9fr)_minmax(120px,1fr)_minmax(120px,1fr)_auto]">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-foreground" title={assignment.service}>{assignment.service}</p>
               <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
@@ -563,7 +563,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                   [assignment.service]: { ...draft, department_id: event.target.value },
                 }))
               }
-              className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
+              className="h-10 min-w-0 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60 dark:border-white/10 dark:bg-[#0b1223]"
             >
               <option value="">{t("onboardingWorkflow.departmentShort")}</option>
               {teamOptions.departments.map((department) => (
@@ -580,7 +580,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                   [assignment.service]: { ...draft, leader_id: event.target.value },
                 }))
               }
-              className="h-10 min-w-0 rounded-lg border border-white/10 bg-[#0b1223] px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
+              className="h-10 min-w-0 rounded-lg border border-border bg-background px-2 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60 dark:border-white/10 dark:bg-[#0b1223]"
             >
               <option value="">{t("onboardingWorkflow.leaderShort")}</option>
               {teamOptions.members.map((member) => (
@@ -603,7 +603,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-blue-300/10 bg-[#050a18]/50 p-5">
+      <section className="rounded-2xl border border-border bg-card p-5 dark:border-blue-300/10 dark:bg-[#050a18]/50">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> {t("common.loading")}
         </div>
@@ -613,7 +613,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
 
   if (!onboarding) {
     return (
-      <section className="rounded-2xl border border-blue-300/10 bg-[#050a18]/50 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-lg dark:border-blue-300/10 dark:bg-[#050a18]/50 dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">{t("onboardingWorkflow.eyebrow")}</p>
@@ -636,7 +636,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-blue-300/10 bg-[#050a18]/50 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-5">
+    <section className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-lg dark:border-blue-300/10 dark:bg-[#050a18]/50 dark:shadow-[0_24px_70px_rgba(0,0,0,0.24)] sm:p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">{t("onboardingWorkflow.eyebrow")}</p>
@@ -652,7 +652,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
         </div>
         <button
           onClick={refresh}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-300/15 bg-white/5 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-white/10"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm font-semibold text-foreground transition hover:bg-muted dark:border-blue-300/[0.15] dark:bg-white/5 dark:hover:bg-white/10"
         >
           <RefreshCcw className="h-4 w-4" /> {t("common.refresh")}
         </button>
@@ -665,14 +665,14 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
         <Metric icon={<ShieldCheck className="h-4 w-4" />} label={t("onboardingWorkflow.contracts")} value={String(onboarding.contracts?.length ?? 0)} />
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-white/8">
+      <div className="h-2 overflow-hidden rounded-full bg-muted dark:bg-white/[0.15]">
         <div className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all" style={{ width: `${onboarding.progress}%` }} />
       </div>
 
       {missingMappings.length > 0 && (
         <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
           <p className="font-semibold">{t("onboardingWorkflow.missingMappingTitle")}</p>
-          <p className="mt-1 text-amber-100/78">
+          <p className="mt-1 text-amber-100/[0.65]">
             {t("onboardingWorkflow.missingMappingBody", { services: missingMappings.map((assignment) => assignment.service).join(", ") })}
           </p>
         </div>
@@ -682,8 +682,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
         <a
           href={marketingB2BSummary.href ?? undefined}
           className={cn(
-            "group block rounded-2xl border border-blue-300/18 bg-gradient-to-br from-blue-500/12 via-[#0b1325] to-cyan-500/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition",
-            marketingB2BSummary.href && "hover:border-sky-300/35 hover:bg-blue-400/10",
+            "group block rounded-2xl border border-border bg-gradient-to-br from-blue-500/[0.55] via-card to-cyan-500/[0.35] p-4 shadow-sm transition dark:border-blue-300/[0.15] dark:via-[#0b1325] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+            marketingB2BSummary.href && "hover:border-sky-300/[0.35] hover:bg-blue-400/10",
           )}
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -701,7 +701,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
               </div>
             </div>
             {marketingB2BSummary.href && (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-3 py-2 text-xs font-semibold text-blue-100 group-hover:bg-blue-400/15">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-700 group-hover:bg-blue-500/[0.15] dark:border-blue-300/20 dark:text-blue-100">
                 <ExternalLink className="h-3.5 w-3.5" />
                 {t("marketingB2BForm.openShort")}
               </span>
@@ -723,7 +723,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
             />
           </div>
 
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted dark:bg-white/[0.15]">
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all"
               style={{ width: `${marketingB2BSummary.progress}%` }}
@@ -736,8 +736,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
         <a
           href={marketingB2CSummary.href ?? undefined}
           className={cn(
-            "group block rounded-2xl border border-blue-300/18 bg-gradient-to-br from-blue-500/12 via-[#0b1325] to-cyan-500/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition",
-            marketingB2CSummary.href && "hover:border-sky-300/35 hover:bg-blue-400/10",
+            "group block rounded-2xl border border-border bg-gradient-to-br from-blue-500/[0.55] via-card to-cyan-500/[0.35] p-4 shadow-sm transition dark:border-blue-300/[0.15] dark:via-[#0b1325] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]",
+            marketingB2CSummary.href && "hover:border-sky-300/[0.35] hover:bg-blue-400/10",
           )}
         >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -755,7 +755,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
               </div>
             </div>
             {marketingB2CSummary.href && (
-              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-3 py-2 text-xs font-semibold text-blue-100 group-hover:bg-blue-400/15">
+              <span className="inline-flex items-center gap-1 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-xs font-semibold text-blue-700 group-hover:bg-blue-500/[0.15] dark:border-blue-300/20 dark:text-blue-100">
                 <ExternalLink className="h-3.5 w-3.5" />
                 {t("marketingB2CForm.openShort")}
               </span>
@@ -777,7 +777,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
             />
           </div>
 
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/8">
+          <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted dark:bg-white/[0.15]">
             <div
               className="h-full rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-emerald-400 transition-all"
               style={{ width: `${marketingB2CSummary.progress}%` }}
@@ -787,20 +787,20 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
       )}
 
       {teamOptions.isAdmin && onboarding.status !== "onboarding_complete" && (
-        <div className="grid gap-3 rounded-xl border border-blue-300/12 bg-white/[0.03] p-3 md:grid-cols-[1fr_auto] md:items-end">
+        <div className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 dark:border-blue-300/[0.15] dark:bg-white/[0.15] md:grid-cols-[1fr_auto] md:items-end">
           <label className="space-y-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/55">{t("onboardingWorkflow.overrideTitle")}</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700/75 dark:text-blue-100/[0.55]">{t("onboardingWorkflow.overrideTitle")}</span>
             <input
               value={overrideReason}
               onChange={(event) => setOverrideReason(event.target.value)}
               placeholder={t("onboardingWorkflow.overridePlaceholder")}
-              className="h-10 w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 text-sm text-foreground outline-none focus:border-blue-400"
+              className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
             />
           </label>
           <button
             onClick={overrideCompletion}
             disabled={saving === "completion-override"}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:opacity-60"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/[0.15] disabled:opacity-60"
           >
             {saving === "completion-override" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
             {t("onboardingWorkflow.overrideAction")}
@@ -811,7 +811,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
       {onboarding.completion_override_reason && (
         <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">
           <p className="font-semibold">{t("onboardingWorkflow.overrideRecorded")}</p>
-          <p className="mt-1 text-emerald-100/78">{onboarding.completion_override_reason}</p>
+          <p className="mt-1 text-emerald-100/[0.65]">{onboarding.completion_override_reason}</p>
         </div>
       )}
 
@@ -820,8 +820,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
           <Panel title={t("onboardingWorkflow.checklist")} icon={<CheckCircle2 className="h-4 w-4" />}>
             <div className="space-y-4">
               {groupedItems.map(([department, items]) => (
-                <div key={department} className="rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/55">{department}</p>
+                <div key={department} className="rounded-xl border border-border bg-muted/30 p-3 dark:border-blue-300/10 dark:bg-white/[0.15]">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-blue-700/75 dark:text-blue-100/[0.55]">{department}</p>
                   <div className="space-y-2">
                     {items.map((item) => {
                       const normalizedTitle = item.title.toLowerCase();
@@ -853,7 +853,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                         department.toLowerCase().includes("internal") &&
                         (normalizedTitle.includes("service leaders") || normalizedTitle.includes("lider") || normalizedTitle.includes("líder"));
                       return (
-                        <div key={item.id} className="rounded-lg border border-white/8 bg-[#070d1c]/70 p-3">
+                        <div key={item.id} className="rounded-lg border border-border bg-background p-3 dark:border-white/[0.15] dark:bg-[#070d1c]/70">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-foreground">{item.title}</p>
@@ -866,7 +866,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                               {routedHref && (
                                 <a
                                   href={routedHref}
-                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-300/20 bg-blue-400/10 px-2.5 py-1 text-xs font-semibold text-blue-100 hover:bg-blue-400/15"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-blue-400/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-500/[0.15] dark:border-blue-300/20 dark:text-blue-100"
                                 >
                                   <ExternalLink className="h-3.5 w-3.5" />
                                   {routedOpenLabel}
@@ -876,7 +876,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                                 <button
                                   onClick={() => updateItem(item, "complete")}
                                   disabled={saving === item.id}
-                                  className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/15 disabled:opacity-60"
+                                  className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/[0.15] disabled:opacity-60"
                                 >
                                   {saving === item.id ? t("common.saving") : t("onboardingWorkflow.markDone")}
                                 </button>
@@ -884,7 +884,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                             </div>
                           </div>
                           {isRoutedTaskItem && (
-                            <p className="mt-2 rounded-lg border border-blue-300/10 bg-blue-400/5 px-3 py-2 text-xs text-blue-100/78">
+                            <p className="mt-2 rounded-lg border border-blue-400/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-700/80 dark:border-blue-300/10 dark:text-blue-100/[0.55]">
                               {routedHint}
                             </p>
                           )}
@@ -907,8 +907,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                     key={item.id}
                     href={href ?? undefined}
                     className={cn(
-                      "block rounded-xl border border-blue-300/10 bg-white/[0.03] p-3 transition",
-                      href && "hover:border-blue-300/25 hover:bg-blue-400/8",
+                      "block rounded-xl border border-border bg-muted/30 p-3 transition dark:border-blue-300/10 dark:bg-white/[0.15]",
+                      href && "hover:border-blue-300/25 hover:bg-blue-400/[0.15]",
                     )}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -922,15 +922,15 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                         <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>
                           {statusLabel(item.status, t)}
                         </span>
-                        {href && <ExternalLink className="h-4 w-4 text-blue-200/70" />}
+                        {href && <ExternalLink className="h-4 w-4 text-blue-700/70 dark:text-blue-200/70" />}
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-blue-100/70">{t("onboardingWorkflow.schedulingRoutedHint")}</p>
+                    <p className="mt-2 text-xs text-blue-700/75 dark:text-blue-100/70">{t("onboardingWorkflow.schedulingRoutedHint")}</p>
                   </a>
                 );
               })}
               {schedulingItems.length === 0 && (
-                <p className="rounded-xl border border-white/8 bg-[#070d1c]/70 px-3 py-4 text-sm text-muted-foreground">
+                <p className="rounded-xl border border-border bg-background px-3 py-4 text-sm text-muted-foreground dark:border-white/[0.15] dark:bg-[#070d1c]/70">
                   {t("onboardingWorkflow.noSchedulingTasks")}
                 </p>
               )}
@@ -949,8 +949,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                     key={item.id}
                     href={href ?? undefined}
                     className={cn(
-                      "block rounded-xl border border-blue-300/10 bg-white/[0.03] p-3 transition",
-                      href && "hover:border-blue-300/25 hover:bg-blue-400/8",
+                      "block rounded-xl border border-border bg-muted/30 p-3 transition dark:border-blue-300/10 dark:bg-white/[0.15]",
+                      href && "hover:border-blue-300/25 hover:bg-blue-400/[0.15]",
                     )}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -964,19 +964,19 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                         <span className={cn("rounded-full border px-2.5 py-1 text-[11px] font-semibold", statusClass(item.status))}>
                           {statusLabel(item.status, t)}
                         </span>
-                        {href && <ExternalLink className="h-4 w-4 text-blue-200/70" />}
+                        {href && <ExternalLink className="h-4 w-4 text-blue-700/70 dark:text-blue-200/70" />}
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-blue-100/70">{t("onboardingWorkflow.financeRoutedHint")}</p>
+                    <p className="mt-2 text-xs text-blue-700/75 dark:text-blue-100/70">{t("onboardingWorkflow.financeRoutedHint")}</p>
                   </a>
                 );
               })}
               {financeRoutingItems.length === 0 && (
-                <p className="rounded-xl border border-white/8 bg-[#070d1c]/70 px-3 py-4 text-sm text-muted-foreground">
+                <p className="rounded-xl border border-border bg-background px-3 py-4 text-sm text-muted-foreground dark:border-white/[0.15] dark:bg-[#070d1c]/70">
                   {t("onboardingWorkflow.noRoutedFinanceTasks")}
                 </p>
               )}
-              <div className="rounded-xl border border-white/8 bg-[#070d1c]/70 px-3 py-3 text-sm text-blue-100/75">
+              <div className="rounded-xl border border-border bg-background px-3 py-3 text-sm text-blue-700/80 dark:border-white/[0.15] dark:bg-[#070d1c]/70 dark:text-blue-100/75">
                 {t("onboardingWorkflow.contractCount", { count: onboarding.contracts?.length ?? 0 })}
               </div>
             </div>
@@ -991,14 +991,14 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                       value={support.group_name}
                       onChange={(e) => setSupport((current) => ({ ...current, group_name: e.target.value }))}
                       placeholder={t("onboardingWorkflow.groupName")}
-                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                     />
                   </Field>
                   <Field label={t("onboardingWorkflow.supportStatus")}>
                     <select
                       value={support.status}
                       onChange={(e) => setSupport((current) => ({ ...current, status: supportStatusValue(e.target.value) }))}
-                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                     >
                       {SUPPORT_STATUS_OPTIONS.map((option) => (
                         <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
@@ -1011,7 +1011,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                     value={support.group_link}
                     onChange={(e) => setSupport((current) => ({ ...current, group_link: e.target.value }))}
                     placeholder="https://chat.whatsapp.com/..."
-                    className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                   />
                 </Field>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1020,7 +1020,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                       value={support.main_client_contact}
                       onChange={(e) => setSupport((current) => ({ ...current, main_client_contact: e.target.value }))}
                       placeholder={t("onboardingWorkflow.mainClientContact")}
-                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                     />
                   </Field>
                   <Field label={t("onboardingWorkflow.internalParticipants")}>
@@ -1028,7 +1028,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                       value={support.internal_participants}
                       onChange={(e) => setSupport((current) => ({ ...current, internal_participants: e.target.value }))}
                       placeholder={t("onboardingWorkflow.participantPlaceholder")}
-                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                     />
                   </Field>
                 </div>
@@ -1037,7 +1037,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                     value={support.client_participants}
                     onChange={(e) => setSupport((current) => ({ ...current, client_participants: e.target.value }))}
                     placeholder={t("onboardingWorkflow.participantPlaceholder")}
-                    className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                   />
                 </Field>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -1046,7 +1046,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                       value={support.commercial_responsible}
                       onChange={(e) => setSupport((current) => ({ ...current, commercial_responsible: e.target.value }))}
                       placeholder={t("onboardingWorkflow.commercialResponsible")}
-                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                     />
                   </Field>
                   <Field label={t("onboardingWorkflow.accountResponsible")}>
@@ -1054,7 +1054,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                       value={support.account_responsible}
                       onChange={(e) => setSupport((current) => ({ ...current, account_responsible: e.target.value }))}
                       placeholder={t("onboardingWorkflow.accountResponsible")}
-                      className="w-full rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                     />
                   </Field>
                 </div>
@@ -1064,7 +1064,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
                     onChange={(e) => setSupport((current) => ({ ...current, notes: e.target.value }))}
                     placeholder={t("onboardingWorkflow.supportNotes")}
                     rows={3}
-                    className="w-full resize-none rounded-lg border border-white/10 bg-[#0b1223] px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400"
+                    className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-blue-400 dark:border-white/10 dark:bg-[#0b1223]"
                   />
                 </Field>
                 <button
@@ -1086,8 +1086,8 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
 
 function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-blue-300/10 bg-white/[0.03] p-3">
-      <div className="mb-2 flex items-center gap-2 text-blue-200/70">{icon}<span className="text-xs font-semibold uppercase tracking-[0.14em]">{label}</span></div>
+    <div className="rounded-xl border border-border bg-muted/30 p-3 dark:border-blue-300/10 dark:bg-white/[0.15]">
+      <div className="mb-2 flex items-center gap-2 text-blue-700/75 dark:text-blue-200/70">{icon}<span className="text-xs font-semibold uppercase tracking-[0.14em]">{label}</span></div>
       <p className="truncate text-lg font-bold text-foreground">{value}</p>
     </div>
   );
@@ -1096,7 +1096,7 @@ function Metric({ icon, label, value }: { icon: ReactNode; label: string; value:
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-100/65">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-700/75 dark:text-blue-100/[0.55]">{label}</span>
       {children}
     </label>
   );
@@ -1104,7 +1104,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function Panel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-blue-300/10 bg-[#071024]/70 p-4">
+    <div className="rounded-2xl border border-border bg-muted/30 p-4 dark:border-blue-300/10 dark:bg-[#071024]/70">
       <div className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">{icon}{title}</div>
       {children}
     </div>

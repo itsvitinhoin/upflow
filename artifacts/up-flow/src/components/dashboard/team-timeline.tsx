@@ -361,7 +361,7 @@ export function TeamTimeline({
                         }}
                       >
                         <span className="min-w-0 truncate">{b.label}</span>
-                        <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-40 hidden min-w-64 max-w-96 -translate-x-1/2 rounded-lg border border-blue-300/20 bg-[#070b18]/95 px-3 py-2 text-left text-[11px] font-medium text-foreground shadow-[0_18px_46px_rgba(0,0,0,0.5)] backdrop-blur-xl group-hover:block group-focus-within:block">
+                        <span className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 z-40 hidden min-w-64 max-w-96 -translate-x-1/2 rounded-lg border border-border bg-popover/95 px-3 py-2 text-left text-[11px] font-medium text-popover-foreground shadow-lg backdrop-blur-xl group-hover:block group-focus-within:block dark:border-blue-300/20 dark:bg-[#070b18]/95 dark:shadow-[0_18px_46px_rgba(0,0,0,0.5)]">
                           <span className="block truncate text-blue-100">{b.label}</span>
                           <span className="mt-0.5 block text-muted-foreground">
                             {u.name} - {b.startLabel} to {b.endLabel}

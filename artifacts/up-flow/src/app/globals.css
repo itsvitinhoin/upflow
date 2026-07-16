@@ -4,7 +4,7 @@
 
 @layer base {
   :root,
-  .dark {
+  html.dark {
     --background: 224 68% 4%;
     --foreground: 220 18% 94%;
     --card: 224 38% 9%;
@@ -57,9 +57,11 @@
     @apply border-border;
   }
   html {
-    color-scheme: dark;
     background-color: hsl(var(--background));
     overflow-x: hidden;
+  }
+  html.dark {
+    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground antialiased;
@@ -90,14 +92,16 @@
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  html.dark input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.7);
     cursor: pointer;
   }
   select {
-    color-scheme: dark;
     background-color: hsl(var(--card)) !important;
     color: hsl(var(--foreground)) !important;
+  }
+  html.dark select {
+    color-scheme: dark;
   }
   select option,
   select optgroup {

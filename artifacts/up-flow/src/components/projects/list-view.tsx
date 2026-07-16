@@ -172,7 +172,7 @@ export default function ListView({
                       <div
                         className={cn(
                           "sticky left-0 flex min-w-0 cursor-pointer items-center gap-2 px-2 group-hover:bg-muted/30",
-                          isSelected ? "bg-[#0b1c3a]" : "bg-card",
+                          isSelected ? "bg-primary/10" : "bg-card",
                         )}
                         onClick={() => {
                           if (selectionMode && onToggleTaskSelection) {
@@ -478,12 +478,12 @@ function groupTasks(
 function pillFor(kind: "status" | "priority", key: string) {
   if (kind === "status") {
     if (key === "todo") return "bg-muted text-foreground";
-    if (key === "in_progress") return "bg-primary/15 text-primary";
-    if (key === "done") return "bg-upflow-success/15 text-upflow-success";
+    if (key === "in_progress") return "bg-primary/[0.15] text-primary";
+    if (key === "done") return "bg-upflow-success/[0.15] text-upflow-success";
   }
   if (kind === "priority") {
-    if (key === "high") return "bg-upflow-danger/15 text-upflow-danger";
-    if (key === "medium") return "bg-upflow-warning/15 text-upflow-warning";
+    if (key === "high") return "bg-upflow-danger/[0.15] text-upflow-danger";
+    if (key === "medium") return "bg-upflow-warning/[0.15] text-upflow-warning";
     if (key === "low") return "bg-muted text-muted-foreground";
   }
   return "bg-muted text-muted-foreground";

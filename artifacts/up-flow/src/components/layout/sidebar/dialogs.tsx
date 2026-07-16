@@ -103,7 +103,7 @@ export function SpaceDialog({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Marketing"
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-4 mb-1.5">Icon</label>
         <div className="flex flex-wrap gap-1.5">
@@ -114,7 +114,9 @@ export function SpaceDialog({
               onClick={() => setIcon(i)}
               className={cn(
                 "w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-colors",
-                icon === i ? "bg-primary/25 ring-2 ring-primary/60" : "bg-white/5 hover:bg-white/10"
+                icon === i
+                  ? "bg-primary/25 ring-2 ring-primary/60"
+                  : "bg-muted/60 hover:bg-muted dark:bg-white/5 dark:hover:bg-white/10"
               )}
             >
               {i}
@@ -125,7 +127,7 @@ export function SpaceDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -215,7 +217,7 @@ export function MoveProjectDialog({
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value)}
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         >
           <option value="">— Unassigned —</option>
           {spaces.map((sp) => {
@@ -235,7 +237,7 @@ export function MoveProjectDialog({
         <div className="mt-6 grid gap-2 sm:flex">
           <button
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -337,13 +339,13 @@ export function FolderDialog({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Q1 initiatives"
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <div className="mt-6 grid gap-2 sm:flex">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
             Cancel
           </button>
@@ -444,7 +446,7 @@ export function NewListDialog({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Sprint 12"
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
           Description <span className="text-muted-foreground font-normal">(optional)</span>
@@ -454,7 +456,7 @@ export function NewListDialog({
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           placeholder="What is this list about?"
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <label className="block text-xs font-medium text-foreground mt-3 mb-1.5">
           Due date <span className="text-muted-foreground font-normal">(optional)</span>
@@ -462,13 +464,13 @@ export function NewListDialog({
         <BrazilianDateInput
           value={dueDate}
           onChange={setDueDate}
-          className="w-full border border-white/10 bg-white/5 rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
         />
         <div className="mt-6 grid gap-2 sm:flex">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 border border-white/10 text-foreground text-sm py-2 rounded-lg hover:bg-white/10"
+            className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
             Cancel
           </button>

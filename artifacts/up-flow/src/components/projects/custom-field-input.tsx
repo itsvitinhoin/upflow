@@ -15,7 +15,7 @@ interface Props {
 }
 
 const inputCls =
-  "w-full text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
+  "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5";
 
 const errorCls = "border-destructive focus:ring-destructive";
 
@@ -194,7 +194,7 @@ function PeoplePicker({
         aria-label={label}
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "w-full flex items-center gap-1.5 text-left bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-sm text-foreground hover:bg-white/10",
+          "flex w-full items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-left text-sm text-foreground hover:bg-accent dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10",
           compact && "py-1",
         )}
       >
@@ -206,7 +206,7 @@ function PeoplePicker({
               <div
                 key={u.id}
                 title={u.name}
-                className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center ring-1 ring-card"
+                className="w-5 h-5 rounded-full bg-primary/[0.15] text-primary text-[10px] font-bold flex items-center justify-center ring-1 ring-card"
               >
                 {getInitials(u.name)}
               </div>
@@ -236,7 +236,7 @@ function PeoplePicker({
                   onClick={() => toggle(u.id)}
                   className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-foreground hover:bg-muted"
                 >
-                  <div className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-full bg-primary/[0.15] text-primary text-[10px] font-bold flex items-center justify-center">
                     {getInitials(u.name)}
                   </div>
                   <span className="flex-1 text-left truncate">{u.name}</span>

@@ -304,10 +304,10 @@ export default function MeetingRoomPage() {
     <>
       <Header title={t("meetingRoom.title")} />
       <main className="space-y-4 p-4 sm:space-y-6 sm:p-6">
-        <section className="overflow-hidden rounded-2xl border border-blue-300/15 bg-[#070c1a]/88 p-4 shadow-[0_24px_70px_rgba(0,0,0,0.22)] sm:p-6">
+        <section className="overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-lg dark:border-blue-300/[0.15] dark:bg-[#070c1a]/[0.88] dark:shadow-[0_24px_70px_rgba(0,0,0,0.22)] sm:p-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-blue-200/60">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-blue-700/75 dark:text-blue-200/60">
                 {t("meetingRoom.eyebrow")}
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-normal text-foreground sm:text-4xl">
@@ -321,7 +321,7 @@ export default function MeetingRoomPage() {
               <button
                 type="button"
                 onClick={() => void loadRoomCalendar()}
-                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-semibold text-foreground transition hover:bg-white/10"
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:bg-accent dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
               >
                 <RefreshCw className="h-4 w-4" />
                 {t("common.refresh")}
@@ -377,7 +377,7 @@ export default function MeetingRoomPage() {
                 <button
                   type="button"
                   onClick={goToday}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-foreground transition-colors"
+                  className="rounded-lg bg-muted/50 px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   {t("calendar.today")}
                 </button>
@@ -385,7 +385,7 @@ export default function MeetingRoomPage() {
                   type="button"
                   onClick={goPrev}
                   aria-label={t("calendar.previousMonth")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:hover:bg-white/5"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -393,14 +393,14 @@ export default function MeetingRoomPage() {
                   type="button"
                   onClick={goNext}
                   aria-label={t("calendar.nextMonth")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground dark:hover:bg-white/5"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+            <div className="mb-4 rounded-xl border border-border bg-muted/30 px-3 py-3 dark:border-white/10 dark:bg-white/[0.15]">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold text-foreground">
@@ -420,7 +420,7 @@ export default function MeetingRoomPage() {
                     value={selectedUserId}
                     onChange={(event) => setSelectedUserId(event.target.value)}
                     disabled={peopleLoading}
-                    className="h-10 w-full rounded-xl border border-white/10 bg-[#080d1b] px-3 pr-9 text-xs font-medium text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                    className="h-10 w-full rounded-xl border border-border bg-background px-3 pr-9 text-xs font-medium text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:border-white/10 dark:bg-[#080d1b]"
                   >
                     <option value="">
                       {peopleLoading ? t("common.loading") : t("meetingRoom.allUsers")}
@@ -461,9 +461,9 @@ export default function MeetingRoomPage() {
                     className={cn(
                       "flex min-h-[152px] flex-col rounded-xl border p-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:min-h-[164px]",
                       isSelected
-                        ? "border-primary/70 bg-primary/12 shadow-[0_0_28px_rgba(59,130,246,0.16)]"
-                        : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]",
-                      !inMonth && "opacity-45",
+                        ? "border-primary/70 bg-primary/[0.15] shadow-[0_0_28px_rgba(59,130,246,0.16)]"
+                        : "border-border bg-background hover:border-primary/30 hover:bg-accent dark:border-white/10 dark:bg-white/[0.15] dark:hover:border-white/20 dark:hover:bg-white/[0.15]",
+                      !inMonth && "opacity-[0.45]",
                     )}
                   >
                     <div className="mb-2 flex items-center justify-between gap-1">
@@ -476,7 +476,7 @@ export default function MeetingRoomPage() {
                         {day.getDate()}
                       </span>
                       {dayEvents.length > 0 && (
-                        <span className="rounded-full border border-sky-300/20 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-100">
+                        <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:border-sky-300/20 dark:text-sky-100">
                           {dayEvents.length}
                         </span>
                       )}
@@ -489,8 +489,8 @@ export default function MeetingRoomPage() {
                           className={cn(
                             "flex min-h-[17px] items-center gap-1 rounded-md border-l-2 px-1.5 py-0.5 text-[9px] font-medium leading-none",
                             conflicts.has(event.id)
-                              ? "border-l-upflow-warning bg-upflow-warning/15 text-upflow-warning"
-                              : "border-l-primary bg-primary/15 text-sky-100",
+                              ? "border-l-upflow-warning bg-upflow-warning/[0.15] text-upflow-warning"
+                              : "border-l-primary bg-primary/[0.15] text-sky-700 dark:text-sky-100",
                           )}
                         >
                           <span className="shrink-0 font-bold tabular-nums">{formatTime(event.starts_at)}</span>
@@ -533,7 +533,7 @@ export default function MeetingRoomPage() {
                 {loading ? (
                   <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
                 ) : selectedEvents.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-6 text-center">
+                  <div className="rounded-xl border border-border bg-muted/30 px-3 py-6 text-center dark:border-white/10 dark:bg-white/[0.15]">
                     <DoorOpen className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
                     <p className="text-sm font-semibold text-foreground">{t("meetingRoom.roomAvailable")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{t("meetingRoom.noBookingsSelectedDay")}</p>
@@ -562,14 +562,14 @@ export default function MeetingRoomPage() {
                   </p>
                   <h2 className="mt-1 text-base font-semibold text-foreground">{t("meetingRoom.monthAgenda")}</h2>
                 </div>
-                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground">
+                <span className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground dark:border-white/10 dark:bg-white/5">
                   {filteredEvents.length}
                 </span>
               </div>
               {loading ? (
                 <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
               ) : filteredEvents.length === 0 ? (
-                <p className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-xs text-muted-foreground">
+                <p className="rounded-xl border border-border bg-muted/30 px-3 py-4 text-xs text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
                   {t("meetingRoom.noBookingsMonth")}
                 </p>
               ) : (
@@ -620,9 +620,9 @@ function MetricCard({
   tone?: "default" | "success" | "warning";
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
+    <div className="rounded-xl border border-border bg-muted/30 p-4 dark:border-white/10 dark:bg-white/[0.15]">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-100/60">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-700/75 dark:text-blue-100/60">
           {label}
         </p>
         <Icon
@@ -659,12 +659,12 @@ function MeetingItem({
   return (
     <li
       className={cn(
-        "rounded-xl border bg-white/[0.035] p-3",
-        hasConflict ? "border-upflow-warning/35" : "border-white/10",
+        "rounded-xl border bg-muted/30 p-3 dark:bg-white/[0.15]",
+        hasConflict ? "border-upflow-warning/[0.35]" : "border-border dark:border-white/10",
       )}
     >
       <div className="flex gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-xs font-bold text-primary">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/[0.15] text-xs font-bold text-primary">
           {initials(primaryPerson)}
         </div>
         <div className="min-w-0 flex-1">
@@ -692,7 +692,7 @@ function MeetingItem({
             <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{event.description}</p>
           )}
           <div className="mt-3 flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-sky-100">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[10px] font-semibold text-sky-700 dark:border-white/10 dark:bg-white/5 dark:text-sky-100">
               <Video className="h-3 w-3" />
               {event.location || ROOM_NAME}
             </span>

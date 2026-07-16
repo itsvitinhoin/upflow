@@ -139,7 +139,7 @@ function LoginControlBar() {
         type="button"
         onClick={() => setTheme(isDark ? "light" : "dark")}
         aria-label={isDark ? copy.themeLight : copy.themeDark}
-        className="inline-flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-slate-600 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-400/40 hover:text-slate-950 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300 dark:shadow-[0_0_26px_rgba(15,23,42,0.5)] dark:hover:text-white"
+        className="inline-flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-slate-600 shadow-[0_12px_34px_rgba(15,23,42,0.08)] backdrop-blur transition hover:border-blue-400/40 hover:text-slate-950 dark:border-white/10 dark:bg-white/[0.15] dark:text-slate-300 dark:shadow-[0_0_26px_rgba(15,23,42,0.5)] dark:hover:text-white"
       >
         <span
           className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
@@ -156,7 +156,7 @@ function LoginControlBar() {
           <Moon className="h-4 w-4" />
         </span>
       </button>
-      <div className="inline-flex h-11 items-center rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold text-slate-600 shadow-[0_12px_34px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
+      <div className="inline-flex h-11 items-center rounded-full border border-slate-200 bg-white p-1 text-sm font-semibold text-slate-600 shadow-[0_12px_34px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-white/[0.15] dark:text-slate-300">
         <button
           type="button"
           onClick={() => setLanguage("en")}
@@ -204,8 +204,8 @@ function BrandPanel({ copy }: { copy: LoginCopy }) {
 
       <div className="relative z-10 flex justify-center">
         <div className="relative h-[360px] w-[420px] max-w-full">
-          <div className="absolute left-[40%] top-20 h-56 w-44 rotate-[8deg] rounded-[2rem] border border-blue-300/40 bg-blue-100/60 shadow-[0_0_60px_rgba(59,130,246,0.18)] backdrop-blur-xl dark:border-blue-300/20 dark:bg-blue-500/[0.08]" />
-          <div className="absolute left-[28%] top-10 h-64 w-52 rotate-[5deg] rounded-[2rem] border border-blue-300/50 bg-blue-100/70 shadow-[0_0_70px_rgba(37,99,235,0.22)] backdrop-blur-xl dark:border-blue-300/30 dark:bg-blue-500/[0.10]" />
+          <div className="absolute left-[40%] top-20 h-56 w-44 rotate-[8deg] rounded-[2rem] border border-blue-300/40 bg-blue-100/60 shadow-[0_0_60px_rgba(59,130,246,0.18)] backdrop-blur-xl dark:border-blue-300/20 dark:bg-blue-500/[0.15]" />
+          <div className="absolute left-[28%] top-10 h-64 w-52 rotate-[5deg] rounded-[2rem] border border-blue-300/50 bg-blue-100/70 shadow-[0_0_70px_rgba(37,99,235,0.22)] backdrop-blur-xl dark:border-blue-300/30 dark:bg-blue-500/[0.15]" />
           <div className="absolute left-10 top-0 flex h-72 w-60 -rotate-[4deg] items-center justify-center rounded-[2rem] border border-blue-300/70 bg-gradient-to-br from-blue-100 via-white to-slate-100 shadow-[0_30px_90px_rgba(37,99,235,0.24),0_0_0_1px_rgba(255,255,255,0.45)_inset] backdrop-blur-xl dark:border-blue-300/50 dark:bg-gradient-to-br dark:from-blue-500/20 dark:via-blue-500/10 dark:to-slate-950/80 dark:shadow-[0_30px_90px_rgba(37,99,235,0.35),0_0_0_1px_rgba(255,255,255,0.08)_inset]">
             <Image
               src={logoSrc}
@@ -274,7 +274,7 @@ function AuthField({
         <label className="text-sm font-medium text-slate-950 dark:text-white">{label}</label>
         {action}
       </div>
-      <div className="group flex min-h-[68px] items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 shadow-[0_16px_48px_rgba(15,23,42,0.06)] transition focus-within:border-blue-500 focus-within:shadow-[0_0_34px_rgba(59,130,246,0.18)] dark:border-white/12 dark:bg-white/[0.035] dark:shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] dark:focus-within:border-blue-400/70 dark:focus-within:bg-white/[0.055]">
+      <div className="group flex min-h-[68px] items-center gap-4 rounded-2xl border border-slate-200 bg-white px-5 shadow-[0_16px_48px_rgba(15,23,42,0.06)] transition focus-within:border-blue-500 focus-within:shadow-[0_0_34px_rgba(59,130,246,0.18)] dark:border-white/[0.15] dark:bg-white/[0.15] dark:shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] dark:focus-within:border-blue-400/70 dark:focus-within:bg-white/[0.15]">
         <div className="text-slate-500 transition group-focus-within:text-blue-600 dark:text-slate-400 dark:group-focus-within:text-blue-300">
           {icon}
         </div>
@@ -406,7 +406,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <div className="mt-12 rounded-2xl border border-slate-200 bg-white p-5 text-center text-slate-600 shadow-[0_18px_54px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.025] dark:text-slate-400">
+            <div className="mt-12 rounded-2xl border border-slate-200 bg-white p-5 text-center text-slate-600 shadow-[0_18px_54px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/[0.15] dark:text-slate-400">
               <div className="mb-2 flex justify-center text-emerald-500 dark:text-emerald-300">
                 <CheckCircle2 className="h-5 w-5" />
               </div>

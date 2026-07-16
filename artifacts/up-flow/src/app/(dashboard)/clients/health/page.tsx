@@ -130,10 +130,10 @@ export default function ClientHealthPage() {
     <>
       <Header title="Client Health" />
       <main className="mx-auto w-full max-w-[1500px] space-y-5 overflow-x-hidden p-4 sm:p-6">
-        <section className="rounded-3xl border border-blue-300/15 bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.94))] p-5 shadow-[0_0_40px_rgba(37,99,235,0.12)] sm:p-6">
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-lg dark:border-blue-300/[0.15] dark:bg-[linear-gradient(135deg,rgba(37,99,235,0.18),rgba(15,23,42,0.94))] dark:shadow-[0_0_40px_rgba(37,99,235,0.12)] sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/15 text-blue-100 ring-1 ring-blue-300/20">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/[0.15] text-blue-700 ring-1 ring-blue-400/30 dark:text-blue-100 dark:ring-blue-300/20">
                 <HeartPulse className="h-5 w-5" />
               </div>
               <h1 className="mt-4 text-3xl font-bold text-foreground">Client Health Center</h1>
@@ -144,7 +144,7 @@ export default function ClientHealthPage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/clients"
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-foreground hover:bg-white/[0.08]"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent dark:border-white/10 dark:bg-white/[0.15] dark:hover:bg-white/[0.15]"
               >
                 <Building2 className="h-4 w-4" />
                 Client cards
@@ -171,7 +171,7 @@ export default function ClientHealthPage() {
 
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-4">
+            <div className="rounded-2xl border border-border bg-card p-4 dark:border-white/10 dark:bg-card/70">
               <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] lg:items-center">
                 <label className="relative block min-w-0">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -179,7 +179,7 @@ export default function ClientHealthPage() {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Search clients, owners, plans, services..."
-                    className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.04] pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20"
+                    className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20 dark:border-white/10 dark:bg-white/[0.15]"
                   />
                 </label>
                 <SelectBox
@@ -207,7 +207,7 @@ export default function ClientHealthPage() {
                     ["name", "Name"],
                   ]}
                 />
-                <div className="inline-flex h-10 rounded-xl border border-white/10 bg-white/[0.04] p-1">
+                <div className="inline-flex h-10 rounded-xl border border-border bg-muted/30 p-1 dark:border-white/10 dark:bg-white/[0.15]">
                   <ViewButton active={view === "table"} onClick={() => setView("table")} icon={<List className="h-4 w-4" />} label="Table" />
                   <ViewButton active={view === "cards"} onClick={() => setView("cards")} icon={<LayoutGrid className="h-4 w-4" />} label="Cards" />
                 </div>
@@ -217,7 +217,7 @@ export default function ClientHealthPage() {
             {loading ? (
               <div className="grid gap-3">
                 {[1, 2, 3, 4].map((item) => (
-                  <div key={item} className="h-20 animate-pulse rounded-2xl bg-white/5" />
+                  <div key={item} className="h-20 animate-pulse rounded-2xl bg-muted dark:bg-white/5" />
                 ))}
               </div>
             ) : error ? (
@@ -226,7 +226,7 @@ export default function ClientHealthPage() {
                 <p className="mt-1 text-sm text-muted-foreground">{error}</p>
               </section>
             ) : filtered.length === 0 ? (
-              <section className="rounded-2xl border border-white/10 bg-card/70 p-8 text-center">
+              <section className="rounded-2xl border border-border bg-card p-8 text-center dark:border-white/10 dark:bg-card/70">
                 <CheckCircle2 className="mx-auto h-9 w-9 text-upflow-success" />
                 <h2 className="mt-3 text-base font-semibold text-foreground">No matching client risks</h2>
                 <p className="mt-1 text-sm text-muted-foreground">Try another filter or search term.</p>
@@ -249,32 +249,32 @@ export default function ClientHealthPage() {
                   <h2 className="text-sm font-semibold text-foreground">Needs attention queue</h2>
                   <p className="mt-1 text-xs text-muted-foreground">Top clients by risk score.</p>
                 </div>
-                <AlertCircle className="h-5 w-5 text-rose-300" />
+                <AlertCircle className="h-5 w-5 text-rose-600 dark:text-rose-300" />
               </div>
               <div className="mt-4 space-y-2">
                 {needsAttention.slice(0, 8).map((item, index) => (
                   <Link
                     key={item.company.id}
                     href={`/clients/${item.company.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2 text-sm hover:bg-white/[0.06]"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm hover:bg-accent dark:border-white/10 dark:bg-black/10 dark:hover:bg-white/[0.15]"
                   >
                     <span className="min-w-0">
                       <span className="mr-2 text-xs font-semibold text-muted-foreground">{index + 1}</span>
                       <span className="font-medium text-foreground">{item.company.name}</span>
                       <span className="mt-0.5 block truncate text-xs text-muted-foreground">{item.primaryReason}</span>
                     </span>
-                    <span className="rounded-full bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-300">{item.score}</span>
+                    <span className="rounded-full bg-rose-500/[0.15] px-2 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">{item.score}</span>
                   </Link>
                 ))}
                 {needsAttention.length === 0 ? (
-                  <p className="rounded-xl border border-white/10 bg-black/10 p-3 text-sm text-muted-foreground">
+                  <p className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-black/10">
                     No clients currently need attention.
                   </p>
                 ) : null}
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-card/70 p-4">
+            <section className="rounded-2xl border border-border bg-card p-4 dark:border-white/10 dark:bg-card/70">
               <h2 className="text-sm font-semibold text-foreground">Health rules</h2>
               <div className="mt-3 space-y-2 text-xs text-muted-foreground">
                 {[
@@ -286,7 +286,7 @@ export default function ClientHealthPage() {
                   "No linked projects",
                 ].map((rule) => (
                   <div key={rule} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-sky-500 dark:bg-sky-300" />
                     {rule}
                   </div>
                 ))}
@@ -301,10 +301,10 @@ export default function ClientHealthPage() {
 
 function ClientHealthTable({ items, language }: { items: RankedClientHealth[]; language: string }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-card/70">
+    <section className="overflow-hidden rounded-2xl border border-border bg-card dark:border-white/10 dark:bg-card/70">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1080px] text-left text-sm">
-          <thead className="border-b border-white/10 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+          <thead className="border-b border-border text-xs uppercase tracking-[0.14em] text-muted-foreground dark:border-white/10">
             <tr>
               <th className="px-4 py-3 font-semibold">Client</th>
               <th className="px-4 py-3 font-semibold">Risk</th>
@@ -318,7 +318,7 @@ function ClientHealthTable({ items, language }: { items: RankedClientHealth[]; l
           </thead>
           <tbody>
             {items.map((item) => (
-              <tr key={item.company.id} className="border-b border-white/5 last:border-0">
+              <tr key={item.company.id} className="border-b border-border/60 last:border-0 dark:border-white/5">
                 <td className="px-4 py-4">
                   <p className="font-semibold text-foreground">{item.company.name}</p>
                   <p className="mt-1 text-xs text-muted-foreground">{item.company.plan_name || item.company.service_type || "Plan not set"}</p>
@@ -334,7 +334,7 @@ function ClientHealthTable({ items, language }: { items: RankedClientHealth[]; l
                 <td className="px-4 py-4 font-mono text-foreground">{formatSeconds(item.company.summary?.tracked_seconds ?? 0)}</td>
                 <td className="px-4 py-4 font-semibold text-foreground">{money(item.company.summary?.contract_value_per_tracked_hour, language)}</td>
                 <td className="px-4 py-4">
-                  <Link href={`/clients/${item.company.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-medium text-foreground hover:bg-white/[0.08]">
+                  <Link href={`/clients/${item.company.id}`} className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-accent dark:border-white/10 dark:bg-white/[0.15] dark:hover:bg-white/[0.15]">
                     <Eye className="h-3.5 w-3.5" />
                     Open
                   </Link>
@@ -351,11 +351,11 @@ function ClientHealthTable({ items, language }: { items: RankedClientHealth[]; l
 function ClientHealthCard({ item, language }: { item: RankedClientHealth; language: string }) {
   const company = item.company;
   return (
-    <Link href={`/clients/${company.id}`} className="group rounded-2xl border border-blue-500/25 bg-[#07101f]/95 p-4 transition hover:border-blue-400/55 hover:bg-[#091426]">
+    <Link href={`/clients/${company.id}`} className="group rounded-2xl border border-border bg-card p-4 transition hover:border-blue-400/[0.35] hover:bg-accent dark:border-blue-500/25 dark:bg-[#07101f]/95 dark:hover:bg-[#091426]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-lg font-bold text-white">{company.name}</h2>
-          <p className="mt-1 truncate text-sm text-blue-100/55">{company.plan_name || company.service_type || "Plan not set"}</p>
+          <h2 className="truncate text-lg font-bold text-foreground dark:text-white">{company.name}</h2>
+          <p className="mt-1 truncate text-sm text-muted-foreground dark:text-blue-100/[0.55]">{company.plan_name || company.service_type || "Plan not set"}</p>
         </div>
         <HealthPill bucket={item.bucket} score={item.score} />
       </div>
@@ -377,12 +377,12 @@ function SignalList({ item, className }: { item: RankedClientHealth; className?:
     <div className={cn("flex max-w-xl flex-wrap gap-1.5", className)}>
       {active.length ? (
         active.slice(0, 4).map((signal) => (
-          <span key={signal.key} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300">
+          <span key={signal.key} className="rounded-lg border border-rose-400/20 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-700 dark:text-rose-300">
             {signal.label}
           </span>
         ))
       ) : (
-        <span className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-300">
+        <span className="rounded-lg border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
           No traceable issues
         </span>
       )}
@@ -392,11 +392,11 @@ function SignalList({ item, className }: { item: RankedClientHealth; className?:
 
 function HealthStat({ label, value, icon, tone }: { label: string; value: number; icon: ReactNode; tone: "danger" | "warning" | "success" | "info" | "neutral" }) {
   const toneClass = {
-    danger: "text-rose-300 bg-rose-500/10 border-rose-400/20",
-    warning: "text-amber-300 bg-amber-500/10 border-amber-400/20",
-    success: "text-emerald-300 bg-emerald-500/10 border-emerald-400/20",
-    info: "text-sky-300 bg-sky-500/10 border-sky-400/20",
-    neutral: "text-blue-100 bg-white/[0.04] border-white/10",
+    danger: "border-rose-400/20 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+    warning: "border-amber-400/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    success: "border-emerald-400/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    info: "border-sky-400/20 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    neutral: "border-border bg-muted/30 text-muted-foreground dark:border-white/10 dark:bg-white/[0.15] dark:text-blue-100",
   }[tone];
   return (
     <article className={cn("rounded-2xl border p-4", toneClass)}>
@@ -417,26 +417,26 @@ function HealthPill({ bucket, score }: { bucket: ClientHealthBucket; score: numb
     not_enough_data: "Needs data",
   }[bucket];
   const klass = {
-    risk: "border-rose-400/30 bg-rose-500/12 text-rose-300",
-    attention: "border-amber-400/30 bg-amber-500/12 text-amber-300",
-    healthy: "border-emerald-400/30 bg-emerald-500/12 text-emerald-300",
-    not_enough_data: "border-slate-400/30 bg-slate-500/12 text-slate-300",
+    risk: "border-rose-400/30 bg-rose-500/[0.15] text-rose-700 dark:text-rose-300",
+    attention: "border-amber-400/30 bg-amber-500/[0.15] text-amber-700 dark:text-amber-300",
+    healthy: "border-emerald-400/30 bg-emerald-500/[0.15] text-emerald-700 dark:text-emerald-300",
+    not_enough_data: "border-slate-400/30 bg-slate-500/[0.15] text-slate-700 dark:text-slate-300",
   }[bucket];
   return (
     <span className={cn("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold", klass)}>
       {label}
-      <span className="rounded-full bg-black/20 px-1.5 py-0.5 font-mono">{score}</span>
+      <span className="rounded-full bg-black/[0.15] px-1.5 py-0.5 font-mono dark:bg-black/20">{score}</span>
     </span>
   );
 }
 
 function SelectBox({ icon, value, onChange, options }: { icon: ReactNode; value: string; onChange: (value: string) => void; options: Array<[string, string]> }) {
   return (
-    <label className="flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm text-muted-foreground">
+    <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
       {icon}
       <select value={value} onChange={(event) => onChange(event.target.value)} className="bg-transparent text-foreground outline-none">
         {options.map(([optionValue, label]) => (
-          <option key={optionValue} value={optionValue} className="bg-[#07101f] text-foreground">
+          <option key={optionValue} value={optionValue} className="bg-popover text-popover-foreground">
             {label}
           </option>
         ))}
@@ -464,12 +464,12 @@ function ViewButton({ active, onClick, icon, label }: { active: boolean; onClick
 
 function MiniMetric({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
-      <div className="flex items-center gap-2 text-blue-100/55">
+    <div className="min-w-0 rounded-xl border border-border bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-white/[0.15]">
+      <div className="flex items-center gap-2 text-muted-foreground dark:text-blue-100/[0.55]">
         {icon}
         <span className="truncate text-[11px]">{label}</span>
       </div>
-      <p className="mt-1 truncate text-sm font-semibold text-white">{value}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-foreground dark:text-white">{value}</p>
     </div>
   );
 }

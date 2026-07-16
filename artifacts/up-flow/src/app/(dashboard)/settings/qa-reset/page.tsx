@@ -95,7 +95,7 @@ export default function QaResetPage() {
           Back to settings
         </Link>
 
-        <section className="rounded-3xl border border-amber-300/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.12),rgba(15,23,42,0.92))] p-6 shadow-[0_0_40px_rgba(245,158,11,0.08)]">
+        <section className="rounded-3xl border border-amber-400/30 bg-amber-500/5 p-6 shadow-lg dark:border-amber-300/20 dark:bg-[linear-gradient(135deg,rgba(245,158,11,0.12),rgba(15,23,42,0.92))] dark:shadow-[0_0_40px_rgba(245,158,11,0.08)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-200/80">
@@ -107,15 +107,15 @@ export default function QaResetPage() {
                 keeping users, roles, invites, and workspace access intact.
               </p>
             </div>
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-200 ring-1 ring-amber-300/25">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/[0.15] text-amber-200 ring-1 ring-amber-300/25">
               <AlertTriangle className="h-6 w-6" />
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm dark:border-white/10 dark:bg-card/70 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
           {loading ? (
-            <div className="h-24 animate-pulse rounded-xl bg-white/5" />
+            <div className="h-24 animate-pulse rounded-xl bg-muted dark:bg-white/5" />
           ) : !current ? (
             <p className="text-sm text-muted-foreground">No active workspace was found.</p>
           ) : (
@@ -149,7 +149,7 @@ export default function QaResetPage() {
                   "Calendar events, tracked time, notifications, and activity",
                   "Approvals, workflow statuses, automations, goals, templates, saved views, and departments",
                 ].map((item) => (
-                  <div key={item} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-muted-foreground">
+                  <div key={item} className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
                     {item}
                   </div>
                 ))}
@@ -167,7 +167,7 @@ export default function QaResetPage() {
                   value={confirmation}
                   onChange={(event) => setConfirmation(event.target.value)}
                   placeholder={RESET_CONFIRMATION}
-                  className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-foreground outline-none transition focus:border-amber-300/40 focus:ring-2 focus:ring-amber-300/15"
+                  className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-amber-400/50 focus:ring-2 focus:ring-amber-400/20 dark:border-white/10 dark:bg-black/20"
                 />
               </label>
 
@@ -175,7 +175,7 @@ export default function QaResetPage() {
                 type="button"
                 onClick={resetWorkspace}
                 disabled={!canReset}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300/30 bg-amber-500/15 px-4 py-3 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-muted-foreground sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/[0.35] bg-amber-500/[0.15] px-4 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:border-border disabled:bg-muted disabled:text-muted-foreground dark:border-amber-300/30 dark:text-amber-100 dark:disabled:border-white/10 dark:disabled:bg-white/5 sm:w-auto"
               >
                 <RefreshCcw className="h-4 w-4" />
                 {resetting ? "Resetting..." : "Reset workspace data"}
@@ -191,8 +191,8 @@ export default function QaResetPage() {
               {Object.entries(lastDeleted)
                 .filter(([, count]) => count > 0)
                 .map(([key, count]) => (
-                  <div key={key} className="rounded-xl border border-white/10 bg-black/10 px-3 py-2">
-                    <p className="text-xs text-emerald-100/65">{key.replaceAll("_", " ")}</p>
+                  <div key={key} className="rounded-xl border border-border bg-muted/30 px-3 py-2 dark:border-white/10 dark:bg-black/10">
+                    <p className="text-xs text-emerald-100/[0.65]">{key.replaceAll("_", " ")}</p>
                     <p className="text-lg font-bold text-emerald-50">{count}</p>
                   </div>
                 ))}

@@ -109,7 +109,7 @@ export function Rail({
   const { t } = useLanguage();
   return (
     <div className="flex h-full w-full flex-col items-center glass-rail">
-      <div className="flex h-20 w-full shrink-0 items-center justify-center border-b border-blue-300/10">
+      <div className="flex h-20 w-full shrink-0 items-center justify-center border-b border-sidebar-border dark:border-blue-300/10">
         <Link
           href="/"
           onClick={onNavigate}
@@ -142,8 +142,8 @@ export function Rail({
               className={cn(
                 "group relative flex h-9 w-9 flex-col items-center justify-center rounded-xl transition-all",
                 active
-                  ? "bg-gradient-to-br from-blue-600/55 to-violet-600/35 text-white shadow-[0_0_28px_rgba(37,99,235,0.34)] ring-1 ring-blue-300/30"
-                  : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
+                  ? "bg-gradient-to-br from-blue-600/[0.55] to-violet-600/[0.35] text-white shadow-[0_0_28px_rgba(37,99,235,0.34)] ring-1 ring-blue-300/30"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15] dark:hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
               )}
             >
               {active && (
@@ -170,7 +170,7 @@ export function Rail({
           className={cn(
             "group relative mt-1 flex h-9 w-9 items-center justify-center rounded-xl transition-all",
             panelOpen
-              ? "bg-primary/15 text-primary shadow-[0_0_22px_rgba(139,92,246,0.18)] ring-1 ring-primary/25"
+              ? "bg-primary/[0.15] text-primary shadow-[0_0_22px_rgba(139,92,246,0.18)] ring-1 ring-primary/25"
               : "bg-primary/20 text-foreground shadow-[0_0_22px_rgba(59,130,246,0.14)] hover:bg-primary/30",
           )}
         >
@@ -189,9 +189,9 @@ export function Rail({
           aria-label={t("sidebar.settings")}
           title={t("sidebar.settings")}
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
+            "flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15] dark:hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
             isActiveHref(pathname, "/settings") &&
-              "bg-gradient-to-br from-blue-600/45 to-violet-600/28 text-white shadow-[0_0_24px_rgba(37,99,235,0.28)] ring-1 ring-blue-300/25",
+              "bg-gradient-to-br from-blue-600/[0.55] to-violet-600/[0.35] text-white shadow-[0_0_24px_rgba(37,99,235,0.28)] ring-1 ring-blue-300/25",
           )}
         >
           <Settings2 className="w-[18px] h-[18px]" />
@@ -200,14 +200,14 @@ export function Rail({
           onClick={onSignOut}
           aria-label={t("sidebar.signOut")}
           title={t("sidebar.signOut")}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-rose-500/10 hover:text-rose-100 hover:shadow-[0_0_22px_rgba(244,63,94,0.14)]"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-100 dark:hover:shadow-[0_0_22px_rgba(244,63,94,0.14)]"
         >
           <LogOut className="w-[18px] h-[18px]" />
         </button>
         <button
           aria-label={t("sidebar.help")}
           title={t("sidebar.help")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-white/[0.06] hover:text-foreground"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15]"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
         </button>

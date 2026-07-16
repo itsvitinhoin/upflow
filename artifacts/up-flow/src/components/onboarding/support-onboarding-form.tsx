@@ -85,7 +85,7 @@ const STATUS_OPTIONS = [
 ];
 
 const fieldInputClassName =
-  "min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-300/15 dark:bg-[#071024]";
+  "min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground/70 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-300/[0.15] dark:bg-[#071024]";
 
 function emptyValues(): Values {
   return {
@@ -282,11 +282,11 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
   const completed = form?.checklist_item.status === "complete" || form?.task?.status === "done" || form?.support_group?.group_created;
 
   return (
-    <div className={cn("support-onboarding-form-shell", embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-[#020617]/85 px-3 py-5 backdrop-blur-md sm:px-6")}>
+    <div className={cn("support-onboarding-form-shell", embedded ? "w-full" : "fixed inset-0 z-[80] overflow-y-auto bg-[#020617]/[0.85] px-3 py-5 backdrop-blur-md sm:px-6")}>
       <div className={cn("support-onboarding-form-card rounded-3xl border border-blue-300/25 bg-card text-card-foreground shadow-[0_30px_120px_rgba(37,99,235,0.16)] dark:bg-[#050b18]", embedded ? "w-full" : "mx-auto w-full max-w-[1120px]")}>
         <div className={cn("flex flex-col gap-6 border-b border-border p-5 dark:border-blue-300/10 sm:p-8 lg:flex-row lg:items-center lg:justify-between", !embedded && "sticky top-0 z-10 bg-card/95 backdrop-blur dark:bg-[#050b18]/95")}>
           <div className="flex min-w-0 items-start gap-5">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-500/15 text-emerald-500 shadow-[0_0_36px_rgba(16,185,129,0.18)] dark:text-emerald-200">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-500/[0.15] text-emerald-500 shadow-[0_0_36px_rgba(16,185,129,0.18)] dark:text-emerald-200">
               <MessageSquareText className="h-8 w-8" />
             </span>
             <div className="min-w-0">
@@ -338,7 +338,7 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
                   <div className="flex gap-2">
                     <input value={values.group_link} disabled={!form?.can_edit} onChange={(event) => setField("group_link", event.target.value)} placeholder="https://chat.whatsapp.com/..." className={fieldInputClassName} />
                     {values.group_link ? (
-                      <a href={values.group_link} target="_blank" rel="noreferrer" className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-blue-500 dark:border-blue-300/15 dark:bg-[#071024]">
+                      <a href={values.group_link} target="_blank" rel="noreferrer" className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-blue-500 dark:border-blue-300/[0.15] dark:bg-[#071024]">
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     ) : null}
@@ -386,7 +386,7 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
                   type="button"
                   onClick={saveAll}
                   disabled={!form?.can_edit || savingField === "all"}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 dark:border-blue-300/15 dark:bg-white/5 dark:hover:bg-white/10"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-60 dark:border-blue-300/[0.15] dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   {savingField === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                   {copy.save}
@@ -414,7 +414,7 @@ function SectionTitle({ title }: { title: string }) {
     <div className="flex items-center gap-3">
       <span className="h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_16px_rgba(59,130,246,0.9)]" />
       <h3 className="text-base font-bold text-foreground">{title}</h3>
-      <span className="h-px flex-1 bg-blue-300/12" />
+      <span className="h-px flex-1 bg-blue-300/[0.15]" />
     </div>
   );
 }
@@ -433,7 +433,7 @@ function Field({
   saved?: boolean;
 }) {
   return (
-    <label className="support-onboarding-form-card block rounded-2xl border border-border bg-background/70 p-4 shadow-sm dark:border-blue-300/10 dark:bg-white/[0.035] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+    <label className="support-onboarding-form-card block rounded-2xl border border-border bg-background/70 p-4 shadow-sm dark:border-blue-300/10 dark:bg-white/[0.15] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
       <div className="mb-3 flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-foreground">
           <span className="text-blue-500 dark:text-blue-400">{icon}</span>

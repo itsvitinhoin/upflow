@@ -235,9 +235,9 @@ export default function Panel({
 
   return (
     <>
-      <div className="upflow-sidebar-panel relative flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-blue-300/10 bg-[#050816] text-sidebar-foreground shadow-[inset_-1px_0_0_rgba(96,165,250,0.06)]">
+      <div className="upflow-sidebar-panel relative flex h-full min-h-0 w-full flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm dark:border-blue-300/10 dark:bg-[#050816] dark:shadow-[inset_-1px_0_0_rgba(96,165,250,0.06)]">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_8%,rgba(59,130,246,0.16),transparent_32%),radial-gradient(circle_at_95%_34%,rgba(139,92,246,0.12),transparent_28%)]" />
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-px bg-gradient-to-b from-blue-400/30 via-violet-400/18 to-transparent" />
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-px bg-gradient-to-b from-blue-400/30 via-violet-400/[0.35] to-transparent" />
         <div className="relative z-10 flex h-full min-h-0 flex-1 flex-col">
           <div className="shrink-0">
             <WorkspaceSwitcher
@@ -253,7 +253,7 @@ export default function Panel({
               <Link
                 href="/settings"
                 onClick={onNavigate}
-                className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-blue-300/12 bg-white/[0.04] px-2 text-[11px] font-semibold text-blue-100/85 transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.16)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-background/70 px-2 text-[11px] font-semibold text-muted-foreground transition-all hover:border-sky-400/40 hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:border-blue-300/[0.15] dark:bg-white/[0.15] dark:text-blue-100/[0.55] dark:hover:bg-sky-400/10 dark:hover:text-white dark:hover:shadow-[0_0_20px_rgba(59,130,246,0.16)]"
               >
                 <Settings2 className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate">{t("sidebar.settings")}</span>
@@ -262,7 +262,7 @@ export default function Panel({
                 type="button"
                 onClick={onSignOut}
                 disabled={signingOut}
-                className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-rose-300/15 bg-rose-500/[0.07] px-2 text-[11px] font-semibold text-rose-100/85 transition-all hover:border-rose-300/35 hover:bg-rose-500/12 hover:text-white hover:shadow-[0_0_20px_rgba(244,63,94,0.14)] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex h-8 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-rose-300/[0.35] bg-rose-500/[0.15] px-2 text-[11px] font-semibold text-rose-700 transition-all hover:border-rose-400/50 hover:bg-rose-500/[0.15] hover:text-rose-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/40 disabled:cursor-not-allowed disabled:opacity-60 dark:border-rose-300/[0.35] dark:text-rose-100/[0.65] dark:hover:border-rose-300/[0.35] dark:hover:text-white dark:hover:shadow-[0_0_20px_rgba(244,63,94,0.14)]"
               >
                 <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
                 <span className="truncate">
@@ -275,7 +275,7 @@ export default function Panel({
                   onClick={onRequestClose}
                   aria-label={t("sidebar.hide")}
                   title={t("sidebar.hide")}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-all hover:border-sky-400/40 hover:bg-sky-400/10 hover:text-foreground"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background/70 text-muted-foreground shadow-sm transition-all hover:border-sky-400/40 hover:bg-accent hover:text-foreground dark:border-white/10 dark:bg-white/[0.15] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] dark:hover:bg-sky-400/10"
                 >
                   <PanelLeftClose className="h-3.5 w-3.5" />
                 </button>
@@ -301,7 +301,7 @@ export default function Panel({
             />
 
             <div className="space-y-1 px-2">
-              <div className="upflow-sidebar-sticky sticky top-0 z-10 -mx-2 bg-[#050816]/92 px-2 pb-2 pt-1 backdrop-blur-md">
+              <div className="upflow-sidebar-sticky sticky top-0 z-10 -mx-2 bg-sidebar/95 px-2 pb-2 pt-1 backdrop-blur-md dark:bg-[#050816]/[0.92]">
                 <label className="relative block">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <input
@@ -309,14 +309,14 @@ export default function Panel({
                     value={sidebarQuery}
                     onChange={(event) => setSidebarQuery(event.target.value)}
                     placeholder={t("sidebar.searchSpaces")}
-                    className="upflow-sidebar-search h-9 w-full rounded-xl border border-blue-300/10 bg-[#071024]/80 pl-8 pr-8 text-xs text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_22px_rgba(37,99,235,0.06)] outline-none transition placeholder:text-muted-foreground hover:border-blue-300/25 focus:border-sky-400/55 focus:ring-2 focus:ring-sky-400/20"
+                    className="upflow-sidebar-search h-9 w-full rounded-xl border border-border bg-background pl-8 pr-8 text-xs text-foreground shadow-sm outline-none transition placeholder:text-muted-foreground hover:border-primary/[0.35] focus:border-sky-400/[0.55] focus:ring-2 focus:ring-sky-400/20 dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_0_22px_rgba(37,99,235,0.06)] dark:hover:border-blue-300/25"
                   />
                   {sidebarQuery && (
                     <button
                       type="button"
                       onClick={() => setSidebarQuery("")}
                       aria-label={t("sidebar.clearSearch")}
-                      className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                      className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/10"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>
@@ -376,7 +376,7 @@ export default function Panel({
                           {t("sidebar.createFirstSpace")}
                         </button>
                       ) : (
-                        <p className="mt-3 rounded-xl border border-blue-300/12 bg-blue-500/[0.06] p-2 text-[11px] leading-5 text-blue-100/70">
+                        <p className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.15] p-2 text-[11px] leading-5 text-muted-foreground dark:border-blue-300/[0.15] dark:text-blue-100/70">
                           {t("sidebar.noSpacesViewOnly")}
                         </p>
                       )}
@@ -387,19 +387,19 @@ export default function Panel({
                     <button
                       type="button"
                       onClick={() => setShowCreate(true)}
-                      className="group relative mt-3 flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-blue-300/20 bg-gradient-to-br from-blue-600/18 via-violet-600/14 to-fuchsia-500/10 p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(59,130,246,0.12)] transition-all hover:-translate-y-0.5 hover:border-blue-300/35 hover:shadow-[0_0_36px_rgba(99,102,241,0.22)]"
+                      className="group relative mt-3 flex w-full items-center gap-3 overflow-hidden rounded-2xl border border-blue-300/20 bg-gradient-to-br from-blue-600/[0.55] via-violet-600/[0.35] to-fuchsia-500/10 p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(59,130,246,0.12)] transition-all hover:-translate-y-0.5 hover:border-blue-300/[0.15] hover:shadow-[0_0_36px_rgba(99,102,241,0.22)]"
                     >
                       <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.09),transparent_35%),radial-gradient(circle_at_80%_20%,rgba(168,85,247,0.25),transparent_30%)] opacity-80" />
-                      <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-500/18 text-blue-100 ring-1 ring-blue-300/25">
+                      <span className="relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20 dark:bg-blue-500/[0.15] dark:text-blue-100 dark:ring-blue-300/25">
                         <Plus className="h-4 w-4" />
                       </span>
                       <span className="relative min-w-0">
                         <span className="block text-xs font-semibold text-foreground">{t("sidebar.newSpace")}</span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-blue-100/55">
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground dark:text-blue-100/[0.55]">
                           {t("sidebar.newSpaceHint")}
                         </span>
                       </span>
-                      <Sparkles className="relative ml-auto h-3.5 w-3.5 flex-shrink-0 text-violet-200/70 opacity-70 transition group-hover:opacity-100" />
+                      <Sparkles className="relative ml-auto h-3.5 w-3.5 flex-shrink-0 text-violet-600/70 opacity-70 transition group-hover:opacity-100 dark:text-violet-200/70" />
                     </button>
                   )}
                 </>

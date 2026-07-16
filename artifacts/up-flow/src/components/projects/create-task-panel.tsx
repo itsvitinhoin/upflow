@@ -226,7 +226,7 @@ export default function CreateTaskPanel({
               <BrazilianDateInput
                 value={dueDate}
                 onChange={setDueDate}
-                className="text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
               />
             </Row>
             <Row label={t("toolbar.priority")}>
