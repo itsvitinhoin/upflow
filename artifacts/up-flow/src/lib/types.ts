@@ -116,6 +116,23 @@ export interface Task {
   _count?: { comments: number; subtasks: number };
 }
 
+export type TaskOnboardingFormKind =
+  | "marketing_b2b"
+  | "marketing_b2c"
+  | "finance"
+  | "support";
+
+export type TaskOnboardingAction =
+  | {
+      kind: "form";
+      form_kind: TaskOnboardingFormKind;
+      label: string;
+    }
+  | {
+      kind: "calendar";
+      label: string;
+    };
+
 export interface MarketingB2BOnboardingFormSummary {
   id: string;
   status: string;
@@ -163,6 +180,7 @@ export interface TaskOnboardingLink {
   status: string;
   progress: number;
   href: string;
+  action?: TaskOnboardingAction | null;
 }
 
 export type CustomFieldType =

@@ -8,6 +8,7 @@ import { useLanguage } from "@/components/language-provider";
 import CustomFieldInput from "@/components/projects/custom-field-input";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
+import TaskAssigneePicker from "@/components/projects/task-assignee-picker";
 import { PriorityPicker, type TaskPriority } from "@/components/projects/priority-ui";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import {
@@ -67,6 +68,7 @@ export default function CreateTaskPanel({
   const [assigneeId, setAssigneeId] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
+  const selectedAssigneeName = users.find((user) => user.id === assigneeId)?.name;
 
   useEffect(() => {
     if (open) {
@@ -124,9 +126,14 @@ export default function CreateTaskPanel({
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error || t("task.failedCreate"));
       }
+      await res.json().catch(() => null);
 
       onCreated();
-      toast.success(t("dashboard.taskCreated"));
+      toast.success(
+        selectedAssigneeName
+          ? `${t("dashboard.taskCreated")} ${selectedAssigneeName} was notified.`
+          : `${t("dashboard.taskCreated")} No assignee selected yet.`,
+      );
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -153,6 +160,7 @@ export default function CreateTaskPanel({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close task creation"
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted"
             >
               <X className="w-4 h-4" />
@@ -205,20 +213,15 @@ export default function CreateTaskPanel({
           </div>
 
           <div className="px-5 py-4 space-y-3 border-b border-border">
-            <Row label={t("toolbar.assignee")}>
-              <select
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="text-sm bg-white/5 border border-white/10 rounded-md px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">{t("common.unassigned")}</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </Row>
+            <TaskAssigneePicker
+              value={assigneeId}
+              users={users}
+              onChange={setAssigneeId}
+              disabled={submitting}
+              label={t("toolbar.assignee")}
+              emptyLabel={t("common.unassigned")}
+              mode="create"
+            />
             <Row label={t("toolbar.dueDate")}>
               <BrazilianDateInput
                 value={dueDate}

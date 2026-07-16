@@ -1,9 +1,9 @@
-import type { Task } from "@/lib/types";
+import type { Task, TaskOnboardingFormKind } from "@/lib/types";
 
 const UP_ZERO_CONFIGURATION_AUTOMATION_KEY = "up_zero_website_configuration";
 const UP_ZERO_CONFIGURATION_TASK_TITLE = "configure up zero website";
 
-export type WorkflowFormKind = "marketing_b2b" | "marketing_b2c" | "finance" | "support";
+export type WorkflowFormKind = TaskOnboardingFormKind;
 
 export type OnboardingTaskAction =
   | { kind: "form"; href: string; formKind: WorkflowFormKind }
@@ -88,6 +88,9 @@ function isMarketingB2BFormTask(task: Task) {
 
 export function workflowFormKind(task: Task): WorkflowFormKind | null {
   if (isUpZeroConfigurationTask(task)) return null;
+  const explicitAction = task.onboarding_link?.action;
+  if (explicitAction?.kind === "form") return explicitAction.form_kind;
+
   if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
   if (isMarketingB2BFormTask(task)) return "marketing_b2b";
   if (task.marketing_b2c_onboarding_form) return "marketing_b2c";
@@ -152,6 +155,17 @@ export function getOnboardingTaskAction(
   task: Task,
   fallbackProjectId?: string | null,
 ): OnboardingTaskAction | null {
+  if (isUpZeroConfigurationTask(task)) return null;
+
+  const explicitAction = task.onboarding_link?.action;
+  if (explicitAction?.kind === "form") {
+    const href = workflowFormHref(task, fallbackProjectId);
+    return href ? { kind: "form", href, formKind: explicitAction.form_kind } : null;
+  }
+  if (explicitAction?.kind === "calendar") {
+    return { kind: "calendar", href: calendarHrefForTask(task, fallbackProjectId) };
+  }
+
   const formKind = workflowFormKind(task);
   if (formKind) {
     const href = workflowFormHref(task, fallbackProjectId);

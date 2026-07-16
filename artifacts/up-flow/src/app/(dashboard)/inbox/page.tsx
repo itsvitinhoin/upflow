@@ -18,11 +18,17 @@ import {
 import { cn, formatDate } from "@/lib/utils";
 import { memberJoinedNotificationLabel } from "@/lib/notification-copy";
 import { getNotificationHref } from "@/lib/notification-links";
+import {
+  readNotificationPreferences,
+  writeNotificationPreferences,
+  type NotificationPreferences,
+} from "@/lib/notification-preferences";
 import type { Notification } from "@/lib/types";
 import { toast } from "sonner";
 
 type Filter =
   | "all"
+  | "action_needed"
   | "unread"
   | "assigned"
   | "commented"
@@ -30,6 +36,14 @@ type Filter =
   | "member_joined"
   | "status_changed"
   | "mentioned";
+
+const SNOOZED_NOTIFICATIONS_KEY = "upflow:snoozed-notifications";
+const SNOOZE_MS = 60 * 60 * 1000;
+const ACTION_NEEDED_TYPES = new Set<Notification["type"]>([
+  "assigned",
+  "mentioned",
+  "due_soon",
+]);
 
 const STATUS_LABEL: Record<string, string> = {
   todo: "To Do",
@@ -90,11 +104,34 @@ function timeAgo(iso: string) {
   return formatDate(iso);
 }
 
+function readSnoozedNotifications() {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(SNOOZED_NOTIFICATIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    const now = Date.now();
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([, until]) => typeof until === "number" && until > now),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeSnoozedNotifications(value: Record<string, number>) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(SNOOZED_NOTIFICATIONS_KEY, JSON.stringify(value));
+}
+
 export default function InboxPage() {
   const { language } = useLanguage();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [snoozedUntil, setSnoozedUntil] = useState<Record<string, number>>({});
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<NotificationPreferences>(() => readNotificationPreferences());
 
   const load = useCallback(async () => {
     try {
@@ -114,24 +151,36 @@ export default function InboxPage() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    setSnoozedUntil(readSnoozedNotifications());
+    setNotificationPreferences(readNotificationPreferences());
+  }, []);
+
+  const activeNotifications = useMemo(() => {
+    const now = Date.now();
+    return notifications.filter((n) => (snoozedUntil[n.id] ?? 0) <= now);
+  }, [notifications, snoozedUntil]);
+
   const counts = useMemo(() => {
     return {
-      all: notifications.length,
-      unread: notifications.filter((n) => !n.read).length,
-      assigned: notifications.filter((n) => n.type === "assigned").length,
-      commented: notifications.filter((n) => n.type === "commented").length,
-      due_soon: notifications.filter((n) => n.type === "due_soon").length,
-      member_joined: notifications.filter((n) => n.type === "member_joined").length,
-      status_changed: notifications.filter((n) => n.type === "status_changed").length,
-      mentioned: notifications.filter((n) => n.type === "mentioned").length,
+      all: activeNotifications.length,
+      action_needed: activeNotifications.filter((n) => ACTION_NEEDED_TYPES.has(n.type)).length,
+      unread: activeNotifications.filter((n) => !n.read).length,
+      assigned: activeNotifications.filter((n) => n.type === "assigned").length,
+      commented: activeNotifications.filter((n) => n.type === "commented").length,
+      due_soon: activeNotifications.filter((n) => n.type === "due_soon").length,
+      member_joined: activeNotifications.filter((n) => n.type === "member_joined").length,
+      status_changed: activeNotifications.filter((n) => n.type === "status_changed").length,
+      mentioned: activeNotifications.filter((n) => n.type === "mentioned").length,
     };
-  }, [notifications]);
+  }, [activeNotifications]);
 
   const visible = useMemo(() => {
-    if (filter === "all") return notifications;
-    if (filter === "unread") return notifications.filter((n) => !n.read);
-    return notifications.filter((n) => n.type === filter);
-  }, [notifications, filter]);
+    if (filter === "all") return activeNotifications;
+    if (filter === "action_needed") return activeNotifications.filter((n) => ACTION_NEEDED_TYPES.has(n.type));
+    if (filter === "unread") return activeNotifications.filter((n) => !n.read);
+    return activeNotifications.filter((n) => n.type === filter);
+  }, [activeNotifications, filter]);
 
   const markRead = async (id: string) => {
     setNotifications((prev) =>
@@ -145,7 +194,7 @@ export default function InboxPage() {
   };
 
   const markAllRead = async () => {
-    const unread = notifications.filter((n) => !n.read);
+    const unread = activeNotifications.filter((n) => !n.read);
     if (unread.length === 0) return;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     await Promise.all(
@@ -160,8 +209,30 @@ export default function InboxPage() {
     toast.success(`Marked ${unread.length} notification${unread.length === 1 ? "" : "s"} as read`);
   };
 
+  const snoozeNotification = (id: string) => {
+    const next = { ...readSnoozedNotifications(), [id]: Date.now() + SNOOZE_MS };
+    writeSnoozedNotifications(next);
+    setSnoozedUntil(next);
+    toast.success("Snoozed for 1 hour");
+  };
+
+  const toggleAssistantPopups = () => {
+    const next = {
+      ...notificationPreferences,
+      assistantPopups: !notificationPreferences.assistantPopups,
+    };
+    writeNotificationPreferences(next);
+    setNotificationPreferences(next);
+    toast.success(
+      next.assistantPopups
+        ? "Assignment popups turned on"
+        : "Assignment popups turned off",
+    );
+  };
+
   const tabs: { key: Filter; label: string }[] = [
     { key: "all", label: "All" },
+    { key: "action_needed", label: "Action needed" },
     { key: "unread", label: "Unread" },
     { key: "assigned", label: "Assigned" },
     { key: "mentioned", label: "Mentions" },
@@ -213,6 +284,12 @@ export default function InboxPage() {
               Mark all read
             </button>
           )}
+          <button
+            onClick={toggleAssistantPopups}
+            className="rounded-full border border-white/10 px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-sky-400/35 hover:bg-sky-400/10 hover:text-foreground"
+          >
+            Assignment popups: {notificationPreferences.assistantPopups ? "On" : "Off"}
+          </button>
         </div>
 
         <section className="glass rounded-2xl overflow-hidden">
@@ -224,12 +301,18 @@ export default function InboxPage() {
             <div className="py-16 text-center">
               <InboxIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground/60" />
               <p className="text-sm font-medium text-foreground">
-                {filter === "unread" ? "No unread notifications" : "Nothing here yet"}
+                {filter === "unread"
+                  ? "No unread notifications"
+                  : filter === "action_needed"
+                    ? "No action needed"
+                    : "Nothing here yet"}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 {filter === "unread"
                   ? "You're all caught up."
-                  : "Mentions, replies, and assignments will appear here."}
+                  : filter === "action_needed"
+                    ? "Assignments, mentions, and due-soon reminders will appear here."
+                    : "Mentions, replies, and assignments will appear here."}
               </p>
             </div>
           ) : (
@@ -277,8 +360,29 @@ export default function InboxPage() {
                           >
                             Mark read
                           </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              snoozeNotification(n.id);
+                            }}
+                            className="text-[11px] text-muted-foreground hover:text-primary hover:underline"
+                          >
+                            Snooze 1h
+                          </button>
                           <span className="w-2 h-2 rounded-full bg-primary mt-0.5" />
                         </>
+                      ) : ACTION_NEEDED_TYPES.has(n.type) ? (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            snoozeNotification(n.id);
+                          }}
+                          className="text-[11px] text-muted-foreground hover:text-primary hover:underline"
+                        >
+                          Snooze 1h
+                        </button>
                       )}
                     </div>
                   </div>

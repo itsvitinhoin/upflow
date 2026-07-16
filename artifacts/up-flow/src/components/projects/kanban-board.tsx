@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
 import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
-import { cn, formatDate, getInitials, isOverdue } from "@/lib/utils";
+import { cn, getInitials, isOverdue, relativeDueDateLabel } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import MarketingB2BOnboardingForm from "@/components/onboarding/marketing-b2b-onboarding-form";
 import MarketingB2COnboardingForm from "@/components/onboarding/marketing-b2c-onboarding-form";
@@ -412,7 +412,7 @@ export default function KanbanBoard({
                                     )}
                                   >
                                     <Calendar className="w-3 h-3" />
-                                    {formatDate(task.due_date)}
+                                    {relativeDueDateLabel(task.due_date)}
                                   </span>
                                 )}
                                 {(task._count?.comments ?? 0) > 0 && (

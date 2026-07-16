@@ -21,6 +21,7 @@ import {
   canContributeToProject,
   canReadProject,
 } from "@/lib/project-access";
+import { buildTaskOnboardingLink } from "@/lib/task-onboarding-links";
 
 const UpdateTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -130,25 +131,15 @@ async function GET_handler(
           company: { select: { name: true } },
         },
       },
+      marketing_b2b_form: { select: { id: true } },
+      marketing_b2c_form: { select: { id: true } },
+      meetings: { select: { id: true, service: true } },
     },
   });
 
   return NextResponse.json({
     ...task,
-    onboarding_link: onboardingLink
-      ? {
-          id: onboardingLink.id,
-          onboarding_id: onboardingLink.onboarding_id,
-          company_id: onboardingLink.onboarding.company_id,
-          company_name: onboardingLink.onboarding.company.name,
-          department: onboardingLink.department,
-          title: onboardingLink.title,
-          automation_key: onboardingLink.automation_key,
-          status: onboardingLink.status,
-          progress: onboardingLink.onboarding.progress,
-          href: `/clients/${onboardingLink.onboarding.company_id}`,
-        }
-      : null,
+    onboarding_link: onboardingLink ? buildTaskOnboardingLink(onboardingLink) : null,
   });
 }
 

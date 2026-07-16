@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import {
   X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
 } from "lucide-react";
-import { cn, formatDate, getInitials } from "@/lib/utils";
+import { cn, formatDate, getInitials, relativeDueDateLabel } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
+import TaskAssigneePicker from "@/components/projects/task-assignee-picker";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
@@ -234,6 +236,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
   const subtasks = currentTask.subtasks ?? [];
   const doneCount = subtasks.filter((s) => s.status === "done").length;
   const structuredBrief = parseTaskBrief(currentTask.description);
+  const insertMention = (
+    userId: string,
+    setText: Dispatch<SetStateAction<string>>,
+  ) => {
+    const user = users.find((item) => item.id === userId);
+    if (!user) return;
+    setText((prev) => `${prev}${prev.trim() ? " " : ""}@[${user.name}](${user.id}) `);
+  };
 
   return (
     <>
@@ -253,12 +263,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             {saving && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
             <button
               onClick={deleteTask}
+              aria-label={t("task.deleteConfirm")}
               className="text-destructive hover:text-destructive/80 p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
+              aria-label="Close task details"
               className="text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-muted transition-colors"
             >
               <X className="w-4 h-4" />
@@ -292,27 +304,33 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 <option value="high">{t("priority.high")}</option>
               </select>
             </div>
-            <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
-              <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.assignee")}</span>
-              <select
+            <div>
+              <TaskAssigneePicker
                 value={currentTask.assignee_id || ""}
-                onChange={(e) => update({ assignee_id: e.target.value || null })}
-                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">{t("common.unassigned")}</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+                users={users}
+                onChange={(value) => update({ assignee_id: value || null })}
+                disabled={saving}
+                label={t("toolbar.assignee")}
+                emptyLabel={t("common.unassigned")}
+                mode="update"
+                selectClassName="bg-background border-border"
+              />
             </div>
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
               <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.dueDate")}</span>
-              <BrazilianDateInput
-                value={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
-                onChange={() => {}}
-                onCommit={(value) => update({ due_date: value || null })}
-                className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="min-w-0 flex-1">
+                <BrazilianDateInput
+                  value={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
+                  onChange={() => {}}
+                  onCommit={(value) => update({ due_date: value || null })}
+                  className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                {currentTask.due_date && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {relativeDueDateLabel(currentTask.due_date)}
+                  </p>
+                )}
+              </div>
             </div>
             {currentTask.onboarding_link && (
               <div className="rounded-xl border border-primary/25 bg-primary/10 p-3">
@@ -517,7 +535,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                             {formatDate(c.created_at)}
                           </span>
                         </div>
-                        <p className="text-sm text-foreground">{c.body}</p>
+                        <p className="text-sm text-foreground">{displayCommentBody(c.body)}</p>
                       </div>
                       <button
                         onClick={() =>
@@ -547,7 +565,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                                 {formatDate(r.created_at)}
                               </span>
                             </div>
-                            <p className="text-sm text-foreground">{r.body}</p>
+                            <p className="text-sm text-foreground">{displayCommentBody(r.body)}</p>
                           </div>
                         </div>
                       ))}
@@ -557,20 +575,28 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                   {replyingTo === c.id && (
                     <div className="ml-10 mt-2 flex gap-2">
                       <CornerDownRight className="w-3 h-3 text-muted-foreground flex-shrink-0 mt-2.5" />
-                      <input
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        placeholder={t("task.reply")}
-                        autoFocus
-                        className="flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            addReply(c.id);
-                          }
-                          if (e.key === "Escape") setReplyingTo(null);
-                        }}
-                      />
+                      <div className="flex-1 space-y-2">
+                        <div className="grid gap-2 sm:flex">
+                          <MentionPicker
+                            users={users}
+                            onPick={(userId) => insertMention(userId, setReplyText)}
+                          />
+                          <input
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            placeholder={t("task.reply")}
+                            autoFocus
+                            className="min-w-0 flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                addReply(c.id);
+                              }
+                              if (e.key === "Escape") setReplyingTo(null);
+                            }}
+                          />
+                        </div>
+                      </div>
                       <button
                         onClick={() => addReply(c.id)}
                         disabled={submitting || !replyText.trim()}
@@ -591,12 +617,16 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
               )}
             </div>
 
-            <form onSubmit={addComment} className="flex gap-2">
+            <form onSubmit={addComment} className="grid gap-2 sm:flex">
+              <MentionPicker
+                users={users}
+                onPick={(userId) => insertMention(userId, setNewComment)}
+              />
               <input
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder={t("task.addComment")}
-                className="flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder={`${t("task.addComment")} - mention teammates from the picker`}
+                className="min-w-0 flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="submit"
@@ -620,4 +650,35 @@ async function readTaskApiError(res: Response, fallback: string) {
   } catch {
     return fallback;
   }
+}
+
+function displayCommentBody(body: string) {
+  return body.replace(/@\[([^\]]+)\]\([0-9a-fA-F-]{36}\)/g, "@$1");
+}
+
+function MentionPicker({
+  users,
+  onPick,
+}: {
+  users: TaskAssignee[];
+  onPick: (userId: string) => void;
+}) {
+  if (users.length === 0) return null;
+  return (
+    <select
+      value=""
+      onChange={(event) => {
+        if (event.target.value) onPick(event.target.value);
+      }}
+      className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+      aria-label="Mention teammate"
+    >
+      <option value="">@ Mention</option>
+      {users.map((user) => (
+        <option key={user.id} value={user.id}>
+          @{user.name}
+        </option>
+      ))}
+    </select>
+  );
 }

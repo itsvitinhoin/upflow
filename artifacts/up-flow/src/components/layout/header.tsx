@@ -12,6 +12,11 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getCachedJson } from "@/lib/client-cache";
 import { getNotificationHref } from "@/lib/notification-links";
 import { memberJoinedNotificationLabel } from "@/lib/notification-copy";
+import {
+  NOTIFICATION_PREFERENCES_EVENT,
+  readNotificationPreferences,
+  type NotificationPreferences,
+} from "@/lib/notification-preferences";
 import { cn } from "@/lib/utils";
 import type { Notification } from "@/lib/types";
 
@@ -176,6 +181,8 @@ export default function Header({ title }: HeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const [assistantNotification, setAssistantNotification] = useState<Notification | null>(null);
+  const [notificationPreferences, setNotificationPreferences] =
+    useState<NotificationPreferences>(() => readNotificationPreferences());
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const shownAssistantIdsRef = useRef<Set<string>>(new Set());
@@ -191,7 +198,7 @@ export default function Header({ title }: HeaderProps) {
     const items = await fetchNotificationItems(force);
     setNotifications(items);
     setUnreadCount(items.filter((n) => !n.read).length);
-    if (options?.showAssistant) {
+    if (options?.showAssistant && notificationPreferences.assistantPopups) {
       const nextNotification = items.find(
         (item) =>
           shouldShowAssistantPopup(item) &&
@@ -202,6 +209,18 @@ export default function Header({ title }: HeaderProps) {
         setAssistantNotification(nextNotification);
       }
     }
+  }, [notificationPreferences.assistantPopups]);
+
+  useEffect(() => {
+    const onPreferencesChanged = () => {
+      setNotificationPreferences(readNotificationPreferences());
+    };
+    window.addEventListener(NOTIFICATION_PREFERENCES_EVENT, onPreferencesChanged);
+    window.addEventListener("storage", onPreferencesChanged);
+    return () => {
+      window.removeEventListener(NOTIFICATION_PREFERENCES_EVENT, onPreferencesChanged);
+      window.removeEventListener("storage", onPreferencesChanged);
+    };
   }, []);
 
   const refreshUnreadCount = useCallback(async (force = false) => {

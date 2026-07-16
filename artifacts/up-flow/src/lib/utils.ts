@@ -216,6 +216,21 @@ export function isOverdue(dueDate: string | Date | null | undefined): boolean {
   return isBefore(d, new Date());
 }
 
+function appDateOrdinal(date: string | Date) {
+  const parts = appDateParts(date);
+  return Math.floor(Date.UTC(parts.year, parts.month - 1, parts.day) / 86_400_000);
+}
+
+export function relativeDueDateLabel(dueDate: string | Date | null | undefined): string {
+  if (!dueDate) return "";
+  const diffDays = appDateOrdinal(dueDate) - appDateOrdinal(new Date());
+  if (diffDays < 0) return "Overdue";
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays <= 7) return `In ${diffDays} days`;
+  return formatDate(dueDate);
+}
+
 export function priorityColor(priority: string): string {
   switch (priority) {
     case "high":

@@ -207,6 +207,72 @@ test("Marketing B2B form task opens the form before relation backfill", () => {
   });
 });
 
+test("explicit onboarding action opens forms without guessing from task copy", () => {
+  const task = {
+    id: "task-explicit-b2b",
+    title: "Client kickoff package",
+    description: "A title that intentionally does not say form.",
+    project_id: "project-b2b",
+    project: { id: "project-b2b", name: "Bang Corporation" },
+    onboarding_link: {
+      id: "checklist-explicit-b2b",
+      onboarding_id: "onboarding-1",
+      company_id: "company-1",
+      company_name: "Bang Corporation",
+      department: "Marketing B2B",
+      title: "Client intake",
+      status: "pending",
+      progress: 18,
+      href: "/clients/company-1",
+      action: {
+        kind: "form",
+        form_kind: "marketing_b2b",
+        label: "Open Marketing B2B form",
+      },
+    },
+  } as Task;
+
+  assert.equal(workflowFormKind(task), "marketing_b2b");
+  assert.deepEqual(getOnboardingTaskAction(task), {
+    kind: "form",
+    href: "/projects/project-b2b?view=form&task=task-explicit-b2b",
+    formKind: "marketing_b2b",
+  });
+});
+
+test("explicit onboarding action opens meeting scheduler without title matching", () => {
+  const task = {
+    id: "task-explicit-meeting",
+    title: "Client alignment",
+    description: "No schedule keyword here.",
+    project_id: "project-b2b",
+    assignee_id: "00000000-0000-0000-0000-000000000001",
+    assignee: { id: "00000000-0000-0000-0000-000000000001", name: "Pedro", email: "pedro@example.com" },
+    project: { id: "project-b2b", name: "Bang Corporation" },
+    onboarding_link: {
+      id: "checklist-explicit-meeting",
+      onboarding_id: "onboarding-1",
+      company_id: "company-1",
+      company_name: "Bang Corporation",
+      department: "Marketing B2B",
+      title: "Kickoff",
+      status: "pending",
+      progress: 18,
+      href: "/clients/company-1",
+      action: {
+        kind: "calendar",
+        label: "Schedule onboarding meeting",
+      },
+    },
+  } as Task;
+
+  assert.deepEqual(getOnboardingTaskAction(task, "project-b2b"), {
+    kind: "calendar",
+    href:
+      "/calendar?create=meeting&task=task-explicit-meeting&title=Bang+Corporation+-+Marketing+B2B+onboarding+meeting&project=project-b2b&description=Client%3A+Bang+Corporation%0ADepartment%3A+Marketing+B2B%0AMeeting+type%3A+Marketing+B2B+onboarding+meeting%0AResponsible%3A+Pedro+pedro%40example.com%0AAgenda%3A+align+goals%2C+accesses%2C+communication+rhythm%2C+blockers%2C+and+next+steps.%0ATask+notes%3A+No+schedule+keyword+here.&attendees=00000000-0000-0000-0000-000000000001",
+  });
+});
+
 test("Marketing B2B department onboarding task opens the form-first route", () => {
   const task = {
     id: "task-b2b-onboarding",

@@ -1,5 +1,95 @@
 import { prisma } from "@/lib/prisma";
-import type { TaskOnboardingLink } from "@/lib/types";
+import type { TaskOnboardingAction, TaskOnboardingLink } from "@/lib/types";
+
+type RawOnboardingChecklistLink = {
+  id: string;
+  task_id: string | null;
+  onboarding_id: string;
+  department: string;
+  title: string;
+  automation_key: string | null;
+  status: string;
+  onboarding: {
+    company_id: string;
+    progress: number;
+    company: { name: string };
+  };
+  marketing_b2b_form?: { id: string } | null;
+  marketing_b2c_form?: { id: string } | null;
+  meetings?: Array<{ id: string; service: string | null }>;
+};
+
+function normalized(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function actionForOnboardingLink(link: RawOnboardingChecklistLink): TaskOnboardingAction | null {
+  const department = normalized(link.department);
+  const title = normalized(link.title);
+
+  if (link.automation_key === "up_zero_website_configuration") {
+    return null;
+  }
+
+  if (link.marketing_b2b_form) {
+    return {
+      kind: "form",
+      form_kind: "marketing_b2b",
+      label: "Open Marketing B2B form",
+    };
+  }
+
+  if (link.marketing_b2c_form) {
+    return {
+      kind: "form",
+      form_kind: "marketing_b2c",
+      label: "Open Marketing B2C form",
+    };
+  }
+
+  if (department === "finance" || department === "contract") {
+    return {
+      kind: "form",
+      form_kind: "finance",
+      label: department === "contract" ? "Open finance contract form" : "Open finance form",
+    };
+  }
+
+  if (department === "support") {
+    return {
+      kind: "form",
+      form_kind: "support",
+      label: "Open support setup",
+    };
+  }
+
+  if ((link.meetings?.length ?? 0) > 0) {
+    return {
+      kind: "calendar",
+      label: title.includes("visit") || title.includes("visita")
+        ? "Schedule technical visit"
+        : "Schedule onboarding meeting",
+    };
+  }
+
+  return null;
+}
+
+export function buildTaskOnboardingLink(link: RawOnboardingChecklistLink): TaskOnboardingLink {
+  return {
+    id: link.id,
+    onboarding_id: link.onboarding_id,
+    company_id: link.onboarding.company_id,
+    company_name: link.onboarding.company.name,
+    department: link.department,
+    title: link.title,
+    automation_key: link.automation_key,
+    status: link.status,
+    progress: link.onboarding.progress,
+    href: `/clients/${link.onboarding.company_id}`,
+    action: actionForOnboardingLink(link),
+  };
+}
 
 export async function loadTaskOnboardingLinkMap(taskIds: string[]) {
   const uniqueTaskIds = Array.from(new Set(taskIds.filter(Boolean)));
@@ -23,23 +113,15 @@ export async function loadTaskOnboardingLinkMap(taskIds: string[]) {
           company: { select: { name: true } },
         },
       },
+      marketing_b2b_form: { select: { id: true } },
+      marketing_b2c_form: { select: { id: true } },
+      meetings: { select: { id: true, service: true } },
     },
   });
 
   for (const link of links) {
     if (!link.task_id) continue;
-    byTaskId.set(link.task_id, {
-      id: link.id,
-      onboarding_id: link.onboarding_id,
-      company_id: link.onboarding.company_id,
-      company_name: link.onboarding.company.name,
-      department: link.department,
-      title: link.title,
-      automation_key: link.automation_key,
-      status: link.status,
-      progress: link.onboarding.progress,
-      href: `/clients/${link.onboarding.company_id}`,
-    });
+    byTaskId.set(link.task_id, buildTaskOnboardingLink(link));
   }
 
   return byTaskId;

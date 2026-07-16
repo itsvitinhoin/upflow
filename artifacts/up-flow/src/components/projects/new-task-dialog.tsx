@@ -12,6 +12,7 @@ import {
   type TaskTemplateId,
 } from "@/lib/task-templates";
 import TaskTemplateFields from "@/components/projects/task-template-fields";
+import TaskAssigneePicker from "@/components/projects/task-assignee-picker";
 import { PriorityPicker, type TaskPriority } from "@/components/projects/priority-ui";
 import { useLanguage } from "@/components/language-provider";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
@@ -51,6 +52,7 @@ export default function NewTaskDialog({
   const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [loading, setLoading] = useState(false);
   const selectedProjectName = projects.find((project) => project.id === selectedProject)?.name;
+  const selectedAssigneeName = users.find((user) => user.id === assigneeId)?.name;
   const projectIsPreset = Boolean(projectId);
   const projectSelectionLoading = !projectIsPreset && projectsLoading;
 
@@ -137,6 +139,7 @@ export default function NewTaskDialog({
         const data = await res.json() as { error?: string };
         throw new Error(data.error || t("task.failedCreate"));
       }
+      await res.json().catch(() => null);
       setTitle("");
       setDescription("");
       setTaskTemplateId(defaultTemplateId);
@@ -144,7 +147,12 @@ export default function NewTaskDialog({
       setPriority("medium");
       setDueDate(defaultDueDate);
       setAssigneeId("");
-      toast.success(`${cleanTitle} created${selectedProjectName ? ` in ${selectedProjectName}` : ""}`);
+      toast.success(
+        [
+          `${cleanTitle} created${selectedProjectName ? ` in ${selectedProjectName}` : ""}.`,
+          selectedAssigneeName ? `${selectedAssigneeName} was notified.` : "No assignee selected yet.",
+        ].join(" "),
+      );
       onCreated();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t("task.failedCreate");
@@ -176,8 +184,10 @@ export default function NewTaskDialog({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={loading}
+            aria-label="Close task creation"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="w-5 h-5" />
@@ -257,20 +267,16 @@ export default function NewTaskDialog({
               <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.priority")}</label>
               <PriorityPicker value={priority} onChange={setPriority} t={t} />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">{t("toolbar.assignee")}</label>
-              <select
+            <div className="sm:col-span-2">
+              <TaskAssigneePicker
                 value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
-                className="w-full border border-white/10 bg-white/5 backdrop-blur rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">{t("common.unassigned")}</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+                users={users}
+                onChange={setAssigneeId}
+                disabled={loading || !selectedProject}
+                label={t("toolbar.assignee")}
+                emptyLabel={t("common.unassigned")}
+                mode="create"
+              />
             </div>
           </div>
 
