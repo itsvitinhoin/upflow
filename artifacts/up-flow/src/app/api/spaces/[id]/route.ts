@@ -24,7 +24,7 @@ async function GET_handler(
     include: {
       workspace: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true, email: true } },
-      _count: { select: { projects: true } },
+      _count: { select: { projects: { where: { sidebar_hidden: false } } } },
     },
   });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -34,11 +34,16 @@ async function GET_handler(
 
   const [folders, projects] = await Promise.all([
     prisma.folder.findMany({
-      where: { space_id: space.id, workspace_id: space.workspace_id, parent_id: null },
+      where: {
+        space_id: space.id,
+        workspace_id: space.workspace_id,
+        parent_id: null,
+        sidebar_hidden: false,
+      },
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
     }),
     prisma.project.findMany({
-      where: { space_id: space.id, folder_id: null },
+      where: { space_id: space.id, folder_id: null, sidebar_hidden: false },
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       select: {
         id: true,

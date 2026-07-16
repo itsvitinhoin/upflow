@@ -17,10 +17,13 @@ import {
   Trash2,
   UserRound,
   MoreHorizontal,
+  Loader2,
+  Search,
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import { useLanguage } from "@/components/language-provider";
+import ClientPinButton from "@/components/clients/client-pin-button";
 import type { Company } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -28,27 +31,60 @@ export default function ClientsPage() {
   const { t } = useLanguage();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [query, setQuery] = useState("");
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [pinnedCompanyIds, setPinnedCompanyIds] = useState<Set<string>>(new Set());
 
-  const loadCompanies = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadCompanies = useCallback(async (cursor?: string | null) => {
+    const append = Boolean(cursor);
+    if (append) setLoadingMore(true);
+    else {
+      setLoading(true);
+      setError("");
+    }
     try {
-      const res = await fetch("/api/companies");
+      const params = new URLSearchParams({ limit: "24" });
+      const term = query.trim();
+      if (term) params.set("q", term);
+      if (cursor) params.set("cursor", cursor);
+      const [res, pinsRes] = await Promise.all([
+        fetch(`/api/companies?${params.toString()}`),
+        append ? Promise.resolve(null) : fetch("/api/sidebar-pins"),
+      ]);
       if (!res.ok) throw new Error(`${t("clients.couldNotLoad")} (${res.status})`);
-      const data = (await res.json()) as { items?: Company[] };
-      setCompanies(data.items ?? []);
+      const data = (await res.json()) as { items?: Company[]; nextCursor?: string | null };
+      setCompanies((current) => (append ? [...current, ...(data.items ?? [])] : (data.items ?? [])));
+      setNextCursor(data.nextCursor ?? null);
+      if (pinsRes?.ok) {
+        const pins = (await pinsRes.json()) as { items?: Array<{ company_id: string }> };
+        setPinnedCompanyIds(new Set((pins.items ?? []).map((pin) => pin.company_id)));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("clients.couldNotLoad"));
     } finally {
-      setLoading(false);
+      if (append) setLoadingMore(false);
+      else setLoading(false);
     }
-  }, [t]);
+  }, [query, t]);
 
   useEffect(() => {
-    loadCompanies();
-  }, [loadCompanies]);
+    const timeout = window.setTimeout(() => {
+      void loadCompanies();
+    }, query.trim() ? 250 : 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadCompanies, query]);
+
+  const handlePinnedChange = (companyId: string, pinned: boolean) => {
+    setPinnedCompanyIds((current) => {
+      const next = new Set(current);
+      if (pinned) next.add(companyId);
+      else next.delete(companyId);
+      return next;
+    });
+  };
 
   const deleteCompany = async (company: Company) => {
     if (!window.confirm(t("clients.deleteConfirm", { name: company.name }))) return;
@@ -99,6 +135,17 @@ export default function ClientsPage() {
           </div>
         </section>
 
+        <label className="relative block max-w-xl">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("clients.searchPlaceholder")}
+            className="h-10 w-full rounded-lg border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/15 dark:border-blue-200/20 dark:bg-white/5"
+          />
+        </label>
+
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => (
@@ -114,7 +161,7 @@ export default function ClientsPage() {
               </div>
               <button
                 type="button"
-                onClick={loadCompanies}
+                onClick={() => void loadCompanies()}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
               >
                 <RefreshCcw className="h-4 w-4" />
@@ -125,18 +172,20 @@ export default function ClientsPage() {
         ) : companies.length === 0 ? (
           <section className="glass rounded-xl p-10 text-center">
             <Building2 className="mx-auto h-10 w-10 text-muted-foreground" />
-            <h3 className="mt-4 text-base font-semibold text-foreground">{t("clients.noClients")}</h3>
+            <h3 className="mt-4 text-base font-semibold text-foreground">{query.trim() ? t("clients.noSearchResults") : t("clients.noClients")}</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t("clients.noClientsHint")}
+              {query.trim() ? t("clients.searchPlaceholder") : t("clients.noClientsHint")}
             </p>
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              {t("clients.startOnboarding")}
-            </button>
+            {!query.trim() ? (
+              <button
+                type="button"
+                onClick={() => setShowCreate(true)}
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                {t("clients.startOnboarding")}
+              </button>
+            ) : null}
           </section>
         ) : (
           <section className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
@@ -173,6 +222,12 @@ export default function ClientsPage() {
                       </Link>
 
                       <div className="flex shrink-0 items-center gap-2">
+                        <ClientPinButton
+                          companyId={company.id}
+                          companyName={company.name}
+                          pinned={pinnedCompanyIds.has(company.id)}
+                          onPinnedChange={handlePinnedChange}
+                        />
                         <Link
                           href={`/clients/${company.id}`}
                           aria-label={t("clients.openClient")}
@@ -257,12 +312,23 @@ export default function ClientsPage() {
 
         <button
           type="button"
-          onClick={loadCompanies}
+          onClick={() => void loadCompanies()}
           className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
         >
           <RefreshCcw className="h-3.5 w-3.5" />
           {t("common.refresh")}
         </button>
+        {nextCursor ? (
+          <button
+            type="button"
+            onClick={() => void loadCompanies(nextCursor)}
+            disabled={loadingMore}
+            className="ml-4 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground transition hover:border-blue-400/50 hover:bg-accent disabled:cursor-wait disabled:opacity-60"
+          >
+            {loadingMore ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            {t("clients.loadMore")}
+          </button>
+        ) : null}
       </div>
 
       <CreateCompanyDialog

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logError } from "@/lib/log-error";
-import type { Project, Space, Folder as FolderT } from "@/lib/types";
+import type { Project, Space, Folder as FolderT, SidebarPinnedClient } from "@/lib/types";
 
 const COLLAPSED_KEY = "upflow.sidebar.collapsedSpaces";
 const SNAPSHOT_KEY = "upflow.sidebar.snapshot";
@@ -13,6 +13,7 @@ interface PanelPayload {
   spaces: { items: Space[] };
   projects: { items: Project[] };
   folders: { items: FolderT[] };
+  pinned_clients?: SidebarPinnedClient[];
 }
 
 let panelCache: { data: PanelPayload; loadedAt: number } | null = null;
@@ -62,6 +63,7 @@ export function usePanelData(pathname: string) {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [folders, setFolders] = useState<FolderT[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [pinnedClients, setPinnedClients] = useState<SidebarPinnedClient[]>([]);
   const [loadingPanel, setLoadingPanel] = useState(true);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export function usePanelData(pathname: string) {
             setSpaces(snapshot.spaces.items);
             setFolders(snapshot.folders.items);
             setProjects(snapshot.projects.items);
+            setPinnedClients(snapshot.pinned_clients ?? []);
             setLoadingPanel(false);
           }
         }
@@ -110,9 +113,11 @@ export function usePanelData(pathname: string) {
         const nextSpaces = data.spaces.items ?? [];
         const nextProjects = data.projects.items ?? [];
         const nextFolders = data.folders.items ?? [];
+        const nextPinnedClients = data.pinned_clients ?? [];
         setSpaces(nextSpaces);
         setProjects(nextProjects);
         setFolders(nextFolders);
+        setPinnedClients(nextPinnedClients);
         if (!query) {
           try {
             localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(data));
@@ -255,6 +260,7 @@ export function usePanelData(pathname: string) {
     spaces,
     folders,
     projects,
+    pinnedClients,
     loadingPanel,
     collapsed,
     toggleCollapse,

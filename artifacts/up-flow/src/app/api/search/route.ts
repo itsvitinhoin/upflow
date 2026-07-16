@@ -20,7 +20,7 @@ async function GET_handler(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") || "").trim();
   if (!q) {
-    return NextResponse.json({ q: "", tasks: [], projects: [], docs: [] });
+    return NextResponse.json({ q: "", tasks: [], projects: [], docs: [], companies: [] });
   }
   if (q.length > 200) {
     return NextResponse.json({ error: "Query too long" }, { status: 400 });
@@ -29,14 +29,14 @@ async function GET_handler(req: NextRequest) {
   // Search is scoped to the caller's active workspace.
   const workspaceId = auth.currentWorkspaceId;
   if (!workspaceId) {
-    return NextResponse.json({ q, tasks: [], projects: [], docs: [] });
+    return NextResponse.json({ q, tasks: [], projects: [], docs: [], companies: [] });
   }
 
   const projectScope = readableProjectWhere(auth, workspaceId);
   const taskScope = { project: projectScope };
   const docScope = { workspace_id: workspaceId, project: projectScope };
 
-  const [tasks, projects, docs] = await Promise.all([
+  const [tasks, projects, docs, companies] = await Promise.all([
     prisma.task.findMany({
       where: {
         AND: [
@@ -93,8 +93,29 @@ async function GET_handler(req: NextRequest) {
         project: { select: { id: true, name: true } },
       },
     }),
+    prisma.company.findMany({
+      where: {
+        workspace_id: workspaceId,
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+          { plan_name: { contains: q, mode: "insensitive" } },
+          { service_type: { contains: q, mode: "insensitive" } },
+          { owner: { is: { name: { contains: q, mode: "insensitive" } } } },
+        ],
+      },
+      take: MAX_PER_TYPE,
+      orderBy: [{ updated_at: "desc" }, { id: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        plan_name: true,
+        owner: { select: { id: true, name: true } },
+      },
+    }),
   ]);
 
-  return NextResponse.json({ q, tasks, projects, docs });
+  return NextResponse.json({ q, tasks, projects, docs, companies });
 }
 export const GET = withErrorReporting("api:search:GET", GET_handler);

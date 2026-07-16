@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { LogOut, PanelLeftClose, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
+import { LogOut, PanelLeftClose, Pin, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
-import type { Project, Space, Folder as FolderT } from "@/lib/types";
+import type { Project, Space, Folder as FolderT, SidebarPinnedClient } from "@/lib/types";
 import InviteDialog from "@/components/dashboard/invite-dialog";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
 import { useLanguage } from "@/components/language-provider";
@@ -61,6 +61,7 @@ export default function Panel({
     spaces,
     folders,
     projects,
+    pinnedClients,
     loadingPanel,
     collapsed,
     toggleCollapse,
@@ -84,6 +85,7 @@ export default function Panel({
     | null
   >(null);
   const [sidebarQuery, setSidebarQuery] = useState("");
+  const [unpinningClientId, setUnpinningClientId] = useState<string | null>(null);
   const normalizedQuery = sidebarQuery.trim().toLowerCase();
   const isSearching = normalizedQuery.length > 0;
   const canManageWorkspace =
@@ -147,7 +149,10 @@ export default function Panel({
     }
 
     for (const project of projects) {
-      if (project.name.toLowerCase().includes(normalizedQuery)) {
+      if (
+        project.name.toLowerCase().includes(normalizedQuery) ||
+        project.company?.name.toLowerCase().includes(normalizedQuery)
+      ) {
         projectIds.add(project.id);
         if (project.space_id) spaceIds.add(project.space_id);
         includeFolderAncestors(project.folder_id);
@@ -209,6 +214,23 @@ export default function Panel({
     } catch (err) {
       logError("sidebar:delete-folder", err, { id: f.id });
       toast.error(t("sidebar.couldNotDeleteFolder"));
+    }
+  };
+
+  const handleUnpinClient = async (companyId: string) => {
+    setUnpinningClientId(companyId);
+    try {
+      const res = await fetch(`/api/sidebar-pins/${companyId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("clientNavigation.unpinFailed"));
+      }
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      loadPanel({ force: true, query: sidebarQuery.trim() });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("clientNavigation.unpinFailed"));
+    } finally {
+      setUnpinningClientId(null);
     }
   };
 
@@ -297,6 +319,16 @@ export default function Panel({
                   ...folders.map((folder) => folder.id),
                   "__unassigned__",
                 ])
+              }
+              pinnedContent={
+                !isSearching ? (
+                  <PinnedClientsSection
+                    items={pinnedClients}
+                    unpinningClientId={unpinningClientId}
+                    onUnpin={handleUnpinClient}
+                    onNavigate={onNavigate}
+                  />
+                ) : null
               }
             />
 
@@ -503,5 +535,55 @@ export default function Panel({
         />
       )}
     </>
+  );
+}
+
+function PinnedClientsSection({
+  items,
+  unpinningClientId,
+  onUnpin,
+  onNavigate,
+}: {
+  items: SidebarPinnedClient[];
+  unpinningClientId: string | null;
+  onUnpin: (companyId: string) => void;
+  onNavigate?: () => void;
+}) {
+  const { t } = useLanguage();
+  if (items.length === 0) return null;
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-blue-300/15 bg-blue-500/[0.06] p-1.5 dark:border-blue-300/10 dark:bg-white/[0.025]">
+      <div className="flex items-center gap-2 px-1.5 pb-1.5 pt-0.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-blue-700/70 dark:text-blue-200/55">
+        <Pin className="h-3 w-3" />
+        {t("clientNavigation.pinnedClients")}
+      </div>
+      <div className="space-y-0.5">
+        {items.map((pin) => (
+          <div key={pin.id} className="group flex min-w-0 items-center gap-1 rounded-lg pr-1 transition hover:bg-blue-500/10 dark:hover:bg-white/[0.06]">
+            <Link
+              href={`/clients/${pin.company_id}`}
+              onClick={onNavigate}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-bold text-primary dark:bg-blue-400/15 dark:text-blue-100">
+                {pin.company.name.trim().charAt(0).toUpperCase() || "C"}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{pin.company.name}</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => onUnpin(pin.company_id)}
+              disabled={unpinningClientId === pin.company_id}
+              aria-label={t("clientNavigation.unpinClient", { name: pin.company.name })}
+              title={t("clientNavigation.unpinClient", { name: pin.company.name })}
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-60 transition hover:bg-rose-500/10 hover:text-rose-600 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-wait disabled:opacity-50 dark:hover:text-rose-200"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

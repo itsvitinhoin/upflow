@@ -128,6 +128,7 @@ model User {
   service_backup_mappings  ServiceLeaderMapping[]  @relation("ServiceLeaderMappingBackupLeader")
   marketing_b2b_onboarding_forms_completed MarketingB2BOnboardingForm[] @relation("MarketingB2BOnboardingFormCompleter")
   marketing_b2c_onboarding_forms_completed MarketingB2COnboardingForm[] @relation("MarketingB2COnboardingFormCompleter")
+  sidebar_client_pins      SidebarClientPin[]
 }
 
 model Workspace {
@@ -169,6 +170,7 @@ model Workspace {
   service_leader_mappings ServiceLeaderMapping[]
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
+  sidebar_client_pins     SidebarClientPin[]
 }
 
 model WorkspaceMember {
@@ -258,6 +260,7 @@ model Folder {
   owner_id     String
   parent_id    String?
   position     Int       @default(0)
+  sidebar_hidden Boolean @default(false)
   created_at   DateTime  @default(now())
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   space        Space     @relation(fields: [space_id], references: [id], onDelete: Cascade)
@@ -270,6 +273,7 @@ model Folder {
   @@index([parent_id])
   @@index([space_id, parent_id])
   @@index([workspace_id, position, created_at])
+  @@index([workspace_id, sidebar_hidden])
 }
 
 model Project {
@@ -287,6 +291,7 @@ model Project {
   folder_id             String?
   company_id            String?
   onboarding_enabled    Boolean                 @default(false)
+  sidebar_hidden        Boolean                 @default(false)
   closing_date          DateTime?
   onboarding_start_date DateTime?
   responsible_salesperson_id String?
@@ -316,6 +321,7 @@ model Project {
   @@index([workspace_id, status, due_date])
   @@index([workspace_id, space_id, created_at])
   @@index([workspace_id, folder_id, created_at])
+  @@index([workspace_id, sidebar_hidden, created_at])
   @@index([company_id])
   @@index([responsible_salesperson_id])
 }
@@ -529,6 +535,7 @@ model Company {
   addresses         ClientAddress[]
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
+  sidebar_client_pins   SidebarClientPin[]
 
   @@index([workspace_id])
   @@index([workspace_id, status, updated_at])
@@ -916,6 +923,22 @@ model SavedView {
   user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([workspace_id, user_id])
+}
+
+model SidebarClientPin {
+  id           String    @id @default(uuid())
+  workspace_id String
+  user_id      String
+  company_id   String
+  position     Int       @default(0)
+  created_at   DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  company      Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+
+  @@unique([workspace_id, user_id, company_id])
+  @@index([workspace_id, user_id, position])
+  @@index([company_id])
 }
 
 model WorkflowStatus {

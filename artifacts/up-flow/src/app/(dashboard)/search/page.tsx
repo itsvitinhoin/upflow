@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   CheckSquare,
+  Building2,
   Folder,
   FileText,
   Search as SearchIcon,
@@ -33,11 +34,19 @@ interface SearchDoc {
   title: string;
   project: { id: string; name: string } | null;
 }
+interface SearchCompany {
+  id: string;
+  name: string;
+  status: string;
+  plan_name: string | null;
+  owner: { id: string; name: string } | null;
+}
 interface SearchResponse {
   q: string;
   tasks: SearchTask[];
   projects: SearchProject[];
   docs: SearchDoc[];
+  companies: SearchCompany[];
 }
 
 function SearchResults() {
@@ -59,7 +68,7 @@ function SearchResults() {
       .finally(() => setLoading(false));
   }, [q]);
 
-  const total = (data?.tasks.length ?? 0) + (data?.projects.length ?? 0) + (data?.docs.length ?? 0);
+  const total = (data?.tasks.length ?? 0) + (data?.projects.length ?? 0) + (data?.docs.length ?? 0) + (data?.companies.length ?? 0);
 
   return (
     <>
@@ -110,6 +119,26 @@ function SearchResults() {
                 {p.space?.name && (
                   <span className="text-xs text-muted-foreground flex-shrink-0">{p.space.name}</span>
                 )}
+              </Link>
+            ))}
+          </Section>
+        )}
+
+        {data && data.companies.length > 0 && (
+          <Section title={t("clients.title")} count={data.companies.length}>
+            {data.companies.map((company) => (
+              <Link
+                key={company.id}
+                href={`/clients/${company.id}`}
+                className="flex items-start gap-3 px-4 py-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
+              >
+                <Building2 className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium truncate block">{company.name}</span>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {[company.plan_name, company.owner?.name].filter(Boolean).join(" / ") || company.status}
+                  </p>
+                </div>
               </Link>
             ))}
           </Section>

@@ -18,6 +18,7 @@ async function GET_handler(req: NextRequest) {
       spaces: { items: [], nextCursor: null },
       projects: { items: [], nextCursor: null },
       folders: { items: [], nextCursor: null },
+      pinned_clients: [],
     });
   }
 
@@ -27,7 +28,10 @@ async function GET_handler(req: NextRequest) {
   const spacesCursor = searchParams.get("spaces_cursor");
   const projectsCursor = searchParams.get("projects_cursor");
   const foldersCursor = searchParams.get("folders_cursor");
-  const visibleProjectWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
+  const readableProjectsWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
+  const visibleProjectWhere = {
+    AND: [readableProjectsWhere, { sidebar_hidden: false }],
+  };
   const spaceInclude = {
     owner: { select: { id: true, name: true, email: true } },
     _count: { select: { projects: { where: visibleProjectWhere } } },
@@ -36,6 +40,16 @@ async function GET_handler(req: NextRequest) {
     owner: { select: { id: true, name: true, email: true } },
     space: { select: { id: true, name: true, icon: true } },
     folder: { select: { id: true, name: true, icon: true } },
+    company: {
+      select: {
+        id: true,
+        name: true,
+        contract_value: true,
+        commission: true,
+        plan_name: true,
+        service_type: true,
+      },
+    },
     _count: { select: { tasks: true } },
   };
   const folderInclude = {
@@ -43,7 +57,7 @@ async function GET_handler(req: NextRequest) {
   };
 
   if (q) {
-    const [matchingSpaces, matchingProjects, matchingFolders] = await Promise.all([
+    const [matchingSpaces, matchingProjects, matchingFolders, pinnedClients] = await Promise.all([
       prisma.space.findMany({
         where: {
           workspace_id: auth.currentWorkspaceId,
@@ -55,8 +69,15 @@ async function GET_handler(req: NextRequest) {
       }),
       prisma.project.findMany({
         where: {
-          ...visibleProjectWhere,
-          name: { contains: q, mode: "insensitive" as const },
+          AND: [
+            readableProjectsWhere,
+            {
+              OR: [
+                { name: { contains: q, mode: "insensitive" as const } },
+                { company: { is: { name: { contains: q, mode: "insensitive" as const } } } },
+              ],
+            },
+          ],
         },
         take: limit,
         orderBy: [{ created_at: "desc" }, { id: "asc" }],
@@ -70,6 +91,27 @@ async function GET_handler(req: NextRequest) {
         take: limit,
         orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
         include: folderInclude,
+      }),
+      prisma.sidebarClientPin.findMany({
+        where: {
+          workspace_id: auth.currentWorkspaceId,
+          user_id: auth.prismaUser.id,
+        },
+        orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          company_id: true,
+          position: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              commercial_status: true,
+              plan_name: true,
+            },
+          },
+        },
       }),
     ]);
 
@@ -136,10 +178,11 @@ async function GET_handler(req: NextRequest) {
       spaces: { items: spaces, nextCursor: null },
       projects: { items: matchingProjects, nextCursor: null },
       folders: { items: folders, nextCursor: null },
+      pinned_clients: pinnedClients,
     });
   }
 
-  const [spaces, projects, folders] = await Promise.all([
+  const [spaces, projects, folders, pinnedClients] = await Promise.all([
     prisma.space.findMany({
       where: {
         workspace_id: auth.currentWorkspaceId,
@@ -163,6 +206,7 @@ async function GET_handler(req: NextRequest) {
     prisma.folder.findMany({
       where: {
         workspace_id: auth.currentWorkspaceId,
+        sidebar_hidden: false,
         ...(q && { name: { contains: q, mode: "insensitive" as const } }),
       },
       take: limit + 1,
@@ -170,12 +214,34 @@ async function GET_handler(req: NextRequest) {
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
       include: folderInclude,
     }),
+    prisma.sidebarClientPin.findMany({
+      where: {
+        workspace_id: auth.currentWorkspaceId,
+        user_id: auth.prismaUser.id,
+      },
+      orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        company_id: true,
+        position: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            commercial_status: true,
+            plan_name: true,
+          },
+        },
+      },
+    }),
   ]);
 
   return NextResponse.json({
     spaces: buildPage(spaces, limit),
     projects: buildPage(projects, limit),
     folders: buildPage(folders, limit),
+    pinned_clients: pinnedClients,
   });
 }
 

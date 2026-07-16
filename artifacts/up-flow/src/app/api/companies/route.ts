@@ -52,8 +52,26 @@ async function GET_handler(req: NextRequest) {
   }
 
   const { limit, cursor } = parsePagination(req, { defaultLimit: 50, maxLimit: 100 });
+  const q = (new URL(req.url).searchParams.get("q") || "").trim();
+  if (q.length > 200) {
+    return NextResponse.json({ error: "Query too long" }, { status: 400 });
+  }
   const rows = await prisma.company.findMany({
-    where: { workspace_id: auth.currentWorkspaceId },
+    where: {
+      workspace_id: auth.currentWorkspaceId,
+      ...(q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" as const } },
+              { description: { contains: q, mode: "insensitive" as const } },
+              { plan_name: { contains: q, mode: "insensitive" as const } },
+              { service_type: { contains: q, mode: "insensitive" as const } },
+              { industry: { contains: q, mode: "insensitive" as const } },
+              { owner: { is: { name: { contains: q, mode: "insensitive" as const } } } },
+            ],
+          }
+        : {}),
+    },
     take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: [{ created_at: "desc" }, { id: "asc" }],

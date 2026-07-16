@@ -736,6 +736,7 @@ async function ensureFolder(
     name: string;
     parentId?: string | null;
     icon?: string | null;
+    sidebarHidden?: boolean;
   },
 ) {
   const existing = await db.folder.findFirst({
@@ -757,6 +758,7 @@ async function ensureFolder(
       parent_id: input.parentId ?? null,
       name: input.name,
       icon: input.icon ?? null,
+      sidebar_hidden: input.sidebarHidden ?? false,
     },
     select: { id: true, name: true },
   });
@@ -779,6 +781,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
     name: "Onboarding",
     parentId: null,
     icon: "folder",
+    sidebarHidden: true,
   });
   const clientFolder = await ensureFolder(db, {
     workspaceId: input.workspaceId,
@@ -787,6 +790,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
     name: input.companyName,
     parentId: onboardingFolder.id,
     icon: "folder",
+    sidebarHidden: true,
   });
 
   const projectName = input.companyName.trim() || "Marketing B2B Onboarding";
@@ -798,13 +802,13 @@ export async function resolveMarketingB2BOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true, onboarding_enabled: true },
+    select: { id: true, onboarding_enabled: true, sidebar_hidden: true },
   });
   if (existingProject) {
-    if (!existingProject.onboarding_enabled) {
+    if (!existingProject.onboarding_enabled || !existingProject.sidebar_hidden) {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { onboarding_enabled: true },
+        data: { onboarding_enabled: true, sidebar_hidden: true },
         select: { id: true },
       });
     }
@@ -824,7 +828,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
   if (legacyProject) {
     const renamed = await db.project.update({
       where: { id: legacyProject.id },
-      data: { name: projectName, onboarding_enabled: true },
+      data: { name: projectName, onboarding_enabled: true, sidebar_hidden: true },
       select: { id: true },
     });
     return renamed.id;
@@ -839,6 +843,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
       onboarding_enabled: true,
+      sidebar_hidden: true,
       description:
         "Marketing B2B onboarding form and execution tasks for this client.",
     },
@@ -864,6 +869,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     name: "Onboarding",
     parentId: null,
     icon: "folder",
+    sidebarHidden: true,
   });
   const clientFolder = await ensureFolder(db, {
     workspaceId: input.workspaceId,
@@ -872,6 +878,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     name: input.companyName,
     parentId: onboardingFolder.id,
     icon: "folder",
+    sidebarHidden: true,
   });
 
   const projectName = input.companyName.trim() || "Marketing B2C Onboarding";
@@ -884,9 +891,14 @@ export async function resolveMarketingB2COnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true },
+    select: { id: true, sidebar_hidden: true },
   });
-  if (existingProject) return existingProject.id;
+  if (existingProject) {
+    if (!existingProject.sidebar_hidden) {
+      await db.project.update({ where: { id: existingProject.id }, data: { sidebar_hidden: true } });
+    }
+    return existingProject.id;
+  }
 
   if (projectName !== legacyProjectName) {
     const legacyProject = await db.project.findFirst({
@@ -902,7 +914,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     if (legacyProject) {
       const renamedProject = await db.project.update({
         where: { id: legacyProject.id },
-        data: { name: projectName },
+      data: { name: projectName, sidebar_hidden: true },
         select: { id: true },
       });
       return renamedProject.id;
@@ -917,6 +929,7 @@ export async function resolveMarketingB2COnboardingProjectId(
       folder_id: clientFolder.id,
       company_id: input.companyId,
       name: projectName,
+      sidebar_hidden: true,
       description:
         "Marketing B2C onboarding form and execution tasks for this client.",
     },
@@ -946,6 +959,7 @@ async function resolveDepartmentClientOnboardingProjectId(
     name: input.rootFolderName,
     parentId: null,
     icon: "folder",
+    sidebarHidden: true,
   });
   const clientFolder = await ensureFolder(db, {
     workspaceId: input.workspaceId,
@@ -954,6 +968,7 @@ async function resolveDepartmentClientOnboardingProjectId(
     name: input.companyName,
     parentId: onboardingFolder.id,
     icon: "folder",
+    sidebarHidden: true,
   });
 
   const projectName = input.companyName.trim() || input.fallbackProjectName;
@@ -965,9 +980,14 @@ async function resolveDepartmentClientOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true },
+    select: { id: true, sidebar_hidden: true },
   });
-  if (existingProject) return existingProject.id;
+  if (existingProject) {
+    if (!existingProject.sidebar_hidden) {
+      await db.project.update({ where: { id: existingProject.id }, data: { sidebar_hidden: true } });
+    }
+    return existingProject.id;
+  }
 
   const createdProject = await db.project.create({
     data: {
@@ -977,6 +997,7 @@ async function resolveDepartmentClientOnboardingProjectId(
       folder_id: clientFolder.id,
       company_id: input.companyId,
       name: projectName,
+      sidebar_hidden: true,
       description: input.description,
     },
     select: { id: true },

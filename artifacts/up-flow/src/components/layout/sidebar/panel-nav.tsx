@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronsUp, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ interface PanelNavProps {
   onCreateSpace: () => void;
   onCollapseAll: () => void;
   canManageWorkspace: boolean;
+  pinnedContent?: ReactNode;
 }
 
 export function PanelNav({
@@ -20,6 +22,7 @@ export function PanelNav({
   onCreateSpace,
   onCollapseAll,
   canManageWorkspace,
+  pinnedContent,
 }: PanelNavProps) {
   const { t } = useLanguage();
   return (
@@ -67,6 +70,7 @@ export function PanelNav({
           );
         })}
       </nav>
+      {pinnedContent ? <div className="px-2 pb-2">{pinnedContent}</div> : null}
       <div className="mx-3 border-t border-blue-300/10" />
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
         <div>

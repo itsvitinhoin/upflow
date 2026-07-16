@@ -26,6 +26,7 @@ export interface Project {
   folder_id?: string | null;
   company_id?: string | null;
   onboarding_enabled?: boolean;
+  sidebar_hidden?: boolean;
   closing_date?: string | null;
   onboarding_start_date?: string | null;
   responsible_salesperson_id?: string | null;
@@ -66,6 +67,7 @@ export interface Folder {
   owner_id: string;
   parent_id?: string | null;
   position: number;
+  sidebar_hidden?: boolean;
   created_at: string;
   _count?: { projects: number };
   children?: Folder[];
@@ -466,6 +468,19 @@ export interface Company {
   calendar_events?: CalendarEvent[];
   activity_events?: ActivityEvent[];
   client_onboardings?: ClientOnboarding[];
+}
+
+export interface SidebarPinnedClient {
+  id: string;
+  company_id: string;
+  position: number;
+  company: {
+    id: string;
+    name: string;
+    status: string;
+    commercial_status: string | null;
+    plan_name: string | null;
+  };
 }
 
 export interface ClientOnboarding {

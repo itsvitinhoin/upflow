@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import Link from "next/link";
 import {
@@ -18,17 +18,21 @@ import {
   Palette,
   RefreshCcw,
   Rocket,
+  Search,
   UserRound,
   Users,
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
+import ClientPinButton from "@/components/clients/client-pin-button";
 import { onboardingTitleLabel } from "@/lib/onboarding-labels";
 import type { AppUser, ClientOnboarding, OnboardingChecklistItem } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
 type QueueView = "all" | "mine" | "blocked" | "due_week" | "missing_mapping";
+type QueueLifecycle = "active" | "completed";
 type OnboardingResponse = { items?: ClientOnboarding[] };
+type PinnedClientsResponse = { items?: Array<{ company_id: string }> };
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
 const VIEWS: Array<{ key: QueueView; labelKey: string }> = [
@@ -131,29 +135,51 @@ export default function OnboardingQueuePage() {
   const [items, setItems] = useState<ClientOnboarding[]>([]);
   const [user, setUser] = useState<AppUser | null>(null);
   const [view, setView] = useState<QueueView>("all");
+  const [lifecycle, setLifecycle] = useState<QueueLifecycle>("active");
+  const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
+  const [pinnedCompanyIds, setPinnedCompanyIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [onboardingRes, meRes] = await Promise.all([fetch("/api/onboarding"), fetch("/api/auth/me")]);
+      const params = new URLSearchParams({ lifecycle });
+      if (deferredQuery.trim()) params.set("q", deferredQuery.trim());
+      const [onboardingRes, meRes, pinsRes] = await Promise.all([
+        fetch(`/api/onboarding?${params.toString()}`),
+        fetch("/api/auth/me"),
+        fetch("/api/sidebar-pins"),
+      ]);
       if (!onboardingRes.ok) throw new Error(t("onboardingQueue.loadFailed"));
       const payload = (await onboardingRes.json()) as OnboardingResponse;
       setItems(payload.items ?? []);
       if (meRes.ok) setUser((await meRes.json()) as AppUser);
+      if (pinsRes.ok) {
+        const pins = (await pinsRes.json()) as PinnedClientsResponse;
+        setPinnedCompanyIds(new Set((pins.items ?? []).map((pin) => pin.company_id)));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("onboardingQueue.loadFailed"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [deferredQuery, lifecycle, t]);
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load]);
+
+  const handlePinnedChange = (companyId: string, pinned: boolean) => {
+    setPinnedCompanyIds((current) => {
+      const next = new Set(current);
+      if (pinned) next.add(companyId);
+      else next.delete(companyId);
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
     if (view === "mine") return items.filter((item) => belongsToMe(item, user?.id ?? null));
@@ -174,9 +200,38 @@ export default function OnboardingQueuePage() {
               <h2 className="mt-2 text-2xl font-black text-foreground dark:text-white">{t("onboardingQueue.title")}</h2>
               <p className="mt-1 max-w-3xl text-sm text-muted-foreground dark:text-slate-400">{t("onboardingQueue.subtitle")}</p>
             </div>
-            <button type="button" onClick={load} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground transition hover:border-blue-400/60 hover:bg-accent dark:border-blue-300/20 dark:bg-slate-950/50 dark:text-slate-100">
+            <button type="button" onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 py-2 text-sm font-bold text-foreground transition hover:border-blue-400/60 hover:bg-accent dark:border-blue-300/20 dark:bg-slate-950/50 dark:text-slate-100">
               <RefreshCcw className="h-4 w-4" /> {t("common.refresh")}
             </button>
+          </div>
+          <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="inline-flex w-fit rounded-xl border border-border bg-background p-1 dark:border-slate-800 dark:bg-slate-950/40">
+              {(["active", "completed"] as QueueLifecycle[]).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setLifecycle(value)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-bold transition",
+                    lifecycle === value
+                      ? "bg-blue-600 text-primary-foreground dark:bg-blue-500/25"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground dark:text-slate-400 dark:hover:text-white",
+                  )}
+                >
+                  {t(`onboardingQueue.lifecycle.${value}`)}
+                </button>
+              ))}
+            </div>
+            <label className="relative block w-full lg:max-w-md">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("onboardingQueue.searchPlaceholder")}
+                className="h-10 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/15 dark:border-slate-800 dark:bg-slate-950/40"
+              />
+            </label>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {VIEWS.map((preset) => (
@@ -211,7 +266,16 @@ export default function OnboardingQueuePage() {
           </section>
         ) : (
           <section className="space-y-5">
-            {filtered.map((item) => <ReadinessBoard key={item.id} item={item} t={t} locale={locale} />)}
+            {filtered.map((item) => (
+              <ReadinessBoard
+                key={item.id}
+                item={item}
+                t={t}
+                locale={locale}
+                pinned={pinnedCompanyIds.has(item.company_id)}
+                onPinnedChange={handlePinnedChange}
+              />
+            ))}
           </section>
         )}
       </main>
@@ -219,7 +283,19 @@ export default function OnboardingQueuePage() {
   );
 }
 
-function ReadinessBoard({ item, t, locale }: { item: ClientOnboarding; t: Translate; locale: string }) {
+function ReadinessBoard({
+  item,
+  t,
+  locale,
+  pinned,
+  onPinnedChange,
+}: {
+  item: ClientOnboarding;
+  t: Translate;
+  locale: string;
+  pinned: boolean;
+  onPinnedChange: (companyId: string, pinned: boolean) => void;
+}) {
   const next = nextAction(item);
   const itemBlockers = blockers(item, t);
   const completeSteps = (item.checklist_items ?? []).filter((check) => check.status === "complete").length;
@@ -260,6 +336,12 @@ function ReadinessBoard({ item, t, locale }: { item: ClientOnboarding; t: Transl
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+              <ClientPinButton
+                companyId={item.company_id}
+                companyName={item.company?.name ?? t("clients.unknownClient")}
+                pinned={pinned}
+                onPinnedChange={onPinnedChange}
+              />
               <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 hover:bg-accent dark:border-slate-700 dark:bg-transparent dark:text-slate-200">
                 <FileText className="h-4 w-4" /> {t("onboardingBoard.editClient")}
               </Link>

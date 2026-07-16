@@ -43,9 +43,15 @@ async function GET_handler(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const includeHiddenChildren = folder.sidebar_hidden;
+
   const [projects, allFolders] = await Promise.all([
     prisma.project.findMany({
-      where: { folder_id: folder.id, workspace_id: folder.workspace_id },
+      where: {
+        folder_id: folder.id,
+        workspace_id: folder.workspace_id,
+        ...(includeHiddenChildren ? {} : { sidebar_hidden: false }),
+      },
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       select: {
         id: true,
@@ -53,7 +59,11 @@ async function GET_handler(
       },
     }),
     prisma.folder.findMany({
-      where: { workspace_id: folder.workspace_id, space_id: folder.space_id },
+      where: {
+        workspace_id: folder.workspace_id,
+        space_id: folder.space_id,
+        ...(includeHiddenChildren ? {} : { sidebar_hidden: false }),
+      },
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
       include: { _count: { select: { projects: true } } },
     }),
