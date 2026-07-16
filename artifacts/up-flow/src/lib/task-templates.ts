@@ -25,6 +25,7 @@ export interface TaskTemplate {
 }
 
 export type TaskTemplateLocale = "en" | "pt-BR";
+export type TaskTemplateTranslator = (key: string) => string;
 
 export const TASK_TEMPLATES: TaskTemplate[] = [
   {
@@ -337,29 +338,73 @@ export function getLocalizedTaskTemplate(
   };
 }
 
-const TASK_TITLE_FIELD_PRIORITY = [
-  "objective",
-  "deliverable",
-  "asset_type",
-  "target_account",
-  "product",
-  "lead_company",
-  "client",
-  "request_type",
-  "issue_type",
-  "offer",
-  "campaign",
-  "task",
-  "title",
-] as const;
+function localizedTemplateCopy(
+  translate: TaskTemplateTranslator | null | undefined,
+  key: string,
+  fallback: string,
+) {
+  if (!translate) return fallback;
+  const value = translate(key);
+  return value === key ? fallback : value;
+}
 
-export function getTaskTitleFromTemplateValues(values: Record<string, string>) {
-  for (const key of TASK_TITLE_FIELD_PRIORITY) {
-    const value = values[key]?.trim();
-    if (value) return value;
-  }
+export function localizeTaskTemplateLabel(
+  translate: TaskTemplateTranslator | null | undefined,
+  template: Pick<TaskTemplate, "id" | "label">,
+) {
+  return localizedTemplateCopy(
+    translate,
+    `taskTemplate.${template.id}.label`,
+    template.label,
+  );
+}
 
-  return Object.values(values).find((value) => value.trim().length > 0)?.trim() ?? "";
+export function localizeTaskTemplateDescription(
+  translate: TaskTemplateTranslator | null | undefined,
+  template: Pick<TaskTemplate, "id" | "description">,
+) {
+  return localizedTemplateCopy(
+    translate,
+    `taskTemplate.${template.id}.description`,
+    template.description,
+  );
+}
+
+export function localizeTaskTemplateFieldLabel(
+  translate: TaskTemplateTranslator | null | undefined,
+  templateId: TaskTemplateId,
+  field: Pick<TaskTemplateField, "key" | "label">,
+) {
+  return localizedTemplateCopy(
+    translate,
+    `taskTemplate.${templateId}.field.${field.key}.label`,
+    field.label,
+  );
+}
+
+export function localizeTaskTemplateFieldPlaceholder(
+  translate: TaskTemplateTranslator | null | undefined,
+  templateId: TaskTemplateId,
+  field: Pick<TaskTemplateField, "key" | "placeholder">,
+) {
+  return localizedTemplateCopy(
+    translate,
+    `taskTemplate.${templateId}.field.${field.key}.placeholder`,
+    field.placeholder,
+  );
+}
+
+export function localizeTaskTemplateChecklistItem(
+  translate: TaskTemplateTranslator | null | undefined,
+  templateId: TaskTemplateId,
+  item: string,
+  index: number,
+) {
+  return localizedTemplateCopy(
+    translate,
+    `taskTemplate.${templateId}.checklist.${index}`,
+    item,
+  );
 }
 
 export function buildTaskBrief(input: {
@@ -367,29 +412,60 @@ export function buildTaskBrief(input: {
   values: Record<string, string>;
   notes?: string | null;
   locale?: TaskTemplateLocale;
+  translate?: TaskTemplateTranslator | null;
 }) {
   const locale = input.locale ?? "en";
-  const template = getLocalizedTaskTemplate(input.templateId, locale);
+  const template = input.translate
+    ? getTaskTemplate(input.templateId)
+    : getLocalizedTaskTemplate(input.templateId, locale);
   const briefCopy = TASK_BRIEF_COPY[locale];
+  const typeLabel = localizedTemplateCopy(
+    input.translate,
+    "taskTemplate.brief.type",
+    briefCopy.type,
+  );
+  const detailsLabel = localizedTemplateCopy(
+    input.translate,
+    "taskTemplate.brief.details",
+    briefCopy.details,
+  );
+  const notesLabel = localizedTemplateCopy(
+    input.translate,
+    "taskTemplate.brief.notes",
+    briefCopy.notes,
+  );
+  const checklistLabel = localizedTemplateCopy(
+    input.translate,
+    "taskTemplate.brief.checklist",
+    briefCopy.suggestedChecklist,
+  );
   const lines = [
     "## UP Flow Task Brief",
-    `${briefCopy.type}: ${template.label}`,
+    `${typeLabel}: ${localizeTaskTemplateLabel(input.translate, template)}`,
     "",
-    `### ${briefCopy.details}`,
+    `### ${detailsLabel}`,
   ];
 
   for (const field of template.fields) {
     const value = input.values[field.key]?.trim();
-    if (value) lines.push(`- ${field.label}: ${value}`);
+    if (value) {
+      lines.push(
+        `- ${localizeTaskTemplateFieldLabel(input.translate, template.id, field)}: ${value}`,
+      );
+    }
   }
 
   if (input.notes?.trim()) {
-    lines.push("", `### ${briefCopy.notes}`, input.notes.trim());
+    lines.push("", `### ${notesLabel}`, input.notes.trim());
   }
 
   if (template.checklist.length > 0) {
-    lines.push("", `### ${briefCopy.suggestedChecklist}`);
-    for (const item of template.checklist) lines.push(`- [ ] ${item}`);
+    lines.push("", `### ${checklistLabel}`);
+    template.checklist.forEach((item, index) => {
+      lines.push(
+        `- [ ] ${localizeTaskTemplateChecklistItem(input.translate, template.id, item, index)}`,
+      );
+    });
   }
 
   return lines.join("\n").trim();

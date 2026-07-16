@@ -10,7 +10,7 @@ import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, Chevro
 import { appDateKey, appTimeInputValue, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
-import NewTaskDialog from "@/components/projects/new-task-dialog";
+import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import { useLanguage } from "@/components/language-provider";
 import { useAppUser } from "@/components/user-provider";
 
@@ -866,7 +866,7 @@ export default function CalendarPage() {
         }}
       />
 
-      <NewTaskDialog
+      <TaskCreateSheet
         open={showNewTask}
         onClose={() => setShowNewTask(false)}
         onCreated={() => {

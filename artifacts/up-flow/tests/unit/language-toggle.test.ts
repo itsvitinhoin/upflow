@@ -46,13 +46,12 @@ test("dashboard and project task surfaces use translation keys", () => {
   const taskFocusPanels = read("src/components/dashboard/task-focus-panels.tsx");
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
-  const taskDialog = read("src/components/projects/new-task-dialog.tsx");
-  const taskPanel = read("src/components/projects/create-task-panel.tsx");
+  const taskSheet = read("src/components/projects/task-create-sheet.tsx");
   const taskTemplates = read("src/components/projects/task-template-fields.tsx");
 
   assert.match(translations, /"dashboard\.commandCenter": "Centro de Operações da Agência"/);
   assert.match(translations, /"toolbar\.board": "Quadro"/);
-  assert.match(translations, /"task\.createTask": "Criar entrega"/);
+  assert.match(translations, /"task\.createTask": "Criar tarefa"/);
   assert.match(translations, /"taskTemplate\.creative\.label": "Criativo \/ Design"/);
   assert.match(translations, /"taskTemplate\.technical_support\.label": "Suporte técnico"/);
   assert.match(dashboard, /t\("dashboard\.commandCenter"\)/);
@@ -60,8 +59,8 @@ test("dashboard and project task surfaces use translation keys", () => {
   assert.match(projectPage, /t\("projects\.addTask"\)/);
   assert.match(toolbar, /t\("toolbar\.board"\)/);
   assert.match(toolbar, /t\("toolbar\.searchTasks"\)/);
-  assert.match(taskDialog, /t\("task\.createTask"\)/);
-  assert.match(taskPanel, /t\("task\.boardCoverImage"\)/);
+  assert.match(taskSheet, /t\("task\.createTask"\)/);
+  assert.match(taskSheet, /t\("task\.detailsCover"\)/);
   assert.match(taskTemplates, /t\("taskTemplate\.type"\)/);
 });
 

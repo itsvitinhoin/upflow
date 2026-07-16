@@ -328,20 +328,15 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await dueInput.blur();
     await p;
 
-    // 4b) Assignee select → first non-empty option. The task-detail-sheet
-    // assignee <select> is the one whose first option is the empty
-    // "Unassigned" string. We pick the SEEDED admin by value (user id).
-    const assigneeSelect = page
-      .locator("select")
-      .filter({ has: page.locator('option[value=""]') })
+    // 4b) Searchable assignee combobox → first active member.
+    const assigneeCombobox = page
+      .getByRole("combobox", { name: /Assignee:/i })
       .first();
-    const firstUserValue = await assigneeSelect
-      .locator("option")
-      .nth(1)
-      .getAttribute("value");
-    if (firstUserValue) {
+    await assigneeCombobox.click();
+    const firstActiveMember = page.getByRole("option").first();
+    if (await firstActiveMember.count()) {
       p = awaitTaskPatch();
-      await assigneeSelect.selectOption(firstUserValue);
+      await firstActiveMember.click();
       await p;
     }
 

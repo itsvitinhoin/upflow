@@ -1,3 +1,7 @@
+"use client";
+
+import { useLanguage } from "@/components/language-provider";
+
 /**
  * Dashboard-segment loader. Renders *inside* the dashboard layout so the
  * sidebar/header stay mounted while the page-level RSC stream is in
@@ -26,6 +30,3 @@ export default function DashboardLoading() {
     </div>
   );
 }
-"use client";
-
-import { useLanguage } from "@/components/language-provider";

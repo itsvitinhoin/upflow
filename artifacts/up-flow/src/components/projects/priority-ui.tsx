@@ -58,13 +58,15 @@ export function PriorityPicker({
   value,
   onChange,
   t,
+  compact = false,
 }: {
   value: TaskPriority;
   onChange: (priority: TaskPriority) => void;
   t: Translate;
+  compact?: boolean;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className={cn("grid gap-2", compact ? "grid-cols-3" : "sm:grid-cols-3")}>
       {TASK_PRIORITIES.map((priority) => {
         const selected = value === priority;
 
@@ -75,7 +77,8 @@ export function PriorityPicker({
             onClick={() => onChange(priority)}
             aria-pressed={selected}
             className={cn(
-              "min-h-[70px] rounded-lg border px-3 py-2 text-left transition-all hover:-translate-y-0.5",
+              "rounded-lg border px-3 py-2 text-left transition-all hover:-translate-y-0.5",
+              compact ? "min-h-11" : "min-h-[70px]",
               priorityToneClass(priority),
               selected
                 ? "ring-1 ring-current"
@@ -86,9 +89,11 @@ export function PriorityPicker({
               <Flag className="h-3.5 w-3.5" />
               {priorityLabel(priority, t)}
             </span>
-            <span className="mt-1 block text-[11px] leading-snug opacity-80">
-              {priorityDescription(priority, t)}
-            </span>
+            {!compact && (
+              <span className="mt-1 block text-[11px] leading-snug opacity-80">
+                {priorityDescription(priority, t)}
+              </span>
+            )}
           </button>
         );
       })}

@@ -12,7 +12,7 @@ function source(path: string) {
 test("calendar selected-day panel exposes quick create actions", () => {
   const page = source("src/app/(dashboard)/calendar/page.tsx");
   const scheduleDialog = source("src/components/dashboard/schedule-meeting-dialog.tsx");
-  const taskDialog = source("src/components/projects/new-task-dialog.tsx");
+  const taskSheet = source("src/components/projects/task-create-sheet.tsx");
   const translations = source("src/lib/i18n/translations.ts");
 
   assert.match(page, /quickCreateOpen/);
@@ -21,14 +21,14 @@ test("calendar selected-day panel exposes quick create actions", () => {
   assert.match(page, /openSchedule\("meeting"\)/);
   assert.match(page, /openSchedule\("reminder"\)/);
   assert.match(page, /openTaskDialog/);
-  assert.match(page, /<NewTaskDialog/);
+  assert.match(page, /<TaskCreateSheet/);
   assert.match(page, /defaultDueDate=\{appDateKey\(selected\)\}/);
 
   assert.match(scheduleDialog, /defaultType = "meeting"/);
   assert.match(scheduleDialog, /const resolvedType = roomBooking \? "meeting" : eventType/);
   assert.match(scheduleDialog, /type: resolvedType/);
   assert.match(scheduleDialog, /calendar\.eventScheduled/);
-  assert.match(taskDialog, /defaultDueDate\?: string/);
+  assert.match(taskSheet, /defaultDueDate\?: string/);
 
   assert.match(translations, /"calendar.quickMeeting"/);
   assert.match(translations, /"calendar.quickCreateShort"/);

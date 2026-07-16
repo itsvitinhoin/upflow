@@ -42,7 +42,7 @@ import {
   getInitials,
   mergeAppDateAndTime,
 } from "@/lib/utils";
-import NewTaskDialog from "@/components/projects/new-task-dialog";
+import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import InviteDialog from "@/components/dashboard/invite-dialog";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
@@ -609,13 +609,12 @@ export default function DashboardPage() {
       </main>
 
       {showNewTask && (
-        <NewTaskDialog
+        <TaskCreateSheet
           open={showNewTask}
           onClose={() => setShowNewTask(false)}
           onCreated={() => {
             setShowNewTask(false);
             loadData();
-            toast.success(t("dashboard.taskCreated"));
           }}
         />
       )}

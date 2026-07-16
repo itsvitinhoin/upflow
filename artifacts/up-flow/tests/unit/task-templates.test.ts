@@ -6,6 +6,7 @@ import {
   parseTaskBrief,
   TASK_TEMPLATES,
 } from "../../src/lib/task-templates";
+import { taskTemplateTranslationEntries } from "../../src/lib/i18n/task-template-translations";
 
 test("task templates cover agency departments and marketing modes", () => {
   const ids = new Set(TASK_TEMPLATES.map((template) => template.id));
@@ -65,4 +66,29 @@ test("Portuguese task templates localize fields and structured task briefs", () 
   assert.match(brief, /^Tipo: Tarefa geral/m);
   assert.deepEqual(parsed?.details, [{ label: "Objetivo", value: "Preparar a proposta" }]);
   assert.ok((parsed?.checklist ?? []).includes("Confirmar responsável"));
+});
+
+test("task template fields, checklist, and structured brief localize without changing identifiers", () => {
+  const copy = taskTemplateTranslationEntries("pt-BR");
+  const translate = (key: string) => copy[key] ?? key;
+  const brief = buildTaskBrief({
+    templateId: "commercial",
+    values: {
+      lead_company: "Acme",
+      deal_stage: "Proposta",
+    },
+    notes: "Retornar após a reunião.",
+    translate,
+  });
+
+  const parsed = parseTaskBrief(brief);
+  assert.equal(parsed?.type, "Comercial");
+  assert.deepEqual(parsed?.details.slice(0, 2), [
+    { label: "Lead / empresa", value: "Acme" },
+    { label: "Etapa da negociação", value: "Proposta" },
+  ]);
+  assert.match(brief, /### Checklist sugerido/);
+  assert.match(brief, /Lead qualificado/);
+  assert.ok(copy["taskTemplate.commercial.field.lead_company.placeholder"]);
+  assert.equal(TASK_TEMPLATES.find((template) => template.id === "commercial")?.id, "commercial");
 });

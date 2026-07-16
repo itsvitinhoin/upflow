@@ -17,7 +17,7 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   const uploadRoute = read("src/app/api/uploads/task-cover/route.ts");
   const board = read("src/components/projects/kanban-board.tsx");
   const sheet = read("src/components/projects/task-detail-sheet.tsx");
-  const createPanel = read("src/components/projects/create-task-panel.tsx");
+  const taskCreator = read("src/components/projects/task-create-sheet.tsx");
   const control = read("src/components/projects/task-cover-image-control.tsx");
 
   assert.match(schema, /cover_image_url\s+String\?/);
@@ -35,5 +35,7 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   assert.doesNotMatch(board, /priorityLabel/);
   assert.doesNotMatch(board, /shadow-\[0_0_12px_currentColor\]/);
   assert.match(sheet, /t\("task\.boardCoverImage"\)/);
-  assert.match(createPanel, /TaskCoverImageControl/);
+  assert.match(taskCreator, /TaskCoverImageControl/);
+  assert.match(taskCreator, /compact/);
+  assert.match(control, /compact \? null/);
 });

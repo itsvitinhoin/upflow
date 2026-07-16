@@ -10,7 +10,7 @@ import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
 import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board";
 import ListView from "@/components/projects/list-view";
-import CreateTaskPanel from "@/components/projects/create-task-panel";
+import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import CustomFieldsManager from "@/components/projects/custom-fields-manager";
 import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
@@ -498,14 +498,12 @@ export default function ProjectPage() {
       </div>
 
       {createOpen && (
-        <CreateTaskPanel
+        <TaskCreateSheet
           open={!!createOpen}
           onClose={() => setCreateOpen(null)}
           projectId={id}
           defaultStatus={createOpen.status}
           initialCustomFieldValues={createOpen.fieldValues}
-          customFields={customFields}
-          users={users}
           onCreated={() => {
             setCreateOpen(null);
             loadData();

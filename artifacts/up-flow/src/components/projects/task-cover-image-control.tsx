@@ -9,6 +9,7 @@ interface TaskCoverImageControlProps {
   value: string | null | undefined;
   onChange: (value: string | null) => void | Promise<void>;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 const MAX_IMAGE_BYTES = 2_000_000;
@@ -26,6 +27,7 @@ export default function TaskCoverImageControl({
   value,
   onChange,
   disabled = false,
+  compact = false,
 }: TaskCoverImageControlProps) {
   const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -94,22 +96,23 @@ export default function TaskCoverImageControl({
   return (
     <div className="space-y-3">
       {value ? (
-        <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
+        <div className={compact ? "flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-2" : "overflow-hidden rounded-lg border border-border bg-muted/30"}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
             alt={t("taskCover.alt")}
-            className="aspect-video w-full object-cover"
+            className={compact ? "h-14 w-20 rounded-md object-cover" : "aspect-video w-full object-cover"}
             loading="lazy"
           />
+          {compact && <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">{t("taskCover.alt")}</span>}
         </div>
-      ) : (
+      ) : compact ? null : (
         <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
           {t("taskCover.none")}
         </div>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
           <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input

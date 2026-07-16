@@ -28,7 +28,7 @@ import { useAppUser } from "@/components/user-provider";
 import { FolderDialog, NewListDialog } from "@/components/layout/sidebar/dialogs";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
-import NewTaskDialog from "@/components/projects/new-task-dialog";
+import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import { BrowseTab, ContainerSkeleton, DashboardSkeleton } from "@/components/spaces/space-browser";
 import { CommercialOperationsHub } from "@/components/spaces/commercial-operations-hub";
 import { SpaceDashboardDrawer } from "@/components/spaces/space-dashboard-drawer";
@@ -430,7 +430,7 @@ export default function SpaceContainerPage() {
         }}
       />
 
-      <NewTaskDialog
+      <TaskCreateSheet
         open={showNewTask}
         projectId={firstProjectId ?? undefined}
         defaultTemplateId={dashboard?.department_preset?.default_task_template_id}
@@ -438,7 +438,6 @@ export default function SpaceContainerPage() {
         onCreated={() => {
           setShowNewTask(false);
           loadDashboard({ silent: true });
-          toast.success("Task created");
         }}
       />
 

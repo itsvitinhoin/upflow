@@ -12,12 +12,12 @@ function read(rel: string) {
 test("task assignee pickers are scoped to active workspace members", () => {
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const taskSheet = read("src/components/projects/task-detail-sheet.tsx");
-  const newTaskDialog = read("src/components/projects/new-task-dialog.tsx");
+  const taskCreator = read("src/components/projects/task-create-sheet.tsx");
   const usersRoute = read("src/app/api/users/route.ts");
 
   assert.match(projectPage, /\/api\/users\?workspace_id=\$\{p\.workspace_id\}&status=active/);
   assert.match(taskSheet, /\/api\/users\?workspace_id=\$\{workspaceId\}&status=active/);
-  assert.match(newTaskDialog, /\/api\/users\?workspace_id=\$\{project\.workspace_id\}&status=active/);
+  assert.match(taskCreator, /\/api\/users\?workspace_id=\$\{project\.workspace_id\}&status=active&limit=500/);
   assert.match(usersRoute, /statusFilter/);
   assert.match(usersRoute, /membershipStatus/);
 });
@@ -99,25 +99,20 @@ test("global assistant pop-up listens for assignment broadcasts", () => {
   assert.match(translations, /calendar\.attendees/);
 });
 
-test("task creation dialog prevents duplicate submits and explains project context", () => {
-  const newTaskDialog = read("src/components/projects/new-task-dialog.tsx");
-  const createTaskPanel = read("src/components/projects/create-task-panel.tsx");
-  const taskTemplates = read("src/lib/task-templates.ts");
+test("unified task creator requires an explicit title and prevents duplicate submits", () => {
+  const taskCreator = read("src/components/projects/task-create-sheet.tsx");
 
-  assert.match(taskTemplates, /getTaskTitleFromTemplateValues/);
-  assert.match(taskTemplates, /TASK_TITLE_FIELD_PRIORITY/);
-  assert.match(newTaskDialog, /getTaskTitleFromTemplateValues\(templateValues\)/);
-  assert.match(createTaskPanel, /getTaskTitleFromTemplateValues\(templateValues\)/);
-  assert.match(newTaskDialog, /t\("task\.titleOrObjectiveRequired"\)/);
-  assert.match(createTaskPanel, /t\("task\.titleOrObjectiveRequired"\)/);
-  assert.match(newTaskDialog, /if \(loading\) return/);
-  assert.match(newTaskDialog, /projectSelectionLoading/);
-  assert.doesNotMatch(newTaskDialog, /disabled=\{loading \|\| projectsLoading \|\| !title\.trim\(\) \|\| !selectedProject\}/);
-  assert.match(newTaskDialog, /t\("task\.chooseList"\)/);
-  assert.match(newTaskDialog, /t\("task\.noListsAvailable"\)/);
-  assert.match(newTaskDialog, /t\("task\.createDeliverableSubtitle"\)/);
-  assert.match(newTaskDialog, /projectsLoading/);
-  assert.match(createTaskPanel, /if \(submitting\) return/);
-  assert.match(createTaskPanel, /disabled=\{submitting\}/);
-  assert.doesNotMatch(createTaskPanel, /disabled=\{submitting \|\| !title\.trim\(\)\}/);
+  assert.match(taskCreator, /const cleanTitle = title\.trim\(\)/);
+  assert.doesNotMatch(taskCreator, /getTaskTitleFromTemplateValues/);
+  assert.match(taskCreator, /setTitleError\(t\("task\.titleRequired"\)\)/);
+  assert.match(taskCreator, /if \(submitting\) return/);
+  assert.match(taskCreator, /projectsLoading/);
+  assert.match(taskCreator, /t\("task\.projectRequired"\)/);
+  assert.match(taskCreator, /t\("task\.noListsAvailable"\)/);
+  assert.match(taskCreator, /defaultStatus\?: Task\["status"\]/);
+  assert.match(taskCreator, /defaultTemplateId\?: TaskTemplateId/);
+  assert.match(taskCreator, /defaultDueDate\?: string/);
+  assert.match(taskCreator, /initialCustomFieldValues\?: Record<string, unknown>/);
+  assert.match(taskCreator, /onCreated: \(task: Task\) => void/);
+  assert.match(taskCreator, /setDiscardOpen\(true\)/);
 });

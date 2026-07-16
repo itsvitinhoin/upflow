@@ -48,9 +48,9 @@ test.describe("Dashboard quick actions and task rows", () => {
 
     // New Task
     await openQuickCreate(page, "Task");
-    await expect(page.getByRole("dialog", { name: "New Task" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Create task" })).toBeVisible();
     await page
-      .getByRole("dialog", { name: "New Task" })
+      .getByRole("dialog", { name: "Create task" })
       .getByRole("button", { name: "Cancel" })
       .click();
 
@@ -325,10 +325,10 @@ test.describe("Dashboard quick actions and task rows", () => {
     // The progress widget's button is `+ New Task` (with leading icon). The
     // header's button is "+ New Project". Disambiguate by exact name match.
     await page
-      .getByRole("button", { name: /^New deliverable$/ })
+      .getByRole("button", { name: /^New task$/ })
       .first()
       .click();
-    await expect(page.getByRole("dialog", { name: "New Task" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Create task" })).toBeVisible();
 
     await ctx.close();
   });
@@ -345,13 +345,13 @@ test.describe("Dashboard quick actions and task rows", () => {
     const page = await ctx.newPage();
     await page.goto("/");
     await openQuickCreate(page, "Task");
-    const dlg = page.getByRole("dialog", { name: "New Task" });
+    const dlg = page.getByRole("dialog", { name: "Create task" });
     await expect(dlg).toBeVisible();
 
     const taskTitle = uniq("DashTask");
     await dlg
       .getByPlaceholder(
-        "Example: Approve Meta Ads creative set, or fill Objective below",
+        "Example: Approve the Meta Ads creative set",
       )
       .fill(taskTitle);
     // The dialog has a "Project *" select — pick our seeded project.
@@ -364,9 +364,47 @@ test.describe("Dashboard quick actions and task rows", () => {
         r.request().method() === "POST" &&
         r.ok(),
     );
-    await dlg.getByRole("button", { name: /Create deliverable/i }).click();
+    await dlg.getByRole("button", { name: /Create task/i }).click();
     await post;
     await expect(dlg).toBeHidden({ timeout: 10_000 });
+
+    await ctx.close();
+  });
+
+  test("quick-first task creator validates inline, preserves collapsed details, and protects drafts", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.goto("/");
+    await openQuickCreate(page, "Task");
+
+    const creator = page.getByRole("dialog", { name: "Create task" });
+    await creator.getByRole("button", { name: "Create task" }).click();
+    await expect(creator.getByText("Title is required", { exact: true })).toBeVisible();
+    await expect(creator.getByText("Choose a destination list.", { exact: true })).toBeVisible();
+
+    await creator.getByLabel("Task title").fill("Review launch brief");
+    await creator.getByText("Template details", { exact: true }).click();
+    const objective = creator.getByLabel("Objective");
+    await objective.fill("Confirm the launch is ready");
+    await creator.getByText("Template details", { exact: true }).click();
+    await creator.getByText("Template details", { exact: true }).click();
+    await expect(objective).toHaveValue("Confirm the launch is ready");
+
+    await page.keyboard.press("Escape");
+    const discard = page.getByRole("dialog", { name: "Discard this task?" });
+    await expect(discard).toBeVisible();
+    await discard.getByRole("button", { name: "Keep editing" }).click();
+    await expect(creator).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("dialog", { name: "Discard this task?" })
+      .getByRole("button", { name: "Discard task" })
+      .click();
+    await expect(creator).toBeHidden();
 
     await ctx.close();
   });
