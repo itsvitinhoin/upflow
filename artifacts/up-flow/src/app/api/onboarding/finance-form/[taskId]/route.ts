@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import { loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
+import { isFinanceOnboardingFormLocation } from "@/lib/onboarding-routing";
 import { canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -77,7 +78,15 @@ async function loadFinanceTask(taskId: string) {
       task: {
         include: {
           assignee: { select: { id: true, name: true, email: true } },
-          project: { select: { id: true, name: true, workspace_id: true, owner_id: true } },
+          project: {
+            select: {
+              id: true,
+              name: true,
+              workspace_id: true,
+              owner_id: true,
+              space: { select: { id: true, name: true } },
+            },
+          },
         },
       },
       onboarding: {
@@ -162,6 +171,21 @@ async function getAccess(taskId: string) {
   const onboardingAccess = await loadOnboardingAccess(auth, item.onboarding_id);
   if (!onboardingAccess) {
     return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  if (
+    !isFinanceOnboardingFormLocation({
+      checklistDepartment: item.department,
+      projectSpaceName: item.task.project.space?.name,
+    })
+  ) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { error: "Finance onboarding forms are only available from the Finance space." },
+        { status: 409 },
+      ),
+    };
   }
 
   const canEdit = Boolean(

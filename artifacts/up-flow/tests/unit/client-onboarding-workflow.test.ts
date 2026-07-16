@@ -73,6 +73,15 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(helper, /projectName: "Client Channels"/);
   assert.match(helper, /projectName: "Service Onboarding"/);
   assert.doesNotMatch(helper, /Onboarding - /);
+  assert.match(helper, /const financeProjectId = await resolveFinanceOnboardingProjectId/);
+  assert.match(
+    helper,
+    /const financeTask = await createTask\(\{[\s\S]*?project_id: financeProjectId,[\s\S]*?route: "finance"/,
+  );
+  assert.match(
+    helper,
+    /const contractTask = await createTask\(\{[\s\S]*?project_id: financeProjectId,[\s\S]*?route: "finance"/,
+  );
 
   assert.match(helper, /status: needsMapping \? "needs_mapping" : "assigned"/);
   assert.match(helper, /missingMappings/);

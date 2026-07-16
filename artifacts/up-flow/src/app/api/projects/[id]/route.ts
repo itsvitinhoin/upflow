@@ -46,6 +46,7 @@ async function GET_handler(
     where: { id: params.id },
     include: {
       owner: { select: { id: true, name: true, email: true } },
+      space: { select: { id: true, name: true, icon: true } },
       _count: { select: { tasks: true, docs: true } },
     },
   });

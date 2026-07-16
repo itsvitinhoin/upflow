@@ -1,4 +1,5 @@
 import type { Task, TaskOnboardingFormKind } from "@/lib/types";
+import { routeForOnboardingChecklistItem } from "@/lib/onboarding-routing";
 
 const UP_ZERO_CONFIGURATION_AUTOMATION_KEY = "up_zero_website_configuration";
 const UP_ZERO_CONFIGURATION_TASK_TITLE = "configure up zero website";
@@ -13,7 +14,6 @@ function taskSearchText(task: Task) {
   return [
     task.title,
     task.description,
-    task.project?.name,
     task.onboarding_link?.department,
     task.onboarding_link?.title,
     task.onboarding_link?.company_name,
@@ -24,6 +24,12 @@ function taskSearchText(task: Task) {
 }
 
 function isFinanceOnboardingTask(task: Task) {
+  if (task.onboarding_link) {
+    return routeForOnboardingChecklistItem({
+      department: task.onboarding_link.department,
+    }) === "finance";
+  }
+
   const text = taskSearchText(task);
   return (
     text.includes("finance") ||
@@ -31,9 +37,7 @@ function isFinanceOnboardingTask(task: Task) {
     text.includes("cadastro financeiro") ||
     text.includes("billing") ||
     text.includes("faturamento") ||
-    text.includes("company registration") ||
-    text.includes("contract") ||
-    text.includes("contrato")
+    text.includes("company registration")
   );
 }
 

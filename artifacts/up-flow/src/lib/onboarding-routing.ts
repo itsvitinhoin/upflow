@@ -116,3 +116,17 @@ export function routeForOnboardingChecklistItem(input: {
 
   return routeForService(combined);
 }
+
+export function isFinanceOnboardingSpace(value: string | null | undefined) {
+  return routeForResponsibleDepartment(value) === "finance";
+}
+
+export function isFinanceOnboardingFormLocation(input: {
+  checklistDepartment: string | null | undefined;
+  projectSpaceName: string | null | undefined;
+}) {
+  return Boolean(
+    routeForOnboardingChecklistItem({ department: input.checklistDepartment }) === "finance" &&
+      isFinanceOnboardingSpace(input.projectSpaceName),
+  );
+}

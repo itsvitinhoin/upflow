@@ -3,7 +3,7 @@ import type { TaskOnboardingAction, TaskOnboardingLink } from "@/lib/types";
 
 type RawOnboardingChecklistLink = {
   id: string;
-  task_id: string | null;
+  task_id?: string | null;
   onboarding_id: string;
   department: string;
   title: string;

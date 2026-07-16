@@ -16,6 +16,7 @@ import ProjectToolbar, { type ToolbarState } from "@/components/projects/project
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
 import { getOnboardingTaskAction, workflowFormKind } from "@/lib/onboarding-task-routing";
+import { isFinanceOnboardingSpace } from "@/lib/onboarding-routing";
 import type {
   AppUser,
   CustomFieldDefinition,
@@ -161,10 +162,15 @@ export default function ProjectPage() {
   }, [tasks]);
 
   const workflowFormTask = useMemo(() => {
+    const formTaskForProject = (task: Task) => {
+      const kind = workflowFormKind(task);
+      if (!kind) return false;
+      return kind !== "finance" || isFinanceOnboardingSpace(project?.space?.name);
+    };
     const focused = focusedTaskId ? tasks.find((task) => task.id === focusedTaskId) : null;
-    if (focused && workflowFormKind(focused)) return focused;
-    return tasks.find((task) => workflowFormKind(task)) ?? null;
-  }, [focusedTaskId, tasks]);
+    if (focused && formTaskForProject(focused)) return focused;
+    return tasks.find(formTaskForProject) ?? null;
+  }, [focusedTaskId, project?.space?.name, tasks]);
   const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
   const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
   const selectedTaskIdSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds]);
