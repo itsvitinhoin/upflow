@@ -17,16 +17,19 @@ const VALID_TYPES: CustomFieldType[] = [
   "people",
 ];
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function GET_handler(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,7 +38,7 @@ async function GET_handler(
   }
 
   const fields = await prisma.customFieldDefinition.findMany({
-    where: { project_id: params.id },
+    where: { project_id: id },
     orderBy: [{ position: "asc" }, { created_at: "asc" }],
   });
   return NextResponse.json(fields);
@@ -43,14 +46,15 @@ async function GET_handler(
 
 async function POST_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -73,14 +77,14 @@ async function POST_handler(
   }
 
   const last = await prisma.customFieldDefinition.findFirst({
-    where: { project_id: params.id },
+    where: { project_id: id },
     orderBy: { position: "desc" },
     select: { position: true },
   });
 
   const created = await prisma.customFieldDefinition.create({
     data: {
-      project_id: params.id,
+      project_id: id,
       name,
       type: body.type,
       options:

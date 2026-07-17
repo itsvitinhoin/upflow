@@ -5,17 +5,20 @@ import { ensureDepartmentSpaces, getDepartmentSpacePreset } from "@/lib/departme
 import { prisma } from "@/lib/prisma";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function POST_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
   const space = await prisma.space.findFirst({
-    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    where: { id, workspace_id: auth.currentWorkspaceId },
     select: { id: true, name: true, workspace_id: true },
   });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });

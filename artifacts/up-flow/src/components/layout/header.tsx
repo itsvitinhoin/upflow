@@ -341,13 +341,15 @@ export default function Header({ title }: HeaderProps) {
   };
 
   const handleSearch = useCallback(
-    (e: React.FormEvent) => {
+    (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
-      if (search.trim()) {
-        router.push(`/search?q=${encodeURIComponent(search.trim())}`);
+      const query = new FormData(e.currentTarget).get("q");
+      const normalizedQuery = typeof query === "string" ? query.trim() : "";
+      if (normalizedQuery) {
+        router.push(`/search?q=${encodeURIComponent(normalizedQuery)}`);
       }
     },
-    [search, router]
+    [router]
   );
 
   const assistantContext = assistantNotification

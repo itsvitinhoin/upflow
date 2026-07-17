@@ -70,7 +70,7 @@ export async function openCommandPalette(page: Page): Promise<void> {
   ).toBeVisible({ timeout: 30_000 });
   // Click body first so the keypress isn't swallowed by an input.
   await page.locator("body").click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press("Meta+k");
+  await page.keyboard.press("Control+k");
   // Cmdk renders a dialog with a search input.
   await expect(
     page.getByPlaceholder("Type a command, page, project, or task…"),

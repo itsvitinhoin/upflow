@@ -7,20 +7,23 @@ import {
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
   // Scope to the caller's active workspace — Space must belong to it.
   // Returning a flat 404 (rather than 403) keeps Spaces from other
   // workspaces invisible to the caller.
   const space = await prisma.space.findFirst({
-    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    where: { id, workspace_id: auth.currentWorkspaceId },
     include: {
       workspace: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true, email: true } },
@@ -61,13 +64,14 @@ async function GET_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
-  const space = await prisma.space.findUnique({ where: { id: params.id } });
+  const space = await prisma.space.findUnique({ where: { id } });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -85,7 +89,7 @@ async function PATCH_handler(
     }
   }
   const updated = await prisma.space.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(trimmedName !== undefined && { name: trimmedName }),
       ...(body.icon !== undefined && { icon: body.icon }),
@@ -98,14 +102,15 @@ async function PATCH_handler(
 
 async function DELETE_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
-  const space = await prisma.space.findUnique({ where: { id: params.id } });
+  const space = await prisma.space.findUnique({ where: { id } });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, space.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -114,7 +119,7 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.space.delete({ where: { id: params.id } });
+  await prisma.space.delete({ where: { id } });
   return NextResponse.json({ success: true });
 }
 export const GET = withErrorReporting("api:spaces/id:GET", GET_handler);

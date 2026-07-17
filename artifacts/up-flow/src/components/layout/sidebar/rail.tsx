@@ -127,7 +127,10 @@ export function Rail({
         </Link>
       </div>
 
-      <nav className="flex-1 flex flex-col items-center gap-2 w-full px-1 py-4">
+      <nav
+        data-testid="sidebar-rail-navigation"
+        className="flex-1 flex flex-col items-center gap-2 w-full px-1 py-4"
+      >
         {primaryNav.map(({ href, label, labelKey, icon: Icon }) => {
           const active = isActiveHref(pathname, href);
           const translatedLabel = t(labelKey) || label;

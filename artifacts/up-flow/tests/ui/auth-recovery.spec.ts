@@ -11,7 +11,7 @@ import { requireChromiumOrSkip } from "./_ui-helpers";
 test.describe("Password recovery pages", () => {
   requireChromiumOrSkip();
 
-  test('login shows a "Forgot password?" link that opens /forgot', async ({
+  test('login shows a "Forgot password?" link that opens /auth/forgot', async ({
     browser,
     baseURL,
   }) => {
@@ -23,7 +23,7 @@ test.describe("Password recovery pages", () => {
     await expect(link).toBeVisible();
     await link.click();
 
-    await expect(page).toHaveURL(/\/forgot$/);
+    await expect(page).toHaveURL(/\/auth\/forgot$/);
     await expect(
       page.getByRole("heading", { name: "Forgot password?" }),
     ).toBeVisible();

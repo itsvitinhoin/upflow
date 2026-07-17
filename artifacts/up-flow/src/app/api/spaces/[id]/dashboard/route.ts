@@ -11,21 +11,23 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 export const dynamic = "force-dynamic";
 
 const DASHBOARD_EVIDENCE_LIMIT = 100;
+type RouteContext = { params: Promise<{ id: string }> };
 
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const space = await prisma.space.findFirst({
-    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    where: { id, workspace_id: auth.currentWorkspaceId },
     include: {
       owner: { select: { id: true, name: true, email: true } },
       _count: { select: { projects: true } },

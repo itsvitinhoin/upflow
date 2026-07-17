@@ -244,9 +244,14 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
     timers.current[field] = window.setTimeout(() => void saveField(field), 550);
   };
 
-  const flushField = (field: FieldKey) => {
+  const flushField = (field: FieldKey, value?: string) => {
     if (timers.current[field]) clearTimeout(timers.current[field]);
     delete timers.current[field];
+    if (value !== undefined && valuesRef.current[field] !== value) {
+      const next = { ...valuesRef.current, [field]: value };
+      valuesRef.current = next;
+      setValues(next);
+    }
     void saveField(field);
   };
 
@@ -338,11 +343,11 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
               <SectionTitle title={copy.group} />
               <div className="grid gap-4 md:grid-cols-2">
                 <Field icon={<MessageSquareText className="h-5 w-5" />} label={copy.group_name} saving={savingField === "group_name"} saved={savedField === "group_name"}>
-                  <input value={values.group_name} disabled={!form?.can_edit} onChange={(event) => setField("group_name", event.target.value)} onBlur={() => flushField("group_name")} placeholder={`${form?.company.name ?? "Cliente"} - suporte`} className={fieldInputClassName} />
+                  <input value={values.group_name} disabled={!form?.can_edit} onChange={(event) => setField("group_name", event.target.value)} onBlur={(event) => flushField("group_name", event.currentTarget.value)} placeholder={`${form?.company.name ?? "Cliente"} - suporte`} className={fieldInputClassName} />
                 </Field>
                 <Field icon={<Link2 className="h-5 w-5" />} label={copy.group_link} saving={savingField === "group_link"} saved={savedField === "group_link"}>
                   <div className="flex gap-2">
-                    <input value={values.group_link} disabled={!form?.can_edit} onChange={(event) => setField("group_link", event.target.value)} onBlur={() => flushField("group_link")} placeholder="https://chat.whatsapp.com/..." className={fieldInputClassName} />
+                    <input value={values.group_link} disabled={!form?.can_edit} onChange={(event) => setField("group_link", event.target.value)} onBlur={(event) => flushField("group_link", event.currentTarget.value)} placeholder="https://chat.whatsapp.com/..." className={fieldInputClassName} />
                     {values.group_link ? (
                       <a href={values.group_link} target="_blank" rel="noreferrer" className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:text-blue-500 dark:border-blue-300/[0.15] dark:bg-[#071024]">
                         <ExternalLink className="h-4 w-4" />
@@ -351,7 +356,7 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
                   </div>
                 </Field>
                 <Field icon={<ClipboardCheck className="h-5 w-5" />} label={copy.status} saving={savingField === "status"} saved={savedField === "status"}>
-                  <select value={values.status} disabled={!form?.can_edit} onChange={(event) => setField("status", event.target.value)} onBlur={() => flushField("status")} className={fieldInputClassName}>
+                  <select value={values.status} disabled={!form?.can_edit} onChange={(event) => setField("status", event.target.value)} onBlur={(event) => flushField("status", event.currentTarget.value)} className={fieldInputClassName}>
                     {STATUS_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
                         {isPt ? option.pt : option.en}
@@ -360,28 +365,28 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
                   </select>
                 </Field>
                 <Field icon={<UserRound className="h-5 w-5" />} label={copy.main_client_contact} saving={savingField === "main_client_contact"} saved={savedField === "main_client_contact"}>
-                  <input value={values.main_client_contact} disabled={!form?.can_edit} onChange={(event) => setField("main_client_contact", event.target.value)} onBlur={() => flushField("main_client_contact")} placeholder="cliente@email.com / WhatsApp" className={fieldInputClassName} />
+                  <input value={values.main_client_contact} disabled={!form?.can_edit} onChange={(event) => setField("main_client_contact", event.target.value)} onBlur={(event) => flushField("main_client_contact", event.currentTarget.value)} placeholder="cliente@email.com / WhatsApp" className={fieldInputClassName} />
                 </Field>
               </div>
 
               <SectionTitle title={copy.participants} />
               <div className="grid gap-4 md:grid-cols-2">
                 <Field icon={<UserRound className="h-5 w-5" />} label={copy.commercial_responsible} saving={savingField === "commercial_responsible"} saved={savedField === "commercial_responsible"}>
-                  <input value={values.commercial_responsible} disabled={!form?.can_edit} onChange={(event) => setField("commercial_responsible", event.target.value)} onBlur={() => flushField("commercial_responsible")} placeholder={isPt ? "Nome do comercial" : "Commercial owner"} className={fieldInputClassName} />
+                  <input value={values.commercial_responsible} disabled={!form?.can_edit} onChange={(event) => setField("commercial_responsible", event.target.value)} onBlur={(event) => flushField("commercial_responsible", event.currentTarget.value)} placeholder={isPt ? "Nome do comercial" : "Commercial owner"} className={fieldInputClassName} />
                 </Field>
                 <Field icon={<UserRound className="h-5 w-5" />} label={copy.account_responsible} saving={savingField === "account_responsible"} saved={savedField === "account_responsible"}>
-                  <input value={values.account_responsible} disabled={!form?.can_edit} onChange={(event) => setField("account_responsible", event.target.value)} onBlur={() => flushField("account_responsible")} placeholder={isPt ? "Nome do responsavel da conta" : "Account owner"} className={fieldInputClassName} />
+                  <input value={values.account_responsible} disabled={!form?.can_edit} onChange={(event) => setField("account_responsible", event.target.value)} onBlur={(event) => flushField("account_responsible", event.currentTarget.value)} placeholder={isPt ? "Nome do responsavel da conta" : "Account owner"} className={fieldInputClassName} />
                 </Field>
                 <Field icon={<UsersRound className="h-5 w-5" />} label={copy.internal_participants} saving={savingField === "internal_participants"} saved={savedField === "internal_participants"}>
-                  <textarea value={values.internal_participants} disabled={!form?.can_edit} onChange={(event) => setField("internal_participants", event.target.value)} onBlur={() => flushField("internal_participants")} rows={4} placeholder={isPt ? "Um participante por linha" : "One participant per line"} className={cn(fieldInputClassName, "resize-none py-3")} />
+                  <textarea value={values.internal_participants} disabled={!form?.can_edit} onChange={(event) => setField("internal_participants", event.target.value)} onBlur={(event) => flushField("internal_participants", event.currentTarget.value)} rows={4} placeholder={isPt ? "Um participante por linha" : "One participant per line"} className={cn(fieldInputClassName, "resize-none py-3")} />
                 </Field>
                 <Field icon={<UsersRound className="h-5 w-5" />} label={copy.client_participants} saving={savingField === "client_participants"} saved={savedField === "client_participants"}>
-                  <textarea value={values.client_participants} disabled={!form?.can_edit} onChange={(event) => setField("client_participants", event.target.value)} onBlur={() => flushField("client_participants")} rows={4} placeholder={isPt ? "Um contato por linha" : "One contact per line"} className={cn(fieldInputClassName, "resize-none py-3")} />
+                  <textarea value={values.client_participants} disabled={!form?.can_edit} onChange={(event) => setField("client_participants", event.target.value)} onBlur={(event) => flushField("client_participants", event.currentTarget.value)} rows={4} placeholder={isPt ? "Um contato por linha" : "One contact per line"} className={cn(fieldInputClassName, "resize-none py-3")} />
                 </Field>
               </div>
 
               <Field icon={<Save className="h-5 w-5" />} label={copy.notes} saving={savingField === "notes"} saved={savedField === "notes"}>
-                <textarea value={values.notes} disabled={!form?.can_edit} onChange={(event) => setField("notes", event.target.value)} onBlur={() => flushField("notes")} rows={3} className={cn(fieldInputClassName, "resize-none py-3")} />
+                <textarea value={values.notes} disabled={!form?.can_edit} onChange={(event) => setField("notes", event.target.value)} onBlur={(event) => flushField("notes", event.currentTarget.value)} rows={3} className={cn(fieldInputClassName, "resize-none py-3")} />
               </Field>
             </div>
 

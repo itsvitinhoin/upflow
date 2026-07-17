@@ -17,6 +17,8 @@ test.describe("Global chrome", () => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/");
+    const rail = page.getByTestId("sidebar-rail-navigation");
+    await expect(rail).toBeVisible();
 
     const sections: { label: string; path: string }[] = [
       { label: "Projects", path: "/projects" },
@@ -27,15 +29,13 @@ test.describe("Global chrome", () => {
     ];
 
     for (const { label, path } of sections) {
-      const link = page.getByRole("link", { name: label, exact: true }).first();
+      const link = rail.getByRole("link", { name: label, exact: true });
       await link.click();
       await expect(page).toHaveURL(new RegExp(`${path}(\\?|$)`));
       await expect(link).toHaveAttribute("aria-current", "page");
     }
 
-    const dash = page
-      .getByRole("link", { name: "Dashboard", exact: true })
-      .first();
+    const dash = rail.getByRole("link", { name: "Dashboard", exact: true });
     await dash.click();
     await expect(page).toHaveURL(/\/$/);
     await expect(dash).toHaveAttribute("aria-current", "page");

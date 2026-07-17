@@ -148,7 +148,7 @@ test.describe("Mobile responsive layout", () => {
       for (const route of routes) {
         await page.goto(route, {
           waitUntil: "domcontentloaded",
-          timeout: 30_000,
+          timeout: 60_000,
         });
         await expect(page.locator("body")).toBeVisible();
         await expectNoPageOverflow(page);

@@ -34,6 +34,8 @@ const UpdateTaskSchema = z.object({
   position: z.number().int().optional(),
 });
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 function parsePatchDate(value: string | null | undefined) {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
@@ -42,15 +44,16 @@ function parsePatchDate(value: string | null | undefined) {
 
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
   const task = await prisma.task.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       assignee: { select: { id: true, name: true, email: true } },
       project: { select: { id: true, name: true, workspace_id: true, owner_id: true } },
@@ -146,16 +149,17 @@ async function GET_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
   const { prismaUser } = auth;
 
   const oldTask = await prisma.task.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
   });
   if (!oldTask) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -181,7 +185,7 @@ async function PATCH_handler(
   const canContribute = await canContributeToProject(auth, oldTask.project);
   const canReassignTask = canContribute;
   const onboardingItem = await prisma.onboardingChecklistItem.findFirst({
-    where: { task_id: params.id },
+    where: { task_id: id },
     select: { id: true, onboarding_id: true, department: true, owner_id: true, title: true },
   });
   const onboardingAccess = onboardingItem ? await loadOnboardingAccess(auth, onboardingItem.onboarding_id) : null;
@@ -222,16 +226,16 @@ async function PATCH_handler(
   }
 
   if (status === "done" && status !== oldTask.status) {
-    const blocker = await getOnboardingTaskCompletionBlocker(prisma, params.id);
+    const blocker = await getOnboardingTaskCompletionBlocker(prisma, id);
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
   if (status === "in_progress" && status !== oldTask.status) {
-    const blocker = await getOnboardingTaskStartBlocker(prisma, params.id);
+    const blocker = await getOnboardingTaskStartBlocker(prisma, id);
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 
   const task = await prisma.task.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(title !== undefined && { title }),
       ...(description !== undefined && { description }),
@@ -334,17 +338,18 @@ async function PATCH_handler(
 
 async function DELETE_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
   const { prismaUser } = auth;
 
   const task = await prisma.task.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -362,7 +367,7 @@ async function DELETE_handler(
     task_id: task.id,
     metadata: { title: task.title },
   });
-  const deleted = await prisma.$transaction((tx) => deleteTasksByIds(tx, [params.id]));
+  const deleted = await prisma.$transaction((tx) => deleteTasksByIds(tx, [id]));
   return NextResponse.json({ success: true, deleted });
 }
 export const GET = withErrorReporting("api:tasks/id:GET", GET_handler);

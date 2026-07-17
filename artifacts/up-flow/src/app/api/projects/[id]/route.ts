@@ -26,6 +26,8 @@ const UpdateProjectSchema = z.object({
   initial_notes: z.string().nullable().optional(),
 });
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 function parsePatchDate(value: string | null | undefined) {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
@@ -34,15 +36,16 @@ function parsePatchDate(value: string | null | undefined) {
 
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       owner: { select: { id: true, name: true, email: true } },
       space: { select: { id: true, name: true, icon: true } },
@@ -59,14 +62,15 @@ async function GET_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: { id: true, workspace_id: true, company_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -127,9 +131,9 @@ async function PATCH_handler(
 
     // Lock the row before reading workflow evidence so concurrent onboarding
     // and client lifecycle mutations cannot make the classification stale.
-    await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id" = ${params.id} FOR UPDATE`;
+    await tx.$queryRaw`SELECT "id" FROM "Project" WHERE "id" = ${id} FOR UPDATE`;
     const current = await tx.project.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         client_onboarding: { select: { id: true } },
         _count: {
@@ -192,7 +196,7 @@ async function PATCH_handler(
           : "internal";
 
     const updated = await tx.project.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
@@ -239,14 +243,15 @@ async function PATCH_handler(
 
 async function DELETE_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
-  const project = await prisma.project.findUnique({ where: { id: params.id } });
+  const project = await prisma.project.findUnique({ where: { id } });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

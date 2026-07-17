@@ -684,11 +684,14 @@ async function getAccess(taskId: string) {
   };
 }
 
+type RouteContext = { params: Promise<{ taskId: string }> };
+
 async function GET_handler(
   _req: NextRequest,
-  { params }: { params: { taskId: string } },
+  { params }: RouteContext,
 ) {
-  const access = await getAccess(params.taskId);
+  const { taskId } = await params;
+  const access = await getAccess(taskId);
   if (!access.ok) return access.response;
   const addresses = await loadCompanyAddresses(access.form.company_id);
   return NextResponse.json(
@@ -704,9 +707,10 @@ async function GET_handler(
 
 async function POST_handler(
   _req: NextRequest,
-  { params }: { params: { taskId: string } },
+  { params }: RouteContext,
 ) {
-  const access = await getAccess(params.taskId);
+  const { taskId } = await params;
+  const access = await getAccess(taskId);
   if (!access.ok) return access.response;
 
   try {
@@ -740,9 +744,10 @@ async function POST_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { taskId: string } },
+  { params }: RouteContext,
 ) {
-  const access = await getAccess(params.taskId);
+  const { taskId } = await params;
+  const access = await getAccess(taskId);
   if (!access.ok) return access.response;
   if (access.upZeroGate?.blocked) {
     return NextResponse.json(

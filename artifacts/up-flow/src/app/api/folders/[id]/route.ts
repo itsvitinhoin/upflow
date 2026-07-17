@@ -11,6 +11,7 @@ import { deleteProjectsByIds } from "@/lib/project-delete";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type FolderTreeNode = ReturnType<typeof buildFolderTree>[number];
+type RouteContext = { params: Promise<{ id: string }> };
 
 function findFolderNode(nodes: FolderTreeNode[], id: string): FolderTreeNode | null {
   for (const node of nodes) {
@@ -23,19 +24,20 @@ function findFolderNode(nodes: FolderTreeNode[], id: string): FolderTreeNode | n
 
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   const folder = await prisma.folder.findFirst({
-    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    where: { id, workspace_id: auth.currentWorkspaceId },
     include: { space: true, parent: true },
   });
   if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -90,13 +92,14 @@ async function GET_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
+  const { id } = await params;
 
-  const folder = await prisma.folder.findUnique({ where: { id: params.id } });
+  const folder = await prisma.folder.findUnique({ where: { id } });
   if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, folder.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -162,7 +165,7 @@ async function PATCH_handler(
   }
 
   const updated = await prisma.folder.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(trimmedName !== undefined && { name: trimmedName }),
       ...(body.icon !== undefined && { icon: body.icon }),
@@ -189,14 +192,15 @@ async function PATCH_handler(
 
 async function DELETE_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
+  const { id } = await params;
 
-  const folder = await prisma.folder.findUnique({ where: { id: params.id } });
+  const folder = await prisma.folder.findUnique({ where: { id } });
   if (!folder) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, folder.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

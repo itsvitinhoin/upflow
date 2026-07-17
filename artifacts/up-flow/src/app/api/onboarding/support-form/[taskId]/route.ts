@@ -29,6 +29,8 @@ const PatchSchema = z.object({
   complete: z.boolean().optional(),
 });
 
+type RouteContext = { params: Promise<{ taskId: string }> };
+
 function cleanText(value: string | null | undefined, max = 4_000) {
   const text = value?.trim();
   return text ? text.slice(0, max) : null;
@@ -161,18 +163,20 @@ async function getAccess(taskId: string) {
 
 async function GET_handler(
   _req: NextRequest,
-  { params }: { params: { taskId: string } },
+  { params }: RouteContext,
 ) {
-  const access = await getAccess(params.taskId);
+  const { taskId } = await params;
+  const access = await getAccess(taskId);
   if (!access.ok) return access.response;
   return NextResponse.json(responseBody(access.item, access.canEdit));
 }
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { taskId: string } },
+  { params }: RouteContext,
 ) {
-  const access = await getAccess(params.taskId);
+  const { taskId } = await params;
+  const access = await getAccess(taskId);
   if (!access.ok) return access.response;
   if (!access.canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const linkedTask = access.item.task;
@@ -216,7 +220,7 @@ async function PATCH_handler(
         },
       });
       await tx.task.update({
-        where: { id: access.item.task_id ?? params.taskId },
+        where: { id: access.item.task_id ?? taskId },
         data: { status: "done" },
       });
       await tx.onboardingChecklistItem.update({
@@ -259,7 +263,7 @@ async function PATCH_handler(
     },
   });
 
-  const updated = await loadSupportTask(params.taskId);
+  const updated = await loadSupportTask(taskId);
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(responseBody(updated, access.canEdit));
 }

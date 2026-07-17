@@ -10,5 +10,6 @@ test("header search keeps a native navigation fallback before hydration", () => 
 
   assert.match(header, /<form[\s\S]*action="\/search"[\s\S]*method="get"/);
   assert.match(header, /type="search"[\s\S]*name="q"/);
-  assert.match(header, /router\.push\(`\/search\?q=\$\{encodeURIComponent\(search\.trim\(\)\)\}`\)/);
+  assert.match(header, /new FormData\(e\.currentTarget\)\.get\("q"\)/);
+  assert.match(header, /router\.push\(`\/search\?q=\$\{encodeURIComponent\(normalizedQuery\)\}`\)/);
 });
