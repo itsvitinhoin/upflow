@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateEnv } from "@/lib/env";
+import { databaseErrorCode, hasInternalHealthAccess } from "@/lib/health-diagnostics";
 import { logError } from "@/lib/log-error";
 import { pingRateLimiter } from "@/lib/rate-limit";
 import { pingBrowserTracker, pingTracker } from "@/lib/error-tracker";
@@ -8,15 +9,21 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
 
-async function getHandler() {
+async function getHandler(req: NextRequest) {
   const env = validateEnv();
+  const internal = hasInternalHealthAccess(
+    req.headers.get("authorization"),
+    process.env.CRON_SECRET,
+  );
   let db: "ok" | "error" = "ok";
+  let dbErrorCode: string | undefined;
   try {
     await prisma.$queryRaw`SELECT 1`;
   } catch (err) {
     // Log full diagnostics server-side; do NOT leak details over the wire.
     logError("health:db", err);
     db = "error";
+    dbErrorCode = databaseErrorCode(err);
   }
   if (!env.ok) {
     logError("health:env", new Error("missing env vars"), { missing: env.missing });
@@ -74,6 +81,17 @@ async function getHandler() {
         },
         browser: browserTracker,
       },
+      ...(internal
+        ? {
+            diagnostics: {
+              environment: { ok: env.ok, missing: env.missing },
+              database: {
+                ok: db === "ok",
+                ...(dbErrorCode ? { error_code: dbErrorCode } : {}),
+              },
+            },
+          }
+        : {}),
     },
     { status: ok ? 200 : 503 },
   );
