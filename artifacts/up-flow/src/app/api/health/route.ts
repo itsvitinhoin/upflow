@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateEnv } from "@/lib/env";
-import { databaseErrorCode, hasInternalHealthAccess } from "@/lib/health-diagnostics";
+import {
+  databaseErrorCode,
+  databaseErrorKind,
+  hasInternalHealthAccess,
+} from "@/lib/health-diagnostics";
 import { logError } from "@/lib/log-error";
 import { pingRateLimiter } from "@/lib/rate-limit";
 import { pingBrowserTracker, pingTracker } from "@/lib/error-tracker";
@@ -17,6 +21,7 @@ async function getHandler(req: NextRequest) {
   );
   let db: "ok" | "error" = "ok";
   let dbErrorCode: string | undefined;
+  let dbErrorKind: ReturnType<typeof databaseErrorKind> | undefined;
   try {
     await prisma.$queryRaw`SELECT 1`;
   } catch (err) {
@@ -24,6 +29,7 @@ async function getHandler(req: NextRequest) {
     logError("health:db", err);
     db = "error";
     dbErrorCode = databaseErrorCode(err);
+    dbErrorKind = databaseErrorKind(err);
   }
   if (!env.ok) {
     logError("health:env", new Error("missing env vars"), { missing: env.missing });
@@ -88,6 +94,7 @@ async function getHandler(req: NextRequest) {
               database: {
                 ok: db === "ok",
                 ...(dbErrorCode ? { error_code: dbErrorCode } : {}),
+                ...(dbErrorKind ? { error_kind: dbErrorKind } : {}),
               },
             },
           }
