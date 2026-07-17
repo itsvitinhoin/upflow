@@ -63,6 +63,14 @@ test("sidebar space reads remain compatible while the visibility migration rolls
   assert.doesNotMatch(sidebarRoute, /include: spaceInclude/);
 });
 
+test("workspace navigation uses a content-blocker-safe endpoint", () => {
+  const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
+  const workspaceTreeRoute = read("src/app/api/workspace-tree/route.ts");
+
+  assert.match(panelData, /NAVIGATION_ENDPOINT = "\/api\/workspace-tree"/);
+  assert.match(workspaceTreeRoute, /export \{ GET \} from "@\/app\/api\/sidebar\/route"/);
+});
+
 test("client pins are private, workspace-scoped, and capped at five", () => {
   const pins = read("src/app/api/sidebar-pins/route.ts");
   const removePin = read("src/app/api/sidebar-pins/[companyId]/route.ts");

@@ -10,7 +10,9 @@ import {
 
 const PANEL_CACHE_TTL_MS = 60_000;
 const SMART_COLLAPSE_CHILD_LIMIT = 8;
-const NAVIGATION_ENDPOINT = "/api/navigation";
+// Keep this endpoint neutral. Some content blockers treat routes named
+// "sidebar" or "navigation" as browser-extension traffic and block them.
+const NAVIGATION_ENDPOINT = "/api/workspace-tree";
 
 interface PanelPayload {
   spaces: { items: Space[] };
