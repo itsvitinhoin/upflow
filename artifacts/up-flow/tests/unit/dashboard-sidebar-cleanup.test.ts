@@ -86,9 +86,15 @@ test("sidebar search queries the server and includes parent context for folder m
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
   const sidebarRoute = read("src/app/api/sidebar/route.ts");
+  const navigationRoute = read("src/app/api/navigation/route.ts");
 
   assert.match(panel, /loadPanel\(\{ force: isSearching, query: sidebarQuery\.trim\(\) \}\)/);
-  assert.match(panelData, /\/api\/sidebar\?q=\$\{encodeURIComponent\(normalizedQuery\)\}&limit=500/);
+  assert.match(panelData, /const NAVIGATION_ENDPOINT = "\/api\/navigation"/);
+  assert.match(panelData, /\$\{NAVIGATION_ENDPOINT\}\?q=\$\{encodeURIComponent\(normalizedQuery\)\}&limit=500/);
+  assert.doesNotMatch(panelData, /fetch\("\/api\/sidebar"\)/);
+  assert.match(navigationRoute, /export \{ GET \} from "@\/app\/api\/sidebar\/route"/);
+  assert.match(panelData, /panelLoadFailed/);
+  assert.match(panel, /sidebar\.navigationUnavailable/);
   assert.match(sidebarRoute, /const folderById = new Map\(matchingFolders\.map/);
   assert.match(sidebarRoute, /addFolderContext\(project\.folder_id\)/);
   assert.match(sidebarRoute, /pendingFolderIds\.size > 0/);

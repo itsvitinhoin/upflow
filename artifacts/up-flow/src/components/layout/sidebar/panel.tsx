@@ -67,6 +67,7 @@ export default function Panel({
     pinnedClients,
     searchResults,
     loadingPanel,
+    panelLoadFailed,
     collapsed,
     toggleCollapse,
     menuOpenId,
@@ -292,6 +293,21 @@ export default function Panel({
               {loadingPanel ? (
                 <div className="px-2 py-4 text-xs text-muted-foreground">
                   {t("sidebar.loading")}
+                </div>
+              ) : panelLoadFailed ? (
+                <div className="px-3 py-6 text-center text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground">
+                    {t("sidebar.navigationUnavailable")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      loadPanel({ force: true, query: sidebarQuery.trim() })
+                    }
+                    className="mt-3 inline-flex h-8 items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary/90"
+                  >
+                    {t("common.retry")}
+                  </button>
                 </div>
               ) : (
                 <>

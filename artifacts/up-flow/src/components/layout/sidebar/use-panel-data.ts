@@ -10,6 +10,7 @@ import {
 
 const PANEL_CACHE_TTL_MS = 60_000;
 const SMART_COLLAPSE_CHILD_LIMIT = 8;
+const NAVIGATION_ENDPOINT = "/api/navigation";
 
 interface PanelPayload {
   spaces: { items: Space[] };
@@ -30,7 +31,7 @@ const panelRequests = new Map<string, Promise<PanelPayload>>();
 function fetchPanelData(scope: string, force = false, query = ""): Promise<PanelPayload> {
   const normalizedQuery = query.trim();
   if (normalizedQuery) {
-    return fetch(`/api/sidebar?q=${encodeURIComponent(normalizedQuery)}&limit=500`).then((r) => {
+    return fetch(`${NAVIGATION_ENDPOINT}?q=${encodeURIComponent(normalizedQuery)}&limit=500`).then((r) => {
       if (!r.ok) throw new Error(`Sidebar search failed: ${r.status}`);
       return r.json() as Promise<PanelPayload>;
     });
@@ -44,7 +45,7 @@ function fetchPanelData(scope: string, force = false, query = ""): Promise<Panel
   const pending = panelRequests.get(scope);
   if (!force && pending) return pending;
 
-  const request = fetch("/api/sidebar")
+  const request = fetch(NAVIGATION_ENDPOINT)
     .then((r) => {
       if (!r.ok) throw new Error(`Sidebar load failed: ${r.status}`);
       return r.json() as Promise<PanelPayload>;
@@ -80,6 +81,7 @@ export function usePanelData(
   const [pinnedClients, setPinnedClients] = useState<SidebarPinnedClient[]>([]);
   const [searchResults, setSearchResults] = useState<SidebarSearchResult[]>([]);
   const [loadingPanel, setLoadingPanel] = useState(true);
+  const [panelLoadFailed, setPanelLoadFailed] = useState(false);
   const [collapseState, setCollapseState] = useState<{
     scope: string;
     value: Record<string, boolean>;
@@ -112,6 +114,7 @@ export function usePanelData(
     setProjects([]);
     setPinnedClients([]);
     setSearchResults([]);
+    setPanelLoadFailed(false);
     try {
       const rawCollapsed = localStorage.getItem(storageKeys.collapsed);
       if (rawCollapsed) {
@@ -159,6 +162,7 @@ export function usePanelData(
     (options?: { force?: boolean; query?: string }) => {
       const query = options?.query?.trim() ?? "";
       const requestId = ++loadRequestId.current;
+      setPanelLoadFailed(false);
       if (query) setSearchResults([]);
       if (query || !panelCache.has(storageKeys.scope)) setLoadingPanel(true);
 
@@ -173,6 +177,7 @@ export function usePanelData(
           setFolders(nextFolders);
           setPinnedClients(data.pinned_clients ?? []);
           setSearchResults(data.search_results ?? []);
+          setPanelLoadFailed(false);
 
           if (!query) {
             try {
@@ -202,7 +207,11 @@ export function usePanelData(
             return next;
           });
         })
-        .catch((err) => logError("sidebar:loadPanel", err))
+        .catch((err) => {
+          if (requestId !== loadRequestId.current) return;
+          setPanelLoadFailed(true);
+          logError("sidebar:loadPanel", err);
+        })
         .finally(() => {
           if (requestId === loadRequestId.current) setLoadingPanel(false);
         });
@@ -331,6 +340,7 @@ export function usePanelData(
     pinnedClients,
     searchResults,
     loadingPanel,
+    panelLoadFailed,
     collapsed,
     toggleCollapse,
     menuOpenId,
