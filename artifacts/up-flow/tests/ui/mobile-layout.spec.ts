@@ -11,6 +11,7 @@ const MOBILE_VIEWPORTS = [
   { width: 390, height: 844 },
   { width: 768, height: 1024 },
 ];
+const COLD_ROUTE_TIMEOUT = process.env.CI ? 60_000 : 30_000;
 
 async function expectNoPageOverflow(page: Page) {
   const { scrollWidth, innerWidth } = await page.evaluate(() => ({
@@ -163,6 +164,7 @@ test.describe("Mobile responsive layout", () => {
     browser,
     baseURL,
   }) => {
+    test.setTimeout(120_000);
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const projectId = await createProjectViaApi(
       ctx,
@@ -173,21 +175,27 @@ test.describe("Mobile responsive layout", () => {
 
     const page = await ctx.newPage();
     await page.setViewportSize({ width: 390, height: 844 });
-    const tasksLoaded = page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return (
-        url.pathname === "/api/tasks" &&
-        url.searchParams.get("project_id") === projectId &&
-        response.ok()
-      );
-    });
-    const usersLoaded = page.waitForResponse((response) => {
-      const url = new URL(response.url());
-      return url.pathname === "/api/users" && response.ok();
-    });
+    const tasksLoaded = page.waitForResponse(
+      (response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === "/api/tasks" &&
+          url.searchParams.get("project_id") === projectId &&
+          response.ok()
+        );
+      },
+      { timeout: COLD_ROUTE_TIMEOUT },
+    );
+    const usersLoaded = page.waitForResponse(
+      (response) => {
+        const url = new URL(response.url());
+        return url.pathname === "/api/users" && response.ok();
+      },
+      { timeout: COLD_ROUTE_TIMEOUT },
+    );
     await page.goto(`/projects/${projectId}`, {
       waitUntil: "domcontentloaded",
-      timeout: 30_000,
+      timeout: COLD_ROUTE_TIMEOUT,
     });
     // The project page does not publish its task state until the follow-up users
     // request has completed, so wait for both parts of its loadData sequence.

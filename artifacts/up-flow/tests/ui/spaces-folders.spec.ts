@@ -6,6 +6,8 @@ import {
   requireChromiumOrSkip,
 } from "./_ui-helpers";
 
+const COLD_ROUTE_TIMEOUT = process.env.CI ? 60_000 : 30_000;
+
 test.describe("Spaces and folders containers", () => {
   requireChromiumOrSkip();
 
@@ -13,6 +15,7 @@ test.describe("Spaces and folders containers", () => {
     browser,
     baseURL,
   }) => {
+    test.setTimeout(120_000);
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const api = ctx.request;
 
@@ -49,11 +52,11 @@ test.describe("Spaces and folders containers", () => {
       (response) =>
         new URL(response.url()).pathname === `/api/spaces/${space.id}` &&
         response.ok(),
-      { timeout: 30_000 },
+      { timeout: COLD_ROUTE_TIMEOUT },
     );
     await page.goto(`/spaces/${space.id}`, {
       waitUntil: "domcontentloaded",
-      timeout: 30_000,
+      timeout: COLD_ROUTE_TIMEOUT,
     });
     await spaceLoaded;
 
@@ -74,7 +77,7 @@ test.describe("Spaces and folders containers", () => {
       (response) =>
         new URL(response.url()).pathname === `/api/folders/${folder.id}` &&
         response.ok(),
-      { timeout: 30_000 },
+      { timeout: COLD_ROUTE_TIMEOUT },
     );
     await sidebar.getByRole("link", { name: folderName, exact: true }).click();
     await folderLoaded;
