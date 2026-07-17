@@ -13,6 +13,7 @@
     "db:push": "prisma db push",
     "db:migrate:deploy": "node scripts/deploy-migrations.cjs",
     "db:migrate:status": "prisma migrate status",
+    "db:verify": "node scripts/verify-db-connections.cjs",
     "storage:migrate-task-covers": "node scripts/migrate-task-cover-assets.cjs",
     "db:seed": "tsx scripts/seed.ts",
     "test:unit": "tsx --test tests/unit/*.test.ts",
