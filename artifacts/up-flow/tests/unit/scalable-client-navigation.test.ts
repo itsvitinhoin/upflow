@@ -12,6 +12,9 @@ function read(rel: string) {
 test("generated client onboarding work is hidden without deleting or reparenting it", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260716160000_scalable_client_navigation/migration.sql");
+  const spaceVisibilityMigration = read(
+    "prisma/migrations/20260717173000_add_space_sidebar_visibility/migration.sql",
+  );
   const onboarding = read("src/lib/onboarding.ts");
 
   assert.match(schema, /sidebar_hidden\s+Boolean\s+@default\(false\)/);
@@ -22,6 +25,14 @@ test("generated client onboarding work is hidden without deleting or reparenting
   assert.match(migration, /AND NOT EXISTS \(\s*SELECT 1\s*FROM "Project"/);
   assert.doesNotMatch(migration, /DELETE FROM "Project"/);
   assert.doesNotMatch(migration, /DELETE FROM "Folder"/);
+  assert.match(
+    spaceVisibilityMigration,
+    /ALTER TABLE "Space" ADD COLUMN IF NOT EXISTS "sidebar_hidden" BOOLEAN NOT NULL DEFAULT false/,
+  );
+  assert.match(
+    spaceVisibilityMigration,
+    /Space_workspace_id_sidebar_hidden_idx/,
+  );
   assert.match(onboarding, /sidebarHidden: true/);
   assert.match(onboarding, /sidebar_hidden: true/);
 });
