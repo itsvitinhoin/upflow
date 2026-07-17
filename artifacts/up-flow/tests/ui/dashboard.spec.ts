@@ -236,7 +236,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     await dlg.getByRole("button", { name: /Create Project/i }).click();
     await expect(dlg).toBeHidden({ timeout: 10_000 });
 
-    await page.goto("/projects");
+    await page.goto(`/projects?tab=internal&q=${encodeURIComponent(name)}`);
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible({
       timeout: 10_000,
     });

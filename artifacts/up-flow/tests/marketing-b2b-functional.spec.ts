@@ -153,25 +153,26 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     const marker = uniq("B2B saved brand");
     const competitorName = uniq("B2B competitor");
     const brandSection = page.locator("#b2b-section-brand");
-    const brandNameInput = brandSection.getByLabel("Nome da marca");
+    await brandSection.getByRole("button", { name: /^(Edit section|Editar se..o)$/ }).click();
+    const brandNameInput = brandSection.getByLabel(/^(Brand name|Nome da marca)$/);
     await expect(brandNameInput).toBeEnabled();
     await brandNameInput.fill(marker);
     await expect(
-      brandSection.getByRole("button", { name: "Salvar", exact: true }),
+      brandSection.getByRole("button", { name: /^(Save|Salvar)$/ }),
     ).toBeVisible();
 
-    await brandSection.getByRole("button", { name: "Adicionar endereço" }).click();
-    await expect(brandSection.getByLabel("Endereço completo")).toHaveCount(2);
-    await brandSection.getByLabel("Endereço completo").nth(0).fill("Rua da Loja, 100");
-    await brandSection.getByLabel("Endereço completo").nth(1).fill("Rua da Fábrica, 200");
+    await brandSection.getByRole("button", { name: /^(Add address|Adicionar endere\u00e7o)$/ }).click();
+    await expect(brandSection.getByLabel(/^(Full address|Endere\u00e7o completo)$/)).toHaveCount(2);
+    await brandSection.getByLabel(/^(Full address|Endere\u00e7o completo)$/).nth(0).fill("Rua da Loja, 100");
+    await brandSection.getByLabel(/^(Full address|Endere\u00e7o completo)$/).nth(1).fill("Rua da Fábrica, 200");
 
-    await brandSection.getByRole("button", { name: "Adicionar concorrente" }).click();
-    await brandSection.getByPlaceholder("Ex.: Namine").fill(competitorName);
-    await brandSection.getByPlaceholder("@concorrente ou URL").fill("@concorrente");
+    await brandSection.getByRole("button", { name: /^(Add competitor|Adicionar concorrente)$/ }).click();
+    await brandSection.getByPlaceholder(/^(For example: Namine|Ex\.: Namine)$/).fill(competitorName);
+    await brandSection.getByPlaceholder(/^(?:@competitor or URL|@concorrente ou URL)$/).fill("@concorrente");
     await brandSection.getByPlaceholder("https://...").fill("https://concorrente.example");
-    await brandSection.getByRole("button", { name: "Salvar", exact: true }).click();
+    await brandSection.getByRole("button", { name: /^(Save|Salvar)$/ }).click();
     await expect(
-      brandSection.getByRole("button", { name: /Editar se/ }),
+      brandSection.getByRole("button", { name: /^(Edit section|Editar se\u00e7ão)$/ }),
     ).toBeVisible();
 
     const savedResponse = await api.get(
@@ -199,11 +200,12 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     );
 
     const commercialSection = page.locator("#b2b-section-commercial");
-    const documentRule = commercialSection.getByLabel("Documento aceito");
+    await commercialSection.getByRole("button", { name: /^(Edit section|Editar se..o)$/ }).click();
+    const documentRule = commercialSection.getByLabel(/^(Accepted document|Documento aceito)$/);
     await expect(documentRule).toBeEnabled();
     await documentRule.selectOption("all_cnpjs");
     await expect(
-      commercialSection.getByRole("button", { name: "Salvar", exact: true }),
+      commercialSection.getByRole("button", { name: /^(Save|Salvar)$/ }),
     ).toBeVisible();
     const commercialSave = page.waitForResponse(
       (response) =>
@@ -211,7 +213,7 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
         new URL(response.url()).pathname === `/api/onboarding/marketing-b2b-form/${replacementTask.id}` &&
         response.ok(),
     );
-    await commercialSection.getByRole("button", { name: "Salvar", exact: true }).click();
+    await commercialSection.getByRole("button", { name: /^(Save|Salvar)$/ }).click();
     await commercialSave;
 
     const commercialSavedResponse = await api.get(
@@ -230,7 +232,7 @@ test("Marketing B2B form opens from the replacement task and persists edits", as
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
     await formReloaded;
     await expect(page.locator(".marketing-b2b-form-shell")).toBeVisible();
-    await expect(page.getByLabel("Nome da marca")).toHaveValue(marker);
+    await expect(page.getByLabel(/^(Brand name|Nome da marca)$/)).toHaveValue(marker);
   } finally {
     await memberApi.dispose();
     await api.dispose();

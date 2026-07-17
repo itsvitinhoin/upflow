@@ -121,7 +121,7 @@ test.describe("Global chrome", () => {
     await page.goto("/");
     await openCommandPalette(page);
     await page
-      .getByPlaceholder("Type a command, page, project, or task…")
+      .getByPlaceholder(/Type a command, page, project, or task/)
       .fill("Calendar");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/calendar/);

@@ -99,8 +99,10 @@ test.describe("Projects index", () => {
     if ((await clientGroup.getAttribute("aria-expanded")) !== "true") {
       await clientGroup.click();
     }
-    await expect(page.getByRole("link", { name: firstProject })).toBeVisible();
-    await expect(page.getByRole("link", { name: secondProject })).toBeVisible();
+    await expect(clientGroup).toHaveAttribute("aria-expanded", "true");
+    const directory = page.locator("main");
+    await expect(directory.locator("[data-project-id]").filter({ hasText: firstProject })).toBeVisible();
+    await expect(directory.locator("[data-project-id]").filter({ hasText: secondProject })).toBeVisible();
 
     await ctx.close();
   });
@@ -366,12 +368,11 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
       .getByRole("combobox", { name: /Assignee:/i })
       .first();
     await assigneeCombobox.click();
-    const firstActiveMember = page.getByRole("option").first();
-    if (await firstActiveMember.count()) {
-      p = awaitTaskPatch();
-      await firstActiveMember.click();
-      await p;
-    }
+    const firstActiveMember = page.locator("[cmdk-item]:visible").first();
+    await expect(firstActiveMember).toBeVisible();
+    p = awaitTaskPatch();
+    await firstActiveMember.click();
+    await p;
 
     // 5) Comment post — type into the inline form and submit. /api/comments
     // POSTs and the input clears.

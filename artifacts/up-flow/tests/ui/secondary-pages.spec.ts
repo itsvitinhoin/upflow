@@ -27,7 +27,18 @@ test.describe("Calendar", () => {
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
+    const calendarData = Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/tasks" && response.ok(),
+      ),
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === "/api/calendar/events" && response.ok(),
+      ),
+    ]);
     await page.goto("/calendar");
+    await calendarData;
     const heading = page
       .locator("h3")
       .filter({ hasText: /\b\d{4}$/ })
