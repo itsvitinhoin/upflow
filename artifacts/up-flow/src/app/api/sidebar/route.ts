@@ -40,7 +40,16 @@ async function GET_handler(req: NextRequest) {
       { kind: { not: "onboarding" as const } },
     ],
   };
-  const spaceInclude = {
+  // Select the navigation fields explicitly so a release can still read
+  // existing spaces while a newly introduced optional UI column is rolling out.
+  const spaceSelect = {
+    id: true,
+    name: true,
+    icon: true,
+    workspace_id: true,
+    owner_id: true,
+    position: true,
+    created_at: true,
     owner: { select: { id: true, name: true, email: true } },
     _count: { select: { projects: { where: visibleProjectWhere } } },
   };
@@ -73,7 +82,7 @@ async function GET_handler(req: NextRequest) {
         },
         take: limit,
         orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
-        include: spaceInclude,
+        select: spaceSelect,
       }),
       prisma.project.findMany({
         where: {
@@ -167,7 +176,7 @@ async function GET_handler(req: NextRequest) {
               workspace_id: auth.currentWorkspaceId,
             },
             orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
-            include: spaceInclude,
+            select: spaceSelect,
           })
         : [];
 
@@ -250,7 +259,7 @@ async function GET_handler(req: NextRequest) {
       take: limit + 1,
       ...(spacesCursor ? { skip: 1, cursor: { id: spacesCursor } } : {}),
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
-      include: spaceInclude,
+      select: spaceSelect,
     }),
     prisma.project.findMany({
       where: {

@@ -54,6 +54,15 @@ test("the sidebar hides generated branches by default but search keeps client wo
   assert.match(panel, /\/api\/sidebar-pins\/\$\{companyId\}/);
 });
 
+test("sidebar space reads remain compatible while the visibility migration rolls out", () => {
+  const sidebarRoute = read("src/app/api/sidebar/route.ts");
+
+  assert.match(sidebarRoute, /const spaceSelect = \{/);
+  assert.match(sidebarRoute, /sidebar_hidden/);
+  assert.match(sidebarRoute, /select: spaceSelect/);
+  assert.doesNotMatch(sidebarRoute, /include: spaceInclude/);
+});
+
 test("client pins are private, workspace-scoped, and capped at five", () => {
   const pins = read("src/app/api/sidebar-pins/route.ts");
   const removePin = read("src/app/api/sidebar-pins/[companyId]/route.ts");
