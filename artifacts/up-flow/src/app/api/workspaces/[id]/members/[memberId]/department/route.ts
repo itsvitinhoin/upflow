@@ -7,15 +7,18 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 // PUT /api/workspaces/[id]/members/[memberId]/department
 // Body: { department_id: string | null }
 // memberId is the *user* id (matches what /api/users returns).
+type RouteContext = { params: Promise<{ id: string; memberId: string }> };
+
 async function PUT_handler(
   req: NextRequest,
-  { params }: { params: { id: string; memberId: string } },
+  { params }: RouteContext,
 ) {
+  const { id, memberId } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  if (!isWorkspaceAdminFor(auth, params.id)) {
+  if (!isWorkspaceAdminFor(auth, id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -33,7 +36,7 @@ async function PUT_handler(
       where: { id: departmentId },
       select: { workspace_id: true },
     });
-    if (!dep || dep.workspace_id !== params.id) {
+    if (!dep || dep.workspace_id !== id) {
       return NextResponse.json(
         { error: "Department not found in this workspace" },
         { status: 400 },
@@ -44,8 +47,8 @@ async function PUT_handler(
   const membership = await prisma.workspaceMember.findUnique({
     where: {
       workspace_id_user_id: {
-        workspace_id: params.id,
-        user_id: params.memberId,
+        workspace_id: id,
+        user_id: memberId,
       },
     },
     select: { id: true },

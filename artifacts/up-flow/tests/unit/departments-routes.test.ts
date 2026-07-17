@@ -37,8 +37,9 @@ test("PATCH/DELETE /api/workspaces/[id]/departments/[depId] is admin-only and wo
   // Both methods must call the admin gate.
   const adminGates = src.match(/isWorkspaceAdminFor\(/g) ?? [];
   assert.ok(adminGates.length >= 2, "expected admin gate on PATCH and DELETE");
+  assert.match(src, /const\s+\{\s*id\s*,\s*depId\s*\}\s*=\s*await\s+params/);
   // Department must belong to the workspace in the URL, not just exist.
-  assert.match(src, /existing\.workspace_id\s*!==\s*params\.id/);
+  assert.match(src, /existing\.workspace_id\s*!==\s*id/);
   assert.match(src, /status:\s*404/);
 });
 
@@ -47,14 +48,15 @@ test("PUT /api/workspaces/[id]/members/[memberId]/department is admin-only and v
     "workspaces/[id]/members/[memberId]/department/route.ts",
   );
   assert.match(src, /requireAuth\s*\(/);
+  assert.match(src, /const\s+\{\s*id\s*,\s*memberId\s*\}\s*=\s*await\s+params/);
   assert.match(
     src,
-    /isWorkspaceAdminFor\(\s*auth\s*,\s*params\.id\s*\)/,
+    /isWorkspaceAdminFor\(\s*auth\s*,\s*id\s*\)/,
   );
   // Cross-workspace department ID must be rejected with 400, not silently
   // accepted (would otherwise let an admin point a member at a department
   // from another workspace).
-  assert.match(src, /dep\.workspace_id\s*!==\s*params\.id/);
+  assert.match(src, /dep\.workspace_id\s*!==\s*id/);
   // Null clears the assignment ("Unassigned").
   assert.match(src, /department_id:\s*departmentId/);
 });

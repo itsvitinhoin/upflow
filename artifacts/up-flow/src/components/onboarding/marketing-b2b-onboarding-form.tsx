@@ -1463,6 +1463,7 @@ function TextInput({
 }) {
   const { t } = useLanguage();
   const inputId = useId();
+  const labelId = `${inputId}-label`;
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   const pending = required && !draft.trim();
@@ -1471,13 +1472,14 @@ function TextInput({
       <label htmlFor={inputId} className="block">
       <span className="flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground dark:text-slate-400">
         <Icon className="h-3.5 w-3.5 text-blue-400 dark:text-blue-300" />
-        <span>{label}</span>
+        <span id={labelId}>{label}</span>
         {optional && <span aria-hidden="true" className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground dark:bg-slate-800 dark:text-slate-500">{t("common.optional")}</span>}
         {pending && <span aria-hidden="true" className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-300">{t("marketingB2B.pending")}</span>}
       </span>
       </label>
       <input
         id={inputId}
+        aria-labelledby={labelId}
         value={draft}
         disabled={disabled}
         type={type}

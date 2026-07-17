@@ -6,24 +6,27 @@ import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { isValidDepartmentColor } from "@/lib/department-colors";
 
+type RouteContext = { params: Promise<{ id: string; depId: string }> };
+
 // PATCH /api/workspaces/[id]/departments/[depId] — rename / recolor.
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string; depId: string } },
+  { params }: RouteContext,
 ) {
+  const { id, depId } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  if (!isWorkspaceAdminFor(auth, params.id)) {
+  if (!isWorkspaceAdminFor(auth, id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const existing = await prisma.department.findUnique({
-    where: { id: params.depId },
+    where: { id: depId },
     select: { workspace_id: true },
   });
-  if (!existing || existing.workspace_id !== params.id) {
+  if (!existing || existing.workspace_id !== id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -54,7 +57,7 @@ async function PATCH_handler(
 
   try {
     const dep = await prisma.department.update({
-      where: { id: params.depId },
+      where: { id: depId },
       data,
       select: {
         id: true,
@@ -83,25 +86,26 @@ async function PATCH_handler(
 // DELETE — members in the department fall back to "Unassigned" via SetNull.
 async function DELETE_handler(
   _req: NextRequest,
-  { params }: { params: { id: string; depId: string } },
+  { params }: RouteContext,
 ) {
+  const { id, depId } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  if (!isWorkspaceAdminFor(auth, params.id)) {
+  if (!isWorkspaceAdminFor(auth, id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const existing = await prisma.department.findUnique({
-    where: { id: params.depId },
+    where: { id: depId },
     select: { workspace_id: true },
   });
-  if (!existing || existing.workspace_id !== params.id) {
+  if (!existing || existing.workspace_id !== id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  await prisma.department.delete({ where: { id: params.depId } });
+  await prisma.department.delete({ where: { id: depId } });
   return NextResponse.json({ success: true });
 }
 
