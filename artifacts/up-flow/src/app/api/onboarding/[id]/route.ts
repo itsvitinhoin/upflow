@@ -72,16 +72,19 @@ function optionalDate(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? "invalid" : date;
 }
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
   const onboarding = await prisma.clientOnboarding.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: onboardingSelect(),
   });
   if (!onboarding) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -92,12 +95,13 @@ async function GET_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
-  const access = await loadOnboardingAccess(auth, params.id);
+  const access = await loadOnboardingAccess(auth, id);
   if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = PatchSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -128,7 +132,7 @@ async function PATCH_handler(
       });
       if (financeRegistrationComplete(company)) {
         await tx.onboardingChecklistItem.updateMany({
-          where: { onboarding_id: params.id, department: "Finance" },
+          where: { onboarding_id: id, department: "Finance" },
           data: { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
         });
       }
@@ -140,7 +144,7 @@ async function PATCH_handler(
       const groupCreated =
         supportPayload.group_created === true || supportPayload.status === "created";
       const support = await tx.supportGroup.update({
-        where: { onboarding_id: params.id },
+        where: { onboarding_id: id },
         data: {
           ...supportPayload,
           ...(supportPayload.group_created !== undefined || supportPayload.status !== undefined
@@ -161,7 +165,7 @@ async function PATCH_handler(
       });
       if (support.group_created) {
         await tx.onboardingChecklistItem.updateMany({
-          where: { onboarding_id: params.id, department: "Support" },
+          where: { onboarding_id: id, department: "Support" },
           data: { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
         });
       }
@@ -174,7 +178,7 @@ async function PATCH_handler(
       const meeting = await tx.onboardingMeeting.update({
         where: {
           onboarding_id_service: {
-            onboarding_id: params.id,
+            onboarding_id: id,
             service: parsed.data.meeting.service,
           },
         },
@@ -220,7 +224,7 @@ async function PATCH_handler(
       await tx.onboardingServiceAssignment.update({
         where: {
           onboarding_id_service: {
-            onboarding_id: params.id,
+            onboarding_id: id,
             service: parsed.data.service_assignment.service,
           },
         },
@@ -234,7 +238,7 @@ async function PATCH_handler(
       const meeting = await tx.onboardingMeeting.update({
         where: {
           onboarding_id_service: {
-            onboarding_id: params.id,
+            onboarding_id: id,
             service: parsed.data.service_assignment.service,
           },
         },
@@ -303,7 +307,7 @@ async function PATCH_handler(
           userId: parsed.data.service_assignment.leader_id,
           taskId,
           workspaceId: access.onboarding.workspace_id,
-          onboardingId: params.id,
+          onboardingId: id,
           actorId: auth.prismaUser.id,
           label: `Schedule ${service} onboarding meeting`,
           companyId: access.onboarding.company_id,
@@ -311,13 +315,13 @@ async function PATCH_handler(
       }
       const missingLeader = await tx.onboardingServiceAssignment.findFirst({
         where: {
-          onboarding_id: params.id,
+          onboarding_id: id,
           OR: [{ leader_id: null }, { status: "needs_mapping" }],
         },
         select: { id: true },
       });
       await tx.onboardingChecklistItem.updateMany({
-        where: { onboarding_id: params.id, department: "Internal Assignment" },
+        where: { onboarding_id: id, department: "Internal Assignment" },
         data: missingLeader
           ? { status: "pending", completed_at: null, completed_by: null }
           : { status: "complete", completed_at: new Date(), completed_by: auth.prismaUser.id },
@@ -327,13 +331,13 @@ async function PATCH_handler(
     if (parsed.data.marketing_b2b_dependency_override) {
       if (!access.admin) return null;
       const override = await overrideUpZeroMarketingB2BGate(tx, {
-        onboardingId: params.id,
+        onboardingId: id,
         actorId: auth.prismaUser.id,
         reason: parsed.data.marketing_b2b_dependency_override.reason,
       });
       notificationTargets.push(...override.notificationTargets);
       const onboarding = await tx.clientOnboarding.findUniqueOrThrow({
-        where: { id: params.id },
+        where: { id },
         select: onboardingSelect(),
       });
       return { onboarding, notificationTargets };
@@ -342,7 +346,7 @@ async function PATCH_handler(
     if (parsed.data.completion_override) {
       if (!access.admin) return null;
       await tx.clientOnboarding.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: "onboarding_complete",
           progress: 100,
@@ -354,13 +358,13 @@ async function PATCH_handler(
         select: { id: true },
       });
       const onboarding = await tx.clientOnboarding.findUniqueOrThrow({
-        where: { id: params.id },
+        where: { id },
         select: onboardingSelect(),
       });
       return { onboarding, notificationTargets };
     }
 
-    const onboarding = await recomputeOnboardingProgress(tx, params.id);
+    const onboarding = await recomputeOnboardingProgress(tx, id);
     return { onboarding, notificationTargets };
   });
 
@@ -379,7 +383,7 @@ async function PATCH_handler(
     metadata: { status: updated.status, progress: updated.progress },
   });
 
-  const freshAccess = await loadOnboardingAccess(auth, params.id);
+  const freshAccess = await loadOnboardingAccess(auth, id);
   return NextResponse.json(redactOnboardingContracts(updated, Boolean(freshAccess?.canViewPrivateContract)));
 }
 
