@@ -9,17 +9,19 @@ import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { isValidDepartmentColor } from "@/lib/department-colors";
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 // GET /api/workspaces/[id]/departments — list departments in the workspace.
 // Any member of the workspace can read.
 async function GET_handler(
   _req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id: workspaceId } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  const workspaceId = params.id;
   if (!canAccessWorkspace(auth, workspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -43,13 +45,13 @@ async function GET_handler(
 // POST /api/workspaces/[id]/departments — admin only.
 async function POST_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id: workspaceId } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  const workspaceId = params.id;
   if (!isWorkspaceAdminFor(auth, workspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

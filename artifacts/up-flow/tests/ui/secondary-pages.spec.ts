@@ -193,9 +193,12 @@ test.describe("Inbox", () => {
       });
     });
 
-    await page.goto("/inbox");
+    await page.goto("/inbox", {
+      waitUntil: "domcontentloaded",
+      timeout: 60_000,
+    });
     const markRead = page.getByRole("button", { name: /^Mark read$/ });
-    await expect(markRead).toBeVisible({ timeout: 10_000 });
+    await expect(markRead).toBeVisible({ timeout: 30_000 });
     const patch = page.waitForResponse(
       (r) =>
         r.url().includes("/api/notifications/") &&
@@ -223,11 +226,11 @@ test.describe("Team", () => {
       (response) =>
         new URL(response.url()).pathname === "/api/team/overview" &&
         response.ok(),
-      { timeout: 30_000 },
+      { timeout: 60_000 },
     );
     await page.goto("/team", {
       waitUntil: "domcontentloaded",
-      timeout: 30_000,
+      timeout: 60_000,
     });
     await overviewLoaded;
     // The Team page now groups members into department <section>s.

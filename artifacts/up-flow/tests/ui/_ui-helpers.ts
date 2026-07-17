@@ -73,8 +73,10 @@ export async function openCommandPalette(page: Page): Promise<void> {
   await page.keyboard.press("Control+k");
   // Cmdk renders a dialog with a search input.
   await expect(
-    page.getByPlaceholder("Type a command, page, project, or task…"),
-  ).toBeVisible();
+    page
+      .getByRole("dialog")
+      .getByPlaceholder(/Type a command, page, project, or task/),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
 /** Seed a fresh workspace project via the JSON API and return its id. */

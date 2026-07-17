@@ -22,6 +22,8 @@ const UpdateEventSchema = z.object({
   color: z.string().trim().optional().nullable(),
 });
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function loadEvent(id: string) {
   return prisma.calendarEvent.findUnique({
     where: { id },
@@ -56,14 +58,15 @@ async function canManageEvent(
 
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
 
-  const event = await loadEvent(params.id);
+  const event = await loadEvent(id);
   if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, event.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -73,13 +76,14 @@ async function GET_handler(
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  const existing = await loadEvent(params.id);
+  const existing = await loadEvent(id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -138,7 +142,7 @@ async function PATCH_handler(
   }
 
   const updated = await prisma.calendarEvent.update({
-    where: { id: params.id },
+    where: { id },
     data: {
       ...(body.title !== undefined && { title: body.title }),
       ...(body.description !== undefined && { description: body.description || null }),
@@ -191,14 +195,15 @@ async function PATCH_handler(
 
 async function DELETE_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
 
-  const existing = await loadEvent(params.id);
+  const existing = await loadEvent(id);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -207,7 +212,7 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  await prisma.calendarEvent.delete({ where: { id: params.id } });
+  await prisma.calendarEvent.delete({ where: { id } });
   await recordActivity({
     workspace_id: existing.workspace_id,
     actor_id: auth.prismaUser.id,

@@ -7,16 +7,19 @@ import { isEmptyValue, validateCustomFieldValue } from "@/lib/custom-field-valid
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function PUT_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
   const task = await prisma.task.findUnique({
-    where: { id: params.id },
+    where: { id },
     select: {
       id: true,
       project_id: true,

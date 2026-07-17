@@ -16,20 +16,23 @@ import {
 type ColumnKey = "todo" | "in_progress" | "done";
 const VALID_COLUMNS: ColumnKey[] = ["todo", "in_progress", "done"];
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 function isColumn(value: unknown): value is ColumnKey {
   return typeof value === "string" && VALID_COLUMNS.includes(value as ColumnKey);
 }
 
 async function POST_handler(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteContext,
 ) {
+  const { id: projectId } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id: projectId },
     select: { id: true, workspace_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,7 +65,7 @@ async function POST_handler(
     select: { id: true, project_id: true, status: true },
   });
   if (!movedTask) return NextResponse.json({ error: "Task not found" }, { status: 404 });
-  if (movedTask.project_id !== params.id) {
+  if (movedTask.project_id !== projectId) {
     return NextResponse.json(
       { error: "Task does not belong to this project" },
       { status: 400 },
@@ -100,7 +103,7 @@ async function POST_handler(
     srcColumn === dstColumn ? [srcColumn] : [srcColumn, dstColumn];
 
   const tasksInColumns = await prisma.task.findMany({
-    where: { project_id: params.id, status: { in: affectedColumns } },
+    where: { project_id: projectId, status: { in: affectedColumns } },
     select: { id: true, status: true, position: true },
     orderBy: [{ status: "asc" }, { position: "asc" }, { id: "asc" }],
   });

@@ -31,13 +31,15 @@ test.describe("Global chrome", () => {
     for (const { label, path } of sections) {
       const link = rail.getByRole("link", { name: label, exact: true });
       await link.click();
-      await expect(page).toHaveURL(new RegExp(`${path}(\\?|$)`));
+      await expect(page).toHaveURL(new RegExp(`${path}(\\?|$)`), {
+        timeout: 30_000,
+      });
       await expect(link).toHaveAttribute("aria-current", "page");
     }
 
     const dash = rail.getByRole("link", { name: "Dashboard", exact: true });
     await dash.click();
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/$/, { timeout: 30_000 });
     await expect(dash).toHaveAttribute("aria-current", "page");
 
     const railToggle = page.getByRole("button", {

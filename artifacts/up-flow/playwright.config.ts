@@ -36,8 +36,11 @@ const isCi = process.env.CI === "true";
 export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.spec.ts",
-  timeout: 60_000,
-  expect: { timeout: 10_000 },
+  // CI starts a fresh Next development server so the first visit to each
+  // route can compile that route. Keep local iteration quick while giving
+  // valid cold route transitions room to complete in release checks.
+  timeout: isCi ? 90_000 : 60_000,
+  expect: { timeout: isCi ? 30_000 : 10_000 },
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -48,9 +51,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
     // CI exercises a cold Next.js development server, so the first request
     // to a route can include compilation time. Keep local feedback fast while
-    // allowing those valid cold actions to complete inside the 60s test cap.
+    // allowing those valid cold actions to complete inside the test cap.
     actionTimeout: isCi ? 30_000 : 10_000,
-    navigationTimeout: isCi ? 30_000 : 15_000,
+    navigationTimeout: isCi ? 60_000 : 15_000,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
