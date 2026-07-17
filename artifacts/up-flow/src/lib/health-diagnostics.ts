@@ -15,6 +15,7 @@ export function hasInternalHealthAccess(
 }
 
 export function databaseErrorCode(error: unknown): string {
-  const code = (error as { code?: unknown } | null)?.code;
+  const candidate = error as { code?: unknown; errorCode?: unknown } | null;
+  const code = candidate?.code ?? candidate?.errorCode;
   return typeof code === "string" && /^P\d{4}$/.test(code) ? code : "UNKNOWN";
 }

@@ -14,6 +14,8 @@ test("internal health diagnostics require the exact bearer secret", () => {
 
 test("database diagnostics expose only Prisma-style error codes", () => {
   assert.equal(databaseErrorCode({ code: "P1000" }), "P1000");
+  assert.equal(databaseErrorCode({ errorCode: "P1001" }), "P1001");
   assert.equal(databaseErrorCode({ code: "unsafe detail" }), "UNKNOWN");
+  assert.equal(databaseErrorCode({ errorCode: "unsafe detail" }), "UNKNOWN");
   assert.equal(databaseErrorCode(new Error("connection string with secret")), "UNKNOWN");
 });
