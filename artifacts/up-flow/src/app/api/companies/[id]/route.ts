@@ -199,10 +199,13 @@ async function getCompany(id: string, workspaceId: string) {
   };
 }
 
+type RouteContext = { params: Promise<{ id: string }> };
+
 async function GET_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -211,15 +214,16 @@ async function GET_handler(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const company = await getCompany(params.id, auth.currentWorkspaceId);
+  const company = await getCompany(id, auth.currentWorkspaceId);
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(company);
 }
 
 async function PATCH_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -228,7 +232,7 @@ async function PATCH_handler(
   }
 
   const company = await prisma.company.findFirst({
-    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    where: { id, workspace_id: auth.currentWorkspaceId },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!isWorkspaceAdminFor(auth, company.workspace_id)) {
@@ -287,8 +291,9 @@ async function PATCH_handler(
 
 async function DELETE_handler(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: RouteContext,
 ) {
+  const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
@@ -298,7 +303,7 @@ async function DELETE_handler(
   }
 
   const company = await prisma.company.findFirst({
-    where: { id: params.id, workspace_id: auth.currentWorkspaceId },
+    where: { id, workspace_id: auth.currentWorkspaceId },
     select: { id: true, workspace_id: true, name: true },
   });
   if (!company) return NextResponse.json({ error: "Not found" }, { status: 404 });

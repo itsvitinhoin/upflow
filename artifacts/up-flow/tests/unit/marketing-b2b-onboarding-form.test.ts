@@ -126,6 +126,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /disabled=\{!canEdit\}/);
   assert.doesNotMatch(form, /disabled=\{!canEdit \|\| !editing\}/);
   assert.match(form, /value=\{draft\}/);
+  assert.match(form, /const selectId = useId\(\)/);
+  assert.match(form, /aria-labelledby=\{labelId\}/);
   assert.match(form, /labelKey: "marketingB2B\.documentRule\.clothingCnae\.label"/);
   assert.match(form, /labelKey: "marketingB2B\.documentRule\.allCnpjs\.label"/);
   assert.match(form, /labelKey: "marketingB2B\.documentRule\.cnpjOrCpf\.label"/);
