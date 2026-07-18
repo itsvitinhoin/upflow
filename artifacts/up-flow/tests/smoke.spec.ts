@@ -204,16 +204,18 @@ test.describe("Up Flow smoke (API)", () => {
     }
     expect(found, "search returns the new task").toBeTruthy();
 
-    // 7. Invite a teammate when email delivery is configured. CI deliberately
-    // omits provider credentials, so the safe configuration error is also a
-    // valid result (and must not create a token that cannot be delivered).
+    // 7. Invite a teammate when email delivery is configured. CI uses a
+    // non-deliverable provider credential, so either safe no-delivery result
+    // is valid (and must not create a token that cannot be delivered).
     const inviteRes = await api.post("/api/invites", {
       data: { emails: [`invitee+${Date.now()}@example.com`], role: "member" },
     });
     if (!inviteRes.ok()) {
-      expect(inviteRes.status()).toBe(503);
+      expect([502, 503]).toContain(inviteRes.status());
       const inviteError = (await inviteRes.json()) as { code?: string };
-      expect(inviteError.code).toBe("EMAIL_NOT_CONFIGURED");
+      expect(["EMAIL_SEND_FAILED", "EMAIL_NOT_CONFIGURED"]).toContain(
+        inviteError.code,
+      );
     }
 
     // 8. Workspace switch: create new ws, switch, verify isolation.
