@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { TEST_AUTH_COOKIE } from "@/lib/test-auth";
+import { isTestLoginEnabled, TEST_AUTH_COOKIE } from "@/lib/test-auth";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -27,13 +27,11 @@ export async function middleware(req: NextRequest) {
   let response = NextResponse.next({ request: { headers: req.headers } });
   const cookieMutations: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
-  // Dev/CI-only login bypass — gated by NODE_ENV (Edge runtime can't reliably
-  // see arbitrary env vars during dev, so we only check the cookie shape
-  // here; `getAuthResult()` does the actual HMAC verification in the Node
-  // runtime, which is the source of truth for whether the bypass is on).
+  // Test-auth controls when this CI-only bypass is available. Middleware only
+  // checks the cookie shape; `getAuthResult()` verifies the HMAC in Node.
   const rawTestCookie = req.cookies.get(TEST_AUTH_COOKIE)?.value;
   const testCookieShapeOk =
-    process.env.NODE_ENV !== "production" &&
+    isTestLoginEnabled() &&
     Boolean(rawTestCookie) &&
     /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(rawTestCookie!);
   let user: { email?: string | null } | null = testCookieShapeOk

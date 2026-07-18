@@ -59,9 +59,9 @@ export async function getAuthResult(): Promise<AuthResult> {
   let supabaseId: string | null = null;
   let metadataName: string | undefined;
 
-  // Dev/CI-only bypass - see `lib/test-auth.ts`. Hard-gated on
-  // NODE_ENV !== "production" AND a TEST_LOGIN_TOKEN env var being set,
-  // so this is a no-op in any deployed environment.
+  // Dev/CI-only bypass - see `lib/test-auth.ts`. It requires a signed cookie
+  // and is unavailable in deployed environments outside an explicitly marked
+  // GitHub Actions production-server test run.
   const cookieStore = await cookies();
   const testEmail = await verifyTestAuthCookie(cookieStore.get(TEST_AUTH_COOKIE)?.value);
   if (testEmail) {

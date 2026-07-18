@@ -1,8 +1,8 @@
 /**
- * Dev/CI-only login bypass for the Playwright suite. ABSOLUTELY NEVER
- * enabled in production — hard-gated on `NODE_ENV !== "production"` AND
- * on the presence of a `TEST_LOGIN_TOKEN` env var. Without both, this
- * helper is a no-op and the cookie is ignored entirely.
+ * Dev/CI-only login bypass for the Playwright suite. It is enabled during
+ * local development when `TEST_LOGIN_TOKEN` is present. A production-mode
+ * test server must additionally be an explicitly marked GitHub Actions run
+ * and cannot be a Vercel deployment.
  *
  * Cookie value is `<base64url(email)>.<hmac-sha256(email, TEST_LOGIN_TOKEN)>`
  * (Web Crypto so it works in both the Edge runtime middleware and the
@@ -12,8 +12,15 @@
 export const TEST_AUTH_COOKIE = "upflow_test_user";
 
 function testLoginEnabled(): boolean {
-  if (process.env.NODE_ENV === "production") return false;
-  return Boolean(process.env.TEST_LOGIN_TOKEN);
+  if (!process.env.TEST_LOGIN_TOKEN) return false;
+  if (process.env.NODE_ENV !== "production") return true;
+
+  return (
+    process.env.E2E_TEST_AUTH_BYPASS === "1" &&
+    process.env.CI === "true" &&
+    process.env.GITHUB_ACTIONS === "true" &&
+    process.env.VERCEL !== "1"
+  );
 }
 
 const enc = new TextEncoder();

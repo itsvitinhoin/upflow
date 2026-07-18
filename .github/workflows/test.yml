@@ -192,8 +192,8 @@ jobs:
   e2e:
     name: Up Flow e2e (Playwright)
     runs-on: ubuntu-latest
-    # A cold Next development server compiles several routes during this
-    # serial, stateful browser suite. Leave enough room for valid first runs.
+    # Build once, then exercise the production server without dev-server
+    # recompiles or memory pressure during the serial browser suite.
     timeout-minutes: 30
 
     services:
@@ -210,10 +210,19 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
 
     env:
       CI: "true"
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: "3000"
       DATABASE_URL: postgresql://upflow:upflow@localhost:5432/upflow_test
       DIRECT_URL: postgresql://upflow:upflow@localhost:5432/upflow_test
@@ -221,10 +230,20 @@ jobs:
       # hit during tests because we use the TEST_LOGIN_TOKEN bypass.
       NEXT_PUBLIC_SUPABASE_URL: http://localhost:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
       ADMIN_EMAILS: admin@upflow.io
       TEST_LOGIN_TOKEN: ${{ secrets.TEST_LOGIN_TOKEN }}
+      E2E_TEST_AUTH_BYPASS: "1"
+      REDIS_URL: redis://localhost:6379
+      RESEND_API_KEY: ci-resend-key
+      EMAIL_FROM: Up Flow <ci@upflow.example>
+      APP_URL: https://upflow.example
+      CRON_SECRET: ci-cron-secret
+      SENTRY_DSN: https://ci@sentry.invalid/1
+      NEXT_PUBLIC_SENTRY_DSN: https://ci@sentry.invalid/1
       PLAYWRIGHT_BASE_URL: http://localhost:3000
       PLAYWRIGHT_START_SERVER: "1"
+      PLAYWRIGHT_SERVER_MODE: production
 
     steps:
       - uses: actions/checkout@v4
@@ -259,6 +278,9 @@ jobs:
 
       - name: Seed database
         run: pnpm --filter @workspace/up-flow run db:seed
+
+      - name: Build production test server
+        run: pnpm --filter @workspace/up-flow run build
 
       - name: Install Playwright browsers (with system deps)
         run: pnpm --filter @workspace/up-flow run test:e2e:install

@@ -11,8 +11,9 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 export const dynamic = "force-dynamic";
 
 /**
- * Dev/CI-only login bypass. Disabled in production AND when `TEST_LOGIN_TOKEN`
- * is unset. Posts `{ email, token }` — token must match the env var. On
+ * Dev/CI-only login bypass. Production-mode use is limited to explicitly
+ * marked GitHub Actions test servers and is disabled on Vercel. Posts
+ * `{ email, token }` — token must match the env var. On
  * success, sets a signed httpOnly cookie that `getAuthResult()` and the
  * middleware recognize. Used by the Playwright suite (see `tests/`).
  */
