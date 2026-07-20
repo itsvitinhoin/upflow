@@ -95,7 +95,7 @@ test.describe("ClickUp migration", () => {
     });
     await loadButton.click();
 
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(page.locator("p[role='alert']")).toContainText(
       "Could not load spaces and lists. ClickUp connection is unavailable.",
     );
     await expect(loadButton).toBeEnabled();
