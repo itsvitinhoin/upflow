@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Source = { id: string; name: string };
 type Folder = Source & { lists: Source[] };
@@ -33,6 +33,7 @@ type Job = {
 type ApiError = { error?: string };
 type WorkspacesResponse = { teams?: Source[] };
 type HierarchyResponse = { items?: Item[] };
+type JobsResponse = { items?: Job[] };
 type LoadingAction =
   | "workspaces"
   | "hierarchy"
@@ -70,6 +71,31 @@ export default function ClickUpImportPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const restoreExistingJob = useCallback(
+    async (signal?: AbortSignal, showError = false): Promise<boolean> => {
+      try {
+        const payload = await requestJson<JobsResponse>(
+          "/api/admin/imports/clickup/jobs",
+          { cache: "no-store", signal },
+        );
+        if (signal?.aborted) return false;
+        const jobs = Array.isArray(payload.items) ? payload.items : [];
+        const existing = jobs.find((item) =>
+          ["queued", "running", "paused", "failed"].includes(item.status),
+        );
+        if (!existing) return false;
+        setJob(existing);
+        return true;
+      } catch (cause) {
+        if (!signal?.aborted && showError) {
+          setError(errorMessage("Could not restore the migration job.", cause));
+        }
+        return false;
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -99,12 +125,17 @@ export default function ClickUpImportPage() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void restoreExistingJob(controller.signal);
+    return () => controller.abort();
+  }, [restoreExistingJob]);
+
   function selectWorkspace(value: string) {
     setSource(value);
     setHierarchy([]);
     setSelected({});
     setPreview(null);
-    setJob(null);
     setMessage("");
     setError("");
   }
@@ -179,7 +210,7 @@ export default function ClickUpImportPage() {
   }
 
   async function start() {
-    if (!preview || loading) return;
+    if (!preview || loading || (job && !jobFinished)) return;
 
     setLoading("start");
     setError("");
@@ -200,6 +231,14 @@ export default function ClickUpImportPage() {
       setJob(created);
       setMessage("Import queued. Use Resume to process the next bounded batch.");
     } catch (cause) {
+      if (
+        cause instanceof Error &&
+        cause.message === "An import is already running for this workspace" &&
+        (await restoreExistingJob(undefined, true))
+      ) {
+        setMessage("The existing migration job has been restored below.");
+        return;
+      }
       setError(errorMessage("Could not queue the import.", cause));
     } finally {
       setLoading(null);
@@ -253,6 +292,9 @@ export default function ClickUpImportPage() {
     job && job.failed > 0 && job.cursor >= jobListCount,
   );
   const jobFinished = job?.status === "completed" || job?.status === "cancelled";
+  const jobCancellable = Boolean(
+    job && ["queued", "running", "paused"].includes(job.status),
+  );
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-6">
@@ -370,7 +412,7 @@ export default function ClickUpImportPage() {
               <button
                 type="button"
                 className="rounded bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50"
-                disabled={busy}
+                disabled={busy || Boolean(job && !jobFinished)}
                 onClick={start}
               >
                 {loading === "start" ? "Queueing import..." : "Confirm and queue import"}
@@ -416,7 +458,7 @@ export default function ClickUpImportPage() {
             <button
               type="button"
               className="rounded border px-3 py-2 disabled:opacity-50"
-              disabled={jobFinished || busy}
+              disabled={!jobCancellable || busy}
               onClick={cancel}
             >
               {loading === "cancel" ? "Cancelling..." : "Cancel"}
