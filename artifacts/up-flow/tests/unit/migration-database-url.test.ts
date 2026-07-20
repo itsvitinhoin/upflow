@@ -7,7 +7,8 @@ const require = createRequire(import.meta.url);
 const { getMigrationDatabaseUrl } = require("../../scripts/migration-database-url.cjs") as {
   getMigrationDatabaseUrl: (databaseUrl: string | undefined) => string | undefined;
 };
-const { shouldVerifyMigrationState } = require("../../scripts/verify-migration-state.cjs") as {
+const { getVerificationEnvironment, shouldVerifyMigrationState } = require("../../scripts/verify-migration-state.cjs") as {
+  getVerificationEnvironment: (env: Record<string, string | undefined>) => Record<string, string | undefined>;
   shouldVerifyMigrationState: (env: Record<string, string | undefined>) => boolean;
 };
 const { canProceedWithPendingMigrations } = require("../../scripts/preflight-migrations.cjs") as {
@@ -68,6 +69,19 @@ test("Vercel builds verify migration state without applying migrations", () => {
   assert.match(migrationPreflightScript, /prismaCommand, \["migrate", "status"\]/);
   assert.match(migrationPreflightScript, /Production deployment blocked/);
   assert.doesNotMatch(migrationPreflightScript, /migrate", "deploy/);
+});
+
+test("Vercel migration checks use the application pooler instead of a stale direct URL", () => {
+  const environment = getVerificationEnvironment({
+    DATABASE_URL:
+      "postgresql://postgres.example:placeholder@aws-1-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&sslmode=require",
+    DIRECT_URL: "postgresql://postgres:placeholder@db.example.supabase.co:6543/postgres",
+  });
+
+  assert.equal(environment.DIRECT_URL, environment.DATABASE_URL);
+  const migrationUrl = new URL(environment.DATABASE_URL!);
+  assert.equal(migrationUrl.port, "5432");
+  assert.equal(migrationUrl.searchParams.has("pgbouncer"), false);
 });
 
 test("release migration preflight permits reviewed pending migrations but blocks failed ones", () => {

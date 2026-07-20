@@ -1,10 +1,23 @@
 const { spawnSync } = require("node:child_process");
+const { getMigrationDatabaseUrl } = require("./migration-database-url.cjs");
 
 const isWindows = process.platform === "win32";
 const prismaCommand = isWindows ? "prisma.cmd" : "prisma";
 
 function shouldVerifyMigrationState(env = process.env) {
   return env.VERCEL === "1";
+}
+
+function getVerificationEnvironment(env = process.env) {
+  if (!env.DATABASE_URL) return env;
+
+  const migrationDatabaseUrl = getMigrationDatabaseUrl(env.DATABASE_URL);
+
+  return {
+    ...env,
+    DATABASE_URL: migrationDatabaseUrl,
+    DIRECT_URL: migrationDatabaseUrl,
+  };
 }
 
 function verifyMigrationState(env = process.env) {
@@ -20,7 +33,7 @@ function verifyMigrationState(env = process.env) {
   const result = spawnSync(prismaCommand, ["migrate", "status"], {
     stdio: "inherit",
     shell: isWindows,
-    env,
+    env: getVerificationEnvironment(env),
   });
 
   if (result.error) throw result.error;
@@ -38,4 +51,4 @@ if (require.main === module) {
   verifyMigrationState();
 }
 
-module.exports = { shouldVerifyMigrationState };
+module.exports = { getVerificationEnvironment, shouldVerifyMigrationState };
