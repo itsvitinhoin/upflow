@@ -1,17 +1,33 @@
 import { z } from "zod";
 
 const BASE = "https://api.clickup.com/api/v2";
-const id = z.string();
+const id = z.union([z.string(), z.number()]).transform(String);
+const nullableText = z.string().nullish();
 const space = z.object({ id, name: z.string(), private: z.boolean().optional() }).passthrough();
 const folder = z.object({ id, name: z.string(), space: z.object({ id }).optional() }).passthrough();
 const list = z.object({ id, name: z.string(), folder: z.object({ id }).optional(), space: z.object({ id }).optional() }).passthrough();
+
+// ClickUp returns assignees as member objects for some accounts and bare user
+// IDs for others. Only email is needed for Upflow's safe exact-email matching.
+const assignee = z
+  .union([
+    id,
+    z.object({ id: id.optional(), email: z.string().email().nullish() }).passthrough(),
+  ])
+  .transform((value) => {
+    if (typeof value !== "object" || !value.email) return {};
+    return { email: value.email };
+  });
+const subtask = z
+  .union([id, z.object({ id }).passthrough()])
+  .transform((value) => ({ id: typeof value === "object" ? value.id : value }));
 const task = z.object({
-  id, name: z.string(), description: z.string().optional(), text_content: z.string().optional(),
-  status: z.object({ status: z.string() }).optional(), priority: z.object({ priority: z.string() }).nullable().optional(),
-  due_date: z.string().nullable().optional(), date_created: z.string().optional(), orderindex: z.string().optional(),
-  parent: z.union([z.string(), z.number()]).nullable().optional(), archived: z.boolean().optional(),
-  assignees: z.array(z.object({ id, username: z.string().optional(), email: z.string().email().optional() }).passthrough()).optional(),
-  subtasks: z.array(z.object({ id }).passthrough()).optional(), attachments: z.array(z.object({ id, title: z.string().optional(), url: z.string().url(), extension: z.string().optional() }).passthrough()).optional(),
+  id, name: z.string(), description: nullableText, text_content: nullableText,
+  status: z.object({ status: nullableText }).nullable().optional(),
+  priority: z.object({ priority: z.union([z.string(), z.number()]).nullish() }).nullable().optional(),
+  due_date: nullableText, orderindex: z.union([z.string(), z.number()]).optional(), archived: z.boolean().optional(),
+  assignees: z.array(assignee).nullish().transform((value) => value ?? []),
+  subtasks: z.array(subtask).nullish().transform((value) => value ?? []),
 }).passthrough();
 
 export type ClickUpTask = z.infer<typeof task>;
@@ -23,7 +39,7 @@ function token(): string {
   return value;
 }
 
-async function request<T>(path: string, schema: z.ZodType<T>, params?: Record<string, string | number | boolean>): Promise<T> {
+async function request<T>(path: string, schema: z.ZodType<T, z.ZodTypeDef, unknown>, params?: Record<string, string | number | boolean>): Promise<T> {
   const url = new URL(`${BASE}${path}`);
   Object.entries(params ?? {}).forEach(([key, value]) => url.searchParams.set(key, String(value)));
   let last: unknown;
@@ -50,5 +66,5 @@ export async function clickupSpaces(workspaceId: string) { return request(`/team
 export async function clickupFolders(spaceId: string) { return request(`/space/${spaceId}/folder`, z.object({ folders: z.array(folder) })); }
 export async function clickupLists(folderId: string) { return request(`/folder/${folderId}/list`, z.object({ lists: z.array(list) })); }
 export async function clickupFolderlessLists(spaceId: string) { return request(`/space/${spaceId}/list`, z.object({ lists: z.array(list) })); }
-export async function clickupTasks(listId: string, page: number) { return request(`/list/${listId}/task`, z.object({ tasks: z.array(task), last_page: z.boolean().optional() }), { page, include_subtasks: true, subtasks: true, archived: false }); }
+export async function clickupTasks(listId: string, page: number) { return request(`/list/${listId}/task`, z.object({ tasks: z.array(task), last_page: z.boolean().optional() }), { page, subtasks: true, archived: false }); }
 export async function clickupTask(taskId: string) { return request(`/task/${taskId}`, task, { include_subtasks: true }); }

@@ -2,8 +2,8 @@ import { Prisma, type TaskPriority, type TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { clickupFolderlessLists, clickupFolders, clickupLists, clickupSpaces, clickupTask, clickupTasks, type ClickUpList, type ClickUpTask } from "@/lib/clickup";
 
-export function mapStatus(value: string | undefined): TaskStatus { const v = value?.toLowerCase() ?? ""; return v.includes("complete") || v === "done" ? "done" : v.includes("progress") || v.includes("doing") ? "in_progress" : "todo"; }
-export function mapPriority(value: string | undefined): TaskPriority { const v = value?.toLowerCase() ?? ""; return v === "urgent" || v === "high" ? "high" : v === "low" ? "low" : "medium"; }
+export function mapStatus(value: string | null | undefined): TaskStatus { const v = value?.toLowerCase() ?? ""; return v.includes("complete") || v === "done" ? "done" : v.includes("progress") || v.includes("doing") ? "in_progress" : "todo"; }
+export function mapPriority(value: string | number | null | undefined): TaskPriority { const v = String(value ?? "").toLowerCase(); return v === "urgent" || v === "high" || v === "1" || v === "2" ? "high" : v === "low" || v === "4" ? "low" : "medium"; }
 export function mapDate(value: string | null | undefined) { if (!value) return null; const date = new Date(Number(value)); return Number.isNaN(date.valueOf()) ? null : date; }
 
 export async function clickupHierarchy(workspaceId: string) {
