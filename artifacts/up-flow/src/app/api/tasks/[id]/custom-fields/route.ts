@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
+import { Prisma, type TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { isEmptyValue, validateCustomFieldValue } from "@/lib/custom-field-validator";
-import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import {
+  getOnboardingTaskCompletionBlocker,
+  getOnboardingTaskStartBlocker,
+  syncOnboardingChecklistFromTaskStatus,
+} from "@/lib/onboarding";
+import { canContributeToProject } from "@/lib/project-access";
+import { recordActivity } from "@/lib/activity";
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+function isTaskStatus(value: unknown): value is TaskStatus {
+  return value === "todo" || value === "in_progress" || value === "done";
+}
 
 async function PUT_handler(
   req: NextRequest,
@@ -23,20 +32,25 @@ async function PUT_handler(
     select: {
       id: true,
       project_id: true,
-      project: { select: { workspace_id: true } },
+      status: true,
+      project: { select: { id: true, workspace_id: true, owner_id: true } },
     },
   });
   if (!task) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, task.project.workspace_id)) {
+  if (!(await canContributeToProject(auth, task.project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => ({}))) as {
     definition_id?: string;
     value?: unknown;
+    task_status?: TaskStatus;
   };
   if (!body.definition_id) {
     return NextResponse.json({ error: "definition_id is required" }, { status: 400 });
+  }
+  if (body.task_status !== undefined && !isTaskStatus(body.task_status)) {
+    return NextResponse.json({ error: "Invalid task status" }, { status: 400 });
   }
 
   const def = await prisma.customFieldDefinition.findUnique({
@@ -47,72 +61,108 @@ async function PUT_handler(
     return NextResponse.json({ error: "Field not in this project" }, { status: 400 });
   }
 
+  const taskStatusChanged = body.task_status !== undefined && body.task_status !== task.status;
+  if (body.task_status === "done" && taskStatusChanged) {
+    const blocker = await getOnboardingTaskCompletionBlocker(prisma, task.id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  }
+  if (body.task_status === "in_progress" && taskStatusChanged) {
+    const blocker = await getOnboardingTaskStartBlocker(prisma, task.id);
+    if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
+  }
+
+  const updateTaskStatus = async (tx: Prisma.TransactionClient) => {
+    if (!taskStatusChanged) return;
+    await tx.task.update({
+      where: { id: task.id },
+      data: { status: body.task_status },
+    });
+  };
+
   if (isEmptyValue(body.value)) {
-    await prisma.customFieldValue
-      .delete({
+    await prisma.$transaction(async (tx) => {
+      await tx.customFieldValue.deleteMany({
+        where: { task_id: task.id, definition_id: body.definition_id },
+      });
+      await updateTaskStatus(tx);
+    });
+  } else {
+    const validated = validateCustomFieldValue(def, body.value);
+    if (!validated.ok) {
+      return NextResponse.json(
+        { error: `Invalid value for "${def.name}": ${validated.error}` },
+        { status: 400 },
+      );
+    }
+
+    // People-type fields: ensure every referenced id is a workspace member.
+    if (def.type === "people" && Array.isArray(validated.value)) {
+      const ids = (validated.value as string[]).filter((s) => typeof s === "string");
+      if (ids.length > 0) {
+        const members = await prisma.workspaceMember.findMany({
+          where: {
+            workspace_id: task.project.workspace_id,
+            user_id: { in: ids },
+          },
+          select: { user_id: true },
+        });
+        const memberSet = new Set(members.map((member) => member.user_id));
+        const bad = ids.find((memberId) => !memberSet.has(memberId));
+        if (bad) {
+          return NextResponse.json(
+            {
+              error: `Invalid value for "${def.name}": user ${bad} is not a member of this workspace`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.customFieldValue.upsert({
         where: {
           task_id_definition_id: {
             task_id: task.id,
-            definition_id: body.definition_id,
+            definition_id: body.definition_id!,
           },
         },
+        update: { value: validated.value as Prisma.InputJsonValue },
+        create: {
+          task_id: task.id,
+          definition_id: body.definition_id!,
+          value: validated.value as Prisma.InputJsonValue,
+        },
+      });
+      await updateTaskStatus(tx);
+    });
+  }
+
+  const onboardingSync = taskStatusChanged
+    ? await syncOnboardingChecklistFromTaskStatus(prisma, {
+        taskId: task.id,
+        status: body.task_status!,
+        actorId: auth.prismaUser.id,
       })
-      .catch((err) => {
-        // P2025 (row not found) is expected when clearing an already-empty
-        // field; only log unexpected errors.
-        const code = (err as { code?: string })?.code;
-        if (code !== "P2025") logError("api:custom-fields:delete", err, { task_id: task.id });
-      });
-    return NextResponse.json({ ok: true, value: null });
-  }
-
-  const validated = validateCustomFieldValue(def, body.value);
-  if (!validated.ok) {
-    return NextResponse.json(
-      { error: `Invalid value for "${def.name}": ${validated.error}` },
-      { status: 400 },
-    );
-  }
-
-  // People-type fields: ensure every referenced id is a workspace member.
-  if (def.type === "people" && Array.isArray(validated.value)) {
-    const ids = (validated.value as string[]).filter((s) => typeof s === "string");
-    if (ids.length > 0) {
-      const members = await prisma.workspaceMember.findMany({
-        where: {
-          workspace_id: task.project.workspace_id,
-          user_id: { in: ids },
-        },
-        select: { user_id: true },
-      });
-      const memberSet = new Set(members.map((m) => m.user_id));
-      const bad = ids.find((id) => !memberSet.has(id));
-      if (bad) {
-        return NextResponse.json(
-          {
-            error: `Invalid value for "${def.name}": user ${bad} is not a member of this workspace`,
-          },
-          { status: 400 },
-        );
-      }
-    }
-  }
-
-  const upserted = await prisma.customFieldValue.upsert({
-    where: {
-      task_id_definition_id: {
-        task_id: task.id,
-        definition_id: body.definition_id,
-      },
-    },
-    update: { value: validated.value as Prisma.InputJsonValue },
-    create: {
+    : null;
+  if (taskStatusChanged) {
+    await recordActivity({
+      workspace_id: task.project.workspace_id,
+      actor_id: auth.prismaUser.id,
+      type: "task_status_changed",
+      entity_type: "task",
+      entity_id: task.id,
+      project_id: task.project_id,
       task_id: task.id,
-      definition_id: body.definition_id,
-      value: validated.value as Prisma.InputJsonValue,
-    },
-  });
+      metadata: { old_status: task.status, new_status: body.task_status, source: "custom_field" },
+    });
+  }
 
-  return NextResponse.json(upserted);
+  return NextResponse.json({
+    ok: true,
+    value: isEmptyValue(body.value) ? null : body.value,
+    onboarding_sync: onboardingSync,
+  });
 }
+
 export const PUT = withErrorReporting("api:tasks/id/custom-fields:PUT", PUT_handler);

@@ -12,6 +12,9 @@ import {
   finishClientOnboardingStart,
 } from "@/lib/onboarding";
 import { isCommercialDepartmentName } from "@/lib/project-creation-access";
+import { syncSpaceTaskStatusFields } from "@/lib/space-workflow-statuses";
+import { isSpaceWorkflowSchemaUnavailable } from "@/lib/space-workflow-schema";
+import { logError } from "@/lib/log-error";
 
 async function canCreateProjectInWorkspace(userId: string, workspaceId: string, admin: boolean) {
   if (admin) return true;
@@ -196,6 +199,38 @@ async function postHandler(req: NextRequest) {
 
     return { project: createdProject, onboardingResult: createdOnboarding };
   });
+
+  if (resolvedSpaceId) {
+    await prisma
+      .$transaction(async (tx) => {
+        const spaceStatuses = await tx.workflowStatus.findMany({
+          where: {
+            workspace_id: auth.currentWorkspaceId!,
+            space_id: resolvedSpaceId,
+            project_id: null,
+            category: "task",
+            active: true,
+          },
+          orderBy: [{ stage_order: "asc" }, { id: "asc" }],
+        });
+        if (spaceStatuses.length) {
+          await syncSpaceTaskStatusFields(tx, {
+            workspaceId: auth.currentWorkspaceId!,
+            spaceId: resolvedSpaceId,
+            projectIds: [project.id],
+            statuses: spaceStatuses,
+          });
+        }
+      })
+      .catch((error) => {
+        if (isSpaceWorkflowSchemaUnavailable(error)) return;
+        logError("api:projects:POST:sync-space-workflow", error, {
+          project_id: project.id,
+          space_id: resolvedSpaceId,
+          workspace_id: auth.currentWorkspaceId,
+        });
+      });
+  }
 
   if (onboardingResult) {
     await finishClientOnboardingStart(onboardingResult, auth.prismaUser.id);

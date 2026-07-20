@@ -15,6 +15,7 @@ import CustomFieldChip from "@/components/projects/custom-field-chip";
 import { PriorityBadge } from "@/components/projects/priority-ui";
 import { RH_BOARD_FIELD_NAME, getRhBoardColumnColor } from "@/lib/rh-board";
 import { CLICKUP_STATUS_FIELD_NAME, clickupStatusColor } from "@/lib/clickup-status";
+import { SPACE_TASK_STATUS_FIELD_NAME, taskStatusForSpaceTaskStatus } from "@/lib/space-task-status";
 import type {
   CustomFieldDefinition,
   Task,
@@ -25,6 +26,7 @@ import type { ToolbarState } from "@/components/projects/project-toolbar";
 
 interface KanbanBoardProps {
   projectId: string;
+  spaceId?: string | null;
   tasks: Task[];
   customFields: CustomFieldDefinition[];
   workflowStatuses: WorkflowStatus[];
@@ -51,6 +53,7 @@ interface BoardColumn {
   label: string;
   color: string;
   hex: string;
+  terminal?: boolean;
 }
 
 function isColumnKey(value: string): value is ColumnKey {
@@ -70,6 +73,7 @@ function columnLabel(
 
 export default function KanbanBoard({
   projectId,
+  spaceId,
   tasks,
   customFields,
   workflowStatuses,
@@ -83,27 +87,35 @@ export default function KanbanBoard({
   selectionMode = false,
 }: KanbanBoardProps) {
   const { language, t } = useLanguage();
-  const boardStatusField = customFields.find(
+  const spaceStatusField = customFields.find(
+    (field) =>
+      field.name === SPACE_TASK_STATUS_FIELD_NAME &&
+      field.type === "dropdown" &&
+      (field.options?.length ?? 0) > 0,
+  );
+  const boardStatusField = spaceStatusField ?? customFields.find(
     (field) =>
       (field.name === RH_BOARD_FIELD_NAME ||
         field.name === CLICKUP_STATUS_FIELD_NAME) &&
       field.type === "dropdown" &&
       (field.options?.length ?? 0) > 0,
   );
-  const workflowStatusColors = useMemo(
+  const isSpaceWorkflowBoard = boardStatusField?.name === SPACE_TASK_STATUS_FIELD_NAME;
+  const workflowStatusByName = useMemo(
     () =>
       new Map(
         workflowStatuses
           .filter(
             (status) =>
-              status.project_id === projectId &&
               status.category === "task" &&
               status.active &&
-              Boolean(status.color),
+              (isSpaceWorkflowBoard
+                ? status.space_id === spaceId
+                : status.project_id === projectId),
           )
-          .map((status) => [status.name, status.color as string]),
+          .map((status) => [status.name, status]),
       ),
-    [projectId, workflowStatuses],
+    [isSpaceWorkflowBoard, projectId, spaceId, workflowStatuses],
   );
   const boardColumns = useMemo<BoardColumn[]>(() => {
     if (boardStatusField?.options?.length) {
@@ -112,14 +124,15 @@ export default function KanbanBoard({
         label,
         color: "bg-current",
         hex:
-          workflowStatusColors.get(label) ??
+          workflowStatusByName.get(label)?.color ??
           (boardStatusField.name === RH_BOARD_FIELD_NAME
             ? getRhBoardColumnColor(label)
             : clickupStatusColor(label)),
+        terminal: workflowStatusByName.get(label)?.terminal,
       }));
     }
     return COLUMNS.map((column) => ({ ...column }));
-  }, [boardStatusField, workflowStatusColors]);
+  }, [boardStatusField, workflowStatusByName]);
   const [columns, setColumns] = useState<Record<string, Task[]>>({});
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const isDraggingRef = useRef(false);
@@ -206,9 +219,17 @@ export default function KanbanBoard({
     (f) => f.id !== boardStatusField?.id && (toolbar?.visibleColumns?.[f.id] ?? true),
   );
 
+  const taskStatusForBoardColumn = (columnKey: string): ColumnKey => {
+    const index = boardColumns.findIndex((column) => column.key === columnKey);
+    return taskStatusForSpaceTaskStatus(boardColumns[index], index);
+  };
+
   const addTaskToColumn = (columnKey: string) => {
     if (boardStatusField) {
-      onAddTask("todo", { [boardStatusField.id]: columnKey });
+      onAddTask(
+        isSpaceWorkflowBoard ? taskStatusForBoardColumn(columnKey) : "todo",
+        { [boardStatusField.id]: columnKey },
+      );
       return;
     }
     if (isColumnKey(columnKey)) onAddTask(columnKey);
@@ -245,7 +266,10 @@ export default function KanbanBoard({
 
     const dstItems = srcCol === dstCol ? srcItems : [...(newColumns[dstCol] ?? [])];
     const movedTask = boardStatusField
-      ? taskWithCustomBoardValue(removed, dstCol)
+      ? {
+          ...taskWithCustomBoardValue(removed, dstCol),
+          ...(isSpaceWorkflowBoard ? { status: taskStatusForBoardColumn(dstCol) } : {}),
+        }
       : { ...removed, status: dstCol as ColumnKey };
     dstItems.splice(destination.index, 0, movedTask);
     newColumns[dstCol] = dstItems;
@@ -260,6 +284,9 @@ export default function KanbanBoard({
             body: JSON.stringify({
               definition_id: boardStatusField.id,
               value: dstCol,
+              ...(isSpaceWorkflowBoard
+                ? { task_status: taskStatusForBoardColumn(dstCol) }
+                : {}),
             }),
           })
         : await fetch(`/api/projects/${projectId}/reorder-tasks`, {

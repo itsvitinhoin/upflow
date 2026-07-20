@@ -644,6 +644,7 @@ export interface WorkflowStatus {
   id: string;
   workspace_id: string;
   project_id: string | null;
+  space_id: string | null;
   key: string;
   name: string;
   category: string;

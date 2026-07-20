@@ -474,6 +474,7 @@ export default function ProjectPage() {
             {toolbar.view === "board" ? (
               <KanbanBoard
                 projectId={id}
+                spaceId={project?.space_id}
                 tasks={tasks}
                 customFields={customFields}
                 workflowStatuses={workflowStatuses}

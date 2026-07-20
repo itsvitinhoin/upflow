@@ -7,6 +7,7 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { isSpaceWorkflowSchemaUnavailable } from "@/lib/space-workflow-schema";
 
 const WorkflowStatusSchema = z.object({
   project_id: z.string().uuid().nullable().optional(),
@@ -33,14 +34,57 @@ async function GET_handler(req: NextRequest) {
   const where: Prisma.WorkflowStatusWhereInput = {
     workspace_id: scope.workspaceId,
     ...(category ? { category } : {}),
-    ...(projectId ? { OR: [{ project_id: null }, { project_id: projectId }] } : {}),
   };
-  const rows = await prisma.workflowStatus.findMany({
-    where,
-    take: limit + 1,
-    ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    orderBy: [{ stage_order: "asc" }, { name: "asc" }, { id: "asc" }],
-  });
+  if (projectId) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, workspace_id: scope.workspaceId },
+      select: { space_id: true },
+    });
+    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    where.OR = [
+      { project_id: projectId },
+      ...(project.space_id ? [{ project_id: null, space_id: project.space_id }] : []),
+      { project_id: null, space_id: null },
+    ];
+  }
+  const loadRows = () =>
+    prisma.workflowStatus.findMany({
+      where,
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: [{ stage_order: "asc" }, { name: "asc" }, { id: "asc" }],
+    });
+  let rows: Awaited<ReturnType<typeof loadRows>>;
+  try {
+    rows = await loadRows();
+  } catch (error) {
+    if (!isSpaceWorkflowSchemaUnavailable(error)) throw error;
+    const legacyRows = await prisma.workflowStatus.findMany({
+      where: {
+        workspace_id: scope.workspaceId,
+        ...(category ? { category } : {}),
+        ...(projectId ? { OR: [{ project_id: null }, { project_id: projectId }] } : {}),
+      },
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: [{ stage_order: "asc" }, { name: "asc" }, { id: "asc" }],
+      select: {
+        id: true,
+        workspace_id: true,
+        project_id: true,
+        key: true,
+        name: true,
+        category: true,
+        stage_order: true,
+        color: true,
+        terminal: true,
+        active: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+    rows = legacyRows.map((status) => ({ ...status, space_id: null }));
+  }
   return NextResponse.json(buildPage(rows, limit));
 }
 

@@ -20,6 +20,8 @@ import {
 } from "@/lib/project-access";
 import { attachTaskOnboardingLink, loadTaskOnboardingLinkMap } from "@/lib/task-onboarding-links";
 import { repairOnboardingTaskRouting } from "@/lib/onboarding";
+import { SPACE_TASK_STATUS_FIELD_NAME, defaultSpaceTaskStatusName } from "@/lib/space-task-status";
+import { isSpaceWorkflowSchemaUnavailable } from "@/lib/space-workflow-schema";
 
 function parseDueDate(input: unknown): Date | null | "invalid" {
   if (input === null || input === undefined || input === "") return null;
@@ -141,7 +143,7 @@ async function postHandler(req: NextRequest) {
 
   const project = await prisma.project.findUnique({
     where: { id: project_id },
-    select: { id: true, workspace_id: true, owner_id: true, company_id: true },
+    select: { id: true, workspace_id: true, owner_id: true, company_id: true, space_id: true },
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
   if (!(await canContributeToProject(auth, project))) {
@@ -194,6 +196,44 @@ async function postHandler(req: NextRequest) {
   const cfEntries = (custom_fields ?? []).filter(
     (e) => e && e.definition_id && e.value !== undefined && e.value !== "" && e.value !== null
   );
+
+  if (project.space_id) {
+    try {
+      const [spaceStatuses, spaceField] = await Promise.all([
+        prisma.workflowStatus.findMany({
+          where: {
+            workspace_id: project.workspace_id,
+            space_id: project.space_id,
+            project_id: null,
+            category: "task",
+            active: true,
+          },
+          orderBy: [{ stage_order: "asc" }, { id: "asc" }],
+        }),
+        prisma.customFieldDefinition.findFirst({
+          where: {
+            project_id,
+            name: SPACE_TASK_STATUS_FIELD_NAME,
+            type: "dropdown",
+          },
+          select: { id: true },
+          orderBy: [{ position: "asc" }, { id: "asc" }],
+        }),
+      ]);
+      if (
+        spaceField &&
+        spaceStatuses.length > 0 &&
+        !cfEntries.some((entry) => entry.definition_id === spaceField.id)
+      ) {
+        cfEntries.push({
+          definition_id: spaceField.id,
+          value: defaultSpaceTaskStatusName(spaceStatuses, status ?? "todo"),
+        });
+      }
+    } catch (error) {
+      if (!isSpaceWorkflowSchemaUnavailable(error)) throw error;
+    }
+  }
 
   const cfNormalized = new Map<string, unknown>();
   if (cfEntries.length > 0) {
