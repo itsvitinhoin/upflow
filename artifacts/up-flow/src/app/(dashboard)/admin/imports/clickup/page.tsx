@@ -29,6 +29,12 @@ type Job = {
   selected_source_ids?: unknown[];
   report?: {
     failures?: Array<{ list_id: string; list_name?: string; error: string }>;
+    status_sync?: {
+      active?: boolean;
+      updated?: number;
+      failed?: number;
+      failures?: Array<{ list_id: string; list_name?: string; error: string }>;
+    };
   };
   imported_spaces?: Array<{ id: string; name: string; selected_lists: number }>;
 };
@@ -42,6 +48,7 @@ type LoadingAction =
   | "preview"
   | "start"
   | "resume"
+  | "sync"
   | "cancel"
   | null;
 
@@ -261,12 +268,39 @@ export default function ClickUpImportPage() {
       setJob(updated);
       window.dispatchEvent(new Event("upflow:sidebar-refresh"));
       setMessage(
-        updated.status === "completed"
+        job.report?.status_sync?.active && updated.status === "completed"
+          ? "Task statuses synchronized."
+          : job.report?.status_sync?.active
+            ? "Task status synchronization updated."
+            : updated.status === "completed"
           ? "Migration complete. The sidebar has been refreshed."
           : "Migration progress updated.",
       );
     } catch (cause) {
       setError(errorMessage("Could not resume the import.", cause));
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function syncStatuses() {
+    if (!job || job.status !== "completed" || loading) return;
+
+    setLoading("sync");
+    setError("");
+    try {
+      const updated = await requestJson<Job>(
+        `/api/admin/imports/clickup/jobs/${job.id}/sync-statuses`,
+        { method: "POST" },
+      );
+      setJob(updated);
+      setMessage(
+        updated.status === "completed"
+          ? `${updated.report?.status_sync?.updated ?? 0} task statuses synchronized.`
+          : "Task status synchronization started.",
+      );
+    } catch (cause) {
+      setError(errorMessage("Could not synchronize task statuses.", cause));
     } finally {
       setLoading(null);
     }
@@ -299,6 +333,7 @@ export default function ClickUpImportPage() {
   const retryingFailedLists = Boolean(
     job && job.failed > 0 && job.cursor >= jobListCount,
   );
+  const statusSyncActive = Boolean(job?.report?.status_sync?.active);
   const jobFinished = job?.status === "completed" || job?.status === "cancelled";
   const jobCancellable = Boolean(
     job && ["queued", "running", "paused"].includes(job.status),
@@ -472,6 +507,11 @@ export default function ClickUpImportPage() {
               )}
             </div>
           )}
+          {job.report?.status_sync && !job.report.status_sync.active && (
+            <p className="text-sm text-muted-foreground">
+              Task status sync: {job.report.status_sync.updated ?? 0} tasks synchronized.
+            </p>
+          )}
           {job.failed > 0 && (
             <p role="alert" className="text-sm text-destructive">
               {job.report?.failures?.[0]?.list_name
@@ -479,6 +519,13 @@ export default function ClickUpImportPage() {
                 : "Some selected lists failed. Retry them after correcting the reported issue."}
             </p>
           )}
+          {job.report?.status_sync?.failed ? (
+            <p role="alert" className="text-sm text-destructive">
+              {job.report.status_sync.failures?.[0]?.list_name
+                ? `${job.report.status_sync.failures[0].list_name}: ${job.report.status_sync.failures[0].error}`
+                : "Some task statuses could not be synchronized. Try again after correcting the reported issue."}
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <button
               type="button"
@@ -488,10 +535,22 @@ export default function ClickUpImportPage() {
             >
               {loading === "resume"
                 ? "Resuming..."
-                : retryingFailedLists
+                : statusSyncActive
+                  ? "Continue status sync"
+                  : retryingFailedLists
                   ? "Retry failed lists"
                   : "Resume next batch"}
             </button>
+            {job.status === "completed" && (
+              <button
+                type="button"
+                className="rounded border px-3 py-2 disabled:opacity-50"
+                disabled={busy}
+                onClick={syncStatuses}
+              >
+                {loading === "sync" ? "Syncing statuses..." : "Sync task statuses"}
+              </button>
+            )}
             <button
               type="button"
               className="rounded border px-3 py-2 disabled:opacity-50"

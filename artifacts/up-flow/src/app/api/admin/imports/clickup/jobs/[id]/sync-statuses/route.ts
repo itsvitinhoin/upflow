@@ -4,9 +4,8 @@ import { requireWorkspaceAdmin } from "@/lib/api/scope";
 import { prisma } from "@/lib/prisma";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import {
+  beginClickupStatusSync,
   getImportedClickupSpaces,
-  isClickupStatusSyncActive,
-  runClickupBatch,
   runClickupStatusSync,
 } from "@/lib/clickup-import";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -20,9 +19,9 @@ async function handler(
   const a = requireWorkspaceAdmin(r.auth, r.auth.currentWorkspaceId);
   if (!a.ok) return a.response;
   const limit = await checkRateLimit(req, {
-    key: "clickup-import-resume",
+    key: "clickup-import-status-sync",
     windowMs: 60_000,
-    max: 10,
+    max: 4,
   });
   if (!limit.ok) return rateLimitResponse(limit);
 
@@ -30,20 +29,34 @@ async function handler(
     where: { id: params.id, workspace_id: r.auth.currentWorkspaceId },
   });
   if (!job) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (job.status === "cancelled") {
-    return NextResponse.json({ error: "Import cancelled" }, { status: 409 });
-  }
-  if (job.status === "completed") {
-    return NextResponse.json({ error: "Import already completed" }, { status: 409 });
+  if (job.status !== "completed") {
+    return NextResponse.json(
+      { error: "Wait for the migration to finish before synchronizing statuses" },
+      { status: 409 },
+    );
   }
 
-  await prisma.importJob.update({
-    where: { id: job.id },
-    data: { status: "running", started_at: job.started_at ?? new Date() },
+  const started = await prisma.importJob.updateMany({
+    where: {
+      id: job.id,
+      workspace_id: r.auth.currentWorkspaceId,
+      status: "completed",
+    },
+    data: {
+      status: "running",
+      cursor: 0,
+      completed_at: null,
+      report: beginClickupStatusSync(job.report),
+    },
   });
-  const updated = isClickupStatusSyncActive(job.report)
-    ? await runClickupStatusSync(job.id)
-    : await runClickupBatch(job.id, r.auth.prismaUser.id);
+  if (!started.count) {
+    return NextResponse.json(
+      { error: "A status synchronization is already running" },
+      { status: 409 },
+    );
+  }
+
+  const updated = await runClickupStatusSync(job.id);
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({
@@ -53,4 +66,7 @@ async function handler(
   });
 }
 
-export const POST = withErrorReporting("api:admin:imports:clickup:resume:POST", handler);
+export const POST = withErrorReporting(
+  "api:admin:imports:clickup:sync-statuses:POST",
+  handler,
+);

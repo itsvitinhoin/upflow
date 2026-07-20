@@ -5,7 +5,16 @@ import { clickupTasks } from "../../src/lib/clickup";
 
 test("ClickUp statuses map to supported Upflow statuses", () => {
   assert.equal(mapStatus("done"), "done");
+  assert.equal(mapStatus("Conclu\u00eddo"), "done");
+  assert.equal(mapStatus("Finalizada"), "done");
+  assert.equal(mapStatus("Publicado"), "done");
+  assert.equal(mapStatus("Closed"), "done");
+  assert.equal(mapStatus("Aprovado"), "done");
   assert.equal(mapStatus("in progress"), "in_progress");
+  assert.equal(mapStatus("Em andamento"), "in_progress");
+  assert.equal(mapStatus("Em produ\u00e7\u00e3o"), "in_progress");
+  assert.equal(mapStatus("Aguardando aprova\u00e7\u00e3o"), "in_progress");
+  assert.equal(mapStatus("A fazer"), "todo");
   assert.equal(mapStatus("custom agency status"), "todo");
 });
 

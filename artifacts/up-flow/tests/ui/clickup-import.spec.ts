@@ -203,6 +203,78 @@ test.describe("ClickUp migration", () => {
     await context.close();
   });
 
+  test("synchronizes task statuses for a completed migration", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await context.newPage();
+    await stubWorkspaces(page);
+    await page.route("**/api/admin/imports/clickup/jobs", async (route) => {
+      expect(route.request().method()).toBe("GET");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "completed-job",
+              status: "completed",
+              cursor: 14,
+              total: 14,
+              imported: 183,
+              failed: 0,
+              selected_source_ids: Array.from({ length: 14 }, (_, index) => ({
+                space_id: "creative",
+                list_id: `list-${index}`,
+              })),
+            },
+          ],
+        }),
+      });
+    });
+    await page.route(
+      "**/api/admin/imports/clickup/jobs/completed-job/sync-statuses",
+      async (route) => {
+        expect(route.request().method()).toBe("POST");
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "completed-job",
+            status: "completed",
+            cursor: 14,
+            total: 14,
+            imported: 183,
+            failed: 0,
+            selected_source_ids: Array.from({ length: 14 }, (_, index) => ({
+              space_id: "creative",
+              list_id: `list-${index}`,
+            })),
+            report: {
+              status_sync: {
+                active: false,
+                updated: 183,
+                failed: 0,
+                failures: [],
+              },
+            },
+          }),
+        });
+      },
+    );
+
+    await page.goto("/admin/imports/clickup");
+    await page.getByRole("button", { name: "Sync task statuses" }).click();
+
+    await expect(page.getByRole("status")).toContainText(
+      "183 task statuses synchronized.",
+    );
+    await expect(page.getByText("Task status sync: 183 tasks synchronized.")).toBeVisible();
+
+    await context.close();
+  });
+
   test("restores an active job after a duplicate queue response", async ({
     browser,
     baseURL,

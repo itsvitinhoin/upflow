@@ -26,9 +26,18 @@ type ImportFailure = {
   error: string;
 };
 
+type StatusSyncReport = {
+  active: boolean;
+  updated: number;
+  failed: number;
+  failures: ImportFailure[];
+  completed_at?: string;
+};
+
 type ImportReport = {
   failures: ImportFailure[];
   retry_count: number;
+  status_sync?: StatusSyncReport;
 };
 
 export type ImportedClickupSpace = {
@@ -40,11 +49,50 @@ export type ImportedClickupSpace = {
 const MAX_REPORTED_FAILURES = 50;
 const MIN_INT = -2_147_483_648;
 const MAX_INT = 2_147_483_647;
+const COMPLETED_STATUS_MARKERS = [
+  "complete",
+  "done",
+  "conclu",
+  "finaliz",
+  "entreg",
+  "publicad",
+  "published",
+  "approved",
+  "aprovad",
+  "fechad",
+  "encerr",
+  "feito",
+  "feita",
+  "closed",
+  "cancel",
+];
+const IN_PROGRESS_STATUS_MARKERS = [
+  "progress",
+  "doing",
+  "andamento",
+  "produ",
+  "revis",
+  "review",
+  "approval",
+  "aprov",
+  "aguard",
+  "await",
+  "waiting",
+  "blocked",
+  "bloque",
+  "agend",
+];
 
 export function mapStatus(value: string | null | undefined): TaskStatus {
-  const normalized = value?.toLowerCase() ?? "";
-  if (normalized.includes("complete") || normalized === "done") return "done";
-  if (normalized.includes("progress") || normalized.includes("doing")) {
+  const normalized = (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+  if (COMPLETED_STATUS_MARKERS.some((marker) => normalized.includes(marker))) {
+    return "done";
+  }
+  if (IN_PROGRESS_STATUS_MARKERS.some((marker) => normalized.includes(marker))) {
     return "in_progress";
   }
   return "todo";
@@ -210,14 +258,10 @@ export async function getImportedClickupSpaces(job: {
   });
 }
 
-function importReport(value: unknown): ImportReport {
-  const report =
-    value && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
+function importFailures(value: unknown): ImportFailure[] {
   const failures: ImportFailure[] = [];
-  if (Array.isArray(report.failures)) {
-    for (const item of report.failures) {
+  if (Array.isArray(value)) {
+    for (const item of value) {
       if (!item || typeof item !== "object" || Array.isArray(item)) continue;
       const candidate = item as Record<string, unknown>;
       if (
@@ -234,13 +278,57 @@ function importReport(value: unknown): ImportReport {
       }
     }
   }
+  return failures.slice(-MAX_REPORTED_FAILURES);
+}
+
+function integerValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.floor(value))
+    : 0;
+}
+
+function statusSyncReport(value: unknown): StatusSyncReport | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const candidate = value as Record<string, unknown>;
   return {
-    failures: failures.slice(-MAX_REPORTED_FAILURES),
-    retry_count:
-      typeof report.retry_count === "number" && Number.isFinite(report.retry_count)
-        ? report.retry_count
-        : 0,
+    active: candidate.active === true,
+    updated: integerValue(candidate.updated),
+    failed: integerValue(candidate.failed),
+    failures: importFailures(candidate.failures),
+    ...(typeof candidate.completed_at === "string" && {
+      completed_at: candidate.completed_at,
+    }),
   };
+}
+
+function importReport(value: unknown): ImportReport {
+  const report =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const sync = statusSyncReport(report.status_sync);
+  return {
+    failures: importFailures(report.failures),
+    retry_count: integerValue(report.retry_count),
+    ...(sync && { status_sync: sync }),
+  };
+}
+
+export function beginClickupStatusSync(value: unknown): ImportReport {
+  const report = importReport(value);
+  return {
+    ...report,
+    status_sync: {
+      active: true,
+      updated: 0,
+      failed: 0,
+      failures: [],
+    },
+  };
+}
+
+export function isClickupStatusSyncActive(value: unknown): boolean {
+  return importReport(value).status_sync?.active === true;
 }
 
 function summarizeImportError(error: unknown): string {
@@ -520,6 +608,148 @@ export async function runClickupBatch(
   });
 }
 
+async function syncImportedTaskStatus(
+  workspaceId: string,
+  sourceWorkspaceId: string,
+  raw: ClickUpTask,
+  seen: Set<string>,
+): Promise<number> {
+  if (seen.has(raw.id)) return 0;
+  seen.add(raw.id);
+
+  const mapped = await prisma.importMapping.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      source_workspace_id: sourceWorkspaceId,
+      entity_type: "task",
+      source_id: raw.id,
+      target_id: { not: null },
+    },
+    select: { target_id: true },
+  });
+  const updated = mapped?.target_id
+    ? await prisma.task.updateMany({
+        where: {
+          id: mapped.target_id,
+          project: { workspace_id: workspaceId },
+        },
+        data: { status: mapStatus(raw.status?.status) },
+      })
+    : { count: 0 };
+
+  let synced = updated.count;
+  for (const child of raw.subtasks) {
+    const detail = await clickupTask(child.id);
+    if (!detail.archived) {
+      synced += await syncImportedTaskStatus(
+        workspaceId,
+        sourceWorkspaceId,
+        detail,
+        seen,
+      );
+    }
+  }
+  return synced;
+}
+
+export async function runClickupStatusSync(jobId: string, batchSize = 20) {
+  const job = await prisma.importJob.findUnique({ where: { id: jobId } });
+  if (!job || job.status === "cancelled") return job;
+
+  const report = importReport(job.report);
+  const sync = report.status_sync;
+  if (!sync || !sync.active) return job;
+
+  const selected = selectedLists(job.selected_source_ids);
+  const finish = async (failure?: ImportFailure) => {
+    const completedAt = new Date();
+    return prisma.importJob.update({
+      where: { id: job.id },
+      data: {
+        total: selected.length,
+        status: "completed",
+        completed_at: completedAt,
+        report: {
+          ...report,
+          status_sync: {
+            ...sync,
+            active: false,
+            failed: sync.failed + (failure ? 1 : 0),
+            failures: failure
+              ? [...sync.failures, failure].slice(-MAX_REPORTED_FAILURES)
+              : sync.failures,
+            completed_at: completedAt.toISOString(),
+          },
+        },
+      },
+    });
+  };
+
+  if (!selected.length) {
+    return finish({
+      list_id: "unknown",
+      error: "No selected ClickUp lists were stored for this job.",
+    });
+  }
+
+  const sourceLists = selected.slice(job.cursor, job.cursor + batchSize);
+  if (!sourceLists.length) return finish();
+
+  const seen = new Set<string>();
+  let updated = 0;
+  let failed = 0;
+  const failures: ImportFailure[] = [];
+
+  for (const source of sourceLists) {
+    try {
+      for (let page = 0; ; page += 1) {
+        const response = await clickupTasks(source.list_id, page);
+        for (const raw of response.tasks) {
+          if (raw.archived) continue;
+          updated += await syncImportedTaskStatus(
+            job.workspace_id,
+            job.source_workspace_id,
+            raw,
+            seen,
+          );
+        }
+        if (response.last_page !== false || response.tasks.length < 100) break;
+      }
+    } catch (error) {
+      failed += 1;
+      failures.push({
+        list_id: source.list_id,
+        ...(source.list_name && { list_name: source.list_name }),
+        error: summarizeImportError(error),
+      });
+    }
+  }
+
+  const cursor = job.cursor + sourceLists.length;
+  const complete = cursor >= selected.length;
+  const completedAt = complete ? new Date() : null;
+  return prisma.importJob.update({
+    where: { id: job.id },
+    data: {
+      cursor,
+      total: selected.length,
+      status: complete ? "completed" : "running",
+      completed_at: completedAt,
+      report: {
+        ...report,
+        status_sync: {
+          ...sync,
+          active: !complete,
+          updated: sync.updated + updated,
+          failed: sync.failed + failed,
+          failures: [...sync.failures, ...failures].slice(-MAX_REPORTED_FAILURES),
+          ...(completedAt && { completed_at: completedAt.toISOString() }),
+        },
+      },
+    },
+  });
+}
+
 async function importTask(
   jobId: string,
   workspaceId: string,
@@ -538,7 +768,16 @@ async function importTask(
       },
     },
   });
-  if (mapped?.target_id) return mapped.target_id;
+  if (mapped?.target_id) {
+    await prisma.task.updateMany({
+      where: {
+        id: mapped.target_id,
+        project: { workspace_id: workspaceId },
+      },
+      data: { status: mapStatus(raw.status?.status) },
+    });
+    return mapped.target_id;
+  }
 
   const assignee = raw.assignees.find((user) => user.email)?.email?.toLowerCase();
   const task = await prisma.$transaction(async (tx) => {
