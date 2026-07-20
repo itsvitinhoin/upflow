@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { prisma } from "@/lib/prisma";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { pingRateLimiter } from "@/lib/rate-limit";
+import { resolveEmailOrigin } from "@/lib/email/origin";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type HealthCheck = {
@@ -189,28 +190,22 @@ function checkResend(): HealthCheck {
 }
 
 function checkAppUrl(): HealthCheck {
-  const appUrl = process.env.APP_URL?.trim();
-  let valid = Boolean(appUrl);
-  let message = appUrl
-    ? "Invite links will use the configured public URL."
-    : "Set APP_URL to the canonical production URL.";
-
-  if (appUrl) {
-    try {
-      const parsed = new URL(appUrl);
-      if (process.env.NODE_ENV === "production" && parsed.protocol !== "https:") {
-        valid = false;
-        message = "Production APP_URL must use HTTPS.";
-      }
-    } catch {
-      valid = false;
-      message = "APP_URL must be a valid absolute URL, for example https://upflow-mocha.vercel.app.";
-    }
-  }
+  const resolved = resolveEmailOrigin();
+  const usingFallback = resolved.source === "vercel-production-url";
+  const valid = Boolean(resolved.origin);
+  const message = !valid
+    ? (resolved.problem ?? "Set APP_URL to the canonical production URL.")
+    : usingFallback
+      ? `Email links are using Vercel's canonical production URL. ${resolved.problem ?? "Set APP_URL explicitly to make this configuration permanent."}`
+      : "Invite and password reset links will use the configured public URL.";
 
   return {
     ok: valid,
-    label: valid ? "APP_URL configured" : "APP_URL needs attention",
+    label: valid
+      ? usingFallback
+        ? "Vercel production URL in use"
+        : "APP_URL configured"
+      : "APP_URL needs attention",
     message,
   };
 }
