@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mapPriority, mapStatus } from "../../src/lib/clickup-import";
+import { mapPosition, mapPriority, mapStatus } from "../../src/lib/clickup-import";
 import { clickupTasks } from "../../src/lib/clickup";
 
 test("ClickUp statuses map to supported Upflow statuses", () => {
@@ -17,6 +17,12 @@ test("ClickUp priorities map safely", () => {
   assert.equal(mapPriority("low"), "low");
   assert.equal(mapPriority("4"), "low");
   assert.equal(mapPriority(undefined), "medium");
+});
+
+test("ClickUp fractional ordering is safe for Upflow integer task positions", () => {
+  assert.equal(mapPosition("42.6"), 43);
+  assert.equal(mapPosition("not-a-number"), 0);
+  assert.equal(mapPosition(2_147_483_648), 2_147_483_647);
 });
 
 test("ClickUp task parsing accepts assigned tasks returned by the list endpoint", async (t) => {

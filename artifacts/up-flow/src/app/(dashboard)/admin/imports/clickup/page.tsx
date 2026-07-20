@@ -25,6 +25,10 @@ type Job = {
   total: number;
   imported: number;
   failed: number;
+  selected_source_ids?: unknown[];
+  report?: {
+    failures?: Array<{ list_id: string; list_name?: string; error: string }>;
+  };
 };
 type ApiError = { error?: string };
 type WorkspacesResponse = { teams?: Source[] };
@@ -189,7 +193,6 @@ export default function ClickUpImportPage() {
           body: JSON.stringify({
             source_workspace_id: source,
             selected_source_ids: Object.values(selected),
-            total: preview.tasks,
             confirmation: true,
           }),
         },
@@ -243,6 +246,12 @@ export default function ClickUpImportPage() {
 
   const busy = loading !== null;
   const selectedCount = Object.keys(selected).length;
+  const jobListCount = Array.isArray(job?.selected_source_ids)
+    ? job.selected_source_ids.length
+    : job?.total ?? 0;
+  const retryingFailedLists = Boolean(
+    job && job.failed > 0 && job.cursor >= jobListCount,
+  );
   const jobFinished = job?.status === "completed" || job?.status === "cancelled";
 
   return (
@@ -382,8 +391,15 @@ export default function ClickUpImportPage() {
           <h2 className="font-semibold">Migration job</h2>
           <p className="text-sm">
             {job.status}: {job.imported} imported, {job.failed} failed,{" "}
-            {job.cursor} of {job.total} list batches processed.
+            {job.cursor} of {jobListCount} selected lists processed.
           </p>
+          {job.failed > 0 && (
+            <p role="alert" className="text-sm text-destructive">
+              {job.report?.failures?.[0]?.list_name
+                ? `${job.report.failures[0].list_name}: ${job.report.failures[0].error}`
+                : "Some selected lists failed. Retry them after correcting the reported issue."}
+            </p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"
@@ -391,7 +407,11 @@ export default function ClickUpImportPage() {
               disabled={jobFinished || busy}
               onClick={resume}
             >
-              {loading === "resume" ? "Resuming..." : "Resume next batch"}
+              {loading === "resume"
+                ? "Resuming..."
+                : retryingFailedLists
+                  ? "Retry failed lists"
+                  : "Resume next batch"}
             </button>
             <button
               type="button"
