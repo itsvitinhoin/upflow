@@ -31,6 +31,12 @@ type ImportReport = {
   retry_count: number;
 };
 
+export type ImportedClickupSpace = {
+  id: string;
+  name: string;
+  selected_lists: number;
+};
+
 const MAX_REPORTED_FAILURES = 50;
 const MIN_INT = -2_147_483_648;
 const MAX_INT = 2_147_483_647;
@@ -152,6 +158,56 @@ function selectedLists(value: unknown): Selected[] {
     });
   }
   return result;
+}
+
+export async function getImportedClickupSpaces(job: {
+  workspace_id: string;
+  source_workspace_id: string;
+  selected_source_ids: unknown;
+}): Promise<ImportedClickupSpace[]> {
+  const selected = selectedLists(job.selected_source_ids);
+  const sourceSpaces = new Map<string, number>();
+  for (const source of selected) {
+    sourceSpaces.set(
+      source.space_id,
+      (sourceSpaces.get(source.space_id) ?? 0) + 1,
+    );
+  }
+
+  const sourceIds = [...sourceSpaces.keys()];
+  if (!sourceIds.length) return [];
+
+  const mappings = await prisma.importMapping.findMany({
+    where: {
+      workspace_id: job.workspace_id,
+      source_workspace_id: job.source_workspace_id,
+      entity_type: "space",
+      source_id: { in: sourceIds },
+      target_id: { not: null },
+    },
+    select: { source_id: true, target_id: true },
+  });
+  const targetIdBySource = new Map(
+    mappings.flatMap((mapping) =>
+      mapping.target_id ? [[mapping.source_id, mapping.target_id] as const] : [],
+    ),
+  );
+  const spaces = await prisma.space.findMany({
+    where: {
+      id: { in: [...targetIdBySource.values()] },
+      workspace_id: job.workspace_id,
+    },
+    select: { id: true, name: true },
+  });
+  const spaceById = new Map(spaces.map((space) => [space.id, space]));
+
+  return sourceIds.flatMap((sourceId) => {
+    const targetId = targetIdBySource.get(sourceId);
+    const space = targetId ? spaceById.get(targetId) : null;
+    return space
+      ? [{ ...space, selected_lists: sourceSpaces.get(sourceId) ?? 0 }]
+      : [];
+  });
 }
 
 function importReport(value: unknown): ImportReport {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 type Source = { id: string; name: string };
@@ -29,6 +30,7 @@ type Job = {
   report?: {
     failures?: Array<{ list_id: string; list_name?: string; error: string }>;
   };
+  imported_spaces?: Array<{ id: string; name: string; selected_lists: number }>;
 };
 type ApiError = { error?: string };
 type WorkspacesResponse = { teams?: Source[] };
@@ -80,9 +82,10 @@ export default function ClickUpImportPage() {
         );
         if (signal?.aborted) return false;
         const jobs = Array.isArray(payload.items) ? payload.items : [];
-        const existing = jobs.find((item) =>
-          ["queued", "running", "paused", "failed"].includes(item.status),
-        );
+        const existing =
+          jobs.find((item) =>
+            ["queued", "running", "paused", "failed"].includes(item.status),
+          ) ?? jobs[0];
         if (!existing) return false;
         setJob(existing);
         return true;
@@ -256,7 +259,12 @@ export default function ClickUpImportPage() {
         { method: "POST" },
       );
       setJob(updated);
-      setMessage("Migration progress updated.");
+      window.dispatchEvent(new Event("upflow:sidebar-refresh"));
+      setMessage(
+        updated.status === "completed"
+          ? "Migration complete. The sidebar has been refreshed."
+          : "Migration progress updated.",
+      );
     } catch (cause) {
       setError(errorMessage("Could not resume the import.", cause));
     } finally {
@@ -432,9 +440,38 @@ export default function ClickUpImportPage() {
         <section className="space-y-3 rounded-lg border p-4">
           <h2 className="font-semibold">Migration job</h2>
           <p className="text-sm">
-            {job.status}: {job.imported} imported, {job.failed} failed,{" "}
+            {job.status}: {job.imported} tasks imported, {job.failed} failed,{" "}
             {job.cursor} of {jobListCount} selected lists processed.
           </p>
+          {job.status === "completed" && (
+            <div className="space-y-2 text-sm">
+              <p className="font-medium">Imported spaces</p>
+              {job.imported_spaces?.length ? (
+                <ul className="space-y-1">
+                  {job.imported_spaces.map((space) => (
+                    <li key={space.id}>
+                      <Link
+                        href={`/spaces/${space.id}`}
+                        className="text-primary underline-offset-4 hover:underline"
+                        onClick={() =>
+                          window.dispatchEvent(new Event("upflow:sidebar-refresh"))
+                        }
+                      >
+                        Open {space.name}
+                      </Link>{" "}
+                      <span className="text-muted-foreground">
+                        ({space.selected_lists} selected lists)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground">
+                  The selected space is now available from the sidebar.
+                </p>
+              )}
+            </div>
+          )}
           {job.failed > 0 && (
             <p role="alert" className="text-sm text-destructive">
               {job.report?.failures?.[0]?.list_name

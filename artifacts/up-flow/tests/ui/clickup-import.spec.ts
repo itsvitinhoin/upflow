@@ -72,6 +72,137 @@ test.describe("ClickUp migration", () => {
     await context.close();
   });
 
+  test("refreshes the sidebar and links to the imported space on completion", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      (window as typeof window & { __sidebarRefreshes?: number }).__sidebarRefreshes = 0;
+      window.addEventListener("upflow:sidebar-refresh", () => {
+        const state = window as typeof window & { __sidebarRefreshes?: number };
+        state.__sidebarRefreshes = (state.__sidebarRefreshes ?? 0) + 1;
+      });
+    });
+    await stubWorkspaces(page);
+    await page.route("**/api/admin/imports/clickup/jobs", async (route) => {
+      expect(route.request().method()).toBe("GET");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "running-job",
+              status: "running",
+              cursor: 13,
+              total: 14,
+              imported: 170,
+              failed: 0,
+              selected_source_ids: Array.from({ length: 14 }, (_, index) => ({
+                space_id: "creative",
+                list_id: `list-${index}`,
+              })),
+            },
+          ],
+        }),
+      });
+    });
+    await page.route("**/api/admin/imports/clickup/jobs/running-job/resume", async (route) => {
+      expect(route.request().method()).toBe("POST");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "running-job",
+          status: "completed",
+          cursor: 14,
+          total: 14,
+          imported: 183,
+          failed: 0,
+          selected_source_ids: Array.from({ length: 14 }, (_, index) => ({
+            space_id: "creative",
+            list_id: `list-${index}`,
+          })),
+          imported_spaces: [
+            {
+              id: "imported-creative-space",
+              name: "Criativos & Design",
+              selected_lists: 14,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto("/admin/imports/clickup");
+    await page.getByRole("button", { name: "Resume next batch" }).click();
+
+    await expect(page.getByRole("status")).toContainText("Migration complete");
+    await expect(page.getByText("completed: 183 tasks imported")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Criativos & Design" }),
+    ).toHaveAttribute("href", "/spaces/imported-creative-space");
+    await expect(page.getByText("(14 selected lists)")).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as typeof window & { __sidebarRefreshes?: number }).__sidebarRefreshes,
+      ),
+    ).toBe(1);
+
+    await context.close();
+  });
+
+  test("restores the latest completed migration with its imported-space link", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await context.newPage();
+    await stubWorkspaces(page);
+    await page.route("**/api/admin/imports/clickup/jobs", async (route) => {
+      expect(route.request().method()).toBe("GET");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [
+            {
+              id: "completed-job",
+              status: "completed",
+              cursor: 14,
+              total: 14,
+              imported: 183,
+              failed: 0,
+              selected_source_ids: Array.from({ length: 14 }, (_, index) => ({
+                space_id: "creative",
+                list_id: `list-${index}`,
+              })),
+              imported_spaces: [
+                {
+                  id: "imported-creative-space",
+                  name: "Criativos & Design",
+                  selected_lists: 14,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto("/admin/imports/clickup");
+
+    await expect(page.getByRole("heading", { name: "Migration job" })).toBeVisible();
+    await expect(page.getByText("completed: 183 tasks imported")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Criativos & Design" }),
+    ).toHaveAttribute("href", "/spaces/imported-creative-space");
+
+    await context.close();
+  });
+
   test("restores an active job after a duplicate queue response", async ({
     browser,
     baseURL,
