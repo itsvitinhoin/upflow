@@ -12,6 +12,9 @@ function read(rel: string) {
 test("task cover images are persisted, validated, and shown on board cards", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260526114500_add_task_cover_image/migration.sql");
+  const privateBucketMigration = read(
+    "prisma/migrations/20260720100000_make_task_assets_private/migration.sql",
+  );
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
   const uploadRoute = read("src/app/api/uploads/task-cover/route.ts");
@@ -24,6 +27,10 @@ test("task cover images are persisted, validated, and shown on board cards", () 
 
   assert.match(schema, /cover_image_url\s+String\?/);
   assert.match(migration, /ADD COLUMN "cover_image_url" TEXT/);
+  assert.match(privateBucketMigration, /task-asset:\/\//);
+  assert.match(privateBucketMigration, /unsupported storage path/);
+  assert.match(privateBucketMigration, /UPDATE storage\.buckets/);
+  assert.match(privateBucketMigration, /SET public = false/);
   assert.match(tasksRoute, /cover_image_url/);
   assert.match(taskRoute, /Invalid cover_image_url/);
   assert.match(uploadRoute, /isWorkspaceAdminFor\(auth,\s*auth\.currentWorkspaceId\)/);
