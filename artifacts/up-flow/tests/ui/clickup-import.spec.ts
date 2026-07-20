@@ -268,9 +268,11 @@ test.describe("ClickUp migration", () => {
     await page.getByRole("button", { name: "Sync task statuses" }).click();
 
     await expect(page.getByRole("status")).toContainText(
-      "183 task statuses synchronized.",
+      "183 task statuses and board stages synchronized.",
     );
-    await expect(page.getByText("Task status sync: 183 tasks synchronized.")).toBeVisible();
+    await expect(
+      page.getByText("Task status sync: 183 tasks and board stages synchronized."),
+    ).toBeVisible();
 
     await context.close();
   });
