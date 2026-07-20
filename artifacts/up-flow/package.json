@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node scripts/next-with-port.cjs dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && node scripts/verify-migration-state.cjs && next build",
     "start": "node scripts/next-with-port.cjs start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
