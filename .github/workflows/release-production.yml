@@ -107,8 +107,8 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @workspace/up-flow run db:generate
 
-      - name: Verify migration state before release
-        run: pnpm --filter @workspace/up-flow run db:migrate:status
+      - name: Verify migration readiness before release
+        run: pnpm --filter @workspace/up-flow run db:migrate:preflight
 
       - name: Apply reviewed Prisma migrations
         run: pnpm --filter @workspace/up-flow run db:migrate:deploy

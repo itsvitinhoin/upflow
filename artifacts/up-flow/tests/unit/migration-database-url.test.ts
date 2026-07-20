@@ -10,6 +10,9 @@ const { getMigrationDatabaseUrl } = require("../../scripts/migration-database-ur
 const { shouldVerifyMigrationState } = require("../../scripts/verify-migration-state.cjs") as {
   shouldVerifyMigrationState: (env: Record<string, string | undefined>) => boolean;
 };
+const { canProceedWithPendingMigrations } = require("../../scripts/preflight-migrations.cjs") as {
+  canProceedWithPendingMigrations: (output: string) => boolean;
+};
 
 const migrationDeployScript = readFileSync(
   new URL("../../scripts/deploy-migrations.cjs", import.meta.url),
@@ -18,6 +21,14 @@ const migrationDeployScript = readFileSync(
 const packageJson = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
 const migrationPreflightScript = readFileSync(
   new URL("../../scripts/verify-migration-state.cjs", import.meta.url),
+  "utf8",
+);
+const releaseMigrationPreflightScript = readFileSync(
+  new URL("../../scripts/preflight-migrations.cjs", import.meta.url),
+  "utf8",
+);
+const productionReleaseWorkflow = readFileSync(
+  new URL("../../../../.github/workflows/release-production.yml", import.meta.url),
   "utf8",
 );
 
@@ -57,4 +68,19 @@ test("Vercel builds verify migration state without applying migrations", () => {
   assert.match(migrationPreflightScript, /prismaCommand, \["migrate", "status"\]/);
   assert.match(migrationPreflightScript, /Production deployment blocked/);
   assert.doesNotMatch(migrationPreflightScript, /migrate", "deploy/);
+});
+
+test("release migration preflight permits reviewed pending migrations but blocks failed ones", () => {
+  assert.equal(
+    canProceedWithPendingMigrations("Following migration have not yet been applied:\n20260717173000_add_space_sidebar_visibility"),
+    true,
+  );
+  assert.equal(
+    canProceedWithPendingMigrations("Following migration have failed\nFollowing migration have not yet been applied:"),
+    false,
+  );
+  assert.match(packageJson, /"db:migrate:preflight": "node scripts\/preflight-migrations\.cjs"/);
+  assert.match(releaseMigrationPreflightScript, /prismaCommand, \["migrate", "status"\]/);
+  assert.doesNotMatch(releaseMigrationPreflightScript, /migrate", "deploy/);
+  assert.match(productionReleaseWorkflow, /db:migrate:preflight/);
 });
