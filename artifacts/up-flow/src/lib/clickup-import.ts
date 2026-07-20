@@ -157,6 +157,16 @@ type ClickUpStatusBoard = {
   optionNames: string[];
 };
 
+export function statusSourcesForClickupBoard(
+  sourceList: Pick<ClickUpList, "statuses"> | null,
+  tasks: ClickUpTask[],
+): Array<ClickUpStatusValue | null | undefined> {
+  return [
+    ...(sourceList?.statuses ?? []),
+    ...tasks.map((task) => task.status),
+  ];
+}
+
 function storedStatusOptionNames(value: Prisma.JsonValue | null): string[] {
   return Array.isArray(value)
     ? value.filter((option): option is string => typeof option === "string")
@@ -210,8 +220,14 @@ async function ensureClickupStatusBoard(
   workspaceId: string,
   projectId: string,
   sourceStatuses: Array<ClickUpStatusValue | null | undefined>,
+  options: { requireSourceStatuses?: boolean } = {},
 ): Promise<ClickUpStatusBoard> {
   const sourceOptions = clickupStatusOptions(sourceStatuses);
+  if (options.requireSourceStatuses && sourceOptions.length === 0) {
+    throw new Error(
+      "ClickUp did not return workflow status metadata for this list. No board stages were changed.",
+    );
+  }
   const field = await prisma.customFieldDefinition.findFirst({
     where: {
       project_id: projectId,
@@ -748,14 +764,16 @@ export async function runClickupBatch(
       }
 
       const sourceList = await clickupList(source.list_id).catch(() => null);
+      const firstResponse = await clickupTasks(source.list_id, 0);
       const statusBoard = await ensureClickupStatusBoard(
         job.workspace_id,
         projectId,
-        sourceList?.statuses ?? [],
+        statusSourcesForClickupBoard(sourceList, firstResponse.tasks),
       );
 
-      for (let page = 0; ; page += 1) {
-        const response = await clickupTasks(source.list_id, page);
+      let page = 0;
+      let response = firstResponse;
+      for (;;) {
         for (const raw of response.tasks) {
           if (raw.archived) continue;
           await importTask(
@@ -770,6 +788,8 @@ export async function runClickupBatch(
           imported += 1;
         }
         if (response.last_page !== false || response.tasks.length < 100) break;
+        page += 1;
+        response = await clickupTasks(source.list_id, page);
       }
 
       await prisma.importMapping.update({
@@ -919,13 +939,16 @@ export async function runClickupStatusSync(jobId: string, batchSize = 20) {
         throw new Error("Imported Upflow project not found for this ClickUp list");
       }
       const sourceList = await clickupList(source.list_id).catch(() => null);
+      const firstResponse = await clickupTasks(source.list_id, 0);
       const statusBoard = await ensureClickupStatusBoard(
         job.workspace_id,
         listMapping.target_id,
-        sourceList?.statuses ?? [],
+        statusSourcesForClickupBoard(sourceList, firstResponse.tasks),
+        { requireSourceStatuses: true },
       );
-      for (let page = 0; ; page += 1) {
-        const response = await clickupTasks(source.list_id, page);
+      let page = 0;
+      let response = firstResponse;
+      for (;;) {
         for (const raw of response.tasks) {
           if (raw.archived) continue;
           updated += await syncImportedTaskStatus(
@@ -937,6 +960,8 @@ export async function runClickupStatusSync(jobId: string, batchSize = 20) {
           );
         }
         if (response.last_page !== false || response.tasks.length < 100) break;
+        page += 1;
+        response = await clickupTasks(source.list_id, page);
       }
     } catch (error) {
       failed += 1;

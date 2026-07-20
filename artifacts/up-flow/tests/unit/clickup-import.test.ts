@@ -5,6 +5,7 @@ import {
   mapPosition,
   mapPriority,
   mapStatus,
+  statusSourcesForClickupBoard,
 } from "../../src/lib/clickup-import";
 import { clickupList, clickupTasks } from "../../src/lib/clickup";
 import {
@@ -66,6 +67,42 @@ test("ClickUp workflow stages retain their source order, names, and colors", () 
       "PRODUCAO",
       "ARCHIVED",
     ],
+  );
+});
+
+test("ClickUp task status data fills a board when a list omits status metadata", () => {
+  const statuses = statusSourcesForClickupBoard(null, [
+    {
+      id: "task-1",
+      name: "Briefing",
+      description: null,
+      text_content: null,
+      status: { status: "BRIEFING RECEBIDO", color: "757575", orderindex: "0" },
+      priority: null,
+      due_date: null,
+      orderindex: 0,
+      archived: false,
+      assignees: [],
+      subtasks: [],
+    },
+    {
+      id: "task-2",
+      name: "Landing",
+      description: null,
+      text_content: null,
+      status: { status: "LANDING", color: "9c27b0", orderindex: "3" },
+      priority: null,
+      due_date: null,
+      orderindex: 1,
+      archived: false,
+      assignees: [],
+      subtasks: [],
+    },
+  ]);
+
+  assert.deepEqual(
+    clickupStatusOptions(statuses).map((stage) => stage.name),
+    ["BRIEFING RECEBIDO", "LANDING"],
   );
 });
 
