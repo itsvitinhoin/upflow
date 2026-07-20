@@ -8,6 +8,7 @@ import {
   Filter,
   Eye,
   Settings2,
+  SlidersHorizontal,
   LayoutList,
   Columns3,
   Check,
@@ -40,6 +41,7 @@ interface Props {
   onChange: (next: ToolbarState) => void;
   customFields: CustomFieldDefinition[];
   onManageFields?: () => void;
+  onManageSpaceStatuses?: () => void;
   canManage: boolean;
   users?: { id: string; name: string }[];
   selectionMode: boolean;
@@ -52,6 +54,7 @@ export default function ProjectToolbar({
   onChange,
   customFields,
   onManageFields,
+  onManageSpaceStatuses,
   canManage,
   users = [],
   selectionMode,
@@ -117,6 +120,17 @@ export default function ProjectToolbar({
         active={state.groupBy}
         onPick={(v) => set({ groupBy: v as GroupBy })}
       />
+
+      {canManage && onManageSpaceStatuses && (
+        <button
+          type="button"
+          onClick={onManageSpaceStatuses}
+          className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          {t("space.taskStatuses")}
+        </button>
+      )}
 
       <DropdownButton
         icon={<ArrowUpDown className="w-3.5 h-3.5" />}

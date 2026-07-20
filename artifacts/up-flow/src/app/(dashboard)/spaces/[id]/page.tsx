@@ -15,7 +15,6 @@ import {
   ListPlus,
   Plus,
   RefreshCcw,
-  Settings2,
   Timer,
   TrendingDown,
   UserPlus,
@@ -45,7 +44,6 @@ import {
   TaskRecord,
 } from "@/components/spaces/space-dashboard-parts";
 import { SpaceTaskTimeline } from "@/components/spaces/space-task-timeline";
-import { SpaceWorkflowStatusManager } from "@/components/spaces/space-workflow-status-manager";
 import type { Task } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import {
@@ -78,7 +76,6 @@ export default function SpaceContainerPage() {
   const [showNewTask, setShowNewTask] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
-  const [showWorkflowStatuses, setShowWorkflowStatuses] = useState(false);
   const [drawer, setDrawer] = useState<DrawerKind | null>(null);
   const [updatingTask, setUpdatingTask] = useState(false);
   const [defaultsEnsuredFor, setDefaultsEnsuredFor] = useState<string | null>(null);
@@ -307,16 +304,6 @@ export default function SpaceContainerPage() {
               </div>
             </div>
             <div className="relative flex flex-wrap items-center gap-2">
-              {canManageWorkspace && (
-                <button
-                  type="button"
-                  onClick={() => setShowWorkflowStatuses(true)}
-                  className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Settings2 className="w-4 h-4" />
-                  {t("space.taskStatuses")}
-                </button>
-              )}
               {canShareWorkspace && (
                 <button
                   onClick={() => setShowInvite(true)}
@@ -479,20 +466,6 @@ export default function SpaceContainerPage() {
         defaultMode="workspace_access"
         hideMode
       />
-
-      {canManageWorkspace && (
-        <SpaceWorkflowStatusManager
-          open={showWorkflowStatuses}
-          spaceId={space.id}
-          onClose={() => setShowWorkflowStatuses(false)}
-          onSaved={() => {
-            loadDashboard({ silent: true });
-            window.dispatchEvent(
-              new CustomEvent("upflow:space-workflow-updated", { detail: { spaceId: space.id } }),
-            );
-          }}
-        />
-      )}
 
       {drawer && dashboard && (
         <SpaceDashboardDrawer

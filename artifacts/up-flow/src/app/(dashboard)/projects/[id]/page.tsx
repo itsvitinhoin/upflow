@@ -14,6 +14,7 @@ import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import CustomFieldsManager from "@/components/projects/custom-fields-manager";
 import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
+import { SpaceWorkflowStatusManager } from "@/components/spaces/space-workflow-status-manager";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
 import { getOnboardingTaskAction, workflowFormKind } from "@/lib/onboarding-task-routing";
 import { isFinanceOnboardingSpace } from "@/lib/onboarding-routing";
@@ -90,6 +91,7 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState<CreateTaskDefaults | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [manageSpaceStatusesOpen, setManageSpaceStatusesOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
@@ -421,6 +423,11 @@ export default function ProjectPage() {
               onChange={setToolbar}
               customFields={customFields}
               onManageFields={() => setManageOpen(true)}
+              onManageSpaceStatuses={
+                canManageFields && project.space_id
+                  ? () => setManageSpaceStatusesOpen(true)
+                  : undefined
+              }
               canManage={canManageFields}
               users={users}
               selectionMode={selectionMode}
@@ -527,6 +534,15 @@ export default function ProjectPage() {
           projectId={id}
           fields={customFields}
           onChanged={loadData}
+        />
+      )}
+
+      {project.space_id && canManageFields && (
+        <SpaceWorkflowStatusManager
+          open={manageSpaceStatusesOpen}
+          spaceId={project.space_id}
+          onClose={() => setManageSpaceStatusesOpen(false)}
+          onSaved={loadData}
         />
       )}
 
