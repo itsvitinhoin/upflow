@@ -142,13 +142,11 @@ jobs:
           node-version: "22"
 
       - name: Deploy the reviewed main commit
-        working-directory: artifacts/up-flow
         run: >-
           npx --yes vercel@56.2.1 deploy --prod --yes
           --token "${VERCEL_TOKEN}"
 
       - name: Probe the deployed health endpoint
-        working-directory: artifacts/up-flow
         run: >-
           npx --yes vercel@56.2.1 curl /api/health
           --yes --fail --silent --show-error

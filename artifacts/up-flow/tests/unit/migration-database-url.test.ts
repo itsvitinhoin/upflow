@@ -84,3 +84,9 @@ test("release migration preflight permits reviewed pending migrations but blocks
   assert.doesNotMatch(releaseMigrationPreflightScript, /migrate", "deploy/);
   assert.match(productionReleaseWorkflow, /db:migrate:preflight/);
 });
+
+test("release deployment lets Vercel resolve the configured app root once", () => {
+  assert.doesNotMatch(productionReleaseWorkflow, /working-directory: artifacts\/up-flow/);
+  assert.match(productionReleaseWorkflow, /vercel@56\.2\.1 deploy --prod --yes/);
+  assert.match(productionReleaseWorkflow, /vercel@56\.2\.1 curl \/api\/health/);
+});
