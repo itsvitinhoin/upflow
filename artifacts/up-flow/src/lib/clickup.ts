@@ -5,7 +5,19 @@ const id = z.union([z.string(), z.number()]).transform(String);
 const nullableText = z.string().nullish();
 const space = z.object({ id, name: z.string(), private: z.boolean().optional() }).passthrough();
 const folder = z.object({ id, name: z.string(), space: z.object({ id }).optional() }).passthrough();
-const list = z.object({ id, name: z.string(), folder: z.object({ id }).optional(), space: z.object({ id }).optional() }).passthrough();
+const status = z.object({
+  status: nullableText,
+  color: nullableText,
+  type: nullableText,
+  orderindex: z.union([z.string(), z.number()]).nullish(),
+}).passthrough();
+const list = z.object({
+  id,
+  name: z.string(),
+  folder: z.object({ id }).optional(),
+  space: z.object({ id }).optional(),
+  statuses: z.array(status).nullish().transform((value) => value ?? []),
+}).passthrough();
 
 // ClickUp returns assignees as member objects for some accounts and bare user
 // IDs for others. Only email is needed for Upflow's safe exact-email matching.
@@ -23,7 +35,7 @@ const subtask = z
   .transform((value) => ({ id: typeof value === "object" ? value.id : value }));
 const task = z.object({
   id, name: z.string(), description: nullableText, text_content: nullableText,
-  status: z.object({ status: nullableText }).nullable().optional(),
+  status: status.nullable().optional(),
   priority: z.object({ priority: z.union([z.string(), z.number()]).nullish() }).nullable().optional(),
   due_date: nullableText, orderindex: z.union([z.string(), z.number()]).optional(), archived: z.boolean().optional(),
   assignees: z.array(assignee).nullish().transform((value) => value ?? []),
@@ -32,6 +44,7 @@ const task = z.object({
 
 export type ClickUpTask = z.infer<typeof task>;
 export type ClickUpList = z.infer<typeof list>;
+export type ClickUpStatus = z.infer<typeof status>;
 
 function token(): string {
   const value = process.env.CLICKUP_API_TOKEN?.trim();
@@ -66,5 +79,6 @@ export async function clickupSpaces(workspaceId: string) { return request(`/team
 export async function clickupFolders(spaceId: string) { return request(`/space/${spaceId}/folder`, z.object({ folders: z.array(folder) })); }
 export async function clickupLists(folderId: string) { return request(`/folder/${folderId}/list`, z.object({ lists: z.array(list) })); }
 export async function clickupFolderlessLists(spaceId: string) { return request(`/space/${spaceId}/list`, z.object({ lists: z.array(list) })); }
+export async function clickupList(listId: string) { return request(`/list/${listId}`, list); }
 export async function clickupTasks(listId: string, page: number) { return request(`/list/${listId}/task`, z.object({ tasks: z.array(task), last_page: z.boolean().optional() }), { page, subtasks: true, archived: false }); }
 export async function clickupTask(taskId: string) { return request(`/task/${taskId}`, task, { include_subtasks: true }); }

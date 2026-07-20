@@ -1,8 +1,9 @@
-import { type TaskPriority, type TaskStatus } from "@prisma/client";
+import { Prisma, type TaskPriority, type TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   clickupFolderlessLists,
   clickupFolders,
+  clickupList,
   clickupLists,
   clickupSpaces,
   clickupTask,
@@ -10,6 +11,15 @@ import {
   type ClickUpList,
   type ClickUpTask,
 } from "@/lib/clickup";
+import {
+  CLICKUP_STATUS_FIELD_NAME,
+  clickupStatusKey,
+  clickupStatusName,
+  clickupStatusOptions,
+  mergeClickupStatusNames,
+  type ClickUpStatusOption,
+  type ClickUpStatusValue,
+} from "@/lib/clickup-status";
 
 type Selected = {
   space_id: string;
@@ -98,6 +108,21 @@ export function mapStatus(value: string | null | undefined): TaskStatus {
   return "todo";
 }
 
+export function mapClickupTaskStatus(
+  value: ClickUpStatusValue | null | undefined,
+): TaskStatus {
+  const type = value?.type?.trim().toLowerCase();
+  if (
+    type === "closed" ||
+    type === "done" ||
+    type === "complete" ||
+    type === "completed"
+  ) {
+    return "done";
+  }
+  return mapStatus(value?.status);
+}
+
 export function mapPriority(
   value: string | number | null | undefined,
 ): TaskPriority {
@@ -123,6 +148,177 @@ export function mapPosition(value: string | number | null | undefined): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
   return Math.max(MIN_INT, Math.min(MAX_INT, Math.round(numeric)));
+}
+
+type ClickUpStatusBoard = {
+  workspaceId: string;
+  projectId: string;
+  definitionId: string;
+  optionNames: string[];
+};
+
+function storedStatusOptionNames(value: Prisma.JsonValue | null): string[] {
+  return Array.isArray(value)
+    ? value.filter((option): option is string => typeof option === "string")
+    : [];
+}
+
+function matchingStatusOptionIndex(options: string[], value: string): number {
+  const key = clickupStatusKey(value);
+  return options.findIndex((option) => clickupStatusKey(option) === key);
+}
+
+async function persistClickupWorkflowStatuses(
+  board: Pick<ClickUpStatusBoard, "workspaceId" | "projectId">,
+  statuses: ClickUpStatusOption[],
+  startOrder = 0,
+) {
+  await Promise.all(
+    statuses.map((status, index) =>
+      prisma.workflowStatus.upsert({
+        where: {
+          workspace_id_project_id_category_key: {
+            workspace_id: board.workspaceId,
+            project_id: board.projectId,
+            category: "task",
+            key: status.key,
+          },
+        },
+        create: {
+          workspace_id: board.workspaceId,
+          project_id: board.projectId,
+          category: "task",
+          key: status.key,
+          name: status.name,
+          color: status.color,
+          stage_order: Math.min(999, startOrder + index),
+          terminal: status.terminal || mapStatus(status.name) === "done",
+        },
+        update: {
+          name: status.name,
+          color: status.color,
+          stage_order: Math.min(999, startOrder + index),
+          terminal: status.terminal || mapStatus(status.name) === "done",
+          active: true,
+        },
+      }),
+    ),
+  );
+}
+
+async function ensureClickupStatusBoard(
+  workspaceId: string,
+  projectId: string,
+  sourceStatuses: Array<ClickUpStatusValue | null | undefined>,
+): Promise<ClickUpStatusBoard> {
+  const sourceOptions = clickupStatusOptions(sourceStatuses);
+  const field = await prisma.customFieldDefinition.findFirst({
+    where: {
+      project_id: projectId,
+      name: CLICKUP_STATUS_FIELD_NAME,
+      type: "dropdown",
+    },
+    select: { id: true, options: true },
+  });
+  const existingNames = storedStatusOptionNames(field?.options ?? null);
+  const optionNames = mergeClickupStatusNames(
+    sourceOptions.map((status) => status.name),
+    existingNames,
+  );
+  const existingMatches =
+    existingNames.length === optionNames.length &&
+    existingNames.every((name, index) => name === optionNames[index]);
+  const definition = field
+    ? existingMatches
+      ? field
+      : await prisma.customFieldDefinition.update({
+          where: { id: field.id },
+          data: { options: optionNames as Prisma.InputJsonValue },
+          select: { id: true, options: true },
+        })
+    : await prisma.customFieldDefinition.create({
+        data: {
+          project_id: projectId,
+          name: CLICKUP_STATUS_FIELD_NAME,
+          type: "dropdown",
+          options: optionNames as Prisma.InputJsonValue,
+          position: ((
+            await prisma.customFieldDefinition.aggregate({
+              where: { project_id: projectId },
+              _max: { position: true },
+            })
+          )._max.position ?? -1) + 1,
+        },
+        select: { id: true, options: true },
+      });
+
+  const board = {
+    workspaceId,
+    projectId,
+    definitionId: definition.id,
+    optionNames,
+  };
+  if (sourceOptions.length) {
+    await persistClickupWorkflowStatuses(board, sourceOptions);
+  }
+  return board;
+}
+
+async function retainClickupStatus(
+  board: ClickUpStatusBoard,
+  sourceStatus: ClickUpStatusValue | null | undefined,
+): Promise<string | null> {
+  const option = clickupStatusOptions([sourceStatus])[0];
+  if (!option) return null;
+
+  let index = matchingStatusOptionIndex(board.optionNames, option.name);
+  if (index < 0) {
+    board.optionNames = [...board.optionNames, option.name];
+    index = board.optionNames.length - 1;
+    await prisma.customFieldDefinition.update({
+      where: { id: board.definitionId },
+      data: { options: board.optionNames as Prisma.InputJsonValue },
+    });
+  }
+  await persistClickupWorkflowStatuses(board, [option], index);
+  return option.name;
+}
+
+async function applyClickupTaskStatus(
+  workspaceId: string,
+  taskId: string,
+  raw: ClickUpTask,
+  board: ClickUpStatusBoard,
+): Promise<number> {
+  const statusName = await retainClickupStatus(board, raw.status);
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.task.updateMany({
+      where: {
+        id: taskId,
+        project_id: board.projectId,
+        project: { workspace_id: workspaceId },
+      },
+      data: { status: mapClickupTaskStatus(raw.status) },
+    });
+    if (result.count && statusName) {
+      await tx.customFieldValue.upsert({
+        where: {
+          task_id_definition_id: {
+            task_id: taskId,
+            definition_id: board.definitionId,
+          },
+        },
+        update: { value: statusName },
+        create: {
+          task_id: taskId,
+          definition_id: board.definitionId,
+          value: statusName,
+        },
+      });
+    }
+    return result;
+  });
+  return updated.count;
 }
 
 export async function clickupHierarchy(workspaceId: string) {
@@ -551,6 +747,13 @@ export async function runClickupBatch(
         }
       }
 
+      const sourceList = await clickupList(source.list_id).catch(() => null);
+      const statusBoard = await ensureClickupStatusBoard(
+        job.workspace_id,
+        projectId,
+        sourceList?.statuses ?? [],
+      );
+
       for (let page = 0; ; page += 1) {
         const response = await clickupTasks(source.list_id, page);
         for (const raw of response.tasks) {
@@ -562,6 +765,7 @@ export async function runClickupBatch(
             projectId,
             raw,
             byEmail,
+            statusBoard,
           );
           imported += 1;
         }
@@ -613,6 +817,7 @@ async function syncImportedTaskStatus(
   sourceWorkspaceId: string,
   raw: ClickUpTask,
   seen: Set<string>,
+  statusBoard: ClickUpStatusBoard,
 ): Promise<number> {
   if (seen.has(raw.id)) return 0;
   seen.add(raw.id);
@@ -627,17 +832,14 @@ async function syncImportedTaskStatus(
     },
     select: { target_id: true },
   });
-  const updated = mapped?.target_id
-    ? await prisma.task.updateMany({
-        where: {
-          id: mapped.target_id,
-          project: { workspace_id: workspaceId },
-        },
-        data: { status: mapStatus(raw.status?.status) },
-      })
-    : { count: 0 };
-
-  let synced = updated.count;
+  let synced = mapped?.target_id
+    ? await applyClickupTaskStatus(
+        workspaceId,
+        mapped.target_id,
+        raw,
+        statusBoard,
+      )
+    : 0;
   for (const child of raw.subtasks) {
     const detail = await clickupTask(child.id);
     if (!detail.archived) {
@@ -646,6 +848,7 @@ async function syncImportedTaskStatus(
         sourceWorkspaceId,
         detail,
         seen,
+        statusBoard,
       );
     }
   }
@@ -702,6 +905,25 @@ export async function runClickupStatusSync(jobId: string, batchSize = 20) {
 
   for (const source of sourceLists) {
     try {
+      const listMapping = await prisma.importMapping.findUnique({
+        where: {
+          source_workspace_id_entity_type_source_id: {
+            source_workspace_id: job.source_workspace_id,
+            entity_type: "list",
+            source_id: source.list_id,
+          },
+        },
+        select: { target_id: true },
+      });
+      if (!listMapping?.target_id) {
+        throw new Error("Imported Upflow project not found for this ClickUp list");
+      }
+      const sourceList = await clickupList(source.list_id).catch(() => null);
+      const statusBoard = await ensureClickupStatusBoard(
+        job.workspace_id,
+        listMapping.target_id,
+        sourceList?.statuses ?? [],
+      );
       for (let page = 0; ; page += 1) {
         const response = await clickupTasks(source.list_id, page);
         for (const raw of response.tasks) {
@@ -711,6 +933,7 @@ export async function runClickupStatusSync(jobId: string, batchSize = 20) {
             job.source_workspace_id,
             raw,
             seen,
+            statusBoard,
           );
         }
         if (response.last_page !== false || response.tasks.length < 100) break;
@@ -757,6 +980,7 @@ async function importTask(
   projectId: string,
   raw: ClickUpTask,
   byEmail: Map<string, string>,
+  statusBoard: ClickUpStatusBoard,
   parentId?: string,
 ) {
   const mapped = await prisma.importMapping.findUnique({
@@ -769,24 +993,19 @@ async function importTask(
     },
   });
   if (mapped?.target_id) {
-    await prisma.task.updateMany({
-      where: {
-        id: mapped.target_id,
-        project: { workspace_id: workspaceId },
-      },
-      data: { status: mapStatus(raw.status?.status) },
-    });
+    await applyClickupTaskStatus(workspaceId, mapped.target_id, raw, statusBoard);
     return mapped.target_id;
   }
 
   const assignee = raw.assignees.find((user) => user.email)?.email?.toLowerCase();
+  const statusName = await retainClickupStatus(statusBoard, raw.status);
   const task = await prisma.$transaction(async (tx) => {
     const created = await tx.task.create({
       data: {
         title: raw.name,
         description: raw.description || raw.text_content || null,
         project_id: projectId,
-        status: mapStatus(raw.status?.status),
+        status: mapClickupTaskStatus(raw.status),
         priority: mapPriority(raw.priority?.priority),
         due_date: mapDate(raw.due_date),
         position: mapPosition(raw.orderindex),
@@ -794,6 +1013,15 @@ async function importTask(
         parent_id: parentId ?? null,
       },
     });
+    if (statusName) {
+      await tx.customFieldValue.create({
+        data: {
+          task_id: created.id,
+          definition_id: statusBoard.definitionId,
+          value: statusName,
+        },
+      });
+    }
     await tx.importMapping.create({
       data: {
         job_id: jobId,
@@ -816,6 +1044,7 @@ async function importTask(
       projectId,
       detail,
       byEmail,
+      statusBoard,
       task.id,
     );
   }

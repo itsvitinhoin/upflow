@@ -269,9 +269,9 @@ export default function ClickUpImportPage() {
       window.dispatchEvent(new Event("upflow:sidebar-refresh"));
       setMessage(
         job.report?.status_sync?.active && updated.status === "completed"
-          ? "Task statuses synchronized."
+          ? "Task statuses and board stages synchronized."
           : job.report?.status_sync?.active
-            ? "Task status synchronization updated."
+            ? "Task status and board-stage synchronization updated."
             : updated.status === "completed"
           ? "Migration complete. The sidebar has been refreshed."
           : "Migration progress updated.",
@@ -296,11 +296,11 @@ export default function ClickUpImportPage() {
       setJob(updated);
       setMessage(
         updated.status === "completed"
-          ? `${updated.report?.status_sync?.updated ?? 0} task statuses synchronized.`
-          : "Task status synchronization started.",
+          ? `${updated.report?.status_sync?.updated ?? 0} task statuses and board stages synchronized.`
+          : "Task status and board-stage synchronization started.",
       );
     } catch (cause) {
-      setError(errorMessage("Could not synchronize task statuses.", cause));
+      setError(errorMessage("Could not synchronize task statuses and board stages.", cause));
     } finally {
       setLoading(null);
     }
@@ -509,7 +509,7 @@ export default function ClickUpImportPage() {
           )}
           {job.report?.status_sync && !job.report.status_sync.active && (
             <p className="text-sm text-muted-foreground">
-              Task status sync: {job.report.status_sync.updated ?? 0} tasks synchronized.
+              Task status sync: {job.report.status_sync.updated ?? 0} tasks and board stages synchronized.
             </p>
           )}
           {job.failed > 0 && (

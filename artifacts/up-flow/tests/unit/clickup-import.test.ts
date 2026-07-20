@@ -1,7 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mapPosition, mapPriority, mapStatus } from "../../src/lib/clickup-import";
-import { clickupTasks } from "../../src/lib/clickup";
+import {
+  mapClickupTaskStatus,
+  mapPosition,
+  mapPriority,
+  mapStatus,
+} from "../../src/lib/clickup-import";
+import { clickupList, clickupTasks } from "../../src/lib/clickup";
+import {
+  CLICKUP_STATUS_FIELD_NAME,
+  clickupStatusOptions,
+  mergeClickupStatusNames,
+} from "../../src/lib/clickup-status";
 
 test("ClickUp statuses map to supported Upflow statuses", () => {
   assert.equal(mapStatus("done"), "done");
@@ -16,6 +26,47 @@ test("ClickUp statuses map to supported Upflow statuses", () => {
   assert.equal(mapStatus("Aguardando aprova\u00e7\u00e3o"), "in_progress");
   assert.equal(mapStatus("A fazer"), "todo");
   assert.equal(mapStatus("custom agency status"), "todo");
+  assert.equal(
+    mapClickupTaskStatus({ status: "Approval", type: "closed" }),
+    "done",
+  );
+});
+
+test("ClickUp workflow stages retain their source order, names, and colors", () => {
+  const stages = clickupStatusOptions([
+    { status: "PRODUCAO", color: "00c853", orderindex: "4", type: "open" },
+    { status: "BRIEFING RECEBIDO", color: "757575", orderindex: "0", type: "open" },
+    { status: "LANDING", color: "9c27b0", orderindex: "3", type: "open" },
+    { status: "DIRECAO DE ARTE", color: "ffc107", orderindex: "2", type: "open" },
+    { status: "BRIEFING PRONTO", color: "00bcd4", orderindex: "1", type: "open" },
+    { status: "PRODUCAO", color: "00c853", orderindex: "5", type: "open" },
+  ]);
+
+  assert.equal(CLICKUP_STATUS_FIELD_NAME, "ClickUp Status");
+  assert.deepEqual(
+    stages.map((stage) => [stage.name, stage.color]),
+    [
+      ["BRIEFING RECEBIDO", "#757575"],
+      ["BRIEFING PRONTO", "#00bcd4"],
+      ["DIRECAO DE ARTE", "#ffc107"],
+      ["LANDING", "#9c27b0"],
+      ["PRODUCAO", "#00c853"],
+    ],
+  );
+  assert.deepEqual(
+    mergeClickupStatusNames(
+      stages.map((stage) => stage.name),
+      ["ARCHIVED", "producao"],
+    ),
+    [
+      "BRIEFING RECEBIDO",
+      "BRIEFING PRONTO",
+      "DIRECAO DE ARTE",
+      "LANDING",
+      "PRODUCAO",
+      "ARCHIVED",
+    ],
+  );
 });
 
 test("ClickUp priorities map safely", () => {
@@ -65,4 +116,30 @@ test("ClickUp task parsing accepts assigned tasks returned by the list endpoint"
 
   assert.deepEqual(response.tasks[0].assignees, [{}, {}, { email: "owner@example.com" }]);
   assert.deepEqual(response.tasks[0].subtasks, [{ id: "child-1" }, { id: "child-2" }]);
+});
+
+test("ClickUp list parsing retains status metadata used for the imported board", async (t) => {
+  const previousToken = process.env.CLICKUP_API_TOKEN;
+  const previousFetch = globalThis.fetch;
+  process.env.CLICKUP_API_TOKEN = "test-token";
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    id: "list-1",
+    name: "Design & Criativo",
+    statuses: [
+      { status: "BRIEFING RECEBIDO", color: "757575", orderindex: "0", type: "open" },
+      { status: "EDICAO", color: "f44336", orderindex: "5", type: "closed" },
+    ],
+  }))) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousToken === undefined) delete process.env.CLICKUP_API_TOKEN;
+    else process.env.CLICKUP_API_TOKEN = previousToken;
+  });
+
+  const list = await clickupList("list-1");
+
+  assert.deepEqual(list.statuses, [
+    { status: "BRIEFING RECEBIDO", color: "757575", orderindex: "0", type: "open" },
+    { status: "EDICAO", color: "f44336", orderindex: "5", type: "closed" },
+  ]);
 });

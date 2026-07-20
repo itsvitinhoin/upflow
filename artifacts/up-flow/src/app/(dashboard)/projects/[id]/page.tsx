@@ -23,6 +23,7 @@ import type {
   Project,
   Task,
   TaskAssignee,
+  WorkflowStatus,
 } from "@/lib/types";
 
 const DEFAULT_TOOLBAR: ToolbarState = {
@@ -84,6 +85,7 @@ export default function ProjectPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [workflowStatuses, setWorkflowStatuses] = useState<WorkflowStatus[]>([]);
   const [me, setMe] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState<CreateTaskDefaults | null>(null);
@@ -96,21 +98,25 @@ export default function ProjectPage() {
 
   const loadData = async () => {
     try {
-      const [pRes, tRes, fRes, meRes] = await Promise.all([
+      const [pRes, tRes, fRes, meRes, wRes] = await Promise.all([
         fetch(`/api/projects/${id}`),
         fetch(`/api/tasks?project_id=${id}`),
         fetch(`/api/projects/${id}/custom-fields`),
         fetch(`/api/auth/me`),
+        fetch(`/api/workflow-statuses?project_id=${id}&category=task&limit=100`),
       ]);
       if (!pRes.ok) {
         router.push("/projects");
         return;
       }
-      const [p, t, f, m] = await Promise.all([
+      const [p, t, f, m, w] = await Promise.all([
         pRes.json() as Promise<Project>,
         tRes.json() as Promise<{ items: Task[] }>,
         fRes.ok ? (fRes.json() as Promise<CustomFieldDefinition[]>) : Promise.resolve([] as CustomFieldDefinition[]),
         meRes.ok ? (meRes.json() as Promise<AppUser>) : Promise.resolve(null as AppUser | null),
+        wRes.ok
+          ? (wRes.json() as Promise<{ items: WorkflowStatus[] }>)
+          : Promise.resolve({ items: [] as WorkflowStatus[] }),
       ]);
       const usersRes = await fetch(`/api/users?workspace_id=${p.workspace_id}&status=active`);
       const u = usersRes.ok
@@ -120,6 +126,7 @@ export default function ProjectPage() {
       setTasks(t.items ?? []);
       setUsers(u.items ?? []);
       setCustomFields(f);
+      setWorkflowStatuses(w.items ?? []);
       setMe(m);
     } catch {
       toast.error(t("projects.failedToLoad"));
@@ -469,6 +476,7 @@ export default function ProjectPage() {
                 projectId={id}
                 tasks={tasks}
                 customFields={customFields}
+                workflowStatuses={workflowStatuses}
                 users={users}
                 toolbar={toolbar}
                 onUpdate={loadData}
