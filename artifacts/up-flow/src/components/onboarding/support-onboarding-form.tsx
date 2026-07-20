@@ -163,30 +163,35 @@ export default function SupportOnboardingForm({ taskId, onClose, onUpdate, embed
     viewOnly: isPt ? "Voce tem acesso somente leitura." : "You have view-only access.",
   };
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal: AbortSignal) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/onboarding/support-form/${taskId}`);
+      const res = await fetch(`/api/onboarding/support-form/${taskId}`, { signal });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error || (isPt ? "Nao foi possivel carregar o setup de suporte." : "Could not load support setup."));
       }
       const data = (await res.json()) as SupportFormResponse;
+      if (signal.aborted) return;
       const nextValues = valuesFromData(data);
       setForm(data);
       setValues(nextValues);
       valuesRef.current = nextValues;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : isPt ? "Erro ao carregar suporte." : "Failed to load support setup.");
-      onClose?.();
+      if (!signal.aborted) {
+        toast.error(err instanceof Error ? err.message : isPt ? "Erro ao carregar suporte." : "Failed to load support setup.");
+        onClose?.();
+      }
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [isPt, onClose, taskId]);
 
   useEffect(() => {
-    void load();
+    const controller = new AbortController();
+    void load(controller.signal);
     return () => {
+      controller.abort();
       for (const timer of Object.values(timers.current)) {
         if (timer) clearTimeout(timer);
       }

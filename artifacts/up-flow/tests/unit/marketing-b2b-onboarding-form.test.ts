@@ -182,6 +182,18 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(translations, /marketingB2BForm\.summaryTitle/);
 });
 
+test("support onboarding ignores stale initial form loads", () => {
+  const form = read("src/components/onboarding/support-onboarding-form.tsx");
+
+  assert.match(
+    form,
+    /fetch\(`\/api\/onboarding\/support-form\/\$\{taskId\}`, \{ signal \}\)/,
+  );
+  assert.match(form, /if \(signal\.aborted\) return;/);
+  assert.match(form, /const controller = new AbortController\(\);/);
+  assert.match(form, /controller\.abort\(\);/);
+});
+
 test("Marketing B2B form task opens the form before relation backfill", () => {
   const task = {
     id: "task-b2b-form",
