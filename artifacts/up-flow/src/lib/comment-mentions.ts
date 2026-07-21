@@ -35,6 +35,26 @@ export function normalizeCommentBody(body: string) {
   return body.replace(LEGACY_MENTION_RE, "@$1");
 }
 
+/**
+ * Normalize a comment and its replies before the thread leaves an API
+ * boundary. Historical rows may still use the old @[Name](UUID) transport
+ * markup, even though all current writers store readable @Name text.
+ */
+export function normalizeCommentThread<
+  T extends { body: string; replies?: Array<{ body: string }> },
+>(comment: T): T {
+  const replies = comment.replies?.map((reply) => ({
+    ...reply,
+    body: normalizeCommentBody(reply.body),
+  }));
+
+  return {
+    ...comment,
+    body: normalizeCommentBody(comment.body),
+    ...(replies ? { replies } : {}),
+  } as T;
+}
+
 export function isUuid(value: string) {
   return UUID_RE.test(value);
 }

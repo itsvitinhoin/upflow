@@ -3,6 +3,7 @@ import { SEEDED, uniq } from "../helpers";
 import {
   createProjectViaApi,
   createTaskViaApi,
+  currentUserId,
   loggedInContext,
   requireChromiumOrSkip,
 } from "./_ui-helpers";
@@ -305,6 +306,8 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const mentionedCtx = await loggedInContext(browser, baseURL, SEEDED.member.email);
+    const mentionedUserId = await currentUserId(mentionedCtx);
     const projectId = await createProjectViaApi(ctx, uniq("SheetProj"));
     const title = uniq("Sheet-Task");
     await createTaskViaApi(ctx, projectId, title);
@@ -378,14 +381,55 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // POSTs and the input clears.
     const commentInput = page.getByPlaceholder("Add a comment...");
     await expect(commentInput).toBeVisible();
+
+    // Selecting a teammate must add readable text only. IDs travel in the
+    // request payload, never in the text a person sees or edits.
+    const mentionPicker = page.getByRole("combobox", {
+      name: "Mention teammate",
+    });
+    await expect(mentionPicker).toBeVisible();
+    const mentionedOption = mentionPicker.locator(
+      `option[value="${mentionedUserId}"]`,
+    );
+    await expect(mentionedOption).toBeAttached();
+    const mentionText = (await mentionedOption.textContent())?.trim();
+    expect(mentionText).toMatch(/^@.+/);
+    await mentionPicker.selectOption(mentionedUserId);
+    await expect(commentInput).not.toHaveValue(/@\[/);
+    await expect(commentInput).not.toHaveValue(/[0-9a-f]{8}-[0-9a-f]{4}-/i);
+    await expect(commentInput).toHaveValue(/^@.+\s$/);
     const commentPost = page.waitForResponse(
       (r) =>
         r.url().includes("/api/comments") && r.request().method() === "POST",
     );
-    await commentInput.fill("Looks good to me");
+    await commentInput.pressSequentially("Looks good to me");
     await commentInput.press("Enter");
-    await commentPost;
+    const commentResponse = await commentPost;
+    expect(commentResponse.ok()).toBeTruthy();
+    const payload = commentResponse.request().postDataJSON() as {
+      body: string;
+      mention_ids: string[];
+    };
+    expect(payload.body).toBe(`${mentionText} Looks good to me`);
+    expect(payload.body).not.toMatch(/@\[/);
+    expect(payload.body).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-/i);
+    expect(payload.mention_ids).toEqual([mentionedUserId]);
+    const createdComment = (await commentResponse.json()) as { body: string };
+    expect(createdComment.body).toBe(payload.body);
     await expect(commentInput).toHaveValue("");
+    const mentionNotifications = await mentionedCtx.request.get("/api/notifications");
+    expect(mentionNotifications.ok()).toBeTruthy();
+    const notificationPage = (await mentionNotifications.json()) as {
+      items: Array<{ type: string; task?: { id: string } | null }>;
+    };
+    expect(notificationPage.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "mentioned",
+          task: expect.objectContaining({ id: taskId }),
+        }),
+      ]),
+    );
 
     // 6) Close the sheet — press Escape and assert the sheet unmounts
     // (the comment input is unique to the sheet, so its absence proves it).
@@ -393,6 +437,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await expect(commentInput).toBeHidden();
 
     await ctx.close();
+    await mentionedCtx.close();
   });
 
   test("list-view inline custom-field editor PUTs the value to /api/tasks/:id/custom-fields", async ({

@@ -7,6 +7,7 @@ import {
   hasVisibleMention,
   isUuid,
   normalizeCommentBody,
+  normalizeCommentThread,
 } from "../../src/lib/comment-mentions";
 
 const LUIZ_ID = "f4f179fd-b04b-4c5c-9f04-d8261bb35ff6";
@@ -26,6 +27,16 @@ test("picker mentions require the visible name and do not match a longer name", 
   );
   assert.equal(hasVisibleMention("Hi @Luiz Paulinho", "Luiz Paulo"), false);
   assert.equal(hasVisibleMention("No mention here", "Luiz Paulo"), false);
+});
+
+test("legacy markup is removed from comments and their replies at read time", () => {
+  const normalized = normalizeCommentThread({
+    body: `Parent @[Luiz Paulo](${LUIZ_ID})`,
+    replies: [{ body: `Reply @[Luiz Paulo](${LUIZ_ID})` }],
+  });
+
+  assert.equal(normalized.body, "Parent @Luiz Paulo");
+  assert.equal(normalized.replies?.[0].body, "Reply @Luiz Paulo");
 });
 
 test("the picker adds a readable @Name without an internal user ID", () => {

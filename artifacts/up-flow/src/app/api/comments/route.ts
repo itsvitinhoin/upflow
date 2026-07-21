@@ -11,6 +11,7 @@ import {
   hasVisibleMention,
   isUuid,
   normalizeCommentBody,
+  normalizeCommentThread,
 } from "@/lib/comment-mentions";
 
 async function GET_handler(req: NextRequest) {
@@ -47,7 +48,7 @@ async function GET_handler(req: NextRequest) {
     },
   });
 
-  return NextResponse.json(buildPage(rows, limit));
+  return NextResponse.json(buildPage(rows.map(normalizeCommentThread), limit));
 }
 
 async function POST_handler(req: NextRequest) {
@@ -196,9 +197,13 @@ async function POST_handler(req: NextRequest) {
     return createdComment;
   });
 
-  await Promise.all(
-    [...notificationRecipients].map((recipientId) => broadcastNotification(recipientId)),
-  );
+  // The notification rows are already committed above. Realtime is only a
+  // prompt for an open browser: the recipient also receives the durable inbox
+  // entry through Postgres changes and polling. Never make a person wait for
+  // that network round-trip before their comment can be posted.
+  for (const recipientId of notificationRecipients) {
+    void broadcastNotification(recipientId);
+  }
 
   return NextResponse.json(comment, { status: 201 });
 }

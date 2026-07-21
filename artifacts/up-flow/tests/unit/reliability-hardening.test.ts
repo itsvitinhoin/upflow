@@ -35,6 +35,13 @@ test("task save does not fail just because realtime notification broadcast fails
   assert.match(updateRoute, /broadcastNotification\(userId\)\.catch/);
 });
 
+test("comment posting does not wait for an optional realtime broadcast", () => {
+  const commentsRoute = source("app/api/comments/route.ts");
+
+  assert.match(commentsRoute, /void broadcastNotification\(recipientId\)/);
+  assert.doesNotMatch(commentsRoute, /await Promise\.all\([\s\S]*notificationRecipients/);
+});
+
 test("sidebar create dialogs refresh navigation and open newly created lists", () => {
   const dialogs = source("components/layout/sidebar/dialogs.tsx");
 

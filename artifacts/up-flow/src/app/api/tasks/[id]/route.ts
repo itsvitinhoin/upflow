@@ -10,6 +10,7 @@ import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
 import { deleteTasksByIds } from "@/lib/task-delete";
+import { normalizeCommentThread } from "@/lib/comment-mentions";
 import {
   getOnboardingTaskStartBlocker,
   getOnboardingTaskCompletionBlocker,
@@ -151,6 +152,7 @@ async function GET_handler(
 
   return NextResponse.json({
     ...task,
+    comments: task.comments.map(normalizeCommentThread),
     onboarding_link: onboardingLink ? buildTaskOnboardingLink(onboardingLink) : null,
   });
 }
