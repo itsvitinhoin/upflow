@@ -2,8 +2,36 @@ export type CreativeBriefingLocale = "en" | "pt-BR";
 
 export type CreativeBriefingPriority = "low" | "medium" | "high";
 
+export interface CreativeBriefingMember {
+  id: string;
+  name: string;
+  email: string;
+  department_name?: string | null;
+}
+
+function normalizeDepartmentName(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function filterCreativeBriefingDesigners<T extends CreativeBriefingMember>(members: T[]): T[] {
+  return members.filter((member) => {
+    const departmentName = normalizeDepartmentName(member.department_name);
+    return (
+      departmentName === "creative & design" ||
+      departmentName === "criativos & design" ||
+      departmentName === "criacao e design"
+    );
+  });
+}
+
 export interface CreativeBriefingDescriptionInput {
   designerNames: string[];
+  requesterName?: string | null;
   brandName: string;
   videoSizes: string[];
   formats: string[];
@@ -24,6 +52,7 @@ const COPY: Record<CreativeBriefingLocale, {
   type: string;
   details: string;
   checklist: string;
+  requester: string;
   designers: string;
   brand: string;
   videoSizes: string;
@@ -46,6 +75,7 @@ const COPY: Record<CreativeBriefingLocale, {
     type: "Creative briefing",
     details: "Details",
     checklist: "Suggested checklist",
+    requester: "Requester",
     designers: "Designers",
     brand: "Brand",
     videoSizes: "Video proportions and sizes",
@@ -73,6 +103,7 @@ const COPY: Record<CreativeBriefingLocale, {
     type: "Briefing de criação",
     details: "Detalhes",
     checklist: "Checklist sugerido",
+    requester: "Solicitante",
     designers: "Designers",
     brand: "Marca",
     videoSizes: "Proporções e tamanhos do vídeo",
@@ -133,6 +164,7 @@ export function buildCreativeBriefingDescription(
 ) {
   const copy = COPY[locale];
   const details: Array<[string, string]> = [
+    [copy.requester, singleLine(input.requesterName)],
     [copy.designers, joinedValues(input.designerNames)],
     [copy.brand, input.brandName],
     [copy.videoSizes, joinedValues(input.videoSizes)],

@@ -6,6 +6,7 @@ import {
   addBusinessDaysToIsoDate,
   buildCreativeBriefingDescription,
   buildCreativeBriefingTitle,
+  filterCreativeBriefingDesigners,
 } from "../../src/lib/creative-briefing";
 import { parseTaskBrief } from "../../src/lib/task-templates";
 
@@ -18,6 +19,7 @@ function read(relativePath: string) {
 test("creative briefing descriptions stay parseable as normal UP Flow task briefs", () => {
   const description = buildCreativeBriefingDescription({
     designerNames: ["Ana Designer", "Rafael Motion"],
+    requesterName: "Paula Requester",
     brandName: "Acme",
     videoSizes: ["9:16 - 1080 x 1920", "1:1 - 1080 x 1080"],
     formats: ["Carousel", "Video edit"],
@@ -44,6 +46,9 @@ test("creative briefing descriptions stay parseable as normal UP Flow task brief
     parsed?.details.some(
       (item) => item.label === "Designers" && item.value === "Ana Designer, Rafael Motion",
     ),
+  );
+  assert.ok(
+    parsed?.details.some((item) => item.label === "Requester" && item.value === "Paula Requester"),
   );
   assert.ok(
     parsed?.details.some(
@@ -73,6 +78,17 @@ test("creative briefing deadlines skip weekends", () => {
   assert.equal(addBusinessDaysToIsoDate(friday, 2), "2026-07-21");
 });
 
+test("creative briefing only offers Creative & Design members as designers", () => {
+  const designers = filterCreativeBriefingDesigners([
+    { id: "creative", name: "Ana", email: "ana@example.com", department_name: "Creative & Design" },
+    { id: "criativos", name: "Bruno", email: "bruno@example.com", department_name: "Criativos & Design" },
+    { id: "commercial", name: "Carla", email: "carla@example.com", department_name: "Commercial" },
+    { id: "none", name: "Diego", email: "diego@example.com", department_name: null },
+  ]);
+
+  assert.deepEqual(designers.map((member) => member.id), ["creative", "criativos"]);
+});
+
 test("Design Queue receives a Forms view and secured reference upload flow", () => {
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
@@ -94,6 +110,9 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(board, /showBriefingDetails/);
   assert.match(form, /function MultiSelectField/);
   assert.match(form, /type="checkbox"/);
+  assert.match(form, /filterCreativeBriefingDesigners/);
+  assert.match(form, /creativeBrief\.requester/);
+  assert.doesNotMatch(form, /setDesignerIds\(\[me\.id\]\)/);
   assert.match(form, /creativeBrief\.description/);
   assert.match(form, /referenceImagePreview/);
   assert.match(form, /driveFiles/);

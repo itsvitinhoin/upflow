@@ -85,6 +85,8 @@ export interface TaskAssignee {
   id: string;
   name: string;
   email: string;
+  department_id?: string | null;
+  department_name?: string | null;
 }
 
 export interface TaskProject {

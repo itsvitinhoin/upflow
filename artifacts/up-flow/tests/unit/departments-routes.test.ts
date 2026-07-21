@@ -61,9 +61,10 @@ test("PUT /api/workspaces/[id]/members/[memberId]/department is admin-only and v
   assert.match(src, /department_id:\s*departmentId/);
 });
 
-test("users API exposes department_id scoped to the requested workspace", () => {
+test("users API exposes scoped department details to eligible member pickers", () => {
   const src = read("users/route.ts");
   assert.match(src, /department_id:\s*scopedMembership\?\.department_id/);
+  assert.match(src, /department_name:\s*scopedMembership\?\.department\?\.name/);
   assert.match(src, /scopedWorkspaceId\s*=\s*workspaceFilter\s*\?\?/);
 });
 

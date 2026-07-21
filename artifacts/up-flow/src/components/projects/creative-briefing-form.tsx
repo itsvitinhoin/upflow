@@ -25,6 +25,7 @@ import {
   addBusinessDaysToIsoDate,
   buildCreativeBriefingDescription,
   buildCreativeBriefingTitle,
+  filterCreativeBriefingDesigners,
   type CreativeBriefingPriority,
 } from "@/lib/creative-briefing";
 import { cn } from "@/lib/utils";
@@ -128,7 +129,6 @@ export default function CreativeBriefingForm({
   const [draftLoaded, setDraftLoaded] = useState(false);
   const driveFileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const hasDefaultedDesigner = useRef(false);
 
   const formatOptions = useMemo(
     () =>
@@ -138,8 +138,14 @@ export default function CreativeBriefingForm({
       })),
     [t],
   );
+  const designerUsers = useMemo(() => filterCreativeBriefingDesigners(users), [users]);
+  const designerIdSet = useMemo(
+    () => new Set(designerUsers.map((designer) => designer.id)),
+    [designerUsers],
+  );
+  const requesterName = me?.name?.trim() || me?.email || t("creativeBrief.requesterUnknown");
   const selectedDesigners = designerIds.flatMap((designerId) => {
-    const designer = users.find((user) => user.id === designerId);
+    const designer = designerUsers.find((user) => user.id === designerId);
     return designer ? [designer] : [];
   });
   const primaryDesigner = selectedDesigners[0] ?? null;
@@ -188,12 +194,12 @@ export default function CreativeBriefingForm({
   }, [t, workspaceId]);
 
   useEffect(() => {
-    if (hasDefaultedDesigner.current || !draftLoaded || !me?.id || !users.some((user) => user.id === me.id)) {
-      return;
-    }
-    hasDefaultedDesigner.current = true;
-    if (designerIds.length === 0) setDesignerIds([me.id]);
-  }, [designerIds.length, draftLoaded, me?.id, users]);
+    if (!draftLoaded) return;
+    setDesignerIds((current) => {
+      const next = current.filter((designerId) => designerIdSet.has(designerId));
+      return next.length === current.length ? current : next;
+    });
+  }, [designerIdSet, draftLoaded]);
 
   useEffect(() => {
     setReferenceUrlPreviewFailed(false);
@@ -401,6 +407,7 @@ export default function CreativeBriefingForm({
     try {
       const descriptionInput = {
         designerNames: selectedDesigners.map((designer) => designer.name),
+        requesterName,
         brandName: selectedCompany.name,
         videoSizes,
         formats: selectedFormats.map((option) => option.label),
@@ -534,6 +541,10 @@ export default function CreativeBriefingForm({
             <div className="min-w-0">
               <p className="text-2xl font-bold tracking-normal text-white sm:text-4xl">{t("creativeBrief.title")}</p>
               <p className="mt-1 text-sm text-[#a8bad9] sm:text-lg">{t("creativeBrief.subtitle")}</p>
+              <p className="mt-3 text-sm text-[#c7d8f3]">
+                <span className="font-semibold text-[#8fbaff]">{t("creativeBrief.requester")}:</span>{" "}
+                <span className="font-semibold text-white">{requesterName}</span>
+              </p>
             </div>
           </div>
         </header>
@@ -544,13 +555,16 @@ export default function CreativeBriefingForm({
               <MultiSelectField
                 values={designerIds}
                 onChange={setDesignerIds}
-                disabled={submitting}
-                options={users.map((user) => ({ value: user.id, label: user.name }))}
+                disabled={submitting || designerUsers.length === 0}
+                options={designerUsers.map((user) => ({ value: user.id, label: user.name }))}
               />
               <p className="mt-2 flex items-center gap-1.5 text-xs text-[#92a8cb]">
                 <CheckCircle2 className="h-3.5 w-3.5 text-[#4d95ff]" />
                 {t("creativeBrief.designerHint")}
               </p>
+              {designerUsers.length === 0 ? (
+                <p className="mt-2 text-xs text-amber-300">{t("creativeBrief.noDesigners")}</p>
+              ) : null}
             </BriefField>
 
             <BriefField label={t("creativeBrief.brand")} required>
@@ -873,7 +887,7 @@ export default function CreativeBriefingForm({
           </button>
           <button
             type="submit"
-            disabled={submitting || companiesLoading || companies.length === 0}
+            disabled={submitting || companiesLoading || companies.length === 0 || designerUsers.length === 0}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[#55a4ff] bg-[#1468eb] px-6 text-sm font-semibold text-white shadow-[0_0_24px_rgba(37,122,255,0.48)] transition hover:bg-[#2a7cf4] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
