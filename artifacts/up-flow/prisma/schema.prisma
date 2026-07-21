@@ -133,6 +133,7 @@ model User {
   support_groups_created   SupportGroup[]          @relation("SupportGroupCreator")
   service_leader_mappings  ServiceLeaderMapping[]  @relation("ServiceLeaderMappingLeader")
   service_backup_mappings  ServiceLeaderMapping[]  @relation("ServiceLeaderMappingBackupLeader")
+  service_leader_mapping_backup_owners ServiceLeaderMappingBackupOwner[]
   marketing_b2b_onboarding_forms_completed MarketingB2BOnboardingForm[] @relation("MarketingB2BOnboardingFormCompleter")
   marketing_b2c_onboarding_forms_completed MarketingB2COnboardingForm[] @relation("MarketingB2COnboardingFormCompleter")
   sidebar_client_pins      SidebarClientPin[]
@@ -868,12 +869,25 @@ model ServiceLeaderMapping {
   workspace     Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   leader        User?     @relation("ServiceLeaderMappingLeader", fields: [leader_id], references: [id], onDelete: SetNull)
   backup_leader User?     @relation("ServiceLeaderMappingBackupLeader", fields: [backup_leader_id], references: [id], onDelete: SetNull)
+  backup_owners ServiceLeaderMappingBackupOwner[]
   department    Department? @relation(fields: [department_id], references: [id], onDelete: SetNull)
 
   @@unique([workspace_id, service])
   @@index([leader_id])
   @@index([backup_leader_id])
   @@index([department_id])
+}
+
+model ServiceLeaderMappingBackupOwner {
+  id         String               @id @default(uuid())
+  mapping_id String
+  user_id    String
+  created_at DateTime             @default(now())
+  mapping    ServiceLeaderMapping @relation(fields: [mapping_id], references: [id], onDelete: Cascade)
+  user       User                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([mapping_id, user_id])
+  @@index([user_id])
 }
 
 model MarketingB2BOnboardingForm {

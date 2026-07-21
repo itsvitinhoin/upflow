@@ -4,17 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Loader2, Save, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
+import BackupOwnersPicker from "@/components/team/backup-owners-picker";
 import type { Department, TeamMember } from "@/lib/types";
+
+type BackupOwner = { id: string; name: string; email: string };
 
 type Mapping = {
   id: string;
   service: string;
   leader_id: string | null;
+  backup_leader_ids?: string[];
   backup_leader_id: string | null;
   department_id: string | null;
   active: boolean;
   leader?: { id: string; name: string; email: string } | null;
   backup_leader?: { id: string; name: string; email: string } | null;
+  backup_owners?: BackupOwner[];
   department?: { id: string; name: string } | null;
 };
 
@@ -26,6 +31,23 @@ function normalize(value: string) {
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function backupOwnerIdsForMapping(mapping: Mapping) {
+  return mapping.backup_leader_ids ?? (mapping.backup_leader_id ? [mapping.backup_leader_id] : []);
+}
+
+function backupOwnerPatch(backupLeaderIds: string[], users: TeamMember[]): Partial<Mapping> {
+  const backupOwners = backupLeaderIds.flatMap((id) => {
+    const user = users.find((candidate) => candidate.id === id);
+    return user ? [{ id: user.id, name: user.name, email: user.email }] : [];
+  });
+  return {
+    backup_leader_ids: backupLeaderIds,
+    backup_leader_id: backupLeaderIds[0] ?? null,
+    backup_leader: backupOwners[0] ?? null,
+    backup_owners: backupOwners,
+  };
 }
 
 export default function ServiceLeaderMappingPanel({
@@ -46,6 +68,12 @@ export default function ServiceLeaderMappingPanel({
     const entries = departments.map((department) => [normalize(department.name), department] as const);
     return new Map(entries);
   }, [departments]);
+  const backupOwnerCandidates = useMemo(
+    () => users.filter(
+      (user) => user.workspace_status === "active" && user.workspace_role !== "guest",
+    ),
+    [users],
+  );
 
   const load = async () => {
     setLoading(true);
@@ -53,7 +81,10 @@ export default function ServiceLeaderMappingPanel({
       const res = await fetch("/api/service-leader-mapping");
       if (!res.ok) throw new Error(t("onboardingWorkflow.mappingLoadFailed"));
       const data = (await res.json()) as { items?: Mapping[] };
-      setMappings(data.items ?? []);
+      setMappings((data.items ?? []).map((mapping) => ({
+        ...mapping,
+        backup_leader_ids: backupOwnerIdsForMapping(mapping),
+      })));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.mappingLoadFailed"));
     } finally {
@@ -85,7 +116,7 @@ export default function ServiceLeaderMappingPanel({
           mappings: mappings.map((mapping) => ({
             service: mapping.service,
             leader_id: mapping.leader_id || null,
-            backup_leader_id: mapping.backup_leader_id || null,
+            backup_leader_ids: backupOwnerIdsForMapping(mapping),
             department_id: matchingDepartmentId(mapping),
             active: mapping.active,
           })),
@@ -96,7 +127,12 @@ export default function ServiceLeaderMappingPanel({
         throw new Error(data.error || t("onboardingWorkflow.mappingSaveFailed"));
       }
       const data = (await res.json()) as { items?: Mapping[] };
-      if (data.items) setMappings(data.items);
+      if (data.items) {
+        setMappings(data.items.map((mapping) => ({
+          ...mapping,
+          backup_leader_ids: backupOwnerIdsForMapping(mapping),
+        })));
+      }
       toast.success(t("onboardingWorkflow.mappingSaved"));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("onboardingWorkflow.mappingSaveFailed"));
@@ -169,10 +205,14 @@ export default function ServiceLeaderMappingPanel({
                       value={mapping.leader_id ?? ""}
                       disabled={!isAdmin}
                       onChange={(event) => {
-                        const selected = users.find((user) => user.id === event.target.value) ?? null;
+                        const leaderId = event.target.value || null;
+                        const selected = users.find((user) => user.id === leaderId) ?? null;
+                        const backupLeaderIds = backupOwnerIdsForMapping(mapping)
+                          .filter((userId) => userId !== leaderId);
                         updateMapping(mapping.service, {
-                          leader_id: event.target.value || null,
+                          leader_id: leaderId,
                           leader: selected ? { id: selected.id, name: selected.name, email: selected.email } : null,
+                          ...backupOwnerPatch(backupLeaderIds, users),
                         });
                       }}
                       className="h-10 w-full min-w-0 rounded-lg border border-border/70 bg-background px-3 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
@@ -183,28 +223,21 @@ export default function ServiceLeaderMappingPanel({
                       ))}
                     </select>
                   </label>
-                  <label className="min-w-0">
+                  <div className="min-w-0">
                     <span className="mb-1 block text-xs font-semibold text-muted-foreground lg:hidden">
                       {t("onboardingWorkflow.backupResponsible")}
                     </span>
-                    <select
-                      value={mapping.backup_leader_id ?? ""}
+                    <BackupOwnersPicker
+                      value={backupOwnerIdsForMapping(mapping)}
+                      users={users}
+                      selectableUsers={backupOwnerCandidates.filter((user) => user.id !== mapping.leader_id)}
+                      department={mapping.service}
                       disabled={!isAdmin}
-                      onChange={(event) => {
-                        const selected = users.find((user) => user.id === event.target.value) ?? null;
-                        updateMapping(mapping.service, {
-                          backup_leader_id: event.target.value || null,
-                          backup_leader: selected ? { id: selected.id, name: selected.name, email: selected.email } : null,
-                        });
+                      onChange={(backupLeaderIds) => {
+                        updateMapping(mapping.service, backupOwnerPatch(backupLeaderIds, users));
                       }}
-                      className="h-10 w-full min-w-0 rounded-lg border border-border/70 bg-background px-3 text-sm font-semibold text-foreground outline-none focus:border-blue-400 disabled:opacity-60"
-                    >
-                      <option value="">{t("onboardingWorkflow.selectBackup")}</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>{user.name}</option>
-                      ))}
-                    </select>
-                  </label>
+                    />
+                  </div>
                   <div>
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${

@@ -112,6 +112,7 @@ export async function deleteAppUserPreservingWorkspaceData(
   await tx.supportGroup.updateMany({ where: { created_by: userId }, data: { created_by: null } });
   await tx.serviceLeaderMapping.updateMany({ where: { leader_id: userId }, data: { leader_id: null } });
   await tx.serviceLeaderMapping.updateMany({ where: { backup_leader_id: userId }, data: { backup_leader_id: null } });
+  await tx.serviceLeaderMappingBackupOwner.deleteMany({ where: { user_id: userId } });
   await tx.marketingB2BOnboardingForm.updateMany({ where: { completed_by: userId }, data: { completed_by: null } });
   await tx.marketingB2COnboardingForm.updateMany({ where: { completed_by: userId }, data: { completed_by: null } });
 

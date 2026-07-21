@@ -19,7 +19,7 @@ type SocialMediaNotificationInput = {
 
 /**
  * Notify the people directly responsible for a Social Media plan, together
- * with the Creative & Design service lead. The regular Notification model
+ * with the Creative & Design service lead and every backup/support owner. The regular Notification model
  * remains the delivery channel, so recipients get the existing inbox and
  * realtime behaviour without a parallel notification system.
  */
@@ -45,7 +45,11 @@ export async function notifySocialMediaWorkflow(input: SocialMediaNotificationIn
       active: true,
       service: { in: ["Creative & Design", "creative_design"] },
     },
-    select: { leader_id: true, backup_leader_id: true },
+    select: {
+      leader_id: true,
+      backup_leader_id: true,
+      backup_owners: { select: { user_id: true } },
+    },
   });
 
   const recipients = Array.from(
@@ -53,7 +57,11 @@ export async function notifySocialMediaWorkflow(input: SocialMediaNotificationIn
       input.assigneeId,
       plan.social_manager_id,
       plan.designer_id,
-      ...leaders.flatMap((leader) => [leader.leader_id, leader.backup_leader_id]),
+      ...leaders.flatMap((leader) => [
+        leader.leader_id,
+        leader.backup_leader_id,
+        ...leader.backup_owners.map((owner) => owner.user_id),
+      ]),
       plan.project.owner_id,
     ]),
   ).filter((id): id is string => Boolean(id) && id !== input.actorId);
