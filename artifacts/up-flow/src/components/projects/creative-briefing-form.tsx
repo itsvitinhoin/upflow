@@ -1,6 +1,14 @@
 "use client";
 
-import { type ChangeEvent, type DragEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ChangeEvent,
+  type DragEvent,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -27,6 +35,8 @@ import {
   buildCreativeBriefingDescription,
   buildCreativeBriefingTitle,
   filterCreativeBriefingDesigners,
+  formatCreativeBriefingDimensions,
+  type CreativeBriefingDimensionUnit,
   type CreativeBriefingPriority,
 } from "@/lib/creative-briefing";
 import { cn } from "@/lib/utils";
@@ -53,6 +63,13 @@ interface DraftState {
   companyId: string;
   videoSizes: string[];
   formats: string[];
+  manualVideoInput: boolean;
+  manualVideoWidth: string;
+  manualVideoHeight: string;
+  manualVideoUnit: CreativeBriefingDimensionUnit;
+  manualFormatInput: boolean;
+  manualFormatName: string;
+  manualFormatDescription: string;
   brandRules: string;
   description: string;
   driveUrl: string;
@@ -72,7 +89,15 @@ const DRAFT_PREFIX = "upflow.creative-briefing";
 const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
 const MAX_DRIVE_FILES = 5;
 
-const VIDEO_SIZES = ["1:1 - 1080 x 1080", "4:5 - 1080 x 1350", "9:16 - 1080 x 1920", "16:9 - 1920 x 1080"];
+const VIDEO_SIZES = [
+  "1:1 - 1080 x 1080",
+  "4:5 - 1080 x 1350",
+  "9:16 - 1080 x 1920",
+  "16:9 - 1920 x 1080",
+];
+const MANUAL_VIDEO_SIZE = "manual_video_size";
+const MANUAL_FORMAT = "manual_format";
+const DIMENSION_UNITS: CreativeBriefingDimensionUnit[] = ["px", "cm", "mm"];
 
 const FORMAT_VALUES = [
   { value: "carousel", hours: 2, icon: Layers3 },
@@ -115,17 +140,29 @@ export default function CreativeBriefingForm({
   const [companyId, setCompanyId] = useState("");
   const [videoSizes, setVideoSizes] = useState<string[]>([VIDEO_SIZES[2]]);
   const [formats, setFormats] = useState<string[]>(["carousel"]);
+  const [manualVideoInput, setManualVideoInput] = useState(false);
+  const [manualVideoWidth, setManualVideoWidth] = useState("");
+  const [manualVideoHeight, setManualVideoHeight] = useState("");
+  const [manualVideoUnit, setManualVideoUnit] =
+    useState<CreativeBriefingDimensionUnit>("px");
+  const [manualFormatInput, setManualFormatInput] = useState(false);
+  const [manualFormatName, setManualFormatName] = useState("");
+  const [manualFormatDescription, setManualFormatDescription] = useState("");
   const [brandRules, setBrandRules] = useState("");
   const [briefDescription, setBriefDescription] = useState("");
   const [driveUrl, setDriveUrl] = useState("");
   const [driveFiles, setDriveFiles] = useState<File[]>([]);
   const [visualReferenceUrl, setVisualReferenceUrl] = useState("");
   const [priority, setPriority] = useState<CreativeBriefingPriority>("medium");
-  const [deadlinePreset, setDeadlinePreset] = useState<DeadlinePreset>("standard");
+  const [deadlinePreset, setDeadlinePreset] =
+    useState<DeadlinePreset>("standard");
   const [customDueDate, setCustomDueDate] = useState("");
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
-  const [referenceUrlPreviewFailed, setReferenceUrlPreviewFailed] = useState(false);
+  const [referenceImagePreview, setReferenceImagePreview] = useState<
+    string | null
+  >(null);
+  const [referenceUrlPreviewFailed, setReferenceUrlPreviewFailed] =
+    useState(false);
   const [draggingDriveFiles, setDraggingDriveFiles] = useState(false);
   const [draggingReference, setDraggingReference] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -133,6 +170,9 @@ export default function CreativeBriefingForm({
   const [designerSetupOpen, setDesignerSetupOpen] = useState(false);
   const [designerSetupIds, setDesignerSetupIds] = useState<string[]>([]);
   const [savingDesignerRoster, setSavingDesignerRoster] = useState(false);
+  const [designerRosterPermission, setDesignerRosterPermission] = useState<
+    boolean | null
+  >(null);
   const driveFileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -144,39 +184,77 @@ export default function CreativeBriefingForm({
       })),
     [t],
   );
-  const designerUsers = useMemo(() => filterCreativeBriefingDesigners(users), [users]);
+  const designerUsers = useMemo(
+    () => filterCreativeBriefingDesigners(users),
+    [users],
+  );
   const designerIdSet = useMemo(
     () => new Set(designerUsers.map((designer) => designer.id)),
     [designerUsers],
   );
-  const requesterName = me?.name?.trim() || me?.email || t("creativeBrief.requesterUnknown");
+  const requesterName =
+    me?.name?.trim() || me?.email || t("creativeBrief.requesterUnknown");
+  const localDesignerRosterAdmin =
+    me?.isSuperAdmin ||
+    me?.role === "admin" ||
+    me?.currentRole === "owner" ||
+    me?.currentRole === "admin";
   const canConfigureDesignerRoster =
-    me?.role === "admin" || me?.currentRole === "owner" || me?.currentRole === "admin";
+    designerRosterPermission ?? localDesignerRosterAdmin;
   const selectedDesigners = designerIds.flatMap((designerId) => {
     const designer = designerUsers.find((user) => user.id === designerId);
     return designer ? [designer] : [];
   });
   const primaryDesigner = selectedDesigners[0] ?? null;
-  const selectedFormats = formatOptions.filter((option) => formats.includes(option.value));
-  const selectedCompany = companies.find((company) => company.id === companyId) ?? null;
-  const estimatedHours = selectedFormats.reduce((total, option) => total + option.hours, 0);
+  const selectedFormats = formatOptions.filter((option) =>
+    formats.includes(option.value),
+  );
+  const manualVideoResult = manualVideoInput
+    ? formatCreativeBriefingDimensions(
+        manualVideoWidth,
+        manualVideoHeight,
+        manualVideoUnit,
+      )
+    : null;
+  const resolvedVideoSizes = manualVideoInput
+    ? manualVideoResult
+      ? [manualVideoResult]
+      : []
+    : videoSizes;
+  const trimmedManualFormatName = manualFormatName.trim();
+  const resolvedFormats = manualFormatInput
+    ? trimmedManualFormatName
+      ? [trimmedManualFormatName]
+      : []
+    : selectedFormats.map((option) => option.label);
+  const selectedCompany =
+    companies.find((company) => company.id === companyId) ?? null;
+  const estimatedHours = manualFormatInput
+    ? 0
+    : selectedFormats.reduce((total, option) => total + option.hours, 0);
 
   const dueDate = useMemo(() => {
     if (deadlinePreset === "custom") return customDueDate;
-    const days = deadlinePreset === "rush" ? 1 : deadlinePreset === "extended" ? 3 : 2;
+    const days =
+      deadlinePreset === "rush" ? 1 : deadlinePreset === "extended" ? 3 : 2;
     return addBusinessDaysToIsoDate(new Date(), days);
   }, [customDueDate, deadlinePreset]);
 
   const dueDateLabel = useMemo(() => {
     if (deadlinePreset === "custom") {
-      return customDueDate ? t("creativeBrief.deadlineCustomSet") : t("creativeBrief.deadlineChooseDate");
+      return customDueDate
+        ? t("creativeBrief.deadlineCustomSet")
+        : t("creativeBrief.deadlineChooseDate");
     }
-    const days = deadlinePreset === "rush" ? 1 : deadlinePreset === "extended" ? 3 : 2;
+    const days =
+      deadlinePreset === "rush" ? 1 : deadlinePreset === "extended" ? 3 : 2;
     return t("creativeBrief.deadlineBusinessDays", { count: days });
   }, [customDueDate, deadlinePreset, t]);
 
   const referenceUrlPreview =
-    visualReferenceUrl.trim() && isHttpUrl(visualReferenceUrl.trim()) && !referenceUrlPreviewFailed
+    visualReferenceUrl.trim() &&
+    isHttpUrl(visualReferenceUrl.trim()) &&
+    !referenceUrlPreviewFailed
       ? visualReferenceUrl.trim()
       : null;
   const referencePreviewSource = referenceImagePreview ?? referenceUrlPreview;
@@ -184,16 +262,20 @@ export default function CreativeBriefingForm({
   useEffect(() => {
     const controller = new AbortController();
     setCompaniesLoading(true);
-    fetch(`/api/companies?limit=100&workspace_id=${encodeURIComponent(workspaceId)}`, {
-      signal: controller.signal,
-    })
+    fetch(
+      `/api/companies?limit=100&workspace_id=${encodeURIComponent(workspaceId)}`,
+      {
+        signal: controller.signal,
+      },
+    )
       .then(async (response) => {
         if (!response.ok) throw new Error();
         return (await response.json()) as { items?: CompanyOption[] };
       })
       .then((data) => setCompanies(data.items ?? []))
       .catch(() => {
-        if (!controller.signal.aborted) toast.error(t("creativeBrief.loadBrandsFailed"));
+        if (!controller.signal.aborted)
+          toast.error(t("creativeBrief.loadBrandsFailed"));
       })
       .finally(() => {
         if (!controller.signal.aborted) setCompaniesLoading(false);
@@ -202,9 +284,34 @@ export default function CreativeBriefingForm({
   }, [t, workspaceId]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setDesignerRosterPermission(null);
+
+    fetch("/api/workspaces/" + workspaceId + "/creative-designers", {
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        return (await response.json()) as { can_manage?: boolean };
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setDesignerRosterPermission(Boolean(data.can_manage));
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setDesignerRosterPermission(null);
+      });
+
+    return () => controller.abort();
+  }, [workspaceId]);
+
+  useEffect(() => {
     if (!draftLoaded) return;
     setDesignerIds((current) => {
-      const next = current.filter((designerId) => designerIdSet.has(designerId));
+      const next = current.filter((designerId) =>
+        designerIdSet.has(designerId),
+      );
       return next.length === current.length ? current : next;
     });
   }, [designerIdSet, draftLoaded]);
@@ -229,7 +336,11 @@ export default function CreativeBriefingForm({
       if (!stored) return;
       const draft = JSON.parse(stored) as StoredDraftState;
       if (Array.isArray(draft.designerIds)) {
-        setDesignerIds(draft.designerIds.filter((id): id is string => typeof id === "string"));
+        setDesignerIds(
+          draft.designerIds.filter(
+            (id): id is string => typeof id === "string",
+          ),
+        );
       } else if (typeof draft.designerId === "string") {
         setDesignerIds([draft.designerId]);
       }
@@ -237,7 +348,8 @@ export default function CreativeBriefingForm({
       if (Array.isArray(draft.videoSizes)) {
         setVideoSizes(
           draft.videoSizes.filter(
-            (value): value is string => typeof value === "string" && VIDEO_SIZES.includes(value),
+            (value): value is string =>
+              typeof value === "string" && VIDEO_SIZES.includes(value),
           ),
         );
       } else if (typeof draft.videoSize === "string") {
@@ -247,23 +359,58 @@ export default function CreativeBriefingForm({
         setFormats(
           draft.formats.filter(
             (value): value is string =>
-              typeof value === "string" && FORMAT_VALUES.some((item) => item.value === value),
+              typeof value === "string" &&
+              FORMAT_VALUES.some((item) => item.value === value),
           ),
         );
-      } else if (draft.format && FORMAT_VALUES.some((item) => item.value === draft.format)) {
+      } else if (
+        draft.format &&
+        FORMAT_VALUES.some((item) => item.value === draft.format)
+      ) {
         setFormats([draft.format]);
       }
+      if (typeof draft.manualVideoInput === "boolean")
+        setManualVideoInput(draft.manualVideoInput);
+      if (typeof draft.manualVideoWidth === "string")
+        setManualVideoWidth(draft.manualVideoWidth);
+      if (typeof draft.manualVideoHeight === "string")
+        setManualVideoHeight(draft.manualVideoHeight);
+      if (
+        draft.manualVideoUnit === "px" ||
+        draft.manualVideoUnit === "cm" ||
+        draft.manualVideoUnit === "mm"
+      ) {
+        setManualVideoUnit(draft.manualVideoUnit);
+      }
+      if (typeof draft.manualFormatInput === "boolean")
+        setManualFormatInput(draft.manualFormatInput);
+      if (typeof draft.manualFormatName === "string")
+        setManualFormatName(draft.manualFormatName);
+      if (typeof draft.manualFormatDescription === "string") {
+        setManualFormatDescription(draft.manualFormatDescription);
+      }
       if (typeof draft.brandRules === "string") setBrandRules(draft.brandRules);
-      if (typeof draft.description === "string") setBriefDescription(draft.description);
+      if (typeof draft.description === "string")
+        setBriefDescription(draft.description);
       if (typeof draft.driveUrl === "string") setDriveUrl(draft.driveUrl);
-      if (typeof draft.visualReferenceUrl === "string") setVisualReferenceUrl(draft.visualReferenceUrl);
-      if (draft.priority === "low" || draft.priority === "medium" || draft.priority === "high") {
+      if (typeof draft.visualReferenceUrl === "string")
+        setVisualReferenceUrl(draft.visualReferenceUrl);
+      if (
+        draft.priority === "low" ||
+        draft.priority === "medium" ||
+        draft.priority === "high"
+      ) {
         setPriority(draft.priority);
       }
-      if (["standard", "rush", "extended", "custom"].includes(draft.deadlinePreset ?? "")) {
+      if (
+        ["standard", "rush", "extended", "custom"].includes(
+          draft.deadlinePreset ?? "",
+        )
+      ) {
         setDeadlinePreset(draft.deadlinePreset as DeadlinePreset);
       }
-      if (typeof draft.customDueDate === "string") setCustomDueDate(draft.customDueDate);
+      if (typeof draft.customDueDate === "string")
+        setCustomDueDate(draft.customDueDate);
       toast.success(t("creativeBrief.draftRestored"));
     } catch {
       localStorage.removeItem(`${DRAFT_PREFIX}.${projectId}`);
@@ -277,6 +424,13 @@ export default function CreativeBriefingForm({
     companyId,
     videoSizes,
     formats,
+    manualVideoInput,
+    manualVideoWidth,
+    manualVideoHeight,
+    manualVideoUnit,
+    manualFormatInput,
+    manualFormatName,
+    manualFormatDescription,
     brandRules,
     description: briefDescription,
     driveUrl,
@@ -288,7 +442,10 @@ export default function CreativeBriefingForm({
 
   const saveDraft = () => {
     try {
-      localStorage.setItem(`${DRAFT_PREFIX}.${projectId}`, JSON.stringify(formDraft()));
+      localStorage.setItem(
+        `${DRAFT_PREFIX}.${projectId}`,
+        JSON.stringify(formDraft()),
+      );
       toast.success(
         referenceFile || driveFiles.length > 0
           ? t("creativeBrief.draftSavedWithFileNote")
@@ -307,14 +464,21 @@ export default function CreativeBriefingForm({
 
     setSavingDesignerRoster(true);
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/creative-designers`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_ids: designerSetupIds }),
-      });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/creative-designers`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_ids: designerSetupIds }),
+        },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
       if (!response.ok) {
-        throw new Error(payload.error || t("creativeBrief.setupDesignersFailed"));
+        throw new Error(
+          payload.error || t("creativeBrief.setupDesignersFailed"),
+        );
       }
 
       await onDesignerRosterConfigured();
@@ -322,10 +486,56 @@ export default function CreativeBriefingForm({
       setDesignerSetupOpen(false);
       toast.success(t("creativeBrief.setupDesignersSaved"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("creativeBrief.setupDesignersFailed"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("creativeBrief.setupDesignersFailed"),
+      );
     } finally {
       setSavingDesignerRoster(false);
     }
+  };
+
+  const handleVideoSizeSelection = (nextValues: string[]) => {
+    const selectedPresets = nextValues.filter((value) =>
+      VIDEO_SIZES.includes(value),
+    );
+    const selectedManual = nextValues.includes(MANUAL_VIDEO_SIZE);
+
+    if (selectedManual && !manualVideoInput) {
+      setManualVideoInput(true);
+      setVideoSizes([]);
+      return;
+    }
+    if (selectedPresets.length > 0) {
+      setManualVideoInput(false);
+      setVideoSizes(selectedPresets);
+      return;
+    }
+
+    setManualVideoInput(false);
+    setVideoSizes([]);
+  };
+
+  const handleFormatSelection = (nextValues: string[]) => {
+    const selectedPresets = nextValues.filter((value) =>
+      FORMAT_VALUES.some((option) => option.value === value),
+    );
+    const selectedManual = nextValues.includes(MANUAL_FORMAT);
+
+    if (selectedManual && !manualFormatInput) {
+      setManualFormatInput(true);
+      setFormats([]);
+      return;
+    }
+    if (selectedPresets.length > 0) {
+      setManualFormatInput(false);
+      setFormats(selectedPresets);
+      return;
+    }
+
+    setManualFormatInput(false);
+    setFormats([]);
   };
 
   const isValidCreativeFile = (file: File) => {
@@ -346,7 +556,9 @@ export default function CreativeBriefingForm({
   };
 
   const addDriveFiles = (files: FileList | File[]) => {
-    const candidates = Array.from(files).filter((file) => isValidCreativeFile(file));
+    const candidates = Array.from(files).filter((file) =>
+      isValidCreativeFile(file),
+    );
     const seen = new Set(driveFiles.map(fileKey));
     const additions = candidates.filter((file) => {
       const key = fileKey(file);
@@ -356,10 +568,15 @@ export default function CreativeBriefingForm({
     });
     const remaining = Math.max(0, MAX_DRIVE_FILES - driveFiles.length);
     if (additions.length > remaining) {
-      toast.error(t("creativeBrief.driveFileLimit", { count: MAX_DRIVE_FILES }));
+      toast.error(
+        t("creativeBrief.driveFileLimit", { count: MAX_DRIVE_FILES }),
+      );
     }
     if (remaining > 0 && additions.length > 0) {
-      setDriveFiles((current) => [...current, ...additions.slice(0, remaining)]);
+      setDriveFiles((current) => [
+        ...current,
+        ...additions.slice(0, remaining),
+      ]);
     }
   };
 
@@ -393,19 +610,27 @@ export default function CreativeBriefingForm({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("asset_role", assetRole);
-    const uploadResponse = await fetch(`/api/tasks/${taskId}/creative-reference`, {
-      method: "POST",
-      body: formData,
-    });
+    const uploadResponse = await fetch(
+      `/api/tasks/${taskId}/creative-reference`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
     const uploaded = (await uploadResponse.json().catch(() => ({}))) as {
       reference?: string;
       file_name?: string;
       error?: string;
     };
     if (!uploadResponse.ok || !uploaded.reference) {
-      throw new Error(uploaded.error || t("creativeBrief.attachmentUploadFailed"));
+      throw new Error(
+        uploaded.error || t("creativeBrief.attachmentUploadFailed"),
+      );
     }
-    return { fileName: uploaded.file_name ?? file.name, reference: uploaded.reference };
+    return {
+      fileName: uploaded.file_name ?? file.name,
+      reference: uploaded.reference,
+    };
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -419,11 +644,22 @@ export default function CreativeBriefingForm({
       toast.error(t("creativeBrief.brandRequired"));
       return;
     }
-    if (videoSizes.length === 0) {
+    if (manualVideoInput && !manualVideoResult) {
+      toast.error(t("creativeBrief.manualVideoRequired"));
+      return;
+    }
+    if (!manualVideoInput && videoSizes.length === 0) {
       toast.error(t("creativeBrief.videoSizeRequired"));
       return;
     }
-    if (selectedFormats.length === 0) {
+    if (
+      manualFormatInput &&
+      (!trimmedManualFormatName || !manualFormatDescription.trim())
+    ) {
+      toast.error(t("creativeBrief.manualFormatRequired"));
+      return;
+    }
+    if (!manualFormatInput && selectedFormats.length === 0) {
       toast.error(t("creativeBrief.formatRequired"));
       return;
     }
@@ -446,8 +682,11 @@ export default function CreativeBriefingForm({
         designerNames: selectedDesigners.map((designer) => designer.name),
         requesterName,
         brandName: selectedCompany.name,
-        videoSizes,
-        formats: selectedFormats.map((option) => option.label),
+        videoSizes: resolvedVideoSizes,
+        formats: resolvedFormats,
+        formatDescription: manualFormatInput
+          ? manualFormatDescription.trim()
+          : undefined,
         brandRules,
         description: briefDescription,
         driveUrl,
@@ -470,7 +709,7 @@ export default function CreativeBriefingForm({
         body: JSON.stringify({
           title: buildCreativeBriefingTitle(
             selectedCompany.name,
-            selectedFormats.map((option) => option.label).join(", "),
+            resolvedFormats.join(", "),
             language,
           ),
           description,
@@ -482,7 +721,9 @@ export default function CreativeBriefingForm({
           due_date: dueDate,
         }),
       });
-      const created = (await createResponse.json().catch(() => ({}))) as Task & { error?: string };
+      const created = (await createResponse
+        .json()
+        .catch(() => ({}))) as Task & { error?: string };
       if (!createResponse.ok || !created.id) {
         throw new Error(created.error || t("creativeBrief.submitFailed"));
       }
@@ -498,16 +739,24 @@ export default function CreativeBriefingForm({
           }
         }),
       );
-      let uploadedReference: { fileName: string; reference: string } | null = null;
+      let uploadedReference: { fileName: string; reference: string } | null =
+        null;
       if (referenceFile) {
         try {
-          uploadedReference = await uploadCreativeAsset(created.id, referenceFile, "reference");
+          uploadedReference = await uploadCreativeAsset(
+            created.id,
+            referenceFile,
+            "reference",
+          );
         } catch {
           attachmentsUploadFailed = true;
         }
       }
 
-      if (uploadedReference || uploadedDriveFiles.some((file) => file !== null)) {
+      if (
+        uploadedReference ||
+        uploadedDriveFiles.some((file) => file !== null)
+      ) {
         try {
           const updatedDescription = buildCreativeBriefingDescription(
             {
@@ -516,7 +765,8 @@ export default function CreativeBriefingForm({
                 name: uploadedDriveFiles[index]?.fileName ?? file.name,
                 url: uploadedDriveFiles[index]?.reference,
               })),
-              referenceFileName: uploadedReference?.fileName ?? referenceFile?.name,
+              referenceFileName:
+                uploadedReference?.fileName ?? referenceFile?.name,
               referenceFileUrl: uploadedReference?.reference,
             },
             language,
@@ -526,7 +776,8 @@ export default function CreativeBriefingForm({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ description: updatedDescription }),
           });
-          if (!patchResponse.ok) throw new Error(t("creativeBrief.attachmentUploadFailed"));
+          if (!patchResponse.ok)
+            throw new Error(t("creativeBrief.attachmentUploadFailed"));
         } catch {
           attachmentsUploadFailed = true;
         }
@@ -536,6 +787,13 @@ export default function CreativeBriefingForm({
       setCompanyId("");
       setVideoSizes([VIDEO_SIZES[2]]);
       setFormats(["carousel"]);
+      setManualVideoInput(false);
+      setManualVideoWidth("");
+      setManualVideoHeight("");
+      setManualVideoUnit("px");
+      setManualFormatInput(false);
+      setManualFormatName("");
+      setManualFormatDescription("");
       setBrandRules("");
       setBriefDescription("");
       setDriveUrl("");
@@ -547,9 +805,14 @@ export default function CreativeBriefingForm({
       setReferenceFile(null);
       await onCreated(created);
       toast.success(t("creativeBrief.submitted"));
-      if (attachmentsUploadFailed) toast.error(t("creativeBrief.submittedAttachmentsFailed"));
+      if (attachmentsUploadFailed)
+        toast.error(t("creativeBrief.submittedAttachmentsFailed"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("creativeBrief.submitFailed"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("creativeBrief.submitFailed"),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -566,21 +829,38 @@ export default function CreativeBriefingForm({
           backgroundSize: "36px 36px",
         }}
       />
-      <div className="pointer-events-none absolute -right-28 top-8 h-56 w-56 rounded-full border border-blue-400/25" aria-hidden="true" />
-      <div className="pointer-events-none absolute -bottom-36 -left-20 h-64 w-64 rounded-full border border-cyan-400/20" aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute -right-28 top-8 h-56 w-56 rounded-full border border-blue-400/25"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-36 -left-20 h-64 w-64 rounded-full border border-cyan-400/20"
+        aria-hidden="true"
+      />
 
-      <form onSubmit={submit} className="relative mx-auto max-w-5xl overflow-hidden rounded-2xl border border-[#4476c4] bg-[#041126]/95 shadow-[0_0_48px_rgba(23,107,255,0.18)]">
+      <form
+        onSubmit={submit}
+        className="relative mx-auto max-w-5xl overflow-hidden rounded-2xl border border-[#4476c4] bg-[#041126]/95 shadow-[0_0_48px_rgba(23,107,255,0.18)]"
+      >
         <header className="border-b border-[#305993] px-5 py-6 sm:px-9 sm:py-8">
           <div className="flex items-start gap-4 sm:gap-6">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#4d8cf4] bg-[#0a2144] shadow-[0_0_24px_rgba(48,117,255,0.28)] sm:h-16 sm:w-16">
               <FileText className="h-7 w-7 text-[#4c9cff]" />
             </div>
             <div className="min-w-0">
-              <p className="text-2xl font-bold tracking-normal text-white sm:text-4xl">{t("creativeBrief.title")}</p>
-              <p className="mt-1 text-sm text-[#a8bad9] sm:text-lg">{t("creativeBrief.subtitle")}</p>
+              <p className="text-2xl font-bold tracking-normal text-white sm:text-4xl">
+                {t("creativeBrief.title")}
+              </p>
+              <p className="mt-1 text-sm text-[#a8bad9] sm:text-lg">
+                {t("creativeBrief.subtitle")}
+              </p>
               <p className="mt-3 text-sm text-[#c7d8f3]">
-                <span className="font-semibold text-[#8fbaff]">{t("creativeBrief.requester")}:</span>{" "}
-                <span className="font-semibold text-white">{requesterName}</span>
+                <span className="font-semibold text-[#8fbaff]">
+                  {t("creativeBrief.requester")}:
+                </span>{" "}
+                <span className="font-semibold text-white">
+                  {requesterName}
+                </span>
               </p>
             </div>
           </div>
@@ -593,7 +873,10 @@ export default function CreativeBriefingForm({
                 values={designerIds}
                 onChange={setDesignerIds}
                 disabled={submitting || designerUsers.length === 0}
-                options={designerUsers.map((user) => ({ value: user.id, label: user.name }))}
+                options={designerUsers.map((user) => ({
+                  value: user.id,
+                  label: user.name,
+                }))}
               />
               <p className="mt-2 flex items-center gap-1.5 text-xs text-[#92a8cb]">
                 <CheckCircle2 className="h-3.5 w-3.5 text-[#4d95ff]" />
@@ -632,7 +915,10 @@ export default function CreativeBriefingForm({
                             values={designerSetupIds}
                             onChange={setDesignerSetupIds}
                             disabled={savingDesignerRoster}
-                            options={users.map((user) => ({ value: user.id, label: user.name }))}
+                            options={users.map((user) => ({
+                              value: user.id,
+                              label: user.name,
+                            }))}
                           />
                           <div className="flex flex-wrap justify-end gap-2">
                             <button
@@ -646,10 +932,17 @@ export default function CreativeBriefingForm({
                             <button
                               type="button"
                               onClick={saveDesignerRoster}
-                              disabled={savingDesignerRoster || designerSetupIds.length === 0}
+                              disabled={
+                                savingDesignerRoster ||
+                                designerSetupIds.length === 0
+                              }
                               className="inline-flex min-h-9 items-center gap-2 rounded-md bg-[#1767e8] px-3 text-xs font-semibold text-white transition hover:bg-[#2b7df4] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                              {savingDesignerRoster ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UsersRound className="h-3.5 w-3.5" />}
+                              {savingDesignerRoster ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <UsersRound className="h-3.5 w-3.5" />
+                              )}
                               {t("creativeBrief.setupDesignersSave")}
                             </button>
                           </div>
@@ -666,32 +959,164 @@ export default function CreativeBriefingForm({
                 value={companyId}
                 onChange={setCompanyId}
                 disabled={submitting || companiesLoading}
-                placeholder={companiesLoading ? t("common.loading") : t("creativeBrief.select")}
-                options={companies.map((company) => ({ value: company.id, label: company.name }))}
+                placeholder={
+                  companiesLoading
+                    ? t("common.loading")
+                    : t("creativeBrief.select")
+                }
+                options={companies.map((company) => ({
+                  value: company.id,
+                  label: company.name,
+                }))}
               />
               {!companiesLoading && companies.length === 0 ? (
-                <p className="mt-2 text-xs text-amber-300">{t("creativeBrief.noBrands")}</p>
+                <p className="mt-2 text-xs text-amber-300">
+                  {t("creativeBrief.noBrands")}
+                </p>
               ) : null}
             </BriefField>
 
             <BriefField label={t("creativeBrief.videoSize")}>
               <MultiSelectField
-                values={videoSizes}
-                onChange={setVideoSizes}
+                values={manualVideoInput ? [MANUAL_VIDEO_SIZE] : videoSizes}
+                onChange={handleVideoSizeSelection}
                 disabled={submitting}
-                options={VIDEO_SIZES.map((value) => ({ value, label: value }))}
+                options={[
+                  ...VIDEO_SIZES.map((value) => ({ value, label: value })),
+                  {
+                    value: MANUAL_VIDEO_SIZE,
+                    label: t("creativeBrief.manualInput"),
+                  },
+                ]}
               />
-              <p className="mt-2 text-xs text-[#92a8cb]">{t("creativeBrief.multiSelectHint")}</p>
+              {manualVideoInput ? (
+                <div className="mt-3 rounded-lg border border-[#385b91] bg-[#06162d] p-3">
+                  <p className="text-xs text-[#b9c9e5]">
+                    {t("creativeBrief.manualVideoInstruction")}
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <label className="block text-xs font-semibold text-[#d7e5ff]">
+                      {t("creativeBrief.width")}
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        inputMode="decimal"
+                        value={manualVideoWidth}
+                        onChange={(event) =>
+                          setManualVideoWidth(event.target.value)
+                        }
+                        disabled={submitting}
+                        className="mt-1 h-11 w-full rounded-md border border-[#385b91] bg-[#07162e] px-3 text-sm text-white outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-[#d7e5ff]">
+                      {t("creativeBrief.height")}
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        inputMode="decimal"
+                        value={manualVideoHeight}
+                        onChange={(event) =>
+                          setManualVideoHeight(event.target.value)
+                        }
+                        disabled={submitting}
+                        className="mt-1 h-11 w-full rounded-md border border-[#385b91] bg-[#07162e] px-3 text-sm text-white outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                      />
+                    </label>
+                    <label className="block text-xs font-semibold text-[#d7e5ff]">
+                      {t("creativeBrief.unit")}
+                      <div className="mt-1">
+                        <SelectField
+                          value={manualVideoUnit}
+                          onChange={(value) =>
+                            setManualVideoUnit(
+                              value as CreativeBriefingDimensionUnit,
+                            )
+                          }
+                          disabled={submitting}
+                          options={DIMENSION_UNITS.map((unit) => ({
+                            value: unit,
+                            label: unit,
+                          }))}
+                        />
+                      </div>
+                    </label>
+                  </div>
+                  <p className="mt-3 text-sm text-[#b9c9e5]" aria-live="polite">
+                    <span className="font-semibold text-white">
+                      {t("creativeBrief.manualDimensionResult")}:
+                    </span>{" "}
+                    <span className="text-[#8fbaff]">
+                      {manualVideoResult ??
+                        t("creativeBrief.manualDimensionPending")}
+                    </span>
+                  </p>
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-[#92a8cb]">
+                {t("creativeBrief.multiSelectHint")}
+              </p>
             </BriefField>
 
             <BriefField label={t("creativeBrief.format")}>
               <MultiSelectField
-                values={formats}
-                onChange={setFormats}
+                values={manualFormatInput ? [MANUAL_FORMAT] : formats}
+                onChange={handleFormatSelection}
                 disabled={submitting}
-                options={formatOptions.map((option) => ({ value: option.value, label: option.label }))}
+                options={[
+                  ...formatOptions.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                  })),
+                  {
+                    value: MANUAL_FORMAT,
+                    label: t("creativeBrief.manualInput"),
+                  },
+                ]}
               />
-              <p className="mt-2 text-xs text-[#92a8cb]">{t("creativeBrief.multiSelectHint")}</p>
+              {manualFormatInput ? (
+                <div className="mt-3 space-y-3 rounded-lg border border-[#385b91] bg-[#06162d] p-3">
+                  <p className="text-xs text-[#b9c9e5]">
+                    {t("creativeBrief.manualFormatInstruction")}
+                  </p>
+                  <label className="block text-xs font-semibold text-[#d7e5ff]">
+                    {t("creativeBrief.manualFormatName")}
+                    <input
+                      type="text"
+                      value={manualFormatName}
+                      onChange={(event) =>
+                        setManualFormatName(event.target.value)
+                      }
+                      disabled={submitting}
+                      maxLength={120}
+                      placeholder={t(
+                        "creativeBrief.manualFormatNamePlaceholder",
+                      )}
+                      className="mt-1 h-11 w-full rounded-md border border-[#385b91] bg-[#07162e] px-3 text-sm text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold text-[#d7e5ff]">
+                    {t("creativeBrief.manualFormatDescription")}
+                    <textarea
+                      value={manualFormatDescription}
+                      onChange={(event) =>
+                        setManualFormatDescription(event.target.value)
+                      }
+                      disabled={submitting}
+                      maxLength={600}
+                      placeholder={t(
+                        "creativeBrief.manualFormatDescriptionPlaceholder",
+                      )}
+                      className="mt-1 min-h-24 w-full resize-y rounded-md border border-[#385b91] bg-[#07162e] px-3 py-2 text-sm text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                    />
+                  </label>
+                </div>
+              ) : null}
+              <p className="mt-2 text-xs text-[#92a8cb]">
+                {t("creativeBrief.multiSelectHint")}
+              </p>
             </BriefField>
           </div>
 
@@ -731,7 +1156,9 @@ export default function CreativeBriefingForm({
                   className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
                 />
               </div>
-              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">{t("creativeBrief.or")}</span>
+              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">
+                {t("creativeBrief.or")}
+              </span>
               <button
                 type="button"
                 disabled={submitting}
@@ -749,7 +1176,9 @@ export default function CreativeBriefingForm({
                 )}
               >
                 <Upload className="h-5 w-5 shrink-0 text-[#89b4f5]" />
-                <span className="text-sm font-semibold text-white">{t("creativeBrief.driveUpload")}</span>
+                <span className="text-sm font-semibold text-white">
+                  {t("creativeBrief.driveUpload")}
+                </span>
               </button>
               <input
                 ref={driveFileInputRef}
@@ -760,7 +1189,9 @@ export default function CreativeBriefingForm({
                 onChange={onDriveFilesInput}
               />
             </div>
-            <p className="mt-2 text-xs text-[#92a8cb]">{t("creativeBrief.driveUploadHint")}</p>
+            <p className="mt-2 text-xs text-[#92a8cb]">
+              {t("creativeBrief.driveUploadHint")}
+            </p>
             {driveFiles.length > 0 ? (
               <ul className="mt-3 space-y-2">
                 {driveFiles.map((file) => (
@@ -770,12 +1201,16 @@ export default function CreativeBriefingForm({
                   >
                     <Paperclip className="h-4 w-4 shrink-0 text-[#75adff]" />
                     <span className="min-w-0 flex-1 truncate">{file.name}</span>
-                    <span className="shrink-0 text-xs text-[#9eb7dd]">{Math.ceil(file.size / 1024)} KB</span>
+                    <span className="shrink-0 text-xs text-[#9eb7dd]">
+                      {Math.ceil(file.size / 1024)} KB
+                    </span>
                     <button
                       type="button"
                       onClick={() =>
                         setDriveFiles((current) =>
-                          current.filter((candidate) => fileKey(candidate) !== fileKey(file)),
+                          current.filter(
+                            (candidate) => fileKey(candidate) !== fileKey(file),
+                          ),
                         )
                       }
                       className="rounded p-1 text-[#b4c9e9] transition hover:bg-white/10 hover:text-white"
@@ -797,13 +1232,17 @@ export default function CreativeBriefingForm({
                 <input
                   type="url"
                   value={visualReferenceUrl}
-                  onChange={(event) => setVisualReferenceUrl(event.target.value)}
+                  onChange={(event) =>
+                    setVisualReferenceUrl(event.target.value)
+                  }
                   disabled={submitting}
                   placeholder="https://"
                   className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
                 />
               </div>
-              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">{t("creativeBrief.or")}</span>
+              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">
+                {t("creativeBrief.or")}
+              </span>
               <button
                 type="button"
                 disabled={submitting}
@@ -822,8 +1261,12 @@ export default function CreativeBriefingForm({
               >
                 <Upload className="h-7 w-7 shrink-0 text-[#89b4f5]" />
                 <span className="min-w-0">
-                  <span className="block text-base font-semibold text-white">{t("creativeBrief.upload")}</span>
-                  <span className="mt-1 block text-xs text-[#9fb3d4]">{t("creativeBrief.uploadHint")}</span>
+                  <span className="block text-base font-semibold text-white">
+                    {t("creativeBrief.upload")}
+                  </span>
+                  <span className="mt-1 block text-xs text-[#9fb3d4]">
+                    {t("creativeBrief.uploadHint")}
+                  </span>
                 </span>
               </button>
               <input
@@ -837,8 +1280,12 @@ export default function CreativeBriefingForm({
             {referenceFile ? (
               <div className="mt-3 flex items-center gap-2 rounded-lg border border-[#315c94] bg-[#081a34] px-3 py-2 text-sm text-[#d7e5ff]">
                 <Paperclip className="h-4 w-4 shrink-0 text-[#75adff]" />
-                <span className="min-w-0 flex-1 truncate">{referenceFile.name}</span>
-                <span className="shrink-0 text-xs text-[#9eb7dd]">{Math.ceil(referenceFile.size / 1024)} KB</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {referenceFile.name}
+                </span>
+                <span className="shrink-0 text-xs text-[#9eb7dd]">
+                  {Math.ceil(referenceFile.size / 1024)} KB
+                </span>
                 <button
                   type="button"
                   onClick={() => setReferenceFile(null)}
@@ -857,7 +1304,9 @@ export default function CreativeBriefingForm({
                     {t("creativeBrief.visualPreview")}
                   </figcaption>
                   {referenceImagePreview ? (
-                    <span className="text-xs text-[#9eb7dd]">{referenceFile?.name}</span>
+                    <span className="text-xs text-[#9eb7dd]">
+                      {referenceFile?.name}
+                    </span>
                   ) : null}
                 </div>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -865,7 +1314,8 @@ export default function CreativeBriefingForm({
                   src={referencePreviewSource}
                   alt={t("creativeBrief.visualPreview")}
                   onError={() => {
-                    if (!referenceImagePreview) setReferenceUrlPreviewFailed(true);
+                    if (!referenceImagePreview)
+                      setReferenceUrlPreviewFailed(true);
                   }}
                   className="aspect-video w-full bg-[#020a1b] object-contain"
                 />
@@ -899,26 +1349,28 @@ export default function CreativeBriefingForm({
             <BriefField label={t("creativeBrief.deadline")}>
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
-                  {(["standard", "rush", "extended", "custom"] as const).map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => setDeadlinePreset(preset)}
-                      aria-pressed={deadlinePreset === preset}
-                      className={cn(
-                        "min-h-12 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
-                        deadlinePreset === preset
-                          ? "border-[#4c9cff] bg-[#0b2d61] text-white shadow-[0_0_18px_rgba(39,126,255,0.22)]"
-                          : "border-[#385b91] bg-[#07162e] text-[#b8cae8] hover:border-[#5a8ed4] hover:bg-[#0a2040]",
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Clock3 className="h-4 w-4 shrink-0 text-[#66a6ff]" />
-                        {t(`creativeBrief.deadline.${preset}`)}
-                      </span>
-                    </button>
-                  ))}
+                  {(["standard", "rush", "extended", "custom"] as const).map(
+                    (preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => setDeadlinePreset(preset)}
+                        aria-pressed={deadlinePreset === preset}
+                        className={cn(
+                          "min-h-12 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
+                          deadlinePreset === preset
+                            ? "border-[#4c9cff] bg-[#0b2d61] text-white shadow-[0_0_18px_rgba(39,126,255,0.22)]"
+                            : "border-[#385b91] bg-[#07162e] text-[#b8cae8] hover:border-[#5a8ed4] hover:bg-[#0a2040]",
+                        )}
+                      >
+                        <span className="flex items-center gap-2">
+                          <Clock3 className="h-4 w-4 shrink-0 text-[#66a6ff]" />
+                          {t(`creativeBrief.deadline.${preset}`)}
+                        </span>
+                      </button>
+                    ),
+                  )}
                 </div>
                 {deadlinePreset === "custom" ? (
                   <BrazilianDateInput
@@ -937,7 +1389,9 @@ export default function CreativeBriefingForm({
           <section className="border-t border-[#2b5187] pt-6">
             <div className="flex items-center gap-3 text-white">
               <Clock3 className="h-5 w-5 text-[#66a6ff]" />
-              <h3 className="text-lg font-semibold">{t("creativeBrief.estimatedTime")}</h3>
+              <h3 className="text-lg font-semibold">
+                {t("creativeBrief.estimatedTime")}
+              </h3>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {formatOptions.map((option) => {
@@ -949,7 +1403,9 @@ export default function CreativeBriefingForm({
                     type="button"
                     disabled={submitting}
                     onClick={() =>
-                      setFormats((current) => toggleMultiSelectValue(current, option.value))
+                      setFormats((current) =>
+                        toggleMultiSelectValue(current, option.value),
+                      )
                     }
                     aria-pressed={selected}
                     className={cn(
@@ -960,8 +1416,12 @@ export default function CreativeBriefingForm({
                     )}
                   >
                     <Icon className="h-7 w-7 text-[#4e9cff]" />
-                    <span className="mt-3 block text-sm font-semibold text-white">{option.label}</span>
-                    <span className="mt-1 block text-2xl font-bold text-[#5ca4ff]">{option.hours}h</span>
+                    <span className="mt-3 block text-sm font-semibold text-white">
+                      {option.label}
+                    </span>
+                    <span className="mt-1 block text-2xl font-bold text-[#5ca4ff]">
+                      {option.hours}h
+                    </span>
                   </button>
                 );
               })}
@@ -981,10 +1441,19 @@ export default function CreativeBriefingForm({
           </button>
           <button
             type="submit"
-            disabled={submitting || companiesLoading || companies.length === 0 || designerUsers.length === 0}
+            disabled={
+              submitting ||
+              companiesLoading ||
+              companies.length === 0 ||
+              designerUsers.length === 0
+            }
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[#55a4ff] bg-[#1468eb] px-6 text-sm font-semibold text-white shadow-[0_0_24px_rgba(37,122,255,0.48)] transition hover:bg-[#2a7cf4] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
             {t("creativeBrief.submit")}
           </button>
         </footer>
@@ -1050,10 +1519,14 @@ function MultiSelectField({
                 type="checkbox"
                 checked={selected}
                 disabled={disabled}
-                onChange={() => onChange(toggleMultiSelectValue(values, option.value))}
+                onChange={() =>
+                  onChange(toggleMultiSelectValue(values, option.value))
+                }
                 className="h-4 w-4 shrink-0 rounded border-[#5b7faf] bg-[#041126] text-[#3e88ff] focus:ring-2 focus:ring-[#2679ff]/45"
               />
-              <span className="min-w-0 break-words font-medium">{option.label}</span>
+              <span className="min-w-0 break-words font-medium">
+                {option.label}
+              </span>
             </label>
           );
         })}

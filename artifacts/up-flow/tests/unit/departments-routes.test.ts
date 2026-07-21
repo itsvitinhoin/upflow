@@ -44,15 +44,10 @@ test("PATCH/DELETE /api/workspaces/[id]/departments/[depId] is admin-only and wo
 });
 
 test("PUT /api/workspaces/[id]/members/[memberId]/department is admin-only and validates the department", () => {
-  const src = read(
-    "workspaces/[id]/members/[memberId]/department/route.ts",
-  );
+  const src = read("workspaces/[id]/members/[memberId]/department/route.ts");
   assert.match(src, /requireAuth\s*\(/);
   assert.match(src, /const\s+\{\s*id\s*,\s*memberId\s*\}\s*=\s*await\s+params/);
-  assert.match(
-    src,
-    /isWorkspaceAdminFor\(\s*auth\s*,\s*id\s*\)/,
-  );
+  assert.match(src, /isWorkspaceAdminFor\(\s*auth\s*,\s*id\s*\)/);
   // Cross-workspace department ID must be rejected with 400, not silently
   // accepted (would otherwise let an admin point a member at a department
   // from another workspace).
@@ -64,13 +59,21 @@ test("PUT /api/workspaces/[id]/members/[memberId]/department is admin-only and v
 test("users API exposes scoped department details to eligible member pickers", () => {
   const src = read("users/route.ts");
   assert.match(src, /department_id:\s*scopedMembership\?\.department_id/);
-  assert.match(src, /department_name:\s*scopedMembership\?\.department\?\.name/);
+  assert.match(
+    src,
+    /department_name:\s*scopedMembership\?\.department\?\.name/,
+  );
   assert.match(src, /scopedWorkspaceId\s*=\s*workspaceFilter\s*\?\?/);
 });
 
 test("POST /api/workspaces/[id]/creative-designers is admin-only and scopes roster members", () => {
   const src = read("workspaces/[id]/creative-designers/route.ts");
   assert.match(src, /requireAuth\s*\(/);
+  assert.match(src, /canAccessWorkspace\(\s*auth\s*,\s*workspaceId\s*\)/);
+  assert.match(
+    src,
+    /can_manage:\s*isWorkspaceAdminFor\(\s*auth\s*,\s*workspaceId\s*\)/,
+  );
   assert.match(src, /isWorkspaceAdminFor\(\s*auth\s*,\s*workspaceId\s*\)/);
   assert.match(src, /checkRateLimit\(/);
   assert.match(src, /user_ids:\s*z\.array\(z\.string\(\)\.uuid\(\)\)/);

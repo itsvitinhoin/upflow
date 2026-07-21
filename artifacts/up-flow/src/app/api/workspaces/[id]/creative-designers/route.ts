@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { isCreativeDesignDepartmentName } from "@/lib/creative-briefing";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,21 @@ const bodySchema = z.object({
 });
 
 type RouteContext = { params: Promise<{ id: string }> };
+
+async function GET_handler(_req: NextRequest, { params }: RouteContext) {
+  const { id: workspaceId } = await params;
+  const _r = await requireAuth();
+  if (!_r.ok) return _r.response;
+  const auth = _r.auth;
+
+  if (!canAccessWorkspace(auth, workspaceId)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  return NextResponse.json({
+    can_manage: isWorkspaceAdminFor(auth, workspaceId),
+  });
+}
 
 async function POST_handler(req: NextRequest, { params }: RouteContext) {
   const { id: workspaceId } = await params;
@@ -32,7 +47,10 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid designer selection" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid designer selection" },
+      { status: 400 },
+    );
   }
 
   const userIds = [...new Set(parsed.data.user_ids)];
@@ -90,7 +108,9 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
 
   if (!result) {
     return NextResponse.json(
-      { error: "One or more selected members are not active in this workspace" },
+      {
+        error: "One or more selected members are not active in this workspace",
+      },
       { status: 400 },
     );
   }
@@ -101,4 +121,9 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
 export const POST = withErrorReporting(
   "api:workspaces/creative-designers:POST",
   POST_handler,
+);
+
+export const GET = withErrorReporting(
+  "api:workspaces/creative-designers:GET",
+  GET_handler,
 );

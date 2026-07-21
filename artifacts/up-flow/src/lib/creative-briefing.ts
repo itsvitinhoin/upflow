@@ -1,6 +1,7 @@
 export type CreativeBriefingLocale = "en" | "pt-BR";
 
 export type CreativeBriefingPriority = "low" | "medium" | "high";
+export type CreativeBriefingDimensionUnit = "px" | "cm" | "mm";
 
 export interface CreativeBriefingMember {
   id: string;
@@ -18,7 +19,9 @@ function normalizeDepartmentName(value: string | null | undefined) {
     .trim();
 }
 
-export function isCreativeDesignDepartmentName(value: string | null | undefined) {
+export function isCreativeDesignDepartmentName(
+  value: string | null | undefined,
+) {
   const departmentName = normalizeDepartmentName(value);
   return (
     departmentName === "creative & design" ||
@@ -27,8 +30,35 @@ export function isCreativeDesignDepartmentName(value: string | null | undefined)
   );
 }
 
-export function filterCreativeBriefingDesigners<T extends CreativeBriefingMember>(members: T[]): T[] {
-  return members.filter((member) => isCreativeDesignDepartmentName(member.department_name));
+export function filterCreativeBriefingDesigners<
+  T extends CreativeBriefingMember,
+>(members: T[]): T[] {
+  return members.filter((member) =>
+    isCreativeDesignDepartmentName(member.department_name),
+  );
+}
+
+export function formatCreativeBriefingDimensions(
+  width: string | number,
+  height: string | number,
+  unit: string,
+) {
+  if (unit !== "px" && unit !== "cm" && unit !== "mm") return null;
+
+  const widthValue = Number(width);
+  const heightValue = Number(height);
+  if (
+    !Number.isFinite(widthValue) ||
+    !Number.isFinite(heightValue) ||
+    widthValue <= 0 ||
+    heightValue <= 0 ||
+    widthValue > 1_000_000 ||
+    heightValue > 1_000_000
+  ) {
+    return null;
+  }
+
+  return String(widthValue) + " \u00D7 " + String(heightValue) + " " + unit;
 }
 
 export interface CreativeBriefingDescriptionInput {
@@ -37,6 +67,7 @@ export interface CreativeBriefingDescriptionInput {
   brandName: string;
   videoSizes: string[];
   formats: string[];
+  formatDescription?: string | null;
   brandRules?: string | null;
   description?: string | null;
   driveUrl?: string | null;
@@ -46,32 +77,36 @@ export interface CreativeBriefingDescriptionInput {
   referenceFileUrl?: string | null;
   priority: CreativeBriefingPriority;
   dueDate?: string | null;
-  estimatedHours: number;
+  estimatedHours?: number | null;
 }
 
-const COPY: Record<CreativeBriefingLocale, {
-  typeLabel: string;
-  type: string;
-  details: string;
-  checklist: string;
-  requester: string;
-  designers: string;
-  brand: string;
-  videoSizes: string;
-  formats: string;
-  brandRules: string;
-  description: string;
-  driveUrl: string;
-  driveFile: string;
-  driveFileLink: string;
-  visualReferenceUrl: string;
-  referenceFile: string;
-  priority: string;
-  deadline: string;
-  estimate: string;
-  items: string[];
-  titlePrefix: string;
-}> = {
+const COPY: Record<
+  CreativeBriefingLocale,
+  {
+    typeLabel: string;
+    type: string;
+    details: string;
+    checklist: string;
+    requester: string;
+    designers: string;
+    brand: string;
+    videoSizes: string;
+    formats: string;
+    formatDescription: string;
+    brandRules: string;
+    description: string;
+    driveUrl: string;
+    driveFile: string;
+    driveFileLink: string;
+    visualReferenceUrl: string;
+    referenceFile: string;
+    priority: string;
+    deadline: string;
+    estimate: string;
+    items: string[];
+    titlePrefix: string;
+  }
+> = {
   en: {
     typeLabel: "Type",
     type: "Creative briefing",
@@ -82,6 +117,7 @@ const COPY: Record<CreativeBriefingLocale, {
     brand: "Brand",
     videoSizes: "Video proportions and sizes",
     formats: "Formats",
+    formatDescription: "Format description",
     brandRules: "Brand rules and conditions",
     description: "Description",
     driveUrl: "Drive / photos link",
@@ -110,6 +146,7 @@ const COPY: Record<CreativeBriefingLocale, {
     brand: "Marca",
     videoSizes: "Proporções e tamanhos do vídeo",
     formats: "Formatos",
+    formatDescription: "Descri\u00e7\u00e3o do formato",
     brandRules: "Regras e condições da marca",
     description: "Descrição",
     driveUrl: "Link de Drive / fotos",
@@ -135,10 +172,16 @@ function singleLine(value: string | null | undefined) {
 }
 
 function joinedValues(values: string[]) {
-  return values.map((value) => singleLine(value)).filter(Boolean).join(", ");
+  return values
+    .map((value) => singleLine(value))
+    .filter(Boolean)
+    .join(", ");
 }
 
-function labelForPriority(priority: CreativeBriefingPriority, locale: CreativeBriefingLocale) {
+function labelForPriority(
+  priority: CreativeBriefingPriority,
+  locale: CreativeBriefingLocale,
+) {
   if (locale === "pt-BR") {
     if (priority === "high") return "Alta";
     if (priority === "medium") return "Media";
@@ -155,8 +198,10 @@ export function buildCreativeBriefingTitle(
   locale: CreativeBriefingLocale = "en",
 ) {
   const copy = COPY[locale];
-  const brand = singleLine(brandName) || (locale === "pt-BR" ? "marca" : "brand");
-  const selectedFormat = singleLine(format) || (locale === "pt-BR" ? "criação" : "creative");
+  const brand =
+    singleLine(brandName) || (locale === "pt-BR" ? "marca" : "brand");
+  const selectedFormat =
+    singleLine(format) || (locale === "pt-BR" ? "criação" : "creative");
   return `${copy.titlePrefix}: ${brand} - ${selectedFormat}`;
 }
 
@@ -172,11 +217,25 @@ export function buildCreativeBriefingDescription(
     [copy.videoSizes, joinedValues(input.videoSizes)],
     [copy.formats, joinedValues(input.formats)],
     [copy.priority, labelForPriority(input.priority, locale)],
-    [copy.estimate, `${input.estimatedHours}h`],
   ];
 
-  if (input.brandRules) details.splice(4, 0, [copy.brandRules, input.brandRules]);
-  if (input.description) details.splice(5, 0, [copy.description, input.description]);
+  let detailIndex = 5;
+  if (input.formatDescription) {
+    details.splice(detailIndex, 0, [
+      copy.formatDescription,
+      input.formatDescription,
+    ]);
+    detailIndex += 1;
+  }
+  if (input.brandRules) {
+    details.splice(detailIndex, 0, [copy.brandRules, input.brandRules]);
+    detailIndex += 1;
+  }
+  if (input.description)
+    details.splice(detailIndex, 0, [copy.description, input.description]);
+  if (input.estimatedHours && input.estimatedHours > 0) {
+    details.push([copy.estimate, String(input.estimatedHours) + "h"]);
+  }
   if (input.dueDate) details.push([copy.deadline, input.dueDate]);
   if (input.driveUrl) details.push([copy.driveUrl, input.driveUrl]);
   for (const file of input.driveFiles ?? []) {
@@ -185,9 +244,12 @@ export function buildCreativeBriefingDescription(
     details.push([copy.driveFile, name]);
     if (file.url) details.push([copy.driveFileLink, file.url]);
   }
-  if (input.visualReferenceUrl) details.push([copy.visualReferenceUrl, input.visualReferenceUrl]);
-  if (input.referenceFileName) details.push([copy.referenceFile, input.referenceFileName]);
-  if (input.referenceFileUrl) details.push([`${copy.referenceFile} link`, input.referenceFileUrl]);
+  if (input.visualReferenceUrl)
+    details.push([copy.visualReferenceUrl, input.visualReferenceUrl]);
+  if (input.referenceFileName)
+    details.push([copy.referenceFile, input.referenceFileName]);
+  if (input.referenceFileUrl)
+    details.push([`${copy.referenceFile} link`, input.referenceFileUrl]);
 
   return [
     "## UP Flow Task Brief",
