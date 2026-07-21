@@ -310,7 +310,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     const mentionedUserId = await currentUserId(mentionedCtx);
     const projectId = await createProjectViaApi(ctx, uniq("SheetProj"));
     const title = uniq("Sheet-Task");
-    await createTaskViaApi(ctx, projectId, title);
+    const taskId = await createTaskViaApi(ctx, projectId, title);
 
     const page = await ctx.newPage();
     await page.goto(`/projects/${projectId}`);
