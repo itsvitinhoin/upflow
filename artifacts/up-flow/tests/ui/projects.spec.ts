@@ -403,7 +403,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
       (r) =>
         r.url().includes("/api/comments") && r.request().method() === "POST",
     );
-    await page.keyboard.pressSequentially("Looks good to me");
+    await page.keyboard.type("Looks good to me");
     await page.keyboard.press("Enter");
     const commentResponse = await commentPost;
     expect(commentResponse.ok()).toBeTruthy();
