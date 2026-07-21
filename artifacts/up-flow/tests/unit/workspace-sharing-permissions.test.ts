@@ -68,7 +68,6 @@ test("members can contribute to project tasks while guests remain view-only else
     spacesRoute,
     foldersRoute,
     projectsRoute,
-    commentsRoute,
     docsRoute,
     calendarRoute,
     companiesRoute,
@@ -82,6 +81,8 @@ test("members can contribute to project tasks while guests remain view-only else
   }
   assert.match(goalsRoute, /requireWorkspaceAdmin/);
   assert.match(tasksRoute, /canContributeToProject\(auth,\s*project\)/);
+  assert.match(commentsRoute, /canContributeToProject\(auth,\s*task\.project\)/);
+  assert.doesNotMatch(commentsRoute, /isWorkspaceAdminFor\(auth,/);
   assert.match(sidebarPanel, /canManageWorkspace/);
   assert.match(header, /canCreateProject/);
 });

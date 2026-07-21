@@ -261,7 +261,7 @@ export default function Header({ title }: HeaderProps) {
         {
           event: "*",
           schema: "public",
-          table: "notifications",
+          table: "Notification",
           filter: `user_id=eq.${user.id}`,
         },
         (payload) => {

@@ -15,6 +15,7 @@ import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
 import { parseTaskBrief } from "@/lib/task-templates";
 import { getTaskAssetPath } from "@/lib/task-images";
+import { appendVisibleMention } from "@/lib/comment-mentions";
 
 interface TaskDetailSheetProps {
   task: Task;
@@ -33,8 +34,10 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
   const [currentTask, setCurrentTask] = useState<DetailTask>(task as DetailTask);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [newCommentMentionIds, setNewCommentMentionIds] = useState<string[]>([]);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [replyMentionIds, setReplyMentionIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [users, setUsers] = useState<TaskAssignee[]>(initialUsers ?? []);
   const [saving, setSaving] = useState(false);
@@ -132,14 +135,19 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_id: task.id, body: newComment }),
+        body: JSON.stringify({
+          task_id: task.id,
+          body: newComment,
+          mention_ids: newCommentMentionIds,
+        }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await readTaskApiError(res, t("task.failedAddComment")));
       const comment = await res.json() as Comment;
       setComments((prev) => [...prev, comment]);
       setNewComment("");
-    } catch {
-      toast.error(t("task.failedAddComment"));
+      setNewCommentMentionIds([]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("task.failedAddComment"));
     } finally {
       setSubmitting(false);
     }
@@ -152,9 +160,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
       const res = await fetch("/api/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task_id: task.id, body: replyText, parent_id: parentId }),
+        body: JSON.stringify({
+          task_id: task.id,
+          body: replyText,
+          parent_id: parentId,
+          mention_ids: replyMentionIds,
+        }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error(await readTaskApiError(res, t("task.failedAddReply")));
       const reply = await res.json() as Comment;
       setComments((prev) =>
         prev.map((c) =>
@@ -164,9 +177,10 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
         )
       );
       setReplyText("");
+      setReplyMentionIds([]);
       setReplyingTo(null);
-    } catch {
-      toast.error(t("task.failedAddReply"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("task.failedAddReply"));
     } finally {
       setSubmitting(false);
     }
@@ -240,10 +254,14 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
   const insertMention = (
     userId: string,
     setText: Dispatch<SetStateAction<string>>,
+    setMentionIds: Dispatch<SetStateAction<string[]>>,
   ) => {
     const user = users.find((item) => item.id === userId);
     if (!user) return;
-    setText((prev) => `${prev}${prev.trim() ? " " : ""}@[${user.name}](${user.id}) `);
+    setText((prev) => appendVisibleMention(prev, user.name));
+    setMentionIds((previous) =>
+      previous.includes(user.id) ? previous : [...previous, user.id],
+    );
   };
 
   return (
@@ -598,7 +616,9 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                         <div className="grid gap-2 sm:flex">
                           <MentionPicker
                             users={users}
-                            onPick={(userId) => insertMention(userId, setReplyText)}
+                            onPick={(userId) =>
+                              insertMention(userId, setReplyText, setReplyMentionIds)
+                            }
                           />
                           <input
                             value={replyText}
@@ -639,7 +659,9 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             <form onSubmit={addComment} className="grid gap-2 sm:flex">
               <MentionPicker
                 users={users}
-                onPick={(userId) => insertMention(userId, setNewComment)}
+                onPick={(userId) =>
+                  insertMention(userId, setNewComment, setNewCommentMentionIds)
+                }
               />
               <input
                 value={newComment}

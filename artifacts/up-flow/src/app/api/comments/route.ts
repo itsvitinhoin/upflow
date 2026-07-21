@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { buildPage, parsePagination } from "@/lib/pagination";
-import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { canContributeToProject } from "@/lib/project-access";
+import {
+  extractLegacyCommentMentions,
+  hasVisibleMention,
+  isUuid,
+  normalizeCommentBody,
+} from "@/lib/comment-mentions";
 
 async function GET_handler(req: NextRequest) {
   const _r = await requireAuth();
@@ -53,26 +59,34 @@ async function POST_handler(req: NextRequest) {
     task_id?: string;
     body?: string;
     parent_id?: string;
+    mention_ids?: unknown;
   };
   const { task_id, body: commentBody, parent_id } = body;
 
-  if (!task_id || !commentBody?.trim()) {
+  if (!task_id || typeof commentBody !== "string" || !commentBody.trim()) {
     return NextResponse.json({ error: "task_id and body are required" }, { status: 400 });
   }
 
-  const userId = auth.prismaUser.id;
+  if (
+    body.mention_ids !== undefined &&
+    (!Array.isArray(body.mention_ids) ||
+      body.mention_ids.length > 50 ||
+      body.mention_ids.some((id) => typeof id !== "string" || !isUuid(id)))
+  ) {
+    return NextResponse.json({ error: "mention_ids must contain up to 50 user IDs" }, { status: 400 });
+  }
 
-  const taskRecord = await prisma.task.findUnique({
+  const task = await prisma.task.findUnique({
     where: { id: task_id },
-    select: { project: { select: { workspace_id: true } } },
+    select: {
+      id: true,
+      title: true,
+      assignee_id: true,
+      project: { select: { id: true, workspace_id: true, owner_id: true } },
+    },
   });
-  if (!taskRecord) {
-    return NextResponse.json({ error: "Task not found" }, { status: 404 });
-  }
-  if (!canAccessWorkspace(auth, taskRecord.project.workspace_id)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (!isWorkspaceAdminFor(auth, taskRecord.project.workspace_id)) {
+  if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  if (!(await canContributeToProject(auth, task.project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -84,106 +98,110 @@ async function POST_handler(req: NextRequest) {
     if (!parent || parent.task_id !== task_id) {
       return NextResponse.json(
         { error: "Reply parent must belong to the same task" },
-        { status: 400 }
+        { status: 400 },
       );
     }
   }
 
-  const comment = await prisma.comment.create({
-    data: {
-      task_id,
-      body: commentBody.trim(),
-      author_id: userId,
-      parent_id: parent_id || null,
-    },
-    include: {
-      author: { select: { id: true, name: true, email: true } },
-      replies: {
-        include: { author: { select: { id: true, name: true } } },
-        orderBy: { created_at: "asc" },
-      },
-    },
-  });
-
-  const task = await prisma.task.findUnique({
-    where: { id: task_id },
-    select: {
-      id: true,
-      title: true,
-      assignee_id: true,
-      project: { select: { workspace_id: true } },
-    },
-  });
-
-  // Parse @mentions from the comment body. We support two formats so the UI
-  // can evolve without backend changes:
-  //   - Markdown-style `@[Name](userId)` — unambiguous, preferred.
-  //   - Bare `@email@domain.tld` — convenient when typing.
+  const rawCommentBody = commentBody.trim();
+  const storedCommentBody = normalizeCommentBody(rawCommentBody);
+  const legacyMentions = extractLegacyCommentMentions(rawCommentBody);
+  const pickerMentionIds = new Set(body.mention_ids as string[] | undefined);
   const mentionedUserIds = new Set<string>();
-  if (task) {
-    const markdownRe = /@\[[^\]]+\]\(([0-9a-fA-F-]{36})\)/g;
-    const emailRe = /@([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
-    const idCandidates = new Set<string>();
-    const emailCandidates = new Set<string>();
-    for (const m of commentBody.matchAll(markdownRe)) idCandidates.add(m[1]);
-    for (const m of commentBody.matchAll(emailRe)) emailCandidates.add(m[1].toLowerCase());
+  const idCandidates = new Set([...legacyMentions.userIds, ...pickerMentionIds]);
 
-    if (idCandidates.size > 0 || emailCandidates.size > 0) {
-      const members = await prisma.workspaceMember.findMany({
-        where: {
-          workspace_id: task.project.workspace_id,
-          OR: [
-            ...(idCandidates.size > 0 ? [{ user_id: { in: [...idCandidates] } }] : []),
-            ...(emailCandidates.size > 0
-              ? [{ user: { email: { in: [...emailCandidates] } } }]
-              : []),
-          ],
-        },
-        select: { user_id: true },
-      });
-      for (const m of members) {
-        if (m.user_id !== userId) mentionedUserIds.add(m.user_id);
+  // New clients send mention IDs separately while keeping the comment itself
+  // readable as @Name. Older UUID markup and @email mentions remain supported.
+  if (idCandidates.size > 0 || legacyMentions.emails.size > 0) {
+    const members = await prisma.workspaceMember.findMany({
+      where: {
+        workspace_id: task.project.workspace_id,
+        status: "active",
+        OR: [
+          ...(idCandidates.size > 0 ? [{ user_id: { in: [...idCandidates] } }] : []),
+          ...(legacyMentions.emails.size > 0
+            ? [{ user: { email: { in: [...legacyMentions.emails] } } }]
+            : []),
+        ],
+      },
+      select: { user_id: true, user: { select: { name: true, email: true } } },
+    });
+
+    for (const member of members) {
+      const selectedInPicker =
+        pickerMentionIds.has(member.user_id) &&
+        hasVisibleMention(storedCommentBody, member.user.name);
+      const mentionedByLegacyToken = legacyMentions.userIds.has(member.user_id);
+      const mentionedByEmail = member.user.email
+        ? legacyMentions.emails.has(member.user.email.toLowerCase())
+        : false;
+      if (
+        member.user_id !== auth.prismaUser.id &&
+        (selectedInPicker || mentionedByLegacyToken || mentionedByEmail)
+      ) {
+        mentionedUserIds.add(member.user_id);
       }
     }
   }
 
-  const excerpt = commentBody.trim().slice(0, 140);
-
-  // De-dupe assignee: a mentioned assignee should get exactly one
-  // `mentioned` notification for this comment, not also a `commented` one.
-  const assigneeId = task?.assignee_id ?? null;
+  const excerpt = storedCommentBody.slice(0, 140);
+  const assigneeId = task.assignee_id;
   const assigneeMentioned = assigneeId ? mentionedUserIds.has(assigneeId) : false;
+  const notificationRecipients = new Set<string>();
 
-  if (assigneeId && assigneeId !== userId && !assigneeMentioned) {
-    await prisma.notification
-      .create({ data: { type: "commented", user_id: assigneeId, task_id } })
-      .catch((err) => logError("api:comments:notify", err, { task_id }));
-    await broadcastNotification(assigneeId);
-  }
+  // Keep the comment and its notifications consistent: a successful response
+  // means every validated recipient has an inbox notification to receive.
+  const comment = await prisma.$transaction(async (tx) => {
+    const createdComment = await tx.comment.create({
+      data: {
+        task_id,
+        body: storedCommentBody,
+        author_id: auth.prismaUser.id,
+        parent_id: parent_id || null,
+      },
+      include: {
+        author: { select: { id: true, name: true, email: true } },
+        replies: {
+          include: { author: { select: { id: true, name: true } } },
+          orderBy: { created_at: "asc" },
+        },
+      },
+    });
 
-  for (const recipientId of mentionedUserIds) {
-    await prisma.notification
-      .create({
+    if (assigneeId && assigneeId !== auth.prismaUser.id && !assigneeMentioned) {
+      await tx.notification.create({
+        data: { type: "commented", user_id: assigneeId, task_id },
+      });
+      notificationRecipients.add(assigneeId);
+    }
+
+    for (const recipientId of mentionedUserIds) {
+      await tx.notification.create({
         data: {
           type: "mentioned",
           user_id: recipientId,
           task_id,
           data: {
-            comment_id: comment.id,
+            comment_id: createdComment.id,
             comment_excerpt: excerpt,
-            actor_id: userId,
+            actor_id: auth.prismaUser.id,
             actor_name: auth.prismaUser.name,
-            task_title: task?.title ?? null,
+            task_title: task.title,
           },
         },
-      })
-      .catch((err) =>
-        logError("api:comments:mention-notify", err, { task_id, user_id: recipientId }),
-      );
-    await broadcastNotification(recipientId);
-  }
+      });
+      notificationRecipients.add(recipientId);
+    }
+
+    return createdComment;
+  });
+
+  await Promise.all(
+    [...notificationRecipients].map((recipientId) => broadcastNotification(recipientId)),
+  );
 
   return NextResponse.json(comment, { status: 201 });
 }
+
 export const GET = withErrorReporting("api:comments:GET", GET_handler);
 export const POST = withErrorReporting("api:comments:POST", POST_handler);
