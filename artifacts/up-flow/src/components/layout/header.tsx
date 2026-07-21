@@ -130,6 +130,18 @@ function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "e
     return memberJoinedNotificationLabel(n, language);
   }
   const data = notificationData(n);
+  if (data.source === "social_media_moodboard_ready") {
+    const taskTitle = n.task?.title || getStringData(data, "task_title") || "the moodboard";
+    return language === "en"
+      ? `Social Media moodboard ready: "${taskTitle}" can move into creative production`
+      : `Moodboard de Social Media pronto: "${taskTitle}" pode seguir para producao criativa`;
+  }
+  if (data.source === "social_media_post_overdue") {
+    const taskTitle = n.task?.title || getStringData(data, "task_title") || "the social post";
+    return language === "en"
+      ? `Social Media post overdue: "${taskTitle}" needs attention`
+      : `Post de Social Media atrasado: "${taskTitle}" precisa de atencao`;
+  }
   if (data.source === "calendar_event_assigned") {
     const eventTitle = getStringData(data, "calendar_event_title") ?? "event";
     const eventType = calendarAssignmentLabel(

@@ -22,6 +22,14 @@ import {
   canReadProject,
 } from "@/lib/project-access";
 import { buildTaskOnboardingLink } from "@/lib/task-onboarding-links";
+import { syncSocialMediaMoodboardWorkflow } from "@/lib/social-media-plan";
+import { notifySocialMediaWorkflow } from "@/lib/social-media-notifications";
+import {
+  ensureSocialMediaCustomFields,
+  isDateInSocialMediaMonth,
+  isSocialMediaPublicationOverdue,
+  SOCIAL_MEDIA_FIELD_NAMES,
+} from "@/lib/social-media";
 
 const UpdateTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -160,7 +168,10 @@ async function PATCH_handler(
 
   const oldTask = await prisma.task.findUnique({
     where: { id },
-    include: { project: { select: { id: true, workspace_id: true, owner_id: true } } },
+    include: {
+      project: { select: { id: true, workspace_id: true, owner_id: true } },
+      social_media_plan: { select: { month: true } },
+    },
   });
   if (!oldTask) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!(await canReadProject(auth, oldTask.project)) && oldTask.assignee_id !== prismaUser.id) {
@@ -204,6 +215,16 @@ async function PATCH_handler(
   if (parsedDueDate === "invalid") {
     return NextResponse.json({ error: "Invalid due_date" }, { status: 400 });
   }
+  if (
+    parsedDueDate &&
+    oldTask.social_media_plan?.month &&
+    !isDateInSocialMediaMonth(parsedDueDate, oldTask.social_media_plan.month)
+  ) {
+    return NextResponse.json(
+      { error: "Scheduled publishing date must be in the plan month" },
+      { status: 400 },
+    );
+  }
   const parsedCoverImage = cover_image_url === undefined ? undefined : parseTaskImageUrl(cover_image_url);
   if (parsedCoverImage === "invalid") {
     return NextResponse.json(
@@ -234,28 +255,70 @@ async function PATCH_handler(
     if (blocker) return NextResponse.json({ error: blocker }, { status: 409 });
   }
 
-  const task = await prisma.task.update({
-    where: { id },
-    data: {
-      ...(title !== undefined && { title }),
-      ...(description !== undefined && { description }),
-      ...(status !== undefined && { status }),
-      ...(priority !== undefined && { priority }),
-      ...(assignee_id !== undefined && { assignee_id: assignee_id || null }),
-      ...(parsedCoverImage !== undefined && { cover_image_url: parsedCoverImage }),
-      ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
-      ...(position !== undefined && { position }),
-    },
-    include: {
-      assignee: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true } },
-      marketing_b2b_onboarding_form: {
-        select: { id: true, status: true, completed_at: true },
+  const task = await prisma.$transaction(async (tx) => {
+    const updated = await tx.task.update({
+      where: { id },
+      data: {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(status !== undefined && { status }),
+        ...(priority !== undefined && { priority }),
+        ...(assignee_id !== undefined && { assignee_id: assignee_id || null }),
+        ...(parsedCoverImage !== undefined && { cover_image_url: parsedCoverImage }),
+        ...(parsedDueDate !== undefined && { due_date: parsedDueDate }),
+        ...(position !== undefined && { position }),
       },
-      marketing_b2c_onboarding_form: {
-        select: { id: true, status: true, completed_at: true },
+      include: {
+        assignee: { select: { id: true, name: true, email: true } },
+        project: { select: { id: true, name: true } },
+        marketing_b2b_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
+        marketing_b2c_onboarding_form: {
+          select: { id: true, status: true, completed_at: true },
+        },
       },
-    },
+    });
+
+    // Task.due_date is the canonical Social Media publication date. Keep the
+    // visible calendar field synchronized whenever it is edited generically.
+    if (parsedDueDate !== undefined && oldTask.social_media_plan_id) {
+      const fields = await ensureSocialMediaCustomFields(tx, oldTask.project_id);
+      if (parsedDueDate) {
+        await tx.customFieldValue.upsert({
+          where: {
+            task_id_definition_id: {
+              task_id: oldTask.id,
+              definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.scheduledPublishingDate],
+            },
+          },
+          update: { value: parsedDueDate.toISOString() },
+          create: {
+            task_id: oldTask.id,
+            definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.scheduledPublishingDate],
+            value: parsedDueDate.toISOString(),
+          },
+        });
+        if (!isSocialMediaPublicationOverdue(parsedDueDate)) {
+          await tx.customFieldValue.updateMany({
+            where: {
+              task_id: oldTask.id,
+              definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.publishingStatus],
+              value: { equals: "Overdue" },
+            },
+            data: { value: "Not Scheduled" },
+          });
+        }
+      } else {
+        await tx.customFieldValue.deleteMany({
+          where: {
+            task_id: oldTask.id,
+            definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.scheduledPublishingDate],
+          },
+        });
+      }
+    }
+    return updated;
   });
 
   const onboardingSync =
@@ -266,6 +329,20 @@ async function PATCH_handler(
           actorId: prismaUser.id,
         })
       : null;
+  const socialMediaMoodboardSync =
+    status !== undefined && status !== oldTask.status
+      ? await syncSocialMediaMoodboardWorkflow(task.id, status)
+      : null;
+  if (socialMediaMoodboardSync?.became_ready) {
+    await notifySocialMediaWorkflow({
+      source: "social_media_moodboard_ready",
+      planId: socialMediaMoodboardSync.id,
+      taskId: task.id,
+      taskTitle: task.title,
+      actorId: prismaUser.id,
+      actorName: prismaUser.name,
+    });
+  }
 
   if (assignee_id && assignee_id !== oldTask.assignee_id) {
     await prisma.notification
@@ -333,7 +410,17 @@ async function PATCH_handler(
     },
   });
 
-  return NextResponse.json(onboardingSync?.linked ? { ...task, onboarding_sync: onboardingSync } : task);
+  return NextResponse.json(
+    onboardingSync?.linked || socialMediaMoodboardSync
+      ? {
+          ...task,
+          ...(onboardingSync?.linked ? { onboarding_sync: onboardingSync } : {}),
+          ...(socialMediaMoodboardSync
+            ? { social_media_moodboard_sync: socialMediaMoodboardSync }
+            : {}),
+        }
+      : task,
+  );
 }
 
 async function DELETE_handler(

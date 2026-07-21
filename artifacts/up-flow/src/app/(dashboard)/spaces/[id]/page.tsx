@@ -146,7 +146,9 @@ export default function SpaceContainerPage() {
     if (
       !id ||
       !canManageWorkspace ||
-      dashboard?.department_preset?.department_key !== "general_admin" ||
+      !["general_admin", "creative_design"].includes(
+        dashboard?.department_preset?.department_key ?? "",
+      ) ||
       defaultsEnsuredFor === id
     ) {
       return;

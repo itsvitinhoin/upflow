@@ -8,6 +8,7 @@ import {
   RH_TASK_TYPE_FIELD_NAME,
   RH_TASK_TYPE_OPTIONS,
 } from "@/lib/rh-board";
+import { SOCIAL_MEDIA_LIST_PRESET } from "@/lib/social-media";
 import type { TaskTemplateId } from "@/lib/task-templates";
 
 export type DepartmentSpaceKey =
@@ -26,6 +27,7 @@ export interface DepartmentSpacePreset {
   emoji: string;
   description: string;
   starter_lists: string[];
+  starter_list_presets?: DepartmentListPreset[];
   starter_folders?: DepartmentFolderPreset[];
   default_task_template_id: TaskTemplateId;
   dashboard_focus_labels: {
@@ -123,7 +125,14 @@ export const DEPARTMENT_SPACE_PRESETS: DepartmentSpacePreset[] = [
     name: "Creative & Design",
     emoji: "🎨",
     description: "Design queue, creative reviews, brand assets, and approvals.",
-    starter_lists: ["Design Queue", "Creative Reviews", "Brand Assets", "Approvals"],
+    starter_lists: [
+      "Design Queue",
+      "Creative Reviews",
+      "Brand Assets",
+      "Approvals",
+      "Social Media",
+    ],
+    starter_list_presets: [SOCIAL_MEDIA_LIST_PRESET],
     default_task_template_id: "creative",
     dashboard_focus_labels: {
       urgent: "Design requests and approvals needing action",
@@ -282,6 +291,20 @@ function sameOptions(current: Prisma.JsonValue | null, expected: string[]) {
   if (!Array.isArray(current)) return expected.length === 0;
   const strings = current.filter((item): item is string => typeof item === "string");
   return strings.length === expected.length && strings.every((item, index) => item === expected[index]);
+}
+
+function getRootListPresets(preset: DepartmentSpacePreset) {
+  const listPresetsByName = new Map<string, DepartmentListPreset>();
+
+  for (const name of preset.starter_lists) {
+    listPresetsByName.set(normalizeDepartmentSpaceName(name), { name });
+  }
+
+  for (const listPreset of preset.starter_list_presets ?? []) {
+    listPresetsByName.set(normalizeDepartmentSpaceName(listPreset.name), listPreset);
+  }
+
+  return [...listPresetsByName.values()];
 }
 
 async function ensureDepartmentListModel(
@@ -516,14 +539,16 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
       const space = spacesByName.get(normalizeDepartmentSpaceName(preset.name));
       if (!space) continue;
 
+      const rootListPresets = getRootListPresets(preset);
       const existingProjectNames = projectNamesBySpace.get(space.id) ?? new Set<string>();
-      const missingLists = preset.starter_lists.filter(
-        (listName) => !existingProjectNames.has(normalizeDepartmentSpaceName(listName)),
+      const missingLists = rootListPresets.filter(
+        (listPreset) => !existingProjectNames.has(normalizeDepartmentSpaceName(listPreset.name)),
       );
 
       if (missingLists.length > 0) {
-        const listData = missingLists.map((name) => ({
-          name,
+        const listData = missingLists.map((listPreset) => ({
+          name: listPreset.name,
+          description: listPreset.description ?? null,
           workspace_id: workspaceId,
           owner_id: ownerId,
           space_id: space.id,
@@ -533,6 +558,54 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
           data: listData,
           skipDuplicates: true,
         });
+      }
+
+      const configuredRootListPresets = rootListPresets.filter(
+        (listPreset) =>
+          listPreset.description ||
+          listPreset.custom_fields?.length ||
+          listPreset.workflow_statuses?.length,
+      );
+
+      if (configuredRootListPresets.length > 0) {
+        const rootProjects = await prisma.project.findMany({
+          where: {
+            workspace_id: workspaceId,
+            space_id: space.id,
+            folder_id: null,
+            company_id: null,
+          },
+          select: {
+            id: true,
+            name: true,
+            kind: true,
+          },
+        });
+        const rootProjectsByName = new Map(
+          rootProjects.map((project) => [
+            normalizeDepartmentSpaceName(project.name),
+            project,
+          ]),
+        );
+
+        for (const listPreset of configuredRootListPresets) {
+          const project = rootProjectsByName.get(
+            normalizeDepartmentSpaceName(listPreset.name),
+          );
+          if (!project) continue;
+
+          if (listPreset.description || project.kind !== "operational_queue") {
+            await prisma.project.update({
+              where: { id: project.id },
+              data: {
+                ...(listPreset.description && { description: listPreset.description }),
+                kind: "operational_queue",
+              },
+            });
+          }
+
+          await ensureDepartmentListModel(project.id, workspaceId, listPreset);
+        }
       }
 
       for (const folderPreset of preset.starter_folders ?? []) {

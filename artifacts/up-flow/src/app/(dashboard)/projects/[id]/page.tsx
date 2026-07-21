@@ -15,6 +15,7 @@ import CustomFieldsManager from "@/components/projects/custom-fields-manager";
 import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CreativeBriefingForm from "@/components/projects/creative-briefing-form";
+import SocialMediaCalendar from "@/components/projects/social-media-calendar";
 import { SpaceWorkflowStatusManager } from "@/components/spaces/space-workflow-status-manager";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
 import { getOnboardingTaskAction, workflowFormKind } from "@/lib/onboarding-task-routing";
@@ -80,6 +81,16 @@ function isDesignQueueProject(project: Project | null) {
   const spaceName = project.space?.name.trim().toLocaleLowerCase();
   return (
     projectName === "design queue" &&
+    (spaceName === "creative & design" || spaceName === "criativos & design")
+  );
+}
+
+function isSocialMediaProject(project: Project | null) {
+  if (!project) return false;
+  const projectName = project.name.trim().toLocaleLowerCase();
+  const spaceName = project.space?.name.trim().toLocaleLowerCase();
+  return (
+    projectName === "social media" &&
     (spaceName === "creative & design" || spaceName === "criativos & design")
   );
 }
@@ -193,6 +204,7 @@ export default function ProjectPage() {
   const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
   const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
   const isDesignQueue = isDesignQueueProject(project);
+  const isSocialMedia = isSocialMediaProject(project);
   const selectedTaskIdSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds]);
   const visibleTaskIds = useMemo(() => {
     const query = toolbar.search.trim().toLowerCase();
@@ -448,6 +460,16 @@ export default function ProjectPage() {
               onUpdate={loadData}
             />
           )
+        ) : isSocialMedia ? (
+          <SocialMediaCalendar
+            projectId={id}
+            workspaceId={project.workspace_id}
+            tasks={tasks}
+            customFields={customFields}
+            users={users}
+            onOpenTask={handleOpenTask}
+            onRefresh={loadData}
+          />
         ) : (
           <>
             <ProjectToolbar

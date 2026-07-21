@@ -136,6 +136,8 @@ model User {
   marketing_b2b_onboarding_forms_completed MarketingB2BOnboardingForm[] @relation("MarketingB2BOnboardingFormCompleter")
   marketing_b2c_onboarding_forms_completed MarketingB2COnboardingForm[] @relation("MarketingB2COnboardingFormCompleter")
   sidebar_client_pins      SidebarClientPin[]
+  social_media_plans_managed SocialMediaContentPlan[] @relation("SocialMediaPlanManager")
+  social_media_plans_designed SocialMediaContentPlan[] @relation("SocialMediaPlanDesigner")
 }
 
 model Workspace {
@@ -383,6 +385,7 @@ model Project {
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
   responsible_salesperson User?                 @relation("ProjectResponsibleSalesperson", fields: [responsible_salesperson_id], references: [id], onDelete: SetNull)
+  social_media_content_plans SocialMediaContentPlan[]
 
   @@index([workspace_id])
   @@index([workspace_id, status, due_date])
@@ -429,6 +432,9 @@ model Task {
   onboarding_items      OnboardingChecklistItem[]
   marketing_b2b_onboarding_form MarketingB2BOnboardingForm?
   marketing_b2c_onboarding_form MarketingB2COnboardingForm?
+  social_media_plan_id  String?
+  social_media_plan     SocialMediaContentPlan? @relation("SocialMediaContentPlanTasks", fields: [social_media_plan_id], references: [id], onDelete: SetNull)
+  moodboard_for_plan    SocialMediaContentPlan? @relation("SocialMediaMoodboardTask")
 
   @@index([company_id])
   @@index([project_id, status, position])
@@ -437,6 +443,7 @@ model Task {
   @@index([company_id, status, due_date])
   @@index([parent_id])
   @@index([due_date])
+  @@index([social_media_plan_id])
 }
 
 model CustomFieldDefinition {
@@ -605,11 +612,40 @@ model Company {
   marketing_b2b_onboarding_forms MarketingB2BOnboardingForm[]
   marketing_b2c_onboarding_forms MarketingB2COnboardingForm[]
   sidebar_client_pins   SidebarClientPin[]
+  social_media_content_plans SocialMediaContentPlan[]
 
   @@index([workspace_id])
   @@index([workspace_id, status, updated_at])
   @@index([workspace_id, contract_value])
   @@index([owner_id])
+}
+
+model SocialMediaContentPlan {
+  id                       String    @id @default(uuid())
+  project_id               String
+  company_id               String
+  month                    DateTime
+  monthly_post_target      Int
+  weekly_posting_frequency Int
+  required_formats         Json?
+  social_manager_id        String?
+  designer_id              String?
+  moodboard_status         String    @default("Not Started")
+  moodboard_task_id        String?   @unique
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
+  project                  Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  company                  Company   @relation(fields: [company_id], references: [id], onDelete: Cascade)
+  social_manager           User?     @relation("SocialMediaPlanManager", fields: [social_manager_id], references: [id], onDelete: SetNull)
+  designer                 User?     @relation("SocialMediaPlanDesigner", fields: [designer_id], references: [id], onDelete: SetNull)
+  moodboard_task           Task?     @relation("SocialMediaMoodboardTask", fields: [moodboard_task_id], references: [id], onDelete: SetNull)
+  content_tasks            Task[]    @relation("SocialMediaContentPlanTasks")
+
+  @@unique([project_id, company_id, month])
+  @@index([project_id, month])
+  @@index([company_id, month])
+  @@index([social_manager_id])
+  @@index([designer_id])
 }
 
 model ClientAddress {

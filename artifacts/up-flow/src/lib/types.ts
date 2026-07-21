@@ -112,6 +112,7 @@ export interface Task {
   assignee_id: string | null;
   parent_id: string | null;
   company_id?: string | null;
+  social_media_plan_id?: string | null;
   cover_image_url?: string | null;
   due_date: string | null;
   position: number;

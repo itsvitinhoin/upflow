@@ -69,6 +69,46 @@ test("General Admin includes the RH folder and ClickUp-style RH board model", ()
   }
 });
 
+test("Creative & Design provisions the Social Media root list model", () => {
+  const socialMediaSource = readFileSync(join(root, "src/lib/social-media.ts"), "utf8");
+  const spacePage = readFileSync(join(root, "src/app/(dashboard)/spaces/[id]/page.tsx"), "utf8");
+
+  assert.match(departmentSpacesSource, /SOCIAL_MEDIA_LIST_PRESET/);
+  assert.match(
+    departmentSpacesSource,
+    /starter_list_presets:\s*\[SOCIAL_MEDIA_LIST_PRESET\]/,
+  );
+  assert.match(departmentSpacesSource, /getRootListPresets/);
+  assert.match(departmentSpacesSource, /configuredRootListPresets/);
+  assert.match(
+    departmentSpacesSource,
+    /ensureDepartmentListModel\(project\.id, workspaceId, listPreset\)/,
+  );
+
+  for (const value of [
+    "Content Type",
+    "Scheduled Publishing Date",
+    "Social Media Manager",
+    "Designer",
+    "Moodboard Status",
+    "Creative Production Status",
+    "Approval Status",
+    "Publishing Status",
+    "Published URL",
+    "Published At",
+    "Not Started",
+    "In Production",
+    "Awaiting Approval",
+    "Published",
+    "Overdue",
+  ]) {
+    assert.ok(socialMediaSource.includes(value), `missing ${value}`);
+  }
+
+  assert.match(spacePage, /"creative_design"/);
+  assert.match(spacePage, /api\/spaces\/\$\{id\}\/department-defaults/);
+});
+
 test("department setup is idempotent but not auto-seeded into personal workspace load paths", () => {
   assert.match(departmentSpacesSource, /normalizeDepartmentSpaceName/);
   assert.match(departmentSpacesSource, /spacesByName\.get/);

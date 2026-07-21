@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/supabase-server";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { isSocialMediaPublicationOverdue, SOCIAL_MEDIA_FIELD_NAMES } from "@/lib/social-media";
+import { notifySocialMediaWorkflow } from "@/lib/social-media-notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,72 @@ function isAuthorized(req: NextRequest): boolean {
   return false;
 }
 
+/**
+ * Turn genuinely past calendar-day publication commitments into a persisted
+ * Overdue status. This runs in the scheduled job instead of a calendar GET,
+ * so read-only visitors never cause a write or notification.
+ */
+async function processOverdueSocialMediaPosts(now: Date) {
+  const posts = await prisma.task.findMany({
+    where: {
+      social_media_plan_id: { not: null },
+      due_date: { not: null, lt: now },
+    },
+    select: {
+      id: true,
+      title: true,
+      project_id: true,
+      social_media_plan_id: true,
+      assignee_id: true,
+      due_date: true,
+      custom_field_values: {
+        where: { definition: { name: SOCIAL_MEDIA_FIELD_NAMES.publishingStatus } },
+        select: { value: true },
+      },
+    },
+  });
+  if (posts.length === 0) return { transitioned: 0, notifications: 0 };
+
+  const projectIds = Array.from(new Set(posts.map((post) => post.project_id)));
+  const fields = await prisma.customFieldDefinition.findMany({
+    where: {
+      project_id: { in: projectIds },
+      name: SOCIAL_MEDIA_FIELD_NAMES.publishingStatus,
+    },
+    select: { id: true, project_id: true },
+  });
+  const fieldByProjectId = new Map(fields.map((field) => [field.project_id, field.id]));
+
+  let transitioned = 0;
+  let notifications = 0;
+  for (const post of posts) {
+    if (!post.social_media_plan_id || !post.due_date || !isSocialMediaPublicationOverdue(post.due_date, now)) {
+      continue;
+    }
+    const status = post.custom_field_values[0]?.value;
+    if (status === "Published" || status === "Cancelled" || status === "Overdue") continue;
+    const fieldId = fieldByProjectId.get(post.project_id);
+    if (!fieldId) continue;
+
+    await prisma.customFieldValue.upsert({
+      where: { task_id_definition_id: { task_id: post.id, definition_id: fieldId } },
+      update: { value: "Overdue" },
+      create: { task_id: post.id, definition_id: fieldId, value: "Overdue" },
+    });
+    transitioned += 1;
+    notifications += await notifySocialMediaWorkflow({
+      source: "social_media_post_overdue",
+      planId: post.social_media_plan_id,
+      taskId: post.id,
+      taskTitle: post.title,
+      assigneeId: post.assignee_id,
+      scheduledPublishingDate: post.due_date.toISOString(),
+    });
+  }
+
+  return { transitioned, notifications };
+}
+
 async function handler(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -33,6 +101,8 @@ async function handler(req: NextRequest) {
 
   const now = new Date();
   const windowEnd = new Date(now.getTime() + DUE_SOON_WINDOW_MS);
+
+  const socialMediaOverdue = await processOverdueSocialMediaPosts(now);
 
   // Only assigned, not-yet-done tasks need reminders.
   const tasks = await prisma.task.findMany({
@@ -91,6 +161,7 @@ async function handler(req: NextRequest) {
     ok: true,
     scanned: tasks.length,
     created,
+    social_media_overdue: socialMediaOverdue,
     window_hours: DUE_SOON_WINDOW_MS / 3_600_000,
     ran_at: now.toISOString(),
   });

@@ -73,8 +73,19 @@ function labelFor(n: Notification, language: "en" | "pt" | "pt-BR", t: Translate
     new_status?: string;
     actor_name?: string;
     task_title?: string;
+    source?: string;
   };
   const taskTitle = n.task?.title || data.task_title || t("inbox.aTask");
+  if (data.source === "social_media_moodboard_ready") {
+    return language === "en"
+      ? `Social Media moodboard ready: "${taskTitle}" can move into creative production`
+      : `Moodboard de Social Media pronto: "${taskTitle}" pode seguir para producao criativa`;
+  }
+  if (data.source === "social_media_post_overdue") {
+    return language === "en"
+      ? `Social Media post overdue: "${taskTitle}" needs attention`
+      : `Post de Social Media atrasado: "${taskTitle}" precisa de atencao`;
+  }
   if (n.type === "assigned") return t("inbox.notification.assigned", { task: taskTitle });
   if (n.type === "commented") return t("inbox.notification.commented", { task: taskTitle });
   if (n.type === "due_soon") return t("inbox.notification.dueSoon", { task: taskTitle });

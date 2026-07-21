@@ -11,11 +11,73 @@ import {
 } from "@/lib/onboarding";
 import { canContributeToProject } from "@/lib/project-access";
 import { recordActivity } from "@/lib/activity";
+import { syncSocialMediaMoodboardWorkflow } from "@/lib/social-media-plan";
+import { notifySocialMediaWorkflow } from "@/lib/social-media-notifications";
+import {
+  canAdvanceSocialMediaApproval,
+  canAdvanceSocialMediaProduction,
+  canSetSocialMediaPublishingStatus,
+  ensureSocialMediaCustomFields,
+  isDateInSocialMediaMonth,
+  isSocialMediaPublicationOverdue,
+  SOCIAL_MEDIA_APPROVAL_GATE_ERROR,
+  SOCIAL_MEDIA_FIELD_NAMES,
+  SOCIAL_MEDIA_PUBLISHED_URL_REQUIRED_ERROR,
+  SOCIAL_MEDIA_PUBLISHING_GATE_ERROR,
+  SOCIAL_MEDIA_PRODUCTION_GATE_ERROR,
+} from "@/lib/social-media";
+import { parseAppDate } from "@/lib/utils";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
 function isTaskStatus(value: unknown): value is TaskStatus {
   return value === "todo" || value === "in_progress" || value === "done";
+}
+
+type SocialMediaFieldReader = Pick<
+  Prisma.TransactionClient,
+  "customFieldDefinition" | "customFieldValue"
+>;
+
+type SocialMediaStageValues = {
+  approvalStatus: string | null;
+  creativeProductionStatus: string | null;
+  publishingStatus: string | null;
+  publishedUrl: string | null;
+  publishedAt: string | null;
+};
+
+async function loadSocialMediaStageValues(
+  db: SocialMediaFieldReader,
+  taskId: string,
+  fieldIds: Awaited<ReturnType<typeof ensureSocialMediaCustomFields>>,
+): Promise<SocialMediaStageValues> {
+  const values = await db.customFieldValue.findMany({
+    where: {
+      task_id: taskId,
+      definition_id: {
+        in: [
+          fieldIds[SOCIAL_MEDIA_FIELD_NAMES.approvalStatus],
+          fieldIds[SOCIAL_MEDIA_FIELD_NAMES.creativeProductionStatus],
+          fieldIds[SOCIAL_MEDIA_FIELD_NAMES.publishingStatus],
+          fieldIds[SOCIAL_MEDIA_FIELD_NAMES.publishedUrl],
+          fieldIds[SOCIAL_MEDIA_FIELD_NAMES.publishedAt],
+        ],
+      },
+    },
+    select: { definition_id: true, value: true },
+  });
+  const valueByFieldId = new Map(values.map((value) => [value.definition_id, value.value]));
+  const asStatus = (value: unknown) => (typeof value === "string" ? value : null);
+  return {
+    approvalStatus: asStatus(valueByFieldId.get(fieldIds[SOCIAL_MEDIA_FIELD_NAMES.approvalStatus])),
+    creativeProductionStatus: asStatus(
+      valueByFieldId.get(fieldIds[SOCIAL_MEDIA_FIELD_NAMES.creativeProductionStatus]),
+    ),
+    publishingStatus: asStatus(valueByFieldId.get(fieldIds[SOCIAL_MEDIA_FIELD_NAMES.publishingStatus])),
+    publishedUrl: asStatus(valueByFieldId.get(fieldIds[SOCIAL_MEDIA_FIELD_NAMES.publishedUrl])),
+    publishedAt: asStatus(valueByFieldId.get(fieldIds[SOCIAL_MEDIA_FIELD_NAMES.publishedAt])),
+  };
 }
 
 async function PUT_handler(
@@ -31,8 +93,11 @@ async function PUT_handler(
     where: { id },
     select: {
       id: true,
+      title: true,
       project_id: true,
       status: true,
+      social_media_plan_id: true,
+      social_media_plan: { select: { month: true, moodboard_status: true } },
       project: { select: { id: true, workspace_id: true, owner_id: true } },
     },
   });
@@ -79,13 +144,30 @@ async function PUT_handler(
     });
   };
 
+  const isSocialMediaContent = Boolean(task.social_media_plan_id);
+  const isScheduledPublishingDate =
+    isSocialMediaContent && def.name === SOCIAL_MEDIA_FIELD_NAMES.scheduledPublishingDate;
+  let publishedAt: string | null = null;
+
   if (isEmptyValue(body.value)) {
-    await prisma.$transaction(async (tx) => {
+    const emptyMutation = await prisma.$transaction(async (tx) => {
+      if (isSocialMediaContent && def.name === SOCIAL_MEDIA_FIELD_NAMES.publishedUrl) {
+        const fields = await ensureSocialMediaCustomFields(tx, task.project_id);
+        const stages = await loadSocialMediaStageValues(tx, task.id, fields);
+        if (stages.publishingStatus === "Published") return { ok: false as const };
+      }
       await tx.customFieldValue.deleteMany({
         where: { task_id: task.id, definition_id: body.definition_id },
       });
+      if (isScheduledPublishingDate) {
+        await tx.task.update({ where: { id: task.id }, data: { due_date: null } });
+      }
       await updateTaskStatus(tx);
+      return { ok: true as const };
     });
+    if (!emptyMutation.ok) {
+      return NextResponse.json({ error: SOCIAL_MEDIA_PUBLISHED_URL_REQUIRED_ERROR }, { status: 409 });
+    }
   } else {
     const validated = validateCustomFieldValue(def, body.value);
     if (!validated.ok) {
@@ -119,7 +201,94 @@ async function PUT_handler(
       }
     }
 
-    await prisma.$transaction(async (tx) => {
+    const scheduledPublishingDate = isScheduledPublishingDate
+      ? parseAppDate(String(body.value))
+      : null;
+    if (scheduledPublishingDate === "invalid") {
+      return NextResponse.json({ error: "Invalid scheduled publishing date" }, { status: 400 });
+    }
+    if (
+      scheduledPublishingDate &&
+      task.social_media_plan?.month &&
+      !isDateInSocialMediaMonth(scheduledPublishingDate, task.social_media_plan.month)
+    ) {
+      return NextResponse.json(
+        { error: "Scheduled publishing date must be in the plan month" },
+        { status: 400 },
+      );
+    }
+
+    const mutation = await prisma.$transaction(async (tx) => {
+      const fields = isSocialMediaContent
+        ? await ensureSocialMediaCustomFields(tx, task.project_id)
+        : null;
+      const currentStages = fields
+        ? await loadSocialMediaStageValues(tx, task.id, fields)
+        : null;
+      const nextProductionStatus =
+        def.name === SOCIAL_MEDIA_FIELD_NAMES.creativeProductionStatus
+          ? String(validated.value)
+          : currentStages?.creativeProductionStatus ?? null;
+      const nextApprovalStatus =
+        def.name === SOCIAL_MEDIA_FIELD_NAMES.approvalStatus
+          ? String(validated.value)
+          : currentStages?.approvalStatus ?? null;
+      const publishedUrlEntered =
+        isSocialMediaContent &&
+        def.name === SOCIAL_MEDIA_FIELD_NAMES.publishedUrl &&
+        typeof validated.value === "string" &&
+        validated.value.trim().length > 0;
+      const nextPublishingStatus =
+        def.name === SOCIAL_MEDIA_FIELD_NAMES.publishingStatus
+          ? String(validated.value)
+          : publishedUrlEntered
+            ? "Published"
+            : currentStages?.publishingStatus ?? null;
+
+      if (
+        isSocialMediaContent &&
+        def.name === SOCIAL_MEDIA_FIELD_NAMES.creativeProductionStatus &&
+        !canAdvanceSocialMediaProduction(
+          nextProductionStatus,
+          currentStages?.creativeProductionStatus,
+          task.social_media_plan?.moodboard_status,
+          currentStages?.approvalStatus,
+        )
+      ) {
+        return { ok: false as const, error: SOCIAL_MEDIA_PRODUCTION_GATE_ERROR };
+      }
+
+      if (
+        isSocialMediaContent &&
+        def.name === SOCIAL_MEDIA_FIELD_NAMES.approvalStatus &&
+        !canAdvanceSocialMediaApproval(nextApprovalStatus, nextProductionStatus)
+      ) {
+        return { ok: false as const, error: SOCIAL_MEDIA_APPROVAL_GATE_ERROR };
+      }
+      if (
+        isSocialMediaContent &&
+        (def.name === SOCIAL_MEDIA_FIELD_NAMES.publishingStatus || publishedUrlEntered) &&
+        nextPublishingStatus === "Published" &&
+        !publishedUrlEntered &&
+        !currentStages?.publishedUrl
+      ) {
+        return { ok: false as const, error: SOCIAL_MEDIA_PUBLISHED_URL_REQUIRED_ERROR };
+      }
+      if (
+        isSocialMediaContent &&
+        (def.name === SOCIAL_MEDIA_FIELD_NAMES.publishingStatus || publishedUrlEntered) &&
+        !canSetSocialMediaPublishingStatus(
+          nextPublishingStatus,
+          nextApprovalStatus,
+          nextProductionStatus,
+        )
+      ) {
+        return { ok: false as const, error: SOCIAL_MEDIA_PUBLISHING_GATE_ERROR };
+      }
+
+      const value = scheduledPublishingDate
+        ? scheduledPublishingDate.toISOString()
+        : (validated.value as Prisma.InputJsonValue);
       await tx.customFieldValue.upsert({
         where: {
           task_id_definition_id: {
@@ -127,15 +296,74 @@ async function PUT_handler(
             definition_id: body.definition_id!,
           },
         },
-        update: { value: validated.value as Prisma.InputJsonValue },
+        update: { value },
         create: {
           task_id: task.id,
           definition_id: body.definition_id!,
-          value: validated.value as Prisma.InputJsonValue,
+          value,
         },
       });
+      if (scheduledPublishingDate) {
+        await tx.task.update({
+          where: { id: task.id },
+          data: { due_date: scheduledPublishingDate },
+        });
+        if (fields && !isSocialMediaPublicationOverdue(scheduledPublishingDate)) {
+          await tx.customFieldValue.updateMany({
+            where: {
+              task_id: task.id,
+              definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.publishingStatus],
+              value: { equals: "Overdue" },
+            },
+            data: { value: "Not Scheduled" },
+          });
+        }
+      }
+
+      const shouldMarkPublished =
+        Boolean(fields) &&
+        nextPublishingStatus === "Published" &&
+        (currentStages?.publishingStatus !== "Published" || !currentStages?.publishedAt);
+      const nextPublishedAt = shouldMarkPublished ? new Date().toISOString() : null;
+      if (fields && publishedUrlEntered) {
+        await tx.customFieldValue.upsert({
+          where: {
+            task_id_definition_id: {
+              task_id: task.id,
+              definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.publishingStatus],
+            },
+          },
+          update: { value: "Published" },
+          create: {
+            task_id: task.id,
+            definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.publishingStatus],
+            value: "Published",
+          },
+        });
+      }
+      if (fields && nextPublishedAt) {
+        await tx.customFieldValue.upsert({
+          where: {
+            task_id_definition_id: {
+              task_id: task.id,
+              definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.publishedAt],
+            },
+          },
+          update: { value: nextPublishedAt },
+          create: {
+            task_id: task.id,
+            definition_id: fields[SOCIAL_MEDIA_FIELD_NAMES.publishedAt],
+            value: nextPublishedAt,
+          },
+        });
+      }
       await updateTaskStatus(tx);
+      return { ok: true as const, publishedAt: nextPublishedAt };
     });
+    if (!mutation.ok) {
+      return NextResponse.json({ error: mutation.error }, { status: 409 });
+    }
+    publishedAt = mutation.publishedAt;
   }
 
   const onboardingSync = taskStatusChanged
@@ -145,6 +373,19 @@ async function PUT_handler(
         actorId: auth.prismaUser.id,
       })
     : null;
+  const socialMediaMoodboardSync = taskStatusChanged
+    ? await syncSocialMediaMoodboardWorkflow(task.id, body.task_status!)
+    : null;
+  if (socialMediaMoodboardSync?.became_ready) {
+    await notifySocialMediaWorkflow({
+      source: "social_media_moodboard_ready",
+      planId: socialMediaMoodboardSync.id,
+      taskId: task.id,
+      taskTitle: task.title,
+      actorId: auth.prismaUser.id,
+      actorName: auth.prismaUser.name,
+    });
+  }
   if (taskStatusChanged) {
     await recordActivity({
       workspace_id: task.project.workspace_id,
@@ -161,7 +402,9 @@ async function PUT_handler(
   return NextResponse.json({
     ok: true,
     value: isEmptyValue(body.value) ? null : body.value,
+    published_at: publishedAt,
     onboarding_sync: onboardingSync,
+    social_media_moodboard_sync: socialMediaMoodboardSync,
   });
 }
 
