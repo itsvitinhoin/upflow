@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Save, Workflow } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Loader2, Save, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
 import type { Department, TeamMember } from "@/lib/types";
@@ -108,26 +108,30 @@ export default function ServiceLeaderMappingPanel({
   const missingCount = mappings.filter((mapping) => !mapping.leader_id).length;
 
   return (
-    <section className="glass rounded-2xl p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <details className="group overflow-hidden rounded-xl border border-border bg-card/70">
+      <summary className="flex cursor-pointer items-start justify-between gap-4 px-4 py-4 sm:px-5 [&::-webkit-details-marker]:hidden">
         <div>
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-300">
             <Workflow className="h-4 w-4" /> {t("onboardingWorkflow.mappingEyebrow")}
           </p>
-          <h2 className="mt-2 text-xl font-bold text-foreground">{t("onboardingWorkflow.mappingTitle")}</h2>
+          <h2 className="mt-2 text-lg font-bold text-foreground">{t("onboardingWorkflow.mappingTitle")}</h2>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("onboardingWorkflow.mappingBody")}</p>
         </div>
-        {isAdmin && (
-          <button
-            onClick={save}
-            disabled={saving || loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            {t("onboardingWorkflow.saveMapping")}
-          </button>
-        )}
-      </div>
+        <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-border/60 p-4 sm:p-5">
+        <div className="flex justify-end">
+          {isAdmin && (
+            <button
+              onClick={save}
+              disabled={saving || loading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {t("onboardingWorkflow.saveMapping")}
+            </button>
+          )}
+        </div>
 
       {missingCount > 0 && (
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
@@ -219,6 +223,7 @@ export default function ServiceLeaderMappingPanel({
           </div>
         </div>
       )}
-    </section>
+      </div>
+    </details>
   );
 }

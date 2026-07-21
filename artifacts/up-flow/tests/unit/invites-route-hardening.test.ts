@@ -26,6 +26,18 @@ const teamInvitePanels = readFileSync(
   join(__dirname, "..", "..", "src", "components", "team", "team-invite-panels.tsx"),
   "utf8",
 );
+const serviceLeaderMappingPanel = readFileSync(
+  join(
+    __dirname,
+    "..",
+    "..",
+    "src",
+    "components",
+    "team",
+    "service-leader-mapping-panel.tsx",
+  ),
+  "utf8",
+);
 const teamManagementDialogs = readFileSync(
   join(
     __dirname,
@@ -125,19 +137,26 @@ test("admin email status exposes diagnostics without secrets", () => {
   assert.doesNotMatch(emailStatusRoute, /RESEND_API_KEY:\s*process\.env/);
   assert.match(teamPage, /EmailSetupWarning/);
   assert.match(teamPage, /\/api\/email\/status/);
+  assert.match(teamPage, /!emailStatus\.ready/);
+  assert.doesNotMatch(teamPage, /\/api\/email\/test/);
+  assert.doesNotMatch(teamInvitePanels, /invite\.sendTest/);
+  assert.doesNotMatch(teamInvitePanels, /onSendTest/);
 });
 
 test("team page makes real workspace user invites the primary flow", () => {
-  assert.match(teamPage, /RealUserInvitePanel/);
-  assert.match(teamInvitePanels, /t\("invite\.realUsersTitle"\)/);
-  assert.match(teamInvitePanels, /t\("invite\.realUsersDescription"/);
   assert.match(teamPage, /t\("team\.inviteUsers"\)/);
-  assert.match(teamInvitePanels, /workspace:\s*workspace\?\.name/);
+  assert.doesNotMatch(teamPage, /RealUserInvitePanel/);
+  assert.doesNotMatch(teamInvitePanels, /export function RealUserInvitePanel/);
   assert.match(inviteDialog, /t\("invite\.ownWorkspace"\)/);
-  assert.match(teamInvitePanels, /t\("invite\.thisWorkspace"\)/);
   assert.match(inviteDialog, /t\("invite\.workspaceAccess"\)/);
   assert.match(inviteDialog, /hideRole/);
   assert.match(teamPage, /t\("team\.sandboxTools"\)/);
+});
+
+test("team keeps onboarding ownership setup progressively disclosed", () => {
+  assert.match(teamPage, /<ServiceLeaderMappingPanel/);
+  assert.match(serviceLeaderMappingPanel, /<details className="group/);
+  assert.match(serviceLeaderMappingPanel, /<summary/);
 });
 
 test("workspace and space screens expose role-based sharing", () => {

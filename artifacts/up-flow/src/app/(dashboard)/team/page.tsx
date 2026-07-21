@@ -21,12 +21,11 @@ import {
 } from "@/components/team/team-management-dialogs";
 import {
   EmailSetupWarning,
-  RealUserInvitePanel,
   TesterInvitePanel,
 } from "@/components/team/team-invite-panels";
 import ServiceLeaderMappingPanel from "@/components/team/service-leader-mapping-panel";
 import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
-import { cn, formatTime, getInitials } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
 import { colorDotClass } from "@/lib/department-colors";
 import { useLanguage } from "@/components/language-provider";
@@ -44,7 +43,6 @@ export default function TeamPage() {
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [workspace, setWorkspace] = useState<TeamOverview["workspace"]>(null);
-  const [primaryWorkspace, setPrimaryWorkspace] = useState<TeamOverview["workspace"]>(null);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [currentRole, setCurrentRole] =
     useState<"owner" | "admin" | "member" | "guest" | null>(null);
@@ -67,12 +65,6 @@ export default function TeamPage() {
   const [testerWorkspace, setTesterWorkspace] = useState<TesterWorkspace | null>(null);
   const [testerInvites, setTesterInvites] = useState<PendingInvite[]>([]);
   const [settingUpTesterWorkspace, setSettingUpTesterWorkspace] = useState(false);
-  const [testingEmail, setTestingEmail] = useState(false);
-  const [emailTestStatus, setEmailTestStatus] = useState<{
-    ok: boolean;
-    message: string;
-    checkedAt: string;
-  } | null>(null);
 
   // Mirrors the server's `isWorkspaceAdmin` semantics: workspace owner/admin
   // OR cross-workspace super-admin can manage departments + assignments.
@@ -92,7 +84,6 @@ export default function TeamPage() {
       );
       const wsId: string | null = overview.workspace?.id ?? null;
       setWorkspace(overview.workspace ?? null);
-      if (!targetWorkspaceId) setPrimaryWorkspace(overview.workspace ?? null);
       setWorkspaceId(wsId);
       setCurrentRole(overview.current_role ?? null);
       setIsSuperAdmin(overview.is_super_admin === true);
@@ -175,12 +166,6 @@ export default function TeamPage() {
     [loadTesterInvites],
   );
 
-  const loadInviteDiagnostics = useCallback(async () => {
-    if (inviteDiagnosticsLoaded) return;
-    setInviteDiagnosticsLoaded(true);
-    await Promise.all([loadPending(), loadEmailStatus()]);
-  }, [inviteDiagnosticsLoaded, loadEmailStatus, loadPending]);
-
   const loadDepartments = useCallback(async (wsId: string) => {
     try {
       const r = await fetch(`/api/workspaces/${wsId}/departments`);
@@ -221,12 +206,13 @@ export default function TeamPage() {
   }, [loadTeamOverview]);
 
   useEffect(() => {
-    if (!isAdmin || !workspaceId || !inviteDiagnosticsLoaded) {
+    if (!isAdmin || !workspaceId) {
       setEmailStatus(null);
+      setPending([]);
       return;
     }
-    loadEmailStatus();
-  }, [inviteDiagnosticsLoaded, isAdmin, workspaceId, loadEmailStatus]);
+    void Promise.all([loadPending(), loadEmailStatus()]);
+  }, [isAdmin, workspaceId, loadEmailStatus, loadPending]);
 
   function toggleCollapsed(key: string) {
     setCollapsed((prev) => {
@@ -479,40 +465,6 @@ export default function TeamPage() {
     }
   }
 
-  async function sendEmailTest() {
-    setTestingEmail(true);
-    setEmailTestStatus(null);
-    try {
-      const r = await fetch("/api/email/test", { method: "POST" });
-      const json = (await r.json().catch(() => ({}))) as {
-        error?: string;
-        recipient?: string;
-      };
-      if (!r.ok) {
-        setEmailTestStatus({
-          ok: false,
-          message: json.error || "Email provider rejected the test message.",
-          checkedAt: formatTime(new Date()),
-        });
-        return;
-      }
-      setEmailTestStatus({
-        ok: true,
-        message: `Test email accepted for ${json.recipient || "your admin email"}.`,
-        checkedAt: formatTime(new Date()),
-      });
-    } catch {
-      setEmailTestStatus({
-        ok: false,
-        message: "Could not send the test email.",
-        checkedAt: formatTime(new Date()),
-      });
-    } finally {
-      setTestingEmail(false);
-      loadEmailStatus();
-    }
-  }
-
   const orderedGroups: Array<{
     key: string;
     name: string;
@@ -563,10 +515,7 @@ export default function TeamPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setInviteOpen(true);
-                  loadInviteDiagnostics();
-                }}
+                onClick={() => setInviteOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -584,35 +533,9 @@ export default function TeamPage() {
           )}
         </div>
 
-        {isAdmin && emailStatus && (
-          <EmailSetupWarning
-            status={emailStatus}
-            emailTestStatus={emailTestStatus}
-            testingEmail={testingEmail}
-            onSendTest={sendEmailTest}
-          />
+        {isAdmin && emailStatus && !emailStatus.ready && (
+          <EmailSetupWarning status={emailStatus} />
         )}
-
-        {isAdmin && (
-          <RealUserInvitePanel
-            workspace={primaryWorkspace ?? workspace}
-            memberCount={users.length}
-            pendingCount={pending.filter((invite) => !invite.tester_invite).length}
-            emailReady={emailStatus?.ready ?? null}
-            onInvite={() => {
-              loadInviteDiagnostics();
-              setInviteOpen(true);
-            }}
-          />
-        )}
-
-        <div className="mb-4">
-          <ServiceLeaderMappingPanel
-            isAdmin={isAdmin}
-            users={users}
-            departments={departments}
-          />
-        </div>
 
         {isSuperAdmin && (
           <details className="mb-4 rounded-xl border border-border bg-card/50 p-3">
@@ -631,7 +554,6 @@ export default function TeamPage() {
                   if (testerWorkspace) loadTeamOverview(testerWorkspace.id);
                 }}
                 onInvite={() => {
-                  loadInviteDiagnostics();
                   ensureTesterWorkspace({ openDialog: true });
                 }}
                 onCreateAccount={() => {
@@ -951,6 +873,14 @@ export default function TeamPage() {
           </div>
         )}
 
+        <div className="mt-8">
+          <ServiceLeaderMappingPanel
+            isAdmin={isAdmin}
+            users={users}
+            departments={departments}
+          />
+        </div>
+
         {manageOpen && workspaceId && (
           <ManageDepartmentsDialog
             workspaceId={workspaceId}
@@ -977,10 +907,8 @@ export default function TeamPage() {
           hideRole
           onClose={() => {
             setInviteOpen(false);
-            if (inviteDiagnosticsLoaded) {
-              loadPending();
-              loadEmailStatus();
-            }
+            loadPending();
+            loadEmailStatus();
           }}
         />
         <InviteDialog
@@ -1002,7 +930,7 @@ export default function TeamPage() {
           onClose={() => {
             setTesterInviteOpen(false);
             if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
-            if (inviteDiagnosticsLoaded) loadEmailStatus();
+            loadEmailStatus();
           }}
         />
         <CreateTesterAccountDialog

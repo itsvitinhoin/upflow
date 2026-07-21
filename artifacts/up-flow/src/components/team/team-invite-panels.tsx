@@ -17,145 +17,32 @@ import { useLanguage } from "@/components/language-provider";
 import type {
   EmailStatus,
   PendingInvite,
-  TeamOverview,
   TesterWorkspace,
 } from "@/components/team/team-page-types";
 
-export function RealUserInvitePanel({
-  workspace,
-  memberCount,
-  pendingCount,
-  emailReady,
-  onInvite,
-}: {
-  workspace: TeamOverview["workspace"];
-  memberCount: number;
-  pendingCount: number;
-  emailReady: boolean | null;
-  onInvite: () => void;
-}) {
-  const { t } = useLanguage();
-  return (
-    <section className="mb-5 overflow-hidden rounded-xl border border-primary/25 bg-[linear-gradient(135deg,rgba(124,92,255,0.14),rgba(16,185,129,0.07),rgba(255,255,255,0.03))] p-4">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
-              <UserPlus className="h-4 w-4" />
-            </span>
-            <h3 className="text-base font-semibold text-foreground">
-              {t("invite.realUsersTitle")}
-            </h3>
-            <span
-              className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-medium",
-                emailReady
-                  ? "bg-upflow-success/15 text-upflow-success"
-                  : "bg-upflow-warning/15 text-upflow-warning",
-              )}
-            >
-              {emailReady ? t("invite.emailReady") : t("invite.checkEmailSetup")}
-            </span>
-          </div>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            {t("invite.realUsersDescription", {
-              workspace: workspace?.name ?? t("invite.thisWorkspace"),
-            })}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onInvite}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <MailCheck className="h-4 w-4" />
-          {t("team.inviteUsers")}
-        </button>
-      </div>
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <InviteStat label={t("invite.sourceWorkspace")} value={workspace?.name ?? t("invite.currentWorkspace")} />
-        <InviteStat label={t("invite.internalMembers")} value={String(memberCount)} />
-        <InviteStat label={t("invite.pendingInvites")} value={String(pendingCount)} />
-      </div>
-    </section>
-  );
-}
-
-export function EmailSetupWarning({
-  status,
-  emailTestStatus,
-  testingEmail,
-  onSendTest,
-}: {
-  status: EmailStatus;
-  emailTestStatus: { ok: boolean; message: string; checkedAt: string } | null;
-  testingEmail: boolean;
-  onSendTest: () => void;
-}) {
+export function EmailSetupWarning({ status }: { status: EmailStatus }) {
   const { t } = useLanguage();
   const missing = [
     !status.app_url_configured && "APP_URL",
     !status.resend_api_key_configured && "RESEND_API_KEY",
     !status.email_from_configured && "EMAIL_FROM",
   ].filter(Boolean);
-  const ready = status.ready;
+  const message = [
+    missing.length > 0 ? t("invite.missing", { keys: missing.join(", ") }) : "",
+    status.using_development_sender ? t("invite.setVerifiedSender") : "",
+    t("invite.emailBlocked"),
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
-    <div
-      className={cn(
-        "mb-4 rounded-xl border px-4 py-3",
-        ready
-          ? "border-upflow-success/30 bg-upflow-success/10"
-          : "border-upflow-warning/30 bg-upflow-warning/10",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          {ready ? (
-            <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-success" />
-          ) : (
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
-          )}
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">
-              {ready ? t("invite.emailSetupReady") : t("invite.emailSetupAttention")}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {ready
-                ? t("invite.emailConfigured")
-                : `${
-                    missing.length > 0 ? `${t("invite.missing", { keys: missing.join(", ") })} ` : ""
-                  }${
-                    status.using_development_sender
-                      ? `${t("invite.setVerifiedSender")} `
-                      : ""
-                  }${t("invite.emailBlocked")}`}
-            </p>
-            {emailTestStatus && (
-              <p
-                className={cn(
-                  "mt-2 text-[11px]",
-                  emailTestStatus.ok ? "text-upflow-success" : "text-upflow-danger",
-                )}
-              >
-                {t("invite.lastTest", {
-                  time: emailTestStatus.checkedAt,
-                  message: emailTestStatus.message,
-                })}
-              </p>
-            )}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onSendTest}
-          disabled={testingEmail}
-          className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-md border border-upflow-warning/30 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-upflow-warning/10 disabled:opacity-60"
-        >
-          <MailCheck className={cn("h-3.5 w-3.5", testingEmail && "animate-pulse")} />
-          {testingEmail ? t("invite.testing") : t("invite.sendTest")}
-        </button>
+    <div className="mb-5 flex items-start gap-3 rounded-xl border border-upflow-warning/30 bg-upflow-warning/10 px-4 py-3">
+      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-upflow-warning" />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-foreground">
+          {t("invite.emailSetupAttention")}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{message}</p>
       </div>
     </div>
   );
@@ -345,17 +232,6 @@ export function TesterInvitePanel({
         </div>
       )}
     </section>
-  );
-}
-
-function InviteStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-black/15 px-3 py-2">
-      <p className="text-[11px] font-semibold uppercase text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 truncate text-sm font-semibold text-foreground">{value}</p>
-    </div>
   );
 }
 
