@@ -11,7 +11,6 @@ import {
   Layers3,
   Link2,
   Loader2,
-  LockKeyhole,
   Paperclip,
   Save,
   Send,
@@ -47,16 +46,24 @@ interface CompanyOption {
 type DeadlinePreset = "standard" | "rush" | "extended" | "custom";
 
 interface DraftState {
-  designerId: string;
+  designerIds: string[];
   companyId: string;
-  videoSize: string;
-  format: string;
+  videoSizes: string[];
+  formats: string[];
+  brandRules: string;
+  description: string;
   driveUrl: string;
   visualReferenceUrl: string;
   priority: CreativeBriefingPriority;
   deadlinePreset: DeadlinePreset;
   customDueDate: string;
 }
+
+type StoredDraftState = Partial<DraftState> & {
+  designerId?: string;
+  videoSize?: string;
+  format?: string;
+};
 
 const DRAFT_PREFIX = "upflow.creative-briefing";
 const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
@@ -95,20 +102,25 @@ export default function CreativeBriefingForm({
   const { language, t } = useLanguage();
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
-  const [designerId, setDesignerId] = useState("");
+  const [designerIds, setDesignerIds] = useState<string[]>([]);
   const [companyId, setCompanyId] = useState("");
-  const [videoSize, setVideoSize] = useState(VIDEO_SIZES[2]);
-  const [format, setFormat] = useState<(typeof FORMAT_VALUES)[number]["value"]>("carousel");
+  const [videoSizes, setVideoSizes] = useState<string[]>([VIDEO_SIZES[2]]);
+  const [formats, setFormats] = useState<string[]>(["carousel"]);
+  const [brandRules, setBrandRules] = useState("");
+  const [briefDescription, setBriefDescription] = useState("");
   const [driveUrl, setDriveUrl] = useState("");
   const [visualReferenceUrl, setVisualReferenceUrl] = useState("");
   const [priority, setPriority] = useState<CreativeBriefingPriority>("medium");
   const [deadlinePreset, setDeadlinePreset] = useState<DeadlinePreset>("standard");
   const [customDueDate, setCustomDueDate] = useState("");
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
+  const [referenceUrlPreviewFailed, setReferenceUrlPreviewFailed] = useState(false);
   const [draggingReference, setDraggingReference] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasDefaultedDesigner = useRef(false);
 
   const formatOptions = useMemo(
     () =>
@@ -118,10 +130,14 @@ export default function CreativeBriefingForm({
       })),
     [t],
   );
-  const selectedFormat = formatOptions.find((option) => option.value === format) ?? formatOptions[0];
-  const selectedDesigner = users.find((user) => user.id === designerId) ?? null;
+  const selectedDesigners = designerIds.flatMap((designerId) => {
+    const designer = users.find((user) => user.id === designerId);
+    return designer ? [designer] : [];
+  });
+  const primaryDesigner = selectedDesigners[0] ?? null;
+  const selectedFormats = formatOptions.filter((option) => formats.includes(option.value));
   const selectedCompany = companies.find((company) => company.id === companyId) ?? null;
-  const brandRules = t("creativeBrief.brandRulesDefault");
+  const estimatedHours = selectedFormats.reduce((total, option) => total + option.hours, 0);
 
   const dueDate = useMemo(() => {
     if (deadlinePreset === "custom") return customDueDate;
@@ -136,6 +152,12 @@ export default function CreativeBriefingForm({
     const days = deadlinePreset === "rush" ? 1 : deadlinePreset === "extended" ? 3 : 2;
     return t("creativeBrief.deadlineBusinessDays", { count: days });
   }, [customDueDate, deadlinePreset, t]);
+
+  const referenceUrlPreview =
+    visualReferenceUrl.trim() && isHttpUrl(visualReferenceUrl.trim()) && !referenceUrlPreviewFailed
+      ? visualReferenceUrl.trim()
+      : null;
+  const referencePreviewSource = referenceImagePreview ?? referenceUrlPreview;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -158,21 +180,59 @@ export default function CreativeBriefingForm({
   }, [t, workspaceId]);
 
   useEffect(() => {
-    if (designerId || !me?.id || !users.some((user) => user.id === me.id)) return;
-    setDesignerId(me.id);
-  }, [designerId, me?.id, users]);
+    if (hasDefaultedDesigner.current || !draftLoaded || !me?.id || !users.some((user) => user.id === me.id)) {
+      return;
+    }
+    hasDefaultedDesigner.current = true;
+    if (designerIds.length === 0) setDesignerIds([me.id]);
+  }, [designerIds.length, draftLoaded, me?.id, users]);
+
+  useEffect(() => {
+    setReferenceUrlPreviewFailed(false);
+  }, [visualReferenceUrl]);
+
+  useEffect(() => {
+    if (!referenceFile || !/^image\/(png|jpeg)$/.test(referenceFile.type)) {
+      setReferenceImagePreview(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(referenceFile);
+    setReferenceImagePreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [referenceFile]);
 
   useEffect(() => {
     try {
       const stored = localStorage.getItem(`${DRAFT_PREFIX}.${projectId}`);
       if (!stored) return;
-      const draft = JSON.parse(stored) as Partial<DraftState>;
-      if (typeof draft.designerId === "string") setDesignerId(draft.designerId);
-      if (typeof draft.companyId === "string") setCompanyId(draft.companyId);
-      if (typeof draft.videoSize === "string") setVideoSize(draft.videoSize);
-      if (draft.format && FORMAT_VALUES.some((item) => item.value === draft.format)) {
-        setFormat(draft.format as (typeof FORMAT_VALUES)[number]["value"]);
+      const draft = JSON.parse(stored) as StoredDraftState;
+      if (Array.isArray(draft.designerIds)) {
+        setDesignerIds(draft.designerIds.filter((id): id is string => typeof id === "string"));
+      } else if (typeof draft.designerId === "string") {
+        setDesignerIds([draft.designerId]);
       }
+      if (typeof draft.companyId === "string") setCompanyId(draft.companyId);
+      if (Array.isArray(draft.videoSizes)) {
+        setVideoSizes(
+          draft.videoSizes.filter(
+            (value): value is string => typeof value === "string" && VIDEO_SIZES.includes(value),
+          ),
+        );
+      } else if (typeof draft.videoSize === "string") {
+        setVideoSizes([draft.videoSize]);
+      }
+      if (Array.isArray(draft.formats)) {
+        setFormats(
+          draft.formats.filter(
+            (value): value is string =>
+              typeof value === "string" && FORMAT_VALUES.some((item) => item.value === value),
+          ),
+        );
+      } else if (draft.format && FORMAT_VALUES.some((item) => item.value === draft.format)) {
+        setFormats([draft.format]);
+      }
+      if (typeof draft.brandRules === "string") setBrandRules(draft.brandRules);
+      if (typeof draft.description === "string") setBriefDescription(draft.description);
       if (typeof draft.driveUrl === "string") setDriveUrl(draft.driveUrl);
       if (typeof draft.visualReferenceUrl === "string") setVisualReferenceUrl(draft.visualReferenceUrl);
       if (draft.priority === "low" || draft.priority === "medium" || draft.priority === "high") {
@@ -191,10 +251,12 @@ export default function CreativeBriefingForm({
   }, [projectId, t]);
 
   const formDraft = (): DraftState => ({
-    designerId,
+    designerIds,
     companyId,
-    videoSize,
-    format,
+    videoSizes,
+    formats,
+    brandRules,
+    description: briefDescription,
     driveUrl,
     visualReferenceUrl,
     priority,
@@ -242,12 +304,20 @@ export default function CreativeBriefingForm({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting) return;
-    if (!selectedDesigner) {
+    if (!primaryDesigner) {
       toast.error(t("creativeBrief.designerRequired"));
       return;
     }
     if (!selectedCompany) {
       toast.error(t("creativeBrief.brandRequired"));
+      return;
+    }
+    if (videoSizes.length === 0) {
+      toast.error(t("creativeBrief.videoSizeRequired"));
+      return;
+    }
+    if (selectedFormats.length === 0) {
+      toast.error(t("creativeBrief.formatRequired"));
       return;
     }
     if (!dueDate) {
@@ -267,17 +337,18 @@ export default function CreativeBriefingForm({
     try {
       const description = buildCreativeBriefingDescription(
         {
-          designerName: selectedDesigner.name,
+          designerNames: selectedDesigners.map((designer) => designer.name),
           brandName: selectedCompany.name,
-          videoSize,
-          format: selectedFormat.label,
+          videoSizes,
+          formats: selectedFormats.map((option) => option.label),
           brandRules,
+          description: briefDescription,
           driveUrl,
           visualReferenceUrl,
           referenceFileName: referenceFile?.name,
           priority,
           dueDate,
-          estimatedHours: selectedFormat.hours,
+          estimatedHours,
         },
         language,
       );
@@ -285,13 +356,17 @@ export default function CreativeBriefingForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: buildCreativeBriefingTitle(selectedCompany.name, selectedFormat.label, language),
+          title: buildCreativeBriefingTitle(
+            selectedCompany.name,
+            selectedFormats.map((option) => option.label).join(", "),
+            language,
+          ),
           description,
           status: "todo",
           priority,
           project_id: projectId,
           company_id: selectedCompany.id,
-          assignee_id: selectedDesigner.id,
+          assignee_id: primaryDesigner.id,
           due_date: dueDate,
         }),
       });
@@ -319,18 +394,19 @@ export default function CreativeBriefingForm({
           }
           const updatedDescription = buildCreativeBriefingDescription(
             {
-              designerName: selectedDesigner.name,
+              designerNames: selectedDesigners.map((designer) => designer.name),
               brandName: selectedCompany.name,
-              videoSize,
-              format: selectedFormat.label,
+              videoSizes,
+              formats: selectedFormats.map((option) => option.label),
               brandRules,
+              description: briefDescription,
               driveUrl,
               visualReferenceUrl,
               referenceFileName: uploaded.file_name ?? referenceFile.name,
               referenceFileUrl: uploaded.reference,
               priority,
               dueDate,
-              estimatedHours: selectedFormat.hours,
+              estimatedHours,
             },
             language,
           );
@@ -347,8 +423,10 @@ export default function CreativeBriefingForm({
 
       localStorage.removeItem(`${DRAFT_PREFIX}.${projectId}`);
       setCompanyId("");
-      setVideoSize(VIDEO_SIZES[2]);
-      setFormat("carousel");
+      setVideoSizes([VIDEO_SIZES[2]]);
+      setFormats(["carousel"]);
+      setBrandRules("");
+      setBriefDescription("");
       setDriveUrl("");
       setVisualReferenceUrl("");
       setPriority("medium");
@@ -395,11 +473,10 @@ export default function CreativeBriefingForm({
         <div className="space-y-7 px-5 py-6 sm:px-9 sm:py-8">
           <div className="grid gap-5 md:grid-cols-2 md:gap-x-10">
             <BriefField label={t("creativeBrief.designer")} required>
-              <SelectField
-                value={designerId}
-                onChange={setDesignerId}
+              <MultiSelectField
+                values={designerIds}
+                onChange={setDesignerIds}
                 disabled={submitting}
-                placeholder={t("creativeBrief.select")}
                 options={users.map((user) => ({ value: user.id, label: user.name }))}
               />
               <p className="mt-2 flex items-center gap-1.5 text-xs text-[#92a8cb]">
@@ -422,33 +499,47 @@ export default function CreativeBriefingForm({
             </BriefField>
 
             <BriefField label={t("creativeBrief.videoSize")}>
-              <SelectField
-                value={videoSize}
-                onChange={setVideoSize}
+              <MultiSelectField
+                values={videoSizes}
+                onChange={setVideoSizes}
                 disabled={submitting}
                 options={VIDEO_SIZES.map((value) => ({ value, label: value }))}
               />
+              <p className="mt-2 text-xs text-[#92a8cb]">{t("creativeBrief.multiSelectHint")}</p>
             </BriefField>
 
             <BriefField label={t("creativeBrief.format")}>
-              <SelectField
-                value={format}
-                onChange={(value) => setFormat(value as (typeof FORMAT_VALUES)[number]["value"])}
+              <MultiSelectField
+                values={formats}
+                onChange={setFormats}
                 disabled={submitting}
                 options={formatOptions.map((option) => ({ value: option.value, label: option.label }))}
               />
+              <p className="mt-2 text-xs text-[#92a8cb]">{t("creativeBrief.multiSelectHint")}</p>
             </BriefField>
           </div>
 
           <BriefField label={t("creativeBrief.brandRules")}>
             <div className="relative">
-              <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#91a5c7]" />
-              <input
+              <FileText className="pointer-events-none absolute left-4 top-4 h-5 w-5 text-[#96b7e8]" />
+              <textarea
                 value={brandRules}
-                readOnly
-                className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#0a1930] py-3 pl-12 pr-4 text-base text-[#b6c4dd] outline-none"
+                onChange={(event) => setBrandRules(event.target.value)}
+                disabled={submitting}
+                placeholder={t("creativeBrief.brandRulesPlaceholder")}
+                className="min-h-28 w-full resize-y rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
               />
             </div>
+          </BriefField>
+
+          <BriefField label={t("creativeBrief.description")}>
+            <textarea
+              value={briefDescription}
+              onChange={(event) => setBriefDescription(event.target.value)}
+              disabled={submitting}
+              placeholder={t("creativeBrief.descriptionPlaceholder")}
+              className="min-h-36 w-full resize-y rounded-lg border border-[#385b91] bg-[#07162e] px-4 py-3 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+            />
           </BriefField>
 
           <BriefField label={t("creativeBrief.driveUrl")}>
@@ -525,6 +616,27 @@ export default function CreativeBriefingForm({
                 </button>
               </div>
             ) : null}
+            {referencePreviewSource ? (
+              <figure className="mt-4 overflow-hidden rounded-lg border border-[#315c94] bg-[#06162d]">
+                <div className="flex items-center justify-between gap-3 border-b border-[#2d568c] px-3 py-2">
+                  <figcaption className="text-xs font-semibold text-[#d7e5ff]">
+                    {t("creativeBrief.visualPreview")}
+                  </figcaption>
+                  {referenceImagePreview ? (
+                    <span className="text-xs text-[#9eb7dd]">{referenceFile?.name}</span>
+                  ) : null}
+                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={referencePreviewSource}
+                  alt={t("creativeBrief.visualPreview")}
+                  onError={() => {
+                    if (!referenceImagePreview) setReferenceUrlPreviewFailed(true);
+                  }}
+                  className="aspect-video w-full bg-[#020a1b] object-contain"
+                />
+              </figure>
+            ) : null}
           </BriefField>
 
           <div className="grid gap-7 md:grid-cols-2 md:gap-x-10">
@@ -552,20 +664,27 @@ export default function CreativeBriefingForm({
 
             <BriefField label={t("creativeBrief.deadline")}>
               <div className="space-y-3">
-                <div className="relative">
-                  <Clock3 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#4e9cff]" />
-                  <select
-                    value={deadlinePreset}
-                    onChange={(event) => setDeadlinePreset(event.target.value as DeadlinePreset)}
-                    disabled={submitting}
-                    className="h-[52px] w-full appearance-none rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-11 text-left text-sm text-[#d9e7ff] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-                  >
-                    <option value="standard">{t("creativeBrief.deadline.standard")}</option>
-                    <option value="rush">{t("creativeBrief.deadline.rush")}</option>
-                    <option value="extended">{t("creativeBrief.deadline.extended")}</option>
-                    <option value="custom">{t("creativeBrief.deadline.custom")}</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#a8bee3]" />
+                <div className="grid grid-cols-2 gap-2">
+                  {(["standard", "rush", "extended", "custom"] as const).map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => setDeadlinePreset(preset)}
+                      aria-pressed={deadlinePreset === preset}
+                      className={cn(
+                        "min-h-12 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
+                        deadlinePreset === preset
+                          ? "border-[#4c9cff] bg-[#0b2d61] text-white shadow-[0_0_18px_rgba(39,126,255,0.22)]"
+                          : "border-[#385b91] bg-[#07162e] text-[#b8cae8] hover:border-[#5a8ed4] hover:bg-[#0a2040]",
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 shrink-0 text-[#66a6ff]" />
+                        {t(`creativeBrief.deadline.${preset}`)}
+                      </span>
+                    </button>
+                  ))}
                 </div>
                 {deadlinePreset === "custom" ? (
                   <BrazilianDateInput
@@ -589,13 +708,15 @@ export default function CreativeBriefingForm({
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {formatOptions.map((option) => {
                 const Icon = option.icon;
-                const selected = option.value === format;
+                const selected = formats.includes(option.value);
                 return (
                   <button
                     key={option.value}
                     type="button"
                     disabled={submitting}
-                    onClick={() => setFormat(option.value)}
+                    onClick={() =>
+                      setFormats((current) => toggleMultiSelectValue(current, option.value))
+                    }
                     aria-pressed={selected}
                     className={cn(
                       "min-h-28 rounded-lg border p-4 text-left transition",
@@ -654,6 +775,55 @@ function BriefField({
         {required ? <span className="ml-1 text-[#7bb0ff]">*</span> : null}
       </span>
       {children}
+    </div>
+  );
+}
+
+function toggleMultiSelectValue(values: string[], value: string) {
+  return values.includes(value)
+    ? values.filter((selectedValue) => selectedValue !== value)
+    : [...values, value];
+}
+
+function MultiSelectField({
+  values,
+  onChange,
+  options,
+  disabled,
+}: {
+  values: string[];
+  onChange: (values: string[]) => void;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="max-h-48 overflow-y-auto rounded-lg border border-[#385b91] bg-[#07162e] p-2">
+      <div className="grid gap-1 sm:grid-cols-2">
+        {options.map((option) => {
+          const selected = values.includes(option.value);
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm transition",
+                selected
+                  ? "bg-[#0b2d61] text-white"
+                  : "text-[#c6d6ee] hover:bg-[#10284c]",
+                disabled && "cursor-not-allowed opacity-60",
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={selected}
+                disabled={disabled}
+                onChange={() => onChange(toggleMultiSelectValue(values, option.value))}
+                className="h-4 w-4 shrink-0 rounded border-[#5b7faf] bg-[#041126] text-[#3e88ff] focus:ring-2 focus:ring-[#2679ff]/45"
+              />
+              <span className="min-w-0 break-words font-medium">{option.label}</span>
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -3,11 +3,12 @@ export type CreativeBriefingLocale = "en" | "pt-BR";
 export type CreativeBriefingPriority = "low" | "medium" | "high";
 
 export interface CreativeBriefingDescriptionInput {
-  designerName: string;
+  designerNames: string[];
   brandName: string;
-  videoSize: string;
-  format: string;
-  brandRules: string;
+  videoSizes: string[];
+  formats: string[];
+  brandRules?: string | null;
+  description?: string | null;
   driveUrl?: string | null;
   visualReferenceUrl?: string | null;
   referenceFileName?: string | null;
@@ -22,11 +23,12 @@ const COPY: Record<CreativeBriefingLocale, {
   type: string;
   details: string;
   checklist: string;
-  designer: string;
+  designers: string;
   brand: string;
-  videoSize: string;
-  format: string;
+  videoSizes: string;
+  formats: string;
   brandRules: string;
+  description: string;
   driveUrl: string;
   visualReferenceUrl: string;
   referenceFile: string;
@@ -41,11 +43,12 @@ const COPY: Record<CreativeBriefingLocale, {
     type: "Creative briefing",
     details: "Details",
     checklist: "Suggested checklist",
-    designer: "Designer",
+    designers: "Designers",
     brand: "Brand",
-    videoSize: "Video proportion and size",
-    format: "Format",
+    videoSizes: "Video proportions and sizes",
+    formats: "Formats",
     brandRules: "Brand rules and conditions",
+    description: "Description",
     driveUrl: "Drive / photos link",
     visualReferenceUrl: "Visual reference URL",
     referenceFile: "Reference file",
@@ -65,11 +68,12 @@ const COPY: Record<CreativeBriefingLocale, {
     type: "Briefing de criação",
     details: "Detalhes",
     checklist: "Checklist sugerido",
-    designer: "Designer",
+    designers: "Designers",
     brand: "Marca",
-    videoSize: "Proporção e tamanho do vídeo",
-    format: "Formato",
+    videoSizes: "Proporções e tamanhos do vídeo",
+    formats: "Formatos",
     brandRules: "Regras e condições da marca",
+    description: "Descrição",
     driveUrl: "Link de Drive / fotos",
     visualReferenceUrl: "URL de referência visual",
     referenceFile: "Arquivo de referência",
@@ -88,6 +92,10 @@ const COPY: Record<CreativeBriefingLocale, {
 
 function singleLine(value: string | null | undefined) {
   return value?.replace(/[\r\n]+/g, " ").trim() ?? "";
+}
+
+function joinedValues(values: string[]) {
+  return values.map((value) => singleLine(value)).filter(Boolean).join(", ");
 }
 
 function labelForPriority(priority: CreativeBriefingPriority, locale: CreativeBriefingLocale) {
@@ -118,15 +126,16 @@ export function buildCreativeBriefingDescription(
 ) {
   const copy = COPY[locale];
   const details: Array<[string, string]> = [
-    [copy.designer, input.designerName],
+    [copy.designers, joinedValues(input.designerNames)],
     [copy.brand, input.brandName],
-    [copy.videoSize, input.videoSize],
-    [copy.format, input.format],
-    [copy.brandRules, input.brandRules],
+    [copy.videoSizes, joinedValues(input.videoSizes)],
+    [copy.formats, joinedValues(input.formats)],
     [copy.priority, labelForPriority(input.priority, locale)],
     [copy.estimate, `${input.estimatedHours}h`],
   ];
 
+  if (input.brandRules) details.splice(4, 0, [copy.brandRules, input.brandRules]);
+  if (input.description) details.splice(5, 0, [copy.description, input.description]);
   if (input.dueDate) details.push([copy.deadline, input.dueDate]);
   if (input.driveUrl) details.push([copy.driveUrl, input.driveUrl]);
   if (input.visualReferenceUrl) details.push([copy.visualReferenceUrl, input.visualReferenceUrl]);

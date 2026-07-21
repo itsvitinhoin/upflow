@@ -17,11 +17,12 @@ function read(relativePath: string) {
 
 test("creative briefing descriptions stay parseable as normal UP Flow task briefs", () => {
   const description = buildCreativeBriefingDescription({
-    designerName: "Ana Designer",
+    designerNames: ["Ana Designer", "Rafael Motion"],
     brandName: "Acme",
-    videoSize: "9:16 - 1080 x 1920",
-    format: "Carousel",
-    brandRules: "Predefined",
+    videoSizes: ["9:16 - 1080 x 1920", "1:1 - 1080 x 1080"],
+    formats: ["Carousel", "Video edit"],
+    brandRules: "Use the current campaign color palette.",
+    description: "Create the launch assets for the August campaign.",
     driveUrl: "https://drive.example.com/folder",
     visualReferenceUrl: "https://example.com/reference",
     referenceFileName: "reference.pdf",
@@ -33,7 +34,22 @@ test("creative briefing descriptions stay parseable as normal UP Flow task brief
 
   const parsed = parseTaskBrief(description);
   assert.equal(parsed?.type, "Creative briefing");
-  assert.ok(parsed?.details.some((item) => item.label === "Designer" && item.value === "Ana Designer"));
+  assert.ok(
+    parsed?.details.some(
+      (item) => item.label === "Designers" && item.value === "Ana Designer, Rafael Motion",
+    ),
+  );
+  assert.ok(
+    parsed?.details.some(
+      (item) => item.label === "Formats" && item.value === "Carousel, Video edit",
+    ),
+  );
+  assert.ok(
+    parsed?.details.some(
+      (item) =>
+        item.label === "Description" && item.value === "Create the launch assets for the August campaign.",
+    ),
+  );
   assert.ok(parsed?.details.some((item) => item.label === "Reference file link"));
   assert.ok((parsed?.checklist.length ?? 0) >= 4);
   assert.equal(buildCreativeBriefingTitle("Acme", "Carousel"), "Creative briefing: Acme - Carousel");
@@ -49,6 +65,7 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
   const board = read("src/components/projects/kanban-board.tsx");
+  const form = read("src/components/projects/creative-briefing-form.tsx");
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const referenceRoute = read("src/app/api/tasks/[id]/creative-reference/route.ts");
   const assetsRoute = read("src/app/api/task-assets/[...path]/route.ts");
@@ -62,6 +79,11 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(board, /parseTaskBrief/);
   assert.match(board, /isCreativeBriefingType/);
   assert.match(board, /showBriefingDetails/);
+  assert.match(form, /function MultiSelectField/);
+  assert.match(form, /type="checkbox"/);
+  assert.match(form, /creativeBrief\.description/);
+  assert.match(form, /referenceImagePreview/);
+  assert.match(form, /setDeadlinePreset\(preset\)/);
   assert.match(tasksRoute, /company_id\?: string \| null/);
   assert.match(tasksRoute, /Tasks in a client project must stay linked to that client/);
   assert.match(referenceRoute, /MAX_REFERENCE_BYTES = 20 \* 1024 \* 1024/);
