@@ -34,6 +34,7 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(clientDetail, /t\("clientDetail\.valuePerHour"\)/);
   assert.match(clientDetail, /t\("clientDetail\.linkedProjectTime"\)/);
   assert.match(clientDetail, /commission_per_tracked_hour/);
+  assert.doesNotMatch(clientDetail, /ClientOnboardingPanel/);
   assert.match(createDialog, /service_type/);
   assert.match(createDialog, /included_services/);
   assert.match(createDialog, /SERVICE_TYPE_OPTIONS/);

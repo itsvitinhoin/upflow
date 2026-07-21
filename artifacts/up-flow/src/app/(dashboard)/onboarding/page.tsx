@@ -346,7 +346,7 @@ function ReadinessBoard({
                 <FileText className="h-4 w-4" /> {t("onboardingBoard.editClient")}
               </Link>
               <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-sm font-black text-primary-foreground">
-                <Rocket className="h-4 w-4" /> {t("onboardingBoard.openWorkflow")}
+                <Rocket className="h-4 w-4" /> {t("clients.openClient")}
               </Link>
             </div>
           </div>
@@ -428,7 +428,7 @@ function ReadinessBoard({
           <h4 className="flex items-center gap-2 font-black text-foreground dark:text-white"><Rocket className="h-4 w-4 text-blue-600 dark:text-blue-300" /> {t("onboardingBoard.nextAction")}</h4>
           <p className="mt-4 font-black text-foreground dark:text-white">{upZeroBlocked ? t("onboardingBoard.configureUpZero") : next ? onboardingTitleLabel(next.title, t) : t("onboardingBoard.readyToStart")}</p>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{upZeroBlocked ? t("onboardingBoard.blocker.upZero") : next ? t("onboardingBoard.completeStepToUnlock") : t("onboardingBoard.allRequiredComplete")}</p>
-          <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-primary-foreground">{t("onboardingBoard.openWorkflow")}</Link>
+          <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-primary-foreground">{t("clients.openClient")}</Link>
         </section>
       </aside>
     </article>
