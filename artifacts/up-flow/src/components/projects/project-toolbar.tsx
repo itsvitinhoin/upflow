@@ -13,6 +13,7 @@ import {
   Columns3,
   Check,
   ListChecks,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
@@ -25,7 +26,7 @@ export type FilterPriority = "all" | "high" | "medium" | "low";
 export type FilterAssignee = "all" | "unassigned" | "me" | string;
 
 export interface ToolbarState {
-  view: "list" | "board";
+  view: "list" | "board" | "form";
   search: string;
   groupBy: GroupBy;
   sortBy: SortBy;
@@ -47,6 +48,7 @@ interface Props {
   selectionMode: boolean;
   selectedCount: number;
   onToggleSelectionMode: () => void;
+  enableForms?: boolean;
 }
 
 export default function ProjectToolbar({
@@ -60,6 +62,7 @@ export default function ProjectToolbar({
   selectionMode,
   selectedCount,
   onToggleSelectionMode,
+  enableForms = false,
 }: Props) {
   const { t } = useLanguage();
   const filterCount =
@@ -89,8 +92,18 @@ export default function ProjectToolbar({
           icon={<Columns3 className="w-3.5 h-3.5" />}
           label={t("toolbar.board")}
         />
+        {enableForms && (
+          <ToolbarTab
+            active={state.view === "form"}
+            onClick={() => set({ view: "form" })}
+            icon={<FileText className="w-3.5 h-3.5" />}
+            label={t("toolbar.forms")}
+          />
+        )}
       </div>
 
+      {state.view !== "form" && (
+        <>
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
         <input
@@ -207,6 +220,8 @@ export default function ProjectToolbar({
         >
           <Settings2 className="w-3.5 h-3.5" /> {t("toolbar.customFields")}
         </button>
+      )}
+        </>
       )}
     </div>
   );

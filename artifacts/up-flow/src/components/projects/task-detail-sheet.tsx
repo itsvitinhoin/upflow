@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import {
-  X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight
+  X, Trash2, Send, Loader2, Plus, Check, ChevronDown, ChevronRight, CornerDownRight, ExternalLink
 } from "lucide-react";
 import { cn, formatDate, getInitials, relativeDueDateLabel } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
@@ -14,6 +14,7 @@ import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
 import { logError } from "@/lib/log-error";
 import { parseTaskBrief } from "@/lib/task-templates";
+import { getTaskAssetPath } from "@/lib/task-images";
 
 interface TaskDetailSheetProps {
   task: Task;
@@ -380,14 +381,32 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 </div>
                 {structuredBrief.details.length > 0 && (
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {structuredBrief.details.slice(0, 8).map((item) => (
+                    {structuredBrief.details.slice(0, 12).map((item) => {
+                      const assetPath = getTaskAssetPath(item.value);
+                      const assetUrl = assetPath
+                        ? `/api/task-assets/${assetPath.split("/").map(encodeURIComponent).join("/")}`
+                        : null;
+                      return (
                       <div key={`${item.label}-${item.value}`} className="min-w-0 rounded-lg bg-black/10 px-2.5 py-2">
                         <p className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
                           {item.label}
                         </p>
-                        <p className="mt-0.5 break-words text-sm text-foreground">{item.value}</p>
+                        {assetUrl ? (
+                          <a
+                            href={assetUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                          >
+                            {t("creativeBrief.openReference")}
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </a>
+                        ) : (
+                          <p className="mt-0.5 break-words text-sm text-foreground">{item.value}</p>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 {structuredBrief.checklist.length > 0 && (

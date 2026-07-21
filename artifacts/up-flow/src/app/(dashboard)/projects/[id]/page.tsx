@@ -14,6 +14,7 @@ import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import CustomFieldsManager from "@/components/projects/custom-fields-manager";
 import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
+import CreativeBriefingForm from "@/components/projects/creative-briefing-form";
 import { SpaceWorkflowStatusManager } from "@/components/spaces/space-workflow-status-manager";
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
 import { getOnboardingTaskAction, workflowFormKind } from "@/lib/onboarding-task-routing";
@@ -73,6 +74,15 @@ const SupportOnboardingForm = dynamic(() => import("@/components/onboarding/supp
   loading: OnboardingFormLoader,
 });
 
+function isDesignQueueProject(project: Project | null) {
+  if (!project) return false;
+  const projectName = project.name.trim().toLocaleLowerCase();
+  const spaceName = project.space?.name.trim().toLocaleLowerCase();
+  return (
+    projectName === "design queue" &&
+    (spaceName === "creative & design" || spaceName === "criativos & design")
+  );
+}
 
 export default function ProjectPage() {
   const params = useParams();
@@ -182,6 +192,7 @@ export default function ProjectPage() {
   }, [focusedTaskId, project?.space?.name, tasks]);
   const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
   const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
+  const isDesignQueue = isDesignQueueProject(project);
   const selectedTaskIdSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds]);
   const visibleTaskIds = useMemo(() => {
     const query = toolbar.search.trim().toLowerCase();
@@ -214,6 +225,20 @@ export default function ProjectPage() {
     return Boolean(me.isSuperAdmin || me.currentRole === "owner" || me.currentRole === "admin");
   }, [me]);
 
+  useEffect(() => {
+    if (!isDesignQueue) {
+      setToolbar((current) =>
+        current.view === "form" ? { ...current, view: "board" } : current,
+      );
+      return;
+    }
+    const requestedView =
+      viewParam === "briefing" ? "form" : viewParam === "list" ? "list" : "board";
+    setToolbar((current) =>
+      current.view === requestedView ? current : { ...current, view: requestedView },
+    );
+  }, [isDesignQueue, viewParam]);
+
   if (loading) {
     return (
       <>
@@ -244,6 +269,13 @@ export default function ProjectPage() {
       return;
     }
     setSelectedTask(task);
+  };
+
+  const handleToolbarChange = (next: ToolbarState) => {
+    setToolbar(next);
+    if (!isDesignQueue || next.view === toolbar.view) return;
+    const view = next.view === "form" ? "briefing" : next.view;
+    router.replace(`/projects/${id}?view=${view}`, { scroll: false });
   };
 
   const toggleTaskSelection = (taskId: string) => {
@@ -420,7 +452,7 @@ export default function ProjectPage() {
           <>
             <ProjectToolbar
               state={toolbar}
-              onChange={setToolbar}
+              onChange={handleToolbarChange}
               customFields={customFields}
               onManageFields={() => setManageOpen(true)}
               onManageSpaceStatuses={
@@ -433,9 +465,10 @@ export default function ProjectPage() {
               selectionMode={selectionMode}
               selectedCount={selectedTaskIds.length}
               onToggleSelectionMode={toggleSelectionMode}
+              enableForms={isDesignQueue}
             />
 
-            {selectionMode && (
+            {toolbar.view !== "form" && selectionMode && (
               <div className="mb-3 flex flex-col gap-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-semibold text-foreground">
                   {t("task.bulkSelected", { count: selectedTaskIds.length })}
@@ -478,7 +511,15 @@ export default function ProjectPage() {
               </div>
             )}
 
-            {toolbar.view === "board" ? (
+            {toolbar.view === "form" && isDesignQueue ? (
+              <CreativeBriefingForm
+                projectId={id}
+                workspaceId={project.workspace_id}
+                users={users}
+                me={me}
+                onCreated={loadData}
+              />
+            ) : toolbar.view === "board" ? (
               <KanbanBoard
                 projectId={id}
                 spaceId={project?.space_id}

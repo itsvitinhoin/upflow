@@ -122,6 +122,7 @@ async function postHandler(req: NextRequest) {
     status?: TaskStatus;
     priority?: TaskPriority;
     project_id?: string;
+    company_id?: string | null;
     assignee_id?: string;
     due_date?: string;
     cover_image_url?: string | null;
@@ -141,6 +142,14 @@ async function postHandler(req: NextRequest) {
     );
   }
 
+  if (
+    body.company_id !== undefined &&
+    body.company_id !== null &&
+    typeof body.company_id !== "string"
+  ) {
+    return NextResponse.json({ error: "company_id must be a string or null" }, { status: 400 });
+  }
+
   const project = await prisma.project.findUnique({
     where: { id: project_id },
     select: { id: true, workspace_id: true, owner_id: true, company_id: true, space_id: true },
@@ -148,6 +157,26 @@ async function postHandler(req: NextRequest) {
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
   if (!(await canContributeToProject(auth, project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const requestedCompanyId =
+    typeof body.company_id === "string" ? body.company_id.trim() || null : body.company_id;
+  let companyId = project.company_id ?? null;
+  if (requestedCompanyId) {
+    if (project.company_id && project.company_id !== requestedCompanyId) {
+      return NextResponse.json(
+        { error: "Tasks in a client project must stay linked to that client" },
+        { status: 400 },
+      );
+    }
+    const company = await prisma.company.findFirst({
+      where: { id: requestedCompanyId, workspace_id: project.workspace_id },
+      select: { id: true },
+    });
+    if (!company) {
+      return NextResponse.json({ error: "Company not found" }, { status: 400 });
+    }
+    companyId = company.id;
   }
 
   if (assignee_id) {
@@ -291,7 +320,7 @@ async function postHandler(req: NextRequest) {
         status: status ?? "todo",
         priority: priority ?? "medium",
         project_id,
-        company_id: project.company_id,
+        company_id: companyId,
         cover_image_url: coverImageUrl,
         assignee_id: assignee_id || null,
         due_date: dueDate,
@@ -351,6 +380,7 @@ async function postHandler(req: NextRequest) {
       status: task.status,
       priority: task.priority,
       assignee_id: task.assignee_id,
+      company_id: task.company_id,
     },
   });
 
