@@ -7,6 +7,7 @@ import {
   buildFolderBreadcrumb,
   type SidebarSearchResult,
 } from "@/lib/sidebar-discovery";
+import { countPendingTodoTasks } from "@/lib/sidebar-pending-tasks";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,16 @@ async function GET_handler(req: NextRequest) {
     created_at: true,
     owner: { select: { id: true, name: true, email: true } },
     _count: { select: { projects: { where: visibleProjectWhere } } },
+    projects: {
+      where: visibleProjectWhere,
+      select: {
+        _count: {
+          select: {
+            tasks: { where: { status: "todo" as const } },
+          },
+        },
+      },
+    },
   };
   const projectInclude = {
     owner: { select: { id: true, name: true, email: true } },
@@ -71,6 +82,17 @@ async function GET_handler(req: NextRequest) {
   };
   const folderInclude = {
     _count: { select: { projects: { where: visibleProjectWhere } } },
+  };
+  const withPendingTodoCount = <
+    T extends { projects: Array<{ _count: { tasks: number } }> },
+  >(
+    space: T,
+  ) => {
+    const { projects: spaceProjects, ...spaceData } = space;
+    return {
+      ...spaceData,
+      pending_todo_count: countPendingTodoTasks(spaceProjects),
+    };
   };
 
   if (q) {
@@ -190,7 +212,8 @@ async function GET_handler(req: NextRequest) {
       if (positionDelta !== 0) return positionDelta;
       return a.name.localeCompare(b.name);
     });
-    const spaceById = new Map(spaces.map((space) => [space.id, space]));
+    const sidebarSpaces = spaces.map(withPendingTodoCount);
+    const spaceById = new Map(sidebarSpaces.map((space) => [space.id, space]));
     const searchResults: SidebarSearchResult[] = [];
 
     for (const space of matchingSpaces) {
@@ -242,7 +265,7 @@ async function GET_handler(req: NextRequest) {
     );
 
     return NextResponse.json({
-      spaces: { items: spaces, nextCursor: null },
+      spaces: { items: sidebarSpaces, nextCursor: null },
       projects: { items: matchingProjects, nextCursor: null },
       folders: { items: folders, nextCursor: null },
       pinned_clients: pinnedClients,
@@ -306,7 +329,7 @@ async function GET_handler(req: NextRequest) {
   ]);
 
   return NextResponse.json({
-    spaces: buildPage(spaces, limit),
+    spaces: buildPage(spaces.map(withPendingTodoCount), limit),
     projects: buildPage(projects, limit),
     folders: buildPage(folders, limit),
     pinned_clients: pinnedClients,

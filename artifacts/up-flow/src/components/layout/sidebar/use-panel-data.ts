@@ -10,6 +10,7 @@ import {
 
 const PANEL_CACHE_TTL_MS = 60_000;
 const SMART_COLLAPSE_CHILD_LIMIT = 8;
+const WORKLOAD_REFRESH_INTERVAL_MS = 30_000;
 // Keep this endpoint neutral. Some content blockers treat routes named
 // "sidebar" or "navigation" as browser-extension traffic and block them.
 const NAVIGATION_ENDPOINT = "/api/workspace-tree";
@@ -77,6 +78,7 @@ export function usePanelData(
     [identity.userId, identity.workspaceId],
   );
   const loadRequestId = useRef(0);
+  const activeQueryRef = useRef("");
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [folders, setFolders] = useState<FolderT[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -163,6 +165,7 @@ export function usePanelData(
   const loadPanel = useCallback(
     (options?: { force?: boolean; query?: string }) => {
       const query = options?.query?.trim() ?? "";
+      activeQueryRef.current = query;
       const requestId = ++loadRequestId.current;
       setPanelLoadFailed(false);
       if (query) setSearchResults([]);
@@ -229,6 +232,20 @@ export function usePanelData(
     const handler = () => loadPanel({ force: true });
     window.addEventListener("upflow:sidebar-refresh", handler);
     return () => window.removeEventListener("upflow:sidebar-refresh", handler);
+  }, [loadPanel]);
+  useEffect(() => {
+    const refreshWorkload = () => {
+      if (document.visibilityState !== "visible" || activeQueryRef.current) return;
+      loadPanel({ force: true });
+    };
+    const interval = window.setInterval(refreshWorkload, WORKLOAD_REFRESH_INTERVAL_MS);
+    window.addEventListener("focus", refreshWorkload);
+    document.addEventListener("visibilitychange", refreshWorkload);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshWorkload);
+      document.removeEventListener("visibilitychange", refreshWorkload);
+    };
   }, [loadPanel]);
 
   useEffect(() => {

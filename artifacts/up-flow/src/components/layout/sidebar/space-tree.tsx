@@ -79,6 +79,8 @@ export function SpaceNode({
   const menuOpen = menuOpenId === sp.id;
   const isActive = pathname === `/spaces/${sp.id}`;
   const directChildCount = spaceFolders.length + looseLists.length;
+  const pendingTodoCount = sp.pending_todo_count ?? 0;
+  const pendingTodoLabel = t("sidebar.pendingTodoCount", { count: pendingTodoCount });
   const visibleFolders = isSearching ? spaceFolders : spaceFolders.slice(0, MAX_VISIBLE_CHILDREN);
   const remainingListSlots = isSearching ? looseLists.length : Math.max(0, MAX_VISIBLE_CHILDREN - visibleFolders.length);
   const visibleLooseLists = isSearching ? looseLists : looseLists.slice(0, remainingListSlots);
@@ -131,18 +133,22 @@ export function SpaceNode({
         >
           {sp.name}
         </Link>
-        {directChildCount > 0 && (
-          <span
-            className={cn(
-              "relative z-10 ml-1 flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
-              isActive
+        <span
+          aria-label={pendingTodoLabel}
+          title={pendingTodoLabel}
+          className={cn(
+            "relative z-10 ml-1 flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+            pendingTodoCount > 0
+              ? isActive
+                ? "bg-amber-300/20 text-amber-950 ring-1 ring-amber-200/35 dark:bg-amber-300/[0.18] dark:text-amber-100 dark:ring-amber-200/25"
+                : "bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20 dark:bg-amber-300/[0.14] dark:text-amber-100 dark:ring-amber-200/20"
+              : isActive
                 ? "bg-primary/10 text-primary ring-1 ring-primary/20 dark:bg-blue-400/[0.15] dark:text-blue-100 dark:ring-blue-300/25"
                 : "bg-muted text-muted-foreground dark:bg-white/[0.15]",
-            )}
-          >
-            {directChildCount}
-          </span>
-        )}
+          )}
+        >
+          {pendingTodoCount}
+        </span>
         {canManageWorkspace && (
         <div
           className="relative z-20 flex flex-shrink-0 items-center"

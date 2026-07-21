@@ -65,6 +65,7 @@ export interface Space {
   created_at: string;
   workspace?: { id: string; name: string } | null;
   _count?: { projects: number };
+  pending_todo_count?: number;
 }
 
 export interface Folder {
