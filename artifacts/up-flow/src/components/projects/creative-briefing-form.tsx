@@ -67,6 +67,7 @@ type StoredDraftState = Partial<DraftState> & {
 
 const DRAFT_PREFIX = "upflow.creative-briefing";
 const MAX_REFERENCE_BYTES = 20 * 1024 * 1024;
+const MAX_DRIVE_FILES = 5;
 
 const VIDEO_SIZES = ["1:1 - 1080 x 1080", "4:5 - 1080 x 1350", "9:16 - 1080 x 1920", "16:9 - 1920 x 1080"];
 
@@ -77,10 +78,14 @@ const FORMAT_VALUES = [
   { value: "video_edit", hours: 1, icon: Video },
 ] as const;
 
-function isSupportedReferenceFile(file: File) {
+function isSupportedCreativeFile(file: File) {
   const acceptedTypes = ["image/png", "image/jpeg", "application/pdf"];
   if (acceptedTypes.includes(file.type)) return true;
   return /\.(png|jpe?g|pdf)$/i.test(file.name);
+}
+
+function fileKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
 }
 
 function isHttpUrl(value: string) {
@@ -109,6 +114,7 @@ export default function CreativeBriefingForm({
   const [brandRules, setBrandRules] = useState("");
   const [briefDescription, setBriefDescription] = useState("");
   const [driveUrl, setDriveUrl] = useState("");
+  const [driveFiles, setDriveFiles] = useState<File[]>([]);
   const [visualReferenceUrl, setVisualReferenceUrl] = useState("");
   const [priority, setPriority] = useState<CreativeBriefingPriority>("medium");
   const [deadlinePreset, setDeadlinePreset] = useState<DeadlinePreset>("standard");
@@ -116,9 +122,11 @@ export default function CreativeBriefingForm({
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [referenceImagePreview, setReferenceImagePreview] = useState<string | null>(null);
   const [referenceUrlPreviewFailed, setReferenceUrlPreviewFailed] = useState(false);
+  const [draggingDriveFiles, setDraggingDriveFiles] = useState(false);
   const [draggingReference, setDraggingReference] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const driveFileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasDefaultedDesigner = useRef(false);
 
@@ -268,7 +276,7 @@ export default function CreativeBriefingForm({
     try {
       localStorage.setItem(`${DRAFT_PREFIX}.${projectId}`, JSON.stringify(formDraft()));
       toast.success(
-        referenceFile
+        referenceFile || driveFiles.length > 0
           ? t("creativeBrief.draftSavedWithFileNote")
           : t("creativeBrief.draftSaved"),
       );
@@ -277,28 +285,84 @@ export default function CreativeBriefingForm({
     }
   };
 
-  const setFile = (file: File | undefined) => {
-    if (!file) return;
-    if (!isSupportedReferenceFile(file)) {
+  const isValidCreativeFile = (file: File) => {
+    if (!isSupportedCreativeFile(file)) {
       toast.error(t("creativeBrief.fileTypeError"));
-      return;
+      return false;
     }
     if (file.size === 0 || file.size > MAX_REFERENCE_BYTES) {
       toast.error(t("creativeBrief.fileSizeError"));
-      return;
+      return false;
     }
+    return true;
+  };
+
+  const chooseReferenceFile = (file: File | undefined) => {
+    if (!file || !isValidCreativeFile(file)) return;
     setReferenceFile(file);
   };
 
+  const addDriveFiles = (files: FileList | File[]) => {
+    const candidates = Array.from(files).filter((file) => isValidCreativeFile(file));
+    const seen = new Set(driveFiles.map(fileKey));
+    const additions = candidates.filter((file) => {
+      const key = fileKey(file);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const remaining = Math.max(0, MAX_DRIVE_FILES - driveFiles.length);
+    if (additions.length > remaining) {
+      toast.error(t("creativeBrief.driveFileLimit", { count: MAX_DRIVE_FILES }));
+    }
+    if (remaining > 0 && additions.length > 0) {
+      setDriveFiles((current) => [...current, ...additions.slice(0, remaining)]);
+    }
+  };
+
+  const onDriveFilesInput = (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) addDriveFiles(event.target.files);
+    event.target.value = "";
+  };
+
+  const onDriveFilesDrop = (event: DragEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setDraggingDriveFiles(false);
+    addDriveFiles(event.dataTransfer.files);
+  };
+
   const onFileInput = (event: ChangeEvent<HTMLInputElement>) => {
-    setFile(event.target.files?.[0]);
+    chooseReferenceFile(event.target.files?.[0]);
     event.target.value = "";
   };
 
   const onReferenceDrop = (event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
     setDraggingReference(false);
-    setFile(event.dataTransfer.files?.[0]);
+    chooseReferenceFile(event.dataTransfer.files?.[0]);
+  };
+
+  const uploadCreativeAsset = async (
+    taskId: string,
+    file: File,
+    assetRole: "reference" | "drive_file",
+  ) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("asset_role", assetRole);
+    const uploadResponse = await fetch(`/api/tasks/${taskId}/creative-reference`, {
+      method: "POST",
+      body: formData,
+    });
+    const uploaded = (await uploadResponse.json().catch(() => ({}))) as {
+      reference?: string;
+      file_name?: string;
+      error?: string;
+    };
+    if (!uploadResponse.ok || !uploaded.reference) {
+      throw new Error(uploaded.error || t("creativeBrief.attachmentUploadFailed"));
+    }
+    return { fileName: uploaded.file_name ?? file.name, reference: uploaded.reference };
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -335,20 +399,24 @@ export default function CreativeBriefingForm({
 
     setSubmitting(true);
     try {
+      const descriptionInput = {
+        designerNames: selectedDesigners.map((designer) => designer.name),
+        brandName: selectedCompany.name,
+        videoSizes,
+        formats: selectedFormats.map((option) => option.label),
+        brandRules,
+        description: briefDescription,
+        driveUrl,
+        visualReferenceUrl,
+        priority,
+        dueDate,
+        estimatedHours,
+      };
       const description = buildCreativeBriefingDescription(
         {
-          designerNames: selectedDesigners.map((designer) => designer.name),
-          brandName: selectedCompany.name,
-          videoSizes,
-          formats: selectedFormats.map((option) => option.label),
-          brandRules,
-          description: briefDescription,
-          driveUrl,
-          visualReferenceUrl,
+          ...descriptionInput,
+          driveFiles: driveFiles.map((file) => ({ name: file.name })),
           referenceFileName: referenceFile?.name,
-          priority,
-          dueDate,
-          estimatedHours,
         },
         language,
       );
@@ -375,38 +443,37 @@ export default function CreativeBriefingForm({
         throw new Error(created.error || t("creativeBrief.submitFailed"));
       }
 
-      let referenceUploadFailed = false;
+      let attachmentsUploadFailed = false;
+      const uploadedDriveFiles = await Promise.all(
+        driveFiles.map(async (file) => {
+          try {
+            return await uploadCreativeAsset(created.id, file, "drive_file");
+          } catch {
+            attachmentsUploadFailed = true;
+            return null;
+          }
+        }),
+      );
+      let uploadedReference: { fileName: string; reference: string } | null = null;
       if (referenceFile) {
         try {
-          const formData = new FormData();
-          formData.append("file", referenceFile);
-          const uploadResponse = await fetch(`/api/tasks/${created.id}/creative-reference`, {
-            method: "POST",
-            body: formData,
-          });
-          const uploaded = (await uploadResponse.json().catch(() => ({}))) as {
-            reference?: string;
-            file_name?: string;
-            error?: string;
-          };
-          if (!uploadResponse.ok || !uploaded.reference) {
-            throw new Error(uploaded.error || t("creativeBrief.referenceUploadFailed"));
-          }
+          uploadedReference = await uploadCreativeAsset(created.id, referenceFile, "reference");
+        } catch {
+          attachmentsUploadFailed = true;
+        }
+      }
+
+      if (uploadedReference || uploadedDriveFiles.some((file) => file !== null)) {
+        try {
           const updatedDescription = buildCreativeBriefingDescription(
             {
-              designerNames: selectedDesigners.map((designer) => designer.name),
-              brandName: selectedCompany.name,
-              videoSizes,
-              formats: selectedFormats.map((option) => option.label),
-              brandRules,
-              description: briefDescription,
-              driveUrl,
-              visualReferenceUrl,
-              referenceFileName: uploaded.file_name ?? referenceFile.name,
-              referenceFileUrl: uploaded.reference,
-              priority,
-              dueDate,
-              estimatedHours,
+              ...descriptionInput,
+              driveFiles: driveFiles.map((file, index) => ({
+                name: uploadedDriveFiles[index]?.fileName ?? file.name,
+                url: uploadedDriveFiles[index]?.reference,
+              })),
+              referenceFileName: uploadedReference?.fileName ?? referenceFile?.name,
+              referenceFileUrl: uploadedReference?.reference,
             },
             language,
           );
@@ -415,9 +482,9 @@ export default function CreativeBriefingForm({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ description: updatedDescription }),
           });
-          if (!patchResponse.ok) throw new Error(t("creativeBrief.referenceUploadFailed"));
+          if (!patchResponse.ok) throw new Error(t("creativeBrief.attachmentUploadFailed"));
         } catch {
-          referenceUploadFailed = true;
+          attachmentsUploadFailed = true;
         }
       }
 
@@ -428,6 +495,7 @@ export default function CreativeBriefingForm({
       setBrandRules("");
       setBriefDescription("");
       setDriveUrl("");
+      setDriveFiles([]);
       setVisualReferenceUrl("");
       setPriority("medium");
       setDeadlinePreset("standard");
@@ -435,7 +503,7 @@ export default function CreativeBriefingForm({
       setReferenceFile(null);
       await onCreated(created);
       toast.success(t("creativeBrief.submitted"));
-      if (referenceUploadFailed) toast.error(t("creativeBrief.submittedReferenceFailed"));
+      if (attachmentsUploadFailed) toast.error(t("creativeBrief.submittedAttachmentsFailed"));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("creativeBrief.submitFailed"));
     } finally {
@@ -543,17 +611,75 @@ export default function CreativeBriefingForm({
           </BriefField>
 
           <BriefField label={t("creativeBrief.driveUrl")}>
-            <div className="relative">
-              <Link2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#96b7e8]" />
-              <input
-                type="url"
-                value={driveUrl}
-                onChange={(event) => setDriveUrl(event.target.value)}
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] md:items-center">
+              <div className="relative">
+                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#96b7e8]" />
+                <input
+                  type="url"
+                  value={driveUrl}
+                  onChange={(event) => setDriveUrl(event.target.value)}
+                  disabled={submitting}
+                  placeholder="https://"
+                  className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                />
+              </div>
+              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">{t("creativeBrief.or")}</span>
+              <button
+                type="button"
                 disabled={submitting}
-                placeholder="https://"
-                className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                onClick={() => driveFileInputRef.current?.click()}
+                onDragEnter={() => setDraggingDriveFiles(true)}
+                onDragLeave={() => setDraggingDriveFiles(false)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={onDriveFilesDrop}
+                className={cn(
+                  "flex min-h-[52px] items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-3 text-left transition",
+                  draggingDriveFiles
+                    ? "border-[#5ca0ff] bg-[#10366b]/70"
+                    : "border-[#3b679e] bg-[#06162d] hover:border-[#5ca0ff] hover:bg-[#0b2144]",
+                  submitting && "cursor-not-allowed opacity-60",
+                )}
+              >
+                <Upload className="h-5 w-5 shrink-0 text-[#89b4f5]" />
+                <span className="text-sm font-semibold text-white">{t("creativeBrief.driveUpload")}</span>
+              </button>
+              <input
+                ref={driveFileInputRef}
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,application/pdf"
+                className="hidden"
+                onChange={onDriveFilesInput}
               />
             </div>
+            <p className="mt-2 text-xs text-[#92a8cb]">{t("creativeBrief.driveUploadHint")}</p>
+            {driveFiles.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {driveFiles.map((file) => (
+                  <li
+                    key={fileKey(file)}
+                    className="flex items-center gap-2 rounded-lg border border-[#315c94] bg-[#081a34] px-3 py-2 text-sm text-[#d7e5ff]"
+                  >
+                    <Paperclip className="h-4 w-4 shrink-0 text-[#75adff]" />
+                    <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                    <span className="shrink-0 text-xs text-[#9eb7dd]">{Math.ceil(file.size / 1024)} KB</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDriveFiles((current) =>
+                          current.filter((candidate) => fileKey(candidate) !== fileKey(file)),
+                        )
+                      }
+                      className="rounded p-1 text-[#b4c9e9] transition hover:bg-white/10 hover:text-white"
+                      aria-label={t("creativeBrief.removeFile")}
+                      title={t("creativeBrief.removeFile")}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </BriefField>
 
           <BriefField label={t("creativeBrief.visualReference")}>

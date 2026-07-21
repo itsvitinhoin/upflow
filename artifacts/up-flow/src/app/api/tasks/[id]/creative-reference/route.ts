@@ -71,6 +71,16 @@ async function POST_handler(
   }
 
   const form = await req.formData().catch(() => null);
+  const assetRoleValue = form?.get("asset_role");
+  if (
+    assetRoleValue !== null &&
+    assetRoleValue !== undefined &&
+    assetRoleValue !== "reference" &&
+    assetRoleValue !== "drive_file"
+  ) {
+    return NextResponse.json({ error: "Invalid creative asset role" }, { status: 400 });
+  }
+  const assetRole = assetRoleValue === "drive_file" ? "drive_file" : "reference";
   const file = form?.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Reference file is required" }, { status: 400 });
@@ -86,7 +96,7 @@ async function POST_handler(
   const contentType = typeFromBytes(bytes);
   if (!contentType) {
     return NextResponse.json(
-      { error: "Upload a real JPG, PNG, or PDF reference file" },
+      { error: "Upload a real JPG, PNG, or PDF file" },
       { status: 400 },
     );
   }
@@ -115,7 +125,7 @@ async function POST_handler(
     );
   }
 
-  if (contentType !== "application/pdf") {
+  if (contentType !== "application/pdf" && assetRole !== "drive_file") {
     await prisma.task.update({
       where: { id: task.id },
       data: { cover_image_url: reference },
@@ -125,7 +135,8 @@ async function POST_handler(
   return NextResponse.json({
     reference,
     file_name: safeFileName(file.name),
-    cover_image_url: contentType === "application/pdf" ? null : reference,
+    asset_role: assetRole,
+    cover_image_url: contentType === "application/pdf" || assetRole === "drive_file" ? null : reference,
   });
 }
 

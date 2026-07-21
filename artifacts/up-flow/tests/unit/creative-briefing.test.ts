@@ -24,6 +24,12 @@ test("creative briefing descriptions stay parseable as normal UP Flow task brief
     brandRules: "Use the current campaign color palette.",
     description: "Create the launch assets for the August campaign.",
     driveUrl: "https://drive.example.com/folder",
+    driveFiles: [
+      {
+        name: "brand-assets.pdf",
+        url: "task-asset://workspace/task/brand-assets.pdf",
+      },
+    ],
     visualReferenceUrl: "https://example.com/reference",
     referenceFileName: "reference.pdf",
     referenceFileUrl: "task-asset://workspace/task/reference.pdf",
@@ -50,6 +56,12 @@ test("creative briefing descriptions stay parseable as normal UP Flow task brief
         item.label === "Description" && item.value === "Create the launch assets for the August campaign.",
     ),
   );
+  assert.ok(
+    parsed?.details.some(
+      (item) => item.label === "Drive / photos file" && item.value === "brand-assets.pdf",
+    ),
+  );
+  assert.ok(parsed?.details.some((item) => item.label === "Drive / photos file link"));
   assert.ok(parsed?.details.some((item) => item.label === "Reference file link"));
   assert.ok((parsed?.checklist.length ?? 0) >= 4);
   assert.equal(buildCreativeBriefingTitle("Acme", "Carousel"), "Creative briefing: Acme - Carousel");
@@ -66,6 +78,7 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   const toolbar = read("src/components/projects/project-toolbar.tsx");
   const board = read("src/components/projects/kanban-board.tsx");
   const form = read("src/components/projects/creative-briefing-form.tsx");
+  const taskDetail = read("src/components/projects/task-detail-sheet.tsx");
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const referenceRoute = read("src/app/api/tasks/[id]/creative-reference/route.ts");
   const assetsRoute = read("src/app/api/task-assets/[...path]/route.ts");
@@ -83,11 +96,17 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(form, /type="checkbox"/);
   assert.match(form, /creativeBrief\.description/);
   assert.match(form, /referenceImagePreview/);
+  assert.match(form, /driveFiles/);
+  assert.match(form, /multiple/);
+  assert.match(form, /asset_role/);
   assert.match(form, /setDeadlinePreset\(preset\)/);
   assert.match(tasksRoute, /company_id\?: string \| null/);
   assert.match(tasksRoute, /Tasks in a client project must stay linked to that client/);
   assert.match(referenceRoute, /MAX_REFERENCE_BYTES = 20 \* 1024 \* 1024/);
   assert.match(referenceRoute, /application\/pdf/);
+  assert.match(referenceRoute, /assetRoleValue/);
+  assert.match(referenceRoute, /drive_file/);
   assert.match(referenceRoute, /canContributeToProject/);
   assert.match(assetsRoute, /description: \{ contains: reference \}/);
+  assert.match(taskDetail, /structuredBrief\.details\.slice\(0, 24\)/);
 });

@@ -10,6 +10,7 @@ export interface CreativeBriefingDescriptionInput {
   brandRules?: string | null;
   description?: string | null;
   driveUrl?: string | null;
+  driveFiles?: Array<{ name: string; url?: string | null }> | null;
   visualReferenceUrl?: string | null;
   referenceFileName?: string | null;
   referenceFileUrl?: string | null;
@@ -30,6 +31,8 @@ const COPY: Record<CreativeBriefingLocale, {
   brandRules: string;
   description: string;
   driveUrl: string;
+  driveFile: string;
+  driveFileLink: string;
   visualReferenceUrl: string;
   referenceFile: string;
   priority: string;
@@ -50,6 +53,8 @@ const COPY: Record<CreativeBriefingLocale, {
     brandRules: "Brand rules and conditions",
     description: "Description",
     driveUrl: "Drive / photos link",
+    driveFile: "Drive / photos file",
+    driveFileLink: "Drive / photos file link",
     visualReferenceUrl: "Visual reference URL",
     referenceFile: "Reference file",
     priority: "Priority",
@@ -75,6 +80,8 @@ const COPY: Record<CreativeBriefingLocale, {
     brandRules: "Regras e condições da marca",
     description: "Descrição",
     driveUrl: "Link de Drive / fotos",
+    driveFile: "Arquivo do Drive / fotos",
+    driveFileLink: "Link do arquivo do Drive / fotos",
     visualReferenceUrl: "URL de referência visual",
     referenceFile: "Arquivo de referência",
     priority: "Prioridade",
@@ -138,6 +145,12 @@ export function buildCreativeBriefingDescription(
   if (input.description) details.splice(5, 0, [copy.description, input.description]);
   if (input.dueDate) details.push([copy.deadline, input.dueDate]);
   if (input.driveUrl) details.push([copy.driveUrl, input.driveUrl]);
+  for (const file of input.driveFiles ?? []) {
+    const name = singleLine(file.name);
+    if (!name) continue;
+    details.push([copy.driveFile, name]);
+    if (file.url) details.push([copy.driveFileLink, file.url]);
+  }
   if (input.visualReferenceUrl) details.push([copy.visualReferenceUrl, input.visualReferenceUrl]);
   if (input.referenceFileName) details.push([copy.referenceFile, input.referenceFileName]);
   if (input.referenceFileUrl) details.push([`${copy.referenceFile} link`, input.referenceFileUrl]);

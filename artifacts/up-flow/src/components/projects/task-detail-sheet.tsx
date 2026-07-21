@@ -399,7 +399,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                 </div>
                 {structuredBrief.details.length > 0 && (
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {structuredBrief.details.slice(0, 12).map((item) => {
+                    {structuredBrief.details.slice(0, 24).map((item) => {
                       const assetPath = getTaskAssetPath(item.value);
                       const assetUrl = assetPath
                         ? `/api/task-assets/${assetPath.split("/").map(encodeURIComponent).join("/")}`
