@@ -15,14 +15,8 @@ import {
 } from "lucide-react";
 import Header from "@/components/layout/header";
 import InviteDialog from "@/components/dashboard/invite-dialog";
-import {
-  CreateTesterAccountDialog,
-  ManageDepartmentsDialog,
-} from "@/components/team/team-management-dialogs";
-import {
-  EmailSetupWarning,
-  TesterInvitePanel,
-} from "@/components/team/team-invite-panels";
+import { ManageDepartmentsDialog } from "@/components/team/team-management-dialogs";
+import { EmailSetupWarning } from "@/components/team/team-invite-panels";
 import ServiceLeaderMappingPanel from "@/components/team/service-leader-mapping-panel";
 import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
 import { cn, getInitials } from "@/lib/utils";
@@ -35,7 +29,6 @@ import {
   type EmailStatus,
   type PendingInvite,
   type TeamOverview,
-  type TesterWorkspace,
 } from "@/components/team/team-page-types";
 
 export default function TeamPage() {
@@ -52,19 +45,12 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [resending, setResending] = useState<string | null>(null);
   const [cancelingInvite, setCancelingInvite] = useState<string | null>(null);
-  const [resettingTester, setResettingTester] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [showEmpty, setShowEmpty] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [testerInviteOpen, setTesterInviteOpen] = useState(false);
-  const [testerAccountOpen, setTesterAccountOpen] = useState(false);
-  const [inviteDiagnosticsLoaded, setInviteDiagnosticsLoaded] = useState(false);
-  const [testerWorkspace, setTesterWorkspace] = useState<TesterWorkspace | null>(null);
-  const [testerInvites, setTesterInvites] = useState<PendingInvite[]>([]);
-  const [settingUpTesterWorkspace, setSettingUpTesterWorkspace] = useState(false);
 
   // Mirrors the server's `isWorkspaceAdmin` semantics: workspace owner/admin
   // OR cross-workspace super-admin can manage departments + assignments.
@@ -119,52 +105,6 @@ export default function TeamPage() {
       setEmailStatus(null);
     }
   }, []);
-
-  const loadTesterInvites = useCallback(async (targetWorkspaceId: string) => {
-    try {
-      const qs = new URLSearchParams({
-        scope: "testers",
-        include: "all",
-        workspace_id: targetWorkspaceId,
-      });
-      const r = await fetch(`/api/invites?${qs.toString()}`);
-      if (!r.ok) return;
-      const data = (await r.json()) as PendingInvite[];
-      setTesterInvites(Array.isArray(data) ? data : []);
-    } catch {
-      /* noop */
-    }
-  }, []);
-
-  const ensureTesterWorkspace = useCallback(
-    async (options?: { openDialog?: boolean }) => {
-      setSettingUpTesterWorkspace(true);
-      setToast(null);
-      try {
-        const r = await fetch("/api/testers/workspace", { method: "POST" });
-        const data = (await r.json().catch(() => ({}))) as {
-          workspace?: TesterWorkspace;
-          error?: string;
-        };
-        if (!r.ok || !data.workspace) {
-          setToast(data.error || "Couldn't prepare the tester workspace");
-          return null;
-        }
-        setTesterWorkspace(data.workspace);
-        await loadTesterInvites(data.workspace.id);
-        if (options?.openDialog) {
-          setTesterInviteOpen(true);
-        }
-        return data.workspace;
-      } catch {
-        setToast("Couldn't prepare the tester workspace");
-        return null;
-      } finally {
-        setSettingUpTesterWorkspace(false);
-      }
-    },
-    [loadTesterInvites],
-  );
 
   const loadDepartments = useCallback(async (wsId: string) => {
     try {
@@ -373,11 +313,7 @@ export default function TeamPage() {
         } else {
           setToast(t("team.inviteDeliveryNotConfirmed"));
         }
-        if (invite.tester_invite && invite.workspace?.id) {
-          loadTesterInvites(invite.workspace.id);
-        } else {
-          loadPending();
-        }
+        loadPending();
       }
     } catch {
       setToast(t("team.couldNotResend", { email: invite.email }));
@@ -402,66 +338,11 @@ export default function TeamPage() {
         return;
       }
       setToast(t("team.inviteCanceled", { email: invite.email }));
-      if (invite.tester_invite && invite.workspace?.id) {
-        loadTesterInvites(invite.workspace.id);
-      } else {
-        loadPending();
-      }
+      loadPending();
     } catch {
       setToast(t("team.couldNotCancelInvite", { email: invite.email }));
     } finally {
       setCancelingInvite(null);
-    }
-  }
-
-  async function resetTesterAccount(defaultEmail?: string) {
-    const email = window
-      .prompt(
-        "Reset which tester email? This removes their app account, auth account, memberships, and invite history so they can sign up again.",
-        defaultEmail || "victorcheunin@gmail.com",
-      )
-      ?.trim()
-      .toLowerCase();
-    if (!email) return;
-    if (
-      !window.confirm(
-        `Reset ${email}? This is destructive and cannot be undone. Send a fresh invite after reset.`,
-      )
-    ) {
-      return;
-    }
-
-    setResettingTester(true);
-    setToast(null);
-    try {
-      const r = await fetch("/api/testers/reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const json = (await r.json().catch(() => ({}))) as {
-        error?: string;
-        app_user_deleted?: boolean;
-        invites_deleted?: number;
-        supabase_auth_deleted?: number;
-        supabase_auth_error?: string | null;
-      };
-      if (!r.ok) {
-        setToast(json.error || `Couldn't reset ${email}`);
-        return;
-      }
-      setToast(
-        `Reset ${email}. App user: ${json.app_user_deleted ? "deleted" : "not found"}, auth users deleted: ${json.supabase_auth_deleted ?? 0}, invites deleted: ${json.invites_deleted ?? 0}.`,
-      );
-      if (json.supabase_auth_error) {
-        setToast(`Reset app data for ${email}, but Supabase auth reported: ${json.supabase_auth_error}`);
-      }
-      loadPending();
-      if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
-    } catch {
-      setToast(`Couldn't reset ${email}`);
-    } finally {
-      setResettingTester(false);
     }
   }
 
@@ -535,39 +416,6 @@ export default function TeamPage() {
 
         {isAdmin && emailStatus && !emailStatus.ready && (
           <EmailSetupWarning status={emailStatus} />
-        )}
-
-        {isSuperAdmin && (
-          <details className="mb-4 rounded-xl border border-border bg-card/50 p-3">
-            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-              {t("team.sandboxTools")}
-            </summary>
-            <div className="mt-3">
-              <TesterInvitePanel
-                workspace={testerWorkspace}
-                invites={testerInvites}
-                settingUp={settingUpTesterWorkspace}
-                resending={resending}
-                canceling={cancelingInvite}
-                onPrepare={() => ensureTesterWorkspace()}
-                onViewMembers={() => {
-                  if (testerWorkspace) loadTeamOverview(testerWorkspace.id);
-                }}
-                onInvite={() => {
-                  ensureTesterWorkspace({ openDialog: true });
-                }}
-                onCreateAccount={() => {
-                  ensureTesterWorkspace().then((workspace) => {
-                    if (workspace) setTesterAccountOpen(true);
-                  });
-                }}
-                onResend={resendInvite}
-                onCancel={cancelInvite}
-                onReset={resetTesterAccount}
-                resetting={resettingTester}
-              />
-            </div>
-          </details>
         )}
 
         <div className="mb-4 flex items-center gap-3 flex-wrap">
@@ -909,37 +757,6 @@ export default function TeamPage() {
             setInviteOpen(false);
             loadPending();
             loadEmailStatus();
-          }}
-        />
-        <InviteDialog
-          open={testerInviteOpen}
-          title={t("team.testerInviteTitle")}
-          description={
-            testerWorkspace
-              ? t("team.testerInviteDescriptionWithWorkspace", { workspace: testerWorkspace.name })
-              : t("team.testerInviteDescriptionFallback")
-          }
-          submitLabel={t("team.sendTesterInvites")}
-          successLabel={t("invite.successDefault")}
-          defaultRole="member"
-          testerMode
-          workspaceId={testerWorkspace?.id}
-          onSuccess={() => {
-            if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
-          }}
-          onClose={() => {
-            setTesterInviteOpen(false);
-            if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
-            loadEmailStatus();
-          }}
-        />
-        <CreateTesterAccountDialog
-          open={testerAccountOpen}
-          workspace={testerWorkspace}
-          onClose={() => setTesterAccountOpen(false)}
-          onCreated={() => {
-            clearCachedJson("team:overview");
-            if (testerWorkspace) loadTesterInvites(testerWorkspace.id);
           }}
         />
       </div>

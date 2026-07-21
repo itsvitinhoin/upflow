@@ -150,7 +150,7 @@ test("team page makes real workspace user invites the primary flow", () => {
   assert.match(inviteDialog, /t\("invite\.ownWorkspace"\)/);
   assert.match(inviteDialog, /t\("invite\.workspaceAccess"\)/);
   assert.match(inviteDialog, /hideRole/);
-  assert.match(teamPage, /t\("team\.sandboxTools"\)/);
+  assert.doesNotMatch(teamPage, /t\("team\.sandboxTools"\)/);
 });
 
 test("team keeps onboarding ownership setup progressively disclosed", () => {
@@ -263,19 +263,19 @@ test("invite secrets are hashed, expiring, and absent from public previews", () 
   assert.doesNotMatch(acceptPage, /\{info\.email\}/);
 });
 
-test("tester invites remain available as optional sandbox tools", () => {
+test("tester workflows remain available without Team-page sandbox controls", () => {
   assert.match(schema, /tester_invite\s+Boolean\s+@default\(false\)/);
   assert.match(schema, /send_status\s+InviteSendStatus\s+@default\(pending\)/);
   assert.match(route, /workspace_id/);
   assert.match(route, /tester_invite/);
   assert.match(testerWorkspaceRoute, /ensureTesterWorkspace/);
-  assert.match(teamPage, /TesterInvitePanel/);
+  assert.doesNotMatch(teamPage, /TesterInvitePanel/);
   assert.match(teamInvitePanels, /t\("invite\.testerWorkspaceTitle"\)/);
   assert.doesNotMatch(teamPage, /lockRole/);
-  assert.match(teamPage, /t\("team\.testerInviteDescriptionWithWorkspace"/);
-  assert.match(teamPage, /testerMode/);
-  assert.match(teamPage, /\/api\/testers\/workspace/);
-  assert.match(teamPage, /loadTeamOverview\(testerWorkspace\.id\)/);
+  assert.doesNotMatch(teamPage, /t\("team\.testerInviteDescriptionWithWorkspace"/);
+  assert.doesNotMatch(teamPage, /testerMode/);
+  assert.doesNotMatch(teamPage, /\/api\/testers\/workspace/);
+  assert.doesNotMatch(teamPage, /loadTeamOverview\(testerWorkspace\.id\)/);
   assert.match(teamInvitePanels, /t\("invite\.viewTesterMembers"\)/);
   assert.match(route, /reconcileAcceptedWorkspaceInvites\(targetWorkspaceId\)/);
 });
@@ -288,7 +288,7 @@ test("tester reset is super-admin only and limited to sandbox tester accounts", 
   assert.match(testerResetRoute, /TESTER_WORKSPACE_SLUG/);
   assert.match(testerResetRoute, /tester_invite:\s*true/);
   assert.match(testerResetRoute, /Tester reset is limited to sandbox tester accounts/);
-  assert.match(teamPage, /t\("team\.sandboxTools"\)/);
+  assert.doesNotMatch(teamPage, /t\("team\.sandboxTools"\)/);
   assert.match(teamInvitePanels, /t\("invite\.resetTester"\)/);
 });
 
@@ -304,7 +304,7 @@ test("manual tester accounts use Supabase auth and the isolated test workspace",
   assert.match(registerRoute, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(registerRoute, /auth\.admin\.createUser/);
   assert.match(teamInvitePanels, /t\("invite\.createTesterAccount"\)/);
-  assert.match(teamPage, /CreateTesterAccountDialog/);
+  assert.doesNotMatch(teamPage, /CreateTesterAccountDialog/);
   assert.match(teamManagementDialogs, /t\("team\.copyCredentials"\)/);
   assert.match(teamManagementDialogs, /\/api\/users\/register/);
   assert.match(teamManagementDialogs, /if \(loading\) return/);
