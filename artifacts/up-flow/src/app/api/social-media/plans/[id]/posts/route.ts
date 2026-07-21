@@ -16,6 +16,7 @@ import {
   SOCIAL_MEDIA_FIELD_NAMES,
 } from "@/lib/social-media";
 
+import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 type RouteContext = { params: Promise<{ id: string }> };
 
 const CreatePostSchema = z.object({
@@ -195,6 +196,11 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
     return task;
   });
 
+  await notifyTaskAssignee({
+    taskId: created.id,
+    userId: assigneeId,
+    workspaceId: plan.project.workspace_id,
+  });
   await recordActivity({
     workspace_id: plan.project.workspace_id,
     actor_id: auth.prismaUser.id,

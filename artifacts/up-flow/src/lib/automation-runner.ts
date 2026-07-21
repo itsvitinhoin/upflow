@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { recordActivity } from "@/lib/activity";
 import { parseContractedServices, startClientOnboarding } from "@/lib/onboarding";
 
+import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 export const AUTOMATION_RUNNER_TRIGGERS = [
   "task_overdue",
   "task_done",
@@ -373,6 +374,11 @@ async function executeAction(input: {
         priority: getPriority(input.action.config, "priority") ?? "medium",
         description: `Created by automation rule "${input.ruleName}" from ${input.trigger}.`,
       },
+    });
+    await notifyTaskAssignee({
+      taskId: task.id,
+      userId: task.assignee_id,
+      workspaceId: input.workspaceId,
     });
     await recordActivity({
       workspace_id: input.workspaceId,

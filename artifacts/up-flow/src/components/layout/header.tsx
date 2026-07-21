@@ -26,12 +26,12 @@ interface HeaderProps {
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 30_000;
-let notificationCache: { items: Notification[]; loadedAt: number } | null = null;
-let notificationRequest: Promise<Notification[]> | null = null;
+let notificationCache: { userId: string; items: Notification[]; loadedAt: number } | null = null;
+let notificationRequest: { userId: string; promise: Promise<Notification[]> } | null = null;
 
-function fetchUnreadCount(force = false): Promise<number> {
+function fetchUnreadCount(userId: string, force = false): Promise<number> {
   return getCachedJson<{ unread: number }>(
-    "notifications:unread-count",
+    `notifications:unread-count:${userId}`,
     "/api/notifications/unread-count",
     { ttlMs: 30_000, force },
   )
@@ -39,30 +39,33 @@ function fetchUnreadCount(force = false): Promise<number> {
     .catch(() => 0);
 }
 
-function fetchNotificationItems(force = false): Promise<Notification[]> {
+function fetchNotificationItems(userId: string, force = false): Promise<Notification[]> {
   if (
     !force &&
-    notificationCache &&
+    notificationCache?.userId === userId &&
     Date.now() - notificationCache.loadedAt < NOTIFICATION_CACHE_TTL_MS
   ) {
     return Promise.resolve(notificationCache.items);
   }
-  if (!force && notificationRequest) return notificationRequest;
+  if (!force && notificationRequest?.userId === userId) {
+    return notificationRequest.promise;
+  }
 
-  notificationRequest = fetch("/api/notifications")
+  const request = fetch("/api/notifications")
     .then(async (res) => {
       if (!res.ok) return [];
       const data = (await res.json()) as { items: Notification[] };
       const items = data.items ?? [];
-      notificationCache = { items, loadedAt: Date.now() };
+      notificationCache = { userId, items, loadedAt: Date.now() };
       return items;
     })
-    .catch(() => [])
-    .finally(() => {
-      notificationRequest = null;
-    });
+    .catch(() => []);
 
-  return notificationRequest;
+  notificationRequest = { userId, promise: request };
+  void request.finally(() => {
+    if (notificationRequest?.promise === request) notificationRequest = null;
+  });
+  return request;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -195,9 +198,10 @@ export default function Header({ title }: HeaderProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [assistantNotification, setAssistantNotification] = useState<Notification | null>(null);
   const [notificationPreferences, setNotificationPreferences] =
-    useState<NotificationPreferences>(() => readNotificationPreferences());
+    useState<NotificationPreferences>(() => readNotificationPreferences(user?.id));
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const activeNotificationUserIdRef = useRef<string | null>(user?.id ?? null);
   const shownAssistantIdsRef = useRef<Set<string>>(new Set());
   const canCreateProject =
     user?.isSuperAdmin ||
@@ -210,7 +214,15 @@ export default function Header({ title }: HeaderProps) {
     force = false,
     options?: { showAssistant?: boolean },
   ) => {
-    const items = await fetchNotificationItems(force);
+    const userId = user?.id;
+    if (!userId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    const items = await fetchNotificationItems(userId, force);
+    if (activeNotificationUserIdRef.current !== userId) return;
     setNotifications(items);
     setUnreadCount(items.filter((n) => !n.read).length);
     if (options?.showAssistant && notificationPreferences.assistantPopups) {
@@ -224,24 +236,42 @@ export default function Header({ title }: HeaderProps) {
         setAssistantNotification(nextNotification);
       }
     }
-  }, [notificationPreferences.assistantPopups]);
+  }, [user?.id, notificationPreferences.assistantPopups]);
 
   useEffect(() => {
-    const onPreferencesChanged = () => {
-      setNotificationPreferences(readNotificationPreferences());
+    activeNotificationUserIdRef.current = user?.id ?? null;
+    shownAssistantIdsRef.current.clear();
+    setAssistantNotification(null);
+    setNotifications([]);
+    setUnreadCount(0);
+
+    const onPreferencesChanged = (event?: Event) => {
+      const detail = event instanceof CustomEvent
+        ? (event.detail as { userId?: string } | undefined)
+        : undefined;
+      if (detail?.userId && detail.userId !== user?.id) return;
+      setNotificationPreferences(readNotificationPreferences(user?.id));
     };
+    onPreferencesChanged();
     window.addEventListener(NOTIFICATION_PREFERENCES_EVENT, onPreferencesChanged);
     window.addEventListener("storage", onPreferencesChanged);
     return () => {
       window.removeEventListener(NOTIFICATION_PREFERENCES_EVENT, onPreferencesChanged);
       window.removeEventListener("storage", onPreferencesChanged);
     };
-  }, []);
+  }, [user?.id]);
 
   const refreshUnreadCount = useCallback(async (force = false) => {
-    const count = await fetchUnreadCount(force);
-    setUnreadCount(count);
-  }, []);
+    const userId = user?.id;
+    if (!userId) {
+      setUnreadCount(0);
+      return;
+    }
+    const count = await fetchUnreadCount(userId, force);
+    if (activeNotificationUserIdRef.current === userId) {
+      setUnreadCount(count);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -320,7 +350,9 @@ export default function Header({ title }: HeaderProps) {
     setUnreadCount(0);
     setNotifications((prev) => {
       const next = prev.map((n) => ({ ...n, read: true }));
-      notificationCache = { items: next, loadedAt: Date.now() };
+      notificationCache = user?.id
+        ? { userId: user.id, items: next, loadedAt: Date.now() }
+        : null;
       return next;
     });
   };
@@ -333,7 +365,9 @@ export default function Header({ title }: HeaderProps) {
         const next = prev.map((n) =>
           n.id === notification.id ? { ...n, read: true } : n,
         );
-        notificationCache = { items: next, loadedAt: Date.now() };
+        notificationCache = user?.id
+          ? { userId: user.id, items: next, loadedAt: Date.now() }
+          : null;
         return next;
       });
       fetch(`/api/notifications/${notification.id}`, {

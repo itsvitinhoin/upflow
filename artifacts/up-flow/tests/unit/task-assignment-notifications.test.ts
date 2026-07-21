@@ -22,18 +22,41 @@ test("task assignee pickers are scoped to active workspace members", () => {
   assert.match(usersRoute, /membershipStatus/);
 });
 
-test("task assignment validates active members and creates assignment notifications", () => {
+test("task assignment validates active members and routes delivery through the durable notifier", () => {
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
   const projectAccess = read("src/lib/project-access.ts");
+  const assignmentNotifier = read("src/lib/task-assignment-notifications.ts");
 
   assert.match(projectAccess, /status:\s*"active"/);
-  assert.match(tasksRoute, /type:\s*"assigned"/);
-  assert.match(taskRoute, /type:\s*"assigned"/);
-  assert.match(tasksRoute, /broadcastNotification\(assignee_id\)/);
-  assert.match(taskRoute, /broadcastNotification\(assignee_id\)/);
+  assert.match(tasksRoute, /notifyTaskAssignee\(/);
+  assert.match(taskRoute, /notifyTaskAssignee\(/);
+  assert.match(assignmentNotifier, /type:\s*"assigned"/);
+  assert.match(assignmentNotifier, /await broadcastNotification\(input\.userId\)/);
   assert.match(tasksRoute, /Assignee is not an active member with access to this project/);
   assert.match(taskRoute, /Assignee is not an active member with access to this project/);
+});
+
+test("automation and Social Media task creation notify the actual task assignee", () => {
+  const automationRunner = read("src/lib/automation-runner.ts");
+  const socialMediaPlanRoute = read("src/app/api/projects/[id]/social-media/route.ts");
+  const socialMediaPostRoute = read("src/app/api/social-media/plans/[id]/posts/route.ts");
+
+  assert.match(automationRunner, /notifyTaskAssignee\(\{\s*taskId: task\.id/);
+  assert.match(socialMediaPlanRoute, /taskId: result\.moodboardTaskId/);
+  assert.match(socialMediaPlanRoute, /result\.contentTaskIds\.map/);
+  assert.match(socialMediaPostRoute, /notifyTaskAssignee\(\{\s*taskId: created\.id/);
+});
+
+test("onboarding form reassignment updates the form task without requiring a matching meeting", () => {
+  const onboardingRoute = read("src/app/api/onboarding/[id]/route.ts");
+
+  assert.match(onboardingRoute, /onboardingMeeting\.findUnique/);
+  assert.match(onboardingRoute, /if \(meeting\)/);
+  assert.match(onboardingRoute, /marketingB2BOnboardingForm\.findFirst/);
+  assert.match(onboardingRoute, /marketingB2COnboardingForm\.findFirst/);
+  assert.match(onboardingRoute, /data: \{ assignee_id: nextLeaderId \}/);
+  assert.match(onboardingRoute, /label: `Complete \$\{b2bForm/);
 });
 
 test("task assignment notifications navigate to the exact assigned task", () => {
@@ -115,4 +138,17 @@ test("unified task creator requires an explicit title and prevents duplicate sub
   assert.match(taskCreator, /initialCustomFieldValues\?: Record<string, unknown>/);
   assert.match(taskCreator, /onCreated: \(task: Task\) => void/);
   assert.match(taskCreator, /setDiscardOpen\(true\)/);
+});
+
+test("assignment popup state is scoped to the signed-in user", () => {
+  const preferences = read("src/lib/notification-preferences.ts");
+  const header = read("src/components/layout/header.tsx");
+  const inbox = read("src/app/(dashboard)/inbox/page.tsx");
+
+  assert.match(preferences, /NOTIFICATION_PREFERENCES_KEY_PREFIX/);
+  assert.match(preferences, /:\$\{userId\}/);
+  assert.match(header, /notificationCache\?\.userId === userId/);
+  assert.match(header, /notifications:unread-count:\$\{userId\}/);
+  assert.match(header, /readNotificationPreferences\(user\?\.id\)/);
+  assert.match(inbox, /writeNotificationPreferences\(user\?\.id, next\)/);
 });

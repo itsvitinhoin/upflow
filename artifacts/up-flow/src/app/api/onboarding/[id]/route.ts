@@ -6,6 +6,8 @@ import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import {
   financeRegistrationComplete,
+  isMarketingB2BFormService,
+  isMarketingB2CFormService,
   loadOnboardingAccess,
   onboardingSelect,
   overrideUpZeroMarketingB2BGate,
@@ -235,16 +237,23 @@ async function PATCH_handler(
           status: parsed.data.service_assignment.leader_id ? "assigned" : "unassigned",
         },
       });
-      const meeting = await tx.onboardingMeeting.update({
+      const service = parsed.data.service_assignment.service;
+      const meeting = await tx.onboardingMeeting.findUnique({
         where: {
           onboarding_id_service: {
             onboarding_id: id,
-            service: parsed.data.service_assignment.service,
+            service,
           },
         },
-        data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
+        select: { id: true, checklist_item_id: true },
       });
-      if (meeting.checklist_item_id) {
+      if (meeting) {
+        await tx.onboardingMeeting.update({
+          where: { id: meeting.id },
+          data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
+        });
+      }
+      if (meeting?.checklist_item_id) {
         const projectContext = access.onboarding.project_id
           ? await tx.project.findUnique({
               where: { id: access.onboarding.project_id },
@@ -312,6 +321,53 @@ async function PATCH_handler(
           label: `Schedule ${service} onboarding meeting`,
           companyId: access.onboarding.company_id,
         });
+      }
+      const b2bForm = isMarketingB2BFormService(service)
+        ? await tx.marketingB2BOnboardingForm.findFirst({
+            where: { onboarding_id: id },
+            orderBy: [{ updated_at: "desc" }, { created_at: "desc" }, { id: "asc" }],
+            select: {
+              task_id: true,
+              checklist_item_id: true,
+              task: { select: { assignee_id: true } },
+            },
+          })
+        : null;
+      const b2cForm = !b2bForm && isMarketingB2CFormService(service)
+        ? await tx.marketingB2COnboardingForm.findFirst({
+            where: { onboarding_id: id },
+            orderBy: [{ updated_at: "desc" }, { created_at: "desc" }, { id: "asc" }],
+            select: {
+              task_id: true,
+              checklist_item_id: true,
+              task: { select: { assignee_id: true } },
+            },
+          })
+        : null;
+      const form = b2bForm ?? b2cForm;
+      if (form) {
+        const nextLeaderId = parsed.data.service_assignment.leader_id ?? null;
+        await Promise.all([
+          tx.onboardingChecklistItem.update({
+            where: { id: form.checklist_item_id },
+            data: { owner_id: nextLeaderId },
+          }),
+          tx.task.update({
+            where: { id: form.task_id },
+            data: { assignee_id: nextLeaderId },
+          }),
+        ]);
+        if (nextLeaderId && form.task.assignee_id !== nextLeaderId) {
+          notificationTargets.push({
+            userId: nextLeaderId,
+            taskId: form.task_id,
+            workspaceId: access.onboarding.workspace_id,
+            onboardingId: id,
+            actorId: auth.prismaUser.id,
+            label: `Complete ${b2bForm ? "Marketing B2B" : "Marketing B2C"} onboarding form`,
+            companyId: access.onboarding.company_id,
+          });
+        }
       }
       const missingLeader = await tx.onboardingServiceAssignment.findFirst({
         where: {

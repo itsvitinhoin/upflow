@@ -29,9 +29,12 @@ test("create operations write activity records for traceability", () => {
 test("task save does not fail just because realtime notification broadcast fails", () => {
   const createRoute = source("app/api/tasks/route.ts");
   const updateRoute = source("app/api/tasks/[id]/route.ts");
+  const assignmentNotifier = source("lib/task-assignment-notifications.ts");
 
-  assert.match(createRoute, /broadcastNotification\(assignee_id\)\.catch/);
-  assert.match(updateRoute, /broadcastNotification\(assignee_id\)\.catch/);
+  assert.match(createRoute, /notifyTaskAssignee\(/);
+  assert.match(updateRoute, /notifyTaskAssignee\(/);
+  assert.match(assignmentNotifier, /await broadcastNotification\(input\.userId\);/);
+  assert.match(assignmentNotifier, /catch \(error\)/);
   assert.match(updateRoute, /broadcastNotification\(userId\)\.catch/);
 });
 

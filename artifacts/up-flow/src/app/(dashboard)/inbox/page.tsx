@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
+import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
 import { logError } from "@/lib/log-error";
 import {
@@ -138,13 +139,14 @@ function writeSnoozedNotifications(value: Record<string, number>) {
 
 export default function InboxPage() {
   const { language, t } = useLanguage();
+  const user = useAppUser();
   const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
   const [snoozedUntil, setSnoozedUntil] = useState<Record<string, number>>({});
   const [notificationPreferences, setNotificationPreferences] =
-    useState<NotificationPreferences>(() => readNotificationPreferences());
+    useState<NotificationPreferences>(() => readNotificationPreferences(user?.id));
 
   const load = useCallback(async () => {
     try {
@@ -166,8 +168,8 @@ export default function InboxPage() {
 
   useEffect(() => {
     setSnoozedUntil(readSnoozedNotifications());
-    setNotificationPreferences(readNotificationPreferences());
-  }, []);
+    setNotificationPreferences(readNotificationPreferences(user?.id));
+  }, [user?.id]);
 
   const activeNotifications = useMemo(() => {
     const now = Date.now();
@@ -234,7 +236,7 @@ export default function InboxPage() {
       ...notificationPreferences,
       assistantPopups: !notificationPreferences.assistantPopups,
     };
-    writeNotificationPreferences(next);
+    writeNotificationPreferences(user?.id, next);
     setNotificationPreferences(next);
     toast.success(
       next.assistantPopups

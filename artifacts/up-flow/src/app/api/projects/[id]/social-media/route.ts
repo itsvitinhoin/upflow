@@ -22,6 +22,7 @@ import {
 } from "@/lib/social-media-plan";
 
 type RouteContext = { params: Promise<{ id: string }> };
+import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 
 const CreatePlanSchema = z.object({
   company_id: z.string().uuid().optional(),
@@ -374,6 +375,20 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
     );
   }
 
+  await Promise.all([
+    notifyTaskAssignee({
+      taskId: result.moodboardTaskId,
+      userId: designerId ?? socialManagerId,
+      workspaceId: project.workspace_id,
+    }),
+    ...result.contentTaskIds.map((taskId) =>
+      notifyTaskAssignee({
+        taskId,
+        userId: socialManagerId,
+        workspaceId: project.workspace_id,
+      }),
+    ),
+  ]);
   await recordActivity({
     workspace_id: project.workspace_id,
     actor_id: auth.prismaUser.id,

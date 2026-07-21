@@ -14,6 +14,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/supabase-server";
 
+import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 export { routeForService } from "@/lib/onboarding-routing";
 
 export const ONBOARDING_STATUSES = [
@@ -1209,39 +1210,19 @@ export async function sendOnboardingAssignmentNotifications(targets: OnboardingA
 
   let sent = 0;
   for (const target of uniqueTargets.values()) {
-    await prisma.notification
-      .create({
-        data: {
-          type: "assigned",
-          user_id: target.userId!,
-          task_id: target.taskId,
-          workspace_id: target.workspaceId,
-          data: {
-            source: "client_onboarding",
-            onboarding_id: target.onboardingId,
-            company_id: target.companyId,
-            label: target.label,
-            task_title: target.label,
-          },
-        },
-      })
-      .then(() => {
-        sent += 1;
-      })
-      .catch((err) =>
-        logError("onboarding:assignment-notify", err, {
-          task_id: target.taskId,
-          user_id: target.userId,
-          onboarding_id: target.onboardingId,
-        }),
-      );
-    await broadcastNotification(target.userId!).catch((err) =>
-      logError("onboarding:assignment-broadcast", err, {
-        task_id: target.taskId,
-        user_id: target.userId,
+    const created = await notifyTaskAssignee({
+      taskId: target.taskId,
+      userId: target.userId,
+      workspaceId: target.workspaceId,
+      data: {
+        source: "client_onboarding",
         onboarding_id: target.onboardingId,
-      }),
-    );
+        company_id: target.companyId,
+        label: target.label,
+        task_title: target.label,
+      },
+    });
+    if (created) sent += 1;
   }
   return sent;
 }

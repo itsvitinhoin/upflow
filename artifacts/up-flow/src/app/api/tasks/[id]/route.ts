@@ -31,6 +31,7 @@ import {
   isSocialMediaPublicationOverdue,
   SOCIAL_MEDIA_FIELD_NAMES,
 } from "@/lib/social-media";
+import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 
 const UpdateTaskSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -347,12 +348,11 @@ async function PATCH_handler(
   }
 
   if (assignee_id && assignee_id !== oldTask.assignee_id) {
-    await prisma.notification
-      .create({ data: { type: "assigned", user_id: assignee_id, task_id: task.id } })
-      .catch((err) => logError("api:tasks:PATCH:notify", err, { task_id: task.id }));
-    await broadcastNotification(assignee_id).catch((err) =>
-      logError("api:tasks:PATCH:broadcast", err, { task_id: task.id, user_id: assignee_id }),
-    );
+    await notifyTaskAssignee({
+      taskId: task.id,
+      userId: assignee_id,
+      workspaceId: oldTask.project.workspace_id,
+    });
   }
 
   // Status-change notifications. Notify the project owner (creator) and the
