@@ -62,7 +62,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     }[] = [
       { trigger: "Invite", heading: "Invite to team" },
       { trigger: "Meeting", heading: "Schedule meeting" },
-      { trigger: "Company", heading: "Create company" },
+      { trigger: "Company", heading: "Create client" },
     ];
     for (const { trigger, heading } of overlays) {
       await openQuickCreate(page, trigger);
@@ -168,7 +168,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     await ctx.close();
   });
 
-  test("Create a Company quick action submits and closes the form", async ({
+  test("Create a standalone client quick action submits and closes the form", async ({
     browser,
     baseURL,
   }) => {
@@ -177,13 +177,13 @@ test.describe("Dashboard quick actions and task rows", () => {
     await page.goto("/");
     await openQuickCreate(page, "Company");
     const heading = page.getByRole("heading", {
-      name: "Create company",
+      name: "Create client",
       exact: true,
     });
     await expect(heading).toBeVisible();
     await page.getByPlaceholder("Acme Corp").fill(uniq("Acme"));
     await page.getByPlaceholder("acme.com", { exact: true }).fill("acme.test");
-    await page.getByRole("button", { name: /^Create$/ }).click();
+    await page.getByRole("button", { name: /^Create client$/ }).click();
     await expect(heading).toBeHidden();
 
     await ctx.close();

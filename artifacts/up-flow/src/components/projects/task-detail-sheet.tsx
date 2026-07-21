@@ -44,6 +44,8 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
   const [newSubtask, setNewSubtask] = useState("");
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [subtasksExpanded, setSubtasksExpanded] = useState(true);
+  const commentInputRef = useRef<HTMLInputElement>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
 
   const loadTaskDetails = useCallback(() => {
     fetch(`/api/tasks/${task.id}`)
@@ -255,6 +257,7 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
     userId: string,
     setText: Dispatch<SetStateAction<string>>,
     setMentionIds: Dispatch<SetStateAction<string[]>>,
+    inputRef: { current: HTMLInputElement | null },
   ) => {
     const user = users.find((item) => item.id === userId);
     if (!user) return;
@@ -262,6 +265,12 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
     setMentionIds((previous) =>
       previous.includes(user.id) ? previous : [...previous, user.id],
     );
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    });
   };
 
   return (
@@ -617,10 +626,11 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
                           <MentionPicker
                             users={users}
                             onPick={(userId) =>
-                              insertMention(userId, setReplyText, setReplyMentionIds)
+                              insertMention(userId, setReplyText, setReplyMentionIds, replyInputRef)
                             }
                           />
                           <input
+                            ref={replyInputRef}
                             value={replyText}
                             onChange={(e) => setReplyText(e.target.value)}
                             placeholder={t("task.reply")}
@@ -660,10 +670,11 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
               <MentionPicker
                 users={users}
                 onPick={(userId) =>
-                  insertMention(userId, setNewComment, setNewCommentMentionIds)
+                  insertMention(userId, setNewComment, setNewCommentMentionIds, commentInputRef)
                 }
               />
               <input
+                ref={commentInputRef}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder={t("task.addCommentWithMentions", { action: t("task.addComment") })}
