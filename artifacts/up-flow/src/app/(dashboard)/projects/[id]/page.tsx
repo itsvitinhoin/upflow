@@ -20,6 +20,7 @@ import { SpaceWorkflowStatusManager } from "@/components/spaces/space-workflow-s
 import { cn, formatDate, statusColor, statusLabel } from "@/lib/utils";
 import { getOnboardingTaskAction, workflowFormKind } from "@/lib/onboarding-task-routing";
 import { isFinanceOnboardingSpace } from "@/lib/onboarding-routing";
+import { isSocialMediaCalendarListName } from "@/lib/social-media";
 import type {
   AppUser,
   CustomFieldDefinition,
@@ -86,13 +87,7 @@ function isDesignQueueProject(project: Project | null) {
 }
 
 function isSocialMediaProject(project: Project | null) {
-  if (!project) return false;
-  const projectName = project.name.trim().toLocaleLowerCase();
-  const spaceName = project.space?.name.trim().toLocaleLowerCase();
-  return (
-    projectName === "social media" &&
-    (spaceName === "creative & design" || spaceName === "criativos & design")
-  );
+  return isSocialMediaCalendarListName(project?.name);
 }
 
 export default function ProjectPage() {
@@ -444,7 +439,17 @@ export default function ProjectPage() {
           </div>
         )}
 
-        {showWorkflowFormFirst && workflowFormTask && currentWorkflowKind ? (
+        {isSocialMedia ? (
+          <SocialMediaCalendar
+            projectId={id}
+            workspaceId={project.workspace_id}
+            tasks={tasks}
+            customFields={customFields}
+            users={users}
+            onOpenTask={handleOpenTask}
+            onRefresh={loadData}
+          />
+        ) : showWorkflowFormFirst && workflowFormTask && currentWorkflowKind ? (
           currentWorkflowKind === "finance" ? (
             <FinanceOnboardingForm taskId={workflowFormTask.id} embedded onUpdate={loadData} />
           ) : currentWorkflowKind === "support" ? (
@@ -460,16 +465,6 @@ export default function ProjectPage() {
               onUpdate={loadData}
             />
           )
-        ) : isSocialMedia ? (
-          <SocialMediaCalendar
-            projectId={id}
-            workspaceId={project.workspace_id}
-            tasks={tasks}
-            customFields={customFields}
-            users={users}
-            onOpenTask={handleOpenTask}
-            onRefresh={loadData}
-          />
         ) : (
           <>
             <ProjectToolbar

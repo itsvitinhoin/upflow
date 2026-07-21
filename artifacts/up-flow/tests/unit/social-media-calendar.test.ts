@@ -7,6 +7,7 @@ import {
   canAdvanceSocialMediaProduction,
   canSetSocialMediaPublishingStatus,
   isMoodboardReady,
+  isSocialMediaCalendarListName,
   isSocialMediaPublicationOverdue,
   moodboardStatusForTaskStatus,
   moodboardTaskStatusFor,
@@ -52,6 +53,13 @@ test("Social Media planning dates honor the month, target, and moodboard lifecyc
   assert.equal(canSetSocialMediaPublishingStatus("Published", "Awaiting Approval", "Approved"), false);
 });
 
+test("Social Media calendar detection supports existing list and space names", () => {
+  assert.equal(isSocialMediaCalendarListName("Social Media"), true);
+  assert.equal(isSocialMediaCalendarListName("Social Media Monthly Content Plan"), true);
+  assert.equal(isSocialMediaCalendarListName("Mídias Sociais"), true);
+  assert.equal(isSocialMediaCalendarListName("Design Queue"), false);
+});
+
 test("Social Media calendar is a real Creative & Design list with a secure planning surface", () => {
   const schema = read("prisma/schema.prisma");
   const component = read("src/components/projects/social-media-calendar.tsx");
@@ -68,6 +76,7 @@ test("Social Media calendar is a real Creative & Design list with a secure plann
   assert.match(schema, /social_media_plan_id/);
   assert.match(schema, /@@unique\(\[project_id, company_id, month\]\)/);
   assert.match(projectPage, /isSocialMediaProject/);
+  assert.match(projectPage, /isSocialMediaCalendarListName/);
   assert.match(projectPage, /SocialMediaCalendar/);
   assert.match(component, /Operational alerts/);
   assert.match(component, /clients without a content plan/i);

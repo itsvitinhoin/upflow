@@ -167,6 +167,28 @@ export const SOCIAL_MEDIA_LIST_PRESET: {
 export const SOCIAL_MEDIA_DEFAULT_CONTENT_TYPE = SOCIAL_MEDIA_CONTENT_TYPE_OPTIONS[0];
 export const SOCIAL_MEDIA_DEFAULT_MOODBOARD_STATUS: SocialMediaMoodboardStatus = "Not Started";
 
+/**
+ * Identify the centralized Social Media list without depending on the display
+ * name of its parent space. Existing workspaces can have renamed or localized
+ * spaces, and the legacy content-plan template uses a longer list name.
+ */
+export function isSocialMediaCalendarListName(value: string | null | undefined): boolean {
+  const normalized = value
+    ?.normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return false;
+  return (
+    normalized === "calendario de midias sociais" ||
+    normalized.startsWith("social media") ||
+    normalized.startsWith("midias sociais")
+  );
+}
+
 export function isSocialMediaMoodboardStatus(value: unknown): value is SocialMediaMoodboardStatus {
   return (
     typeof value === "string" &&
