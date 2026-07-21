@@ -398,12 +398,13 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await expect(commentInput).not.toHaveValue(/@\[/);
     await expect(commentInput).not.toHaveValue(/[0-9a-f]{8}-[0-9a-f]{4}-/i);
     await expect(commentInput).toHaveValue(/^@.+\s$/);
+    await expect(commentInput).toBeFocused();
     const commentPost = page.waitForResponse(
       (r) =>
         r.url().includes("/api/comments") && r.request().method() === "POST",
     );
-    await commentInput.pressSequentially("Looks good to me");
-    await commentInput.press("Enter");
+    await page.keyboard.pressSequentially("Looks good to me");
+    await page.keyboard.press("Enter");
     const commentResponse = await commentPost;
     expect(commentResponse.ok()).toBeTruthy();
     const payload = commentResponse.request().postDataJSON() as {
