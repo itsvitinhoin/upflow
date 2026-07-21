@@ -122,7 +122,8 @@ test("core rollout surfaces are wired to the language provider", () => {
   assert.match(time, /t\("time\.weeklyHours"\)/);
   assert.match(inviteDialog, /t\("invite\.mode"\)/);
   assert.match(inviteDialog, /inviteErrorHint\(error\.code, t\)/);
-  assert.match(teamInvitePanels, /t\("invite\.realUsersTitle"\)/);
+  assert.match(team, /t\("invite\.realUsersTitle"\)/);
+  assert.match(teamInvitePanels, /t\("invite\.testerWorkspaceTitle"\)/);
   assert.match(scheduleDialog, /t\("calendar\.scheduleMeeting"\)/);
   assert.match(errorPage, /t\("error\.pageTitle"\)/);
   assert.match(notFoundPage, /t\("error\.notFoundTitle"\)/);

@@ -111,6 +111,9 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(form, /function MultiSelectField/);
   assert.match(form, /type="checkbox"/);
   assert.match(form, /filterCreativeBriefingDesigners/);
+  assert.match(form, /api\/workspaces\/\$\{workspaceId\}\/creative-designers/);
+  assert.match(form, /creativeBrief\.setupDesigners/);
+  assert.match(projectPage, /onDesignerRosterConfigured=\{loadData\}/);
   assert.match(form, /creativeBrief\.requester/);
   assert.doesNotMatch(form, /setDesignerIds\(\[me\.id\]\)/);
   assert.match(form, /creativeBrief\.description/);

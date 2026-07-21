@@ -535,6 +535,7 @@ export default function ProjectPage() {
                 users={users}
                 me={me}
                 onCreated={loadData}
+                onDesignerRosterConfigured={loadData}
               />
             ) : toolbar.view === "board" ? (
               <KanbanBoard

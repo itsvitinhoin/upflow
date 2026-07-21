@@ -18,15 +18,17 @@ function normalizeDepartmentName(value: string | null | undefined) {
     .trim();
 }
 
+export function isCreativeDesignDepartmentName(value: string | null | undefined) {
+  const departmentName = normalizeDepartmentName(value);
+  return (
+    departmentName === "creative & design" ||
+    departmentName === "criativos & design" ||
+    departmentName === "criacao e design"
+  );
+}
+
 export function filterCreativeBriefingDesigners<T extends CreativeBriefingMember>(members: T[]): T[] {
-  return members.filter((member) => {
-    const departmentName = normalizeDepartmentName(member.department_name);
-    return (
-      departmentName === "creative & design" ||
-      departmentName === "criativos & design" ||
-      departmentName === "criacao e design"
-    );
-  });
+  return members.filter((member) => isCreativeDesignDepartmentName(member.department_name));
 }
 
 export interface CreativeBriefingDescriptionInput {

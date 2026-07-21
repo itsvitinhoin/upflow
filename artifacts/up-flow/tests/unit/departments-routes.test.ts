@@ -68,6 +68,18 @@ test("users API exposes scoped department details to eligible member pickers", (
   assert.match(src, /scopedWorkspaceId\s*=\s*workspaceFilter\s*\?\?/);
 });
 
+test("POST /api/workspaces/[id]/creative-designers is admin-only and scopes roster members", () => {
+  const src = read("workspaces/[id]/creative-designers/route.ts");
+  assert.match(src, /requireAuth\s*\(/);
+  assert.match(src, /isWorkspaceAdminFor\(\s*auth\s*,\s*workspaceId\s*\)/);
+  assert.match(src, /checkRateLimit\(/);
+  assert.match(src, /user_ids:\s*z\.array\(z\.string\(\)\.uuid\(\)\)/);
+  assert.match(src, /workspace_id:\s*workspaceId/);
+  assert.match(src, /status:\s*"active"/);
+  assert.match(src, /isCreativeDesignDepartmentName/);
+  assert.match(src, /updated_count/);
+});
+
 test("team overview can safely target a member-accessible workspace", () => {
   const src = read("team/overview/route.ts");
   assert.match(src, /workspace_id/);

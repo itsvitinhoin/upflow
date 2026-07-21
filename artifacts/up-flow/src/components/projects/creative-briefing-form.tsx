@@ -15,6 +15,7 @@ import {
   Save,
   Send,
   Upload,
+  UsersRound,
   Video,
   X,
 } from "lucide-react";
@@ -37,6 +38,7 @@ interface CreativeBriefingFormProps {
   users: TaskAssignee[];
   me: AppUser | null;
   onCreated: (task: Task) => void | Promise<void>;
+  onDesignerRosterConfigured: () => void | Promise<void>;
 }
 
 interface CompanyOption {
@@ -104,6 +106,7 @@ export default function CreativeBriefingForm({
   users,
   me,
   onCreated,
+  onDesignerRosterConfigured,
 }: CreativeBriefingFormProps) {
   const { language, t } = useLanguage();
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
@@ -127,6 +130,9 @@ export default function CreativeBriefingForm({
   const [draggingReference, setDraggingReference] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [draftLoaded, setDraftLoaded] = useState(false);
+  const [designerSetupOpen, setDesignerSetupOpen] = useState(false);
+  const [designerSetupIds, setDesignerSetupIds] = useState<string[]>([]);
+  const [savingDesignerRoster, setSavingDesignerRoster] = useState(false);
   const driveFileInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -144,6 +150,8 @@ export default function CreativeBriefingForm({
     [designerUsers],
   );
   const requesterName = me?.name?.trim() || me?.email || t("creativeBrief.requesterUnknown");
+  const canConfigureDesignerRoster =
+    me?.role === "admin" || me?.currentRole === "owner" || me?.currentRole === "admin";
   const selectedDesigners = designerIds.flatMap((designerId) => {
     const designer = designerUsers.find((user) => user.id === designerId);
     return designer ? [designer] : [];
@@ -288,6 +296,35 @@ export default function CreativeBriefingForm({
       );
     } catch {
       toast.error(t("creativeBrief.draftSaveFailed"));
+    }
+  };
+
+  const saveDesignerRoster = async () => {
+    if (designerSetupIds.length === 0) {
+      toast.error(t("creativeBrief.setupDesignersRequired"));
+      return;
+    }
+
+    setSavingDesignerRoster(true);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/creative-designers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_ids: designerSetupIds }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || t("creativeBrief.setupDesignersFailed"));
+      }
+
+      await onDesignerRosterConfigured();
+      setDesignerIds(designerSetupIds);
+      setDesignerSetupOpen(false);
+      toast.success(t("creativeBrief.setupDesignersSaved"));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("creativeBrief.setupDesignersFailed"));
+    } finally {
+      setSavingDesignerRoster(false);
     }
   };
 
@@ -563,7 +600,64 @@ export default function CreativeBriefingForm({
                 {t("creativeBrief.designerHint")}
               </p>
               {designerUsers.length === 0 ? (
-                <p className="mt-2 text-xs text-amber-300">{t("creativeBrief.noDesigners")}</p>
+                <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3">
+                  <p className="text-xs text-amber-200">
+                    {canConfigureDesignerRoster
+                      ? t("creativeBrief.noDesignersAdmin")
+                      : t("creativeBrief.noDesigners")}
+                  </p>
+                  {canConfigureDesignerRoster ? (
+                    <div className="mt-3">
+                      {!designerSetupOpen ? (
+                        <button
+                          type="button"
+                          onClick={() => setDesignerSetupOpen(true)}
+                          disabled={submitting}
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#5ca4ff] bg-[#0b2d61] px-3 text-xs font-semibold text-white transition hover:bg-[#123d7d] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <UsersRound className="h-4 w-4" />
+                          {t("creativeBrief.setupDesigners")}
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              {t("creativeBrief.setupDesignersTitle")}
+                            </p>
+                            <p className="mt-1 text-xs text-[#b9c9e5]">
+                              {t("creativeBrief.setupDesignersDescription")}
+                            </p>
+                          </div>
+                          <MultiSelectField
+                            values={designerSetupIds}
+                            onChange={setDesignerSetupIds}
+                            disabled={savingDesignerRoster}
+                            options={users.map((user) => ({ value: user.id, label: user.name }))}
+                          />
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setDesignerSetupOpen(false)}
+                              disabled={savingDesignerRoster}
+                              className="min-h-9 rounded-md border border-[#486b9f] px-3 text-xs font-semibold text-[#d7e5ff] transition hover:bg-[#10284c] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {t("common.cancel")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={saveDesignerRoster}
+                              disabled={savingDesignerRoster || designerSetupIds.length === 0}
+                              className="inline-flex min-h-9 items-center gap-2 rounded-md bg-[#1767e8] px-3 text-xs font-semibold text-white transition hover:bg-[#2b7df4] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {savingDesignerRoster ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UsersRound className="h-3.5 w-3.5" />}
+                              {t("creativeBrief.setupDesignersSave")}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </BriefField>
 
