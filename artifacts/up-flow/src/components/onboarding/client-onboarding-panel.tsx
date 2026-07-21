@@ -16,6 +16,9 @@ import {
   Users,
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
+import StartClientOnboardingDialog from "@/components/onboarding/start-client-onboarding-dialog";
+import { isCommercialOrSalesDepartmentName } from "@/lib/company-creation-access";
 import type { ClientOnboarding, Company, Department, OnboardingChecklistItem, OnboardingServiceAssignment, TeamMember } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -195,11 +198,13 @@ function inputToList(value: string) {
 function nullableList(value: string[]) {
   return value.length > 0 ? value : null;
 }
-export default function ClientOnboardingPanel({ companyId, projectId, onChanged }: Props) {
+export default function ClientOnboardingPanel({ companyId, projectId, company, onChanged }: Props) {
   const { t } = useLanguage();
+  const user = useAppUser();
   const [onboarding, setOnboarding] = useState<ClientOnboarding | null>(null);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [showStartClientOnboardingDialog, setShowStartClientOnboardingDialog] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [teamOptions, setTeamOptions] = useState<{
     members: TeamMember[];
@@ -219,6 +224,14 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
   });
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
   const [overrideReason, setOverrideReason] = useState("");
+
+  const canStartClientOnboarding = Boolean(
+    user?.isSuperAdmin ||
+      user?.currentRole === "owner" ||
+      user?.currentRole === "admin" ||
+      (user?.currentRole === "member" &&
+        isCommercialOrSalesDepartmentName(user.currentDepartmentName)),
+  );
 
   const load = async (options?: { silent?: boolean }) => {
     if (!companyId && !projectId) return;
@@ -613,25 +626,45 @@ export default function ClientOnboardingPanel({ companyId, projectId, onChanged 
 
   if (!onboarding) {
     return (
-      <section className="rounded-2xl border border-border bg-card p-5 shadow-lg dark:border-blue-300/10 dark:bg-[#050a18]/50 dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">{t("onboardingWorkflow.eyebrow")}</p>
-            <h3 className="mt-2 text-xl font-bold text-foreground">{t("onboardingWorkflow.emptyTitle")}</h3>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t("onboardingWorkflow.emptyBody")}</p>
+      <>
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-lg dark:border-blue-300/10 dark:bg-[#050a18]/50 dark:shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-blue-300">{t("onboardingWorkflow.eyebrow")}</p>
+              <h3 className="mt-2 text-xl font-bold text-foreground">{t("onboardingWorkflow.emptyTitle")}</h3>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{companyId && !projectId ? t("onboardingWorkflow.deferredEmptyBody") : t("onboardingWorkflow.emptyBody")}</p>
+            </div>
+            {projectId && (
+              <button
+                onClick={start}
+                disabled={starting}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
+              >
+                {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
+                {t("onboardingWorkflow.start")}
+              </button>
+            )}
+            {canStartClientOnboarding && companyId && !projectId && (
+              <button
+                onClick={() => setShowStartClientOnboardingDialog(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90"
+              >
+                <ClipboardCheck className="h-4 w-4" />
+                {t("onboardingWorkflow.start")}
+              </button>
+            )}
           </div>
-          {projectId && (
-            <button
-              onClick={start}
-              disabled={starting}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-60"
-            >
-              {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
-              {t("onboardingWorkflow.start")}
-            </button>
-          )}
-        </div>
-      </section>
+        </section>
+        {companyId && (
+          <StartClientOnboardingDialog
+            open={showStartClientOnboardingDialog}
+            companyId={companyId}
+            company={company}
+            onClose={() => setShowStartClientOnboardingDialog(false)}
+            onStarted={refresh}
+          />
+        )}
+      </>
     );
   }
 

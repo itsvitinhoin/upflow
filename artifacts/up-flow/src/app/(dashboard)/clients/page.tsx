@@ -23,20 +23,78 @@ import {
 import Header from "@/components/layout/header";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
 import ClientPinButton from "@/components/clients/client-pin-button";
+import { resolveCompanyCreationAccess } from "@/lib/company-creation-access";
 import type { Company } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+type ClientCreationMode = "company" | "onboarding";
+
+type ClientCreationAccess = {
+  canCreateStandalone: boolean;
+  canStartOnboarding: boolean;
+};
+
 export default function ClientsPage() {
+  const user = useAppUser();
   const { t } = useLanguage();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
+  const [creationMode, setCreationMode] = useState<ClientCreationMode | null>(null);
+  const [creationAccess, setCreationAccess] = useState<ClientCreationAccess | null>(null);
   const [query, setQuery] = useState("");
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pinnedCompanyIds, setPinnedCompanyIds] = useState<Set<string>>(new Set());
+
+
+  const isWorkspaceAdmin = Boolean(
+    user?.isSuperAdmin || user?.currentRole === "owner" || user?.currentRole === "admin",
+  );
+  const contextCreationAccess = resolveCompanyCreationAccess({
+    isWorkspaceAdmin,
+    membership: user?.currentRole
+      ? {
+          role: user.currentRole,
+          status: "active",
+          departmentName: user.currentDepartmentName,
+        }
+      : null,
+  });
+  const canCreateStandalone = creationAccess?.canCreateStandalone ?? contextCreationAccess.canCreateStandalone;
+  const canStartOnboarding = creationAccess?.canStartOnboarding ?? contextCreationAccess.canStartOnboarding;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCreationAccess() {
+      try {
+        const response = await fetch("/api/companies/access", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          can_create_standalone?: boolean;
+          can_start_onboarding?: boolean;
+        };
+        if (mounted) {
+          setCreationAccess({
+            canCreateStandalone: data.can_create_standalone === true,
+            canStartOnboarding: data.can_start_onboarding === true,
+          });
+        }
+      } catch {
+        // The current workspace context remains as a temporary visual fallback.
+      }
+    }
+
+    void loadCreationAccess();
+    window.addEventListener("focus", loadCreationAccess);
+    return () => {
+      mounted = false;
+      window.removeEventListener("focus", loadCreationAccess);
+    };
+  }, []);
 
   const loadCompanies = useCallback(async (cursor?: string | null) => {
     const append = Boolean(cursor);
@@ -124,14 +182,15 @@ export default function ClientsPage() {
               <HeartPulse className="h-4 w-4" />
               {t("clients.healthCenter")}
             </Link>
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              {t("clients.startOnboarding")}
-            </button>
+            <ClientCreationActions
+              canCreateStandalone={canCreateStandalone}
+              canStartOnboarding={canStartOnboarding}
+              standaloneLabel={t("clients.createStandalone")}
+              standaloneHint={t("clients.createStandaloneHint")}
+              onboardingLabel={t("clients.startOnboarding")}
+              onCreateStandalone={() => setCreationMode("company")}
+              onStartOnboarding={() => setCreationMode("onboarding")}
+            />
           </div>
         </section>
 
@@ -177,14 +236,16 @@ export default function ClientsPage() {
               {query.trim() ? t("clients.searchPlaceholder") : t("clients.noClientsHint")}
             </p>
             {!query.trim() ? (
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
-                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4" />
-                {t("clients.startOnboarding")}
-              </button>
+              <ClientCreationActions
+                className="mt-5 justify-center"
+                canCreateStandalone={canCreateStandalone}
+                canStartOnboarding={canStartOnboarding}
+                standaloneLabel={t("clients.createStandalone")}
+                standaloneHint={t("clients.createStandaloneHint")}
+                onboardingLabel={t("clients.startOnboarding")}
+                onCreateStandalone={() => setCreationMode("company")}
+                onStartOnboarding={() => setCreationMode("onboarding")}
+              />
             ) : null}
           </section>
         ) : (
@@ -332,15 +393,79 @@ export default function ClientsPage() {
       </div>
 
       <CreateCompanyDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        mode="onboarding"
+        open={creationMode !== null}
+        onClose={() => setCreationMode(null)}
+        mode={creationMode ?? "company"}
         onCreated={(company) => {
-          setShowCreate(false);
+          setCreationMode(null);
           window.location.assign(`/clients/${company.id}`);
         }}
       />
     </>
+  );
+}
+
+function ClientCreationActions({
+  className,
+  canCreateStandalone,
+  canStartOnboarding,
+  standaloneLabel,
+  standaloneHint,
+  onboardingLabel,
+  onCreateStandalone,
+  onStartOnboarding,
+}: {
+  className?: string;
+  canCreateStandalone: boolean;
+  canStartOnboarding: boolean;
+  standaloneLabel: string;
+  standaloneHint: string;
+  onboardingLabel: string;
+  onCreateStandalone: () => void;
+  onStartOnboarding: () => void;
+}) {
+  if (!canCreateStandalone && !canStartOnboarding) return null;
+
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      {canCreateStandalone ? (
+        <button
+          type="button"
+          onClick={onCreateStandalone}
+          aria-label={[standaloneLabel, standaloneHint].join(": ")}
+          data-testid="create-standalone-client"
+          className={cn(
+            "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors",
+            canStartOnboarding
+              ? "border border-border bg-background text-foreground hover:bg-accent"
+              : "bg-primary text-primary-foreground hover:bg-primary/90",
+          )}
+        >
+          <Building2 className="h-4 w-4" />
+          <span>{standaloneLabel}</span>
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+              canStartOnboarding ? "bg-blue-500/10 text-blue-700 dark:text-blue-200" : "bg-white/15 text-white/90",
+            )}
+          >
+            {standaloneHint}
+          </span>
+        </button>
+      ) : null}
+      {canStartOnboarding ? (
+        <button
+          type="button"
+          onClick={onStartOnboarding}
+          aria-label={onboardingLabel}
+          data-testid="create-client-onboarding"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          <Sparkles className="h-4 w-4" />
+          {onboardingLabel}
+        </button>
+      ) : null}
+    </div>
   );
 }
 

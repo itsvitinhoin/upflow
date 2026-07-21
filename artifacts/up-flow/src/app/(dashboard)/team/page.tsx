@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Mail,
@@ -33,6 +34,7 @@ import {
 
 export default function TeamPage() {
   const { t } = useLanguage();
+  const router = useRouter();
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [workspace, setWorkspace] = useState<TeamOverview["workspace"]>(null);
@@ -197,6 +199,7 @@ export default function TeamPage() {
       } else {
         clearCachedJson("team:overview");
         loadDepartments(workspaceId);
+        router.refresh();
       }
     } catch {
       setUsers((prev) =>
@@ -241,6 +244,7 @@ export default function TeamPage() {
       clearCachedJson("team:overview");
       setToast(t("team.memberUpdated"));
       if (patch.department_id !== undefined) loadDepartments(workspaceId);
+      router.refresh();
     } catch {
       setUsers((prev) => prev.map((u) => (u.id === userId ? previous : u)));
       setToast(t("team.couldNotUpdateMember"));

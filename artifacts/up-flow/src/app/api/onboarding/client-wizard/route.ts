@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { resolveCompanyCreationAccess } from "@/lib/company-creation-access";
 import { createClientOnboardingFromWizard } from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -40,7 +41,6 @@ function parseDate(value: string | null | undefined, label: string) {
 }
 
 async function canStartClientOnboarding(userId: string, workspaceId: string, isAdmin: boolean) {
-  if (isAdmin) return true;
   const member = await prisma.workspaceMember.findUnique({
     where: {
       workspace_id_user_id: {
@@ -50,9 +50,16 @@ async function canStartClientOnboarding(userId: string, workspaceId: string, isA
     },
     include: { department: { select: { name: true } } },
   });
-  if (!member || member.status !== "active" || member.role === "guest") return false;
-  const department = member.department?.name?.toLowerCase() ?? "";
-  return department.includes("commercial") || department.includes("sales");
+  return resolveCompanyCreationAccess({
+    isWorkspaceAdmin: isAdmin,
+    membership: member
+      ? {
+          role: member.role,
+          status: member.status,
+          departmentName: member.department?.name,
+        }
+      : null,
+  }).canStartOnboarding;
 }
 
 async function ensureWorkspaceUser(userId: string | null | undefined, workspaceId: string, label: string) {

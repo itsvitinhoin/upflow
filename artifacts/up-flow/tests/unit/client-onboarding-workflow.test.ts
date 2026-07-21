@@ -38,7 +38,8 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(route, /createClientOnboardingFromWizard/);
   assert.match(companiesRoute, /startClientOnboardingForCompany/);
   assert.match(companiesRoute, /start_onboarding: z\.boolean\(\)\.optional\(\)/);
-  assert.match(companiesRoute, /parsed\.data\.start_onboarding === false[\s\S]*startClientOnboardingForCompany/);
+  assert.match(companiesRoute, /const startOnboarding = parsed\.data\.start_onboarding \?\? false/);
+  assert.match(companiesRoute, /startOnboarding === false[\s\S]*startClientOnboardingForCompany/);
   assert.match(companyUpdateRoute, /syncClientOnboardingServices/);
   assert.match(companyUpdateRoute, /"included_services" in parsed\.data/);
   assert.match(companyUpdateRoute, /synced_onboarding_tasks/);

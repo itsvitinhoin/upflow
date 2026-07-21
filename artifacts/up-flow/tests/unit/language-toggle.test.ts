@@ -105,7 +105,7 @@ test("core rollout surfaces are wired to the language provider", () => {
   assert.match(clients, /t\("clients\.healthCenter"\)/);
   assert.match(clients, /t\("clients\.deleteConfirm"/);
   assert.match(createCompanyDialog, /useLanguage/);
-  assert.match(createCompanyDialog, /t\("companyDialog\.title"\)/);
+  assert.match(createCompanyDialog, /t\("companyDialog\.standaloneTitle"\)/);
   assert.match(createCompanyDialog, /t\("companyDialog\.responsibleDepartment"\)/);
   assert.match(createCompanyDialog, /t\(option\.labelKey\)/);
   assert.match(createCompanyDialog, /optionLabel\(service, SERVICE_OPTIONS, t\)/);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { resolveCompanyCreationAccess } from "@/lib/company-creation-access";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
@@ -140,17 +141,41 @@ async function POST_handler(req: NextRequest) {
   if (!auth.currentWorkspaceId) {
     return NextResponse.json({ error: "No active workspace" }, { status: 400 });
   }
-  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
 
   const parsed = CompanySchema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid company", issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  // Creating a company is standalone unless a caller explicitly opts into
+  // onboarding. This prevents client-only forms and saved drafts from
+  // accidentally creating onboarding tasks, projects, or notifications.
+  const startOnboarding = parsed.data.start_onboarding ?? false;
+  const currentMembership = auth.memberships.find(
+    (membership) => membership.workspace_id === auth.currentWorkspaceId,
+  );
+  const companyCreationAccess = resolveCompanyCreationAccess({
+    isWorkspaceAdmin: isWorkspaceAdminFor(auth, auth.currentWorkspaceId),
+    // Auth memberships are loaded from active rows only; pass that fact into
+    // the shared access rule instead of trusting client-provided role data.
+    membership: currentMembership
+      ? {
+          role: currentMembership.role,
+          status: "active",
+          departmentName: currentMembership.department?.name,
+        }
+      : null,
+  });
+  const allowed = startOnboarding
+    ? companyCreationAccess.canStartOnboarding
+    : companyCreationAccess.canCreateStandalone;
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   let ownerId = auth.prismaUser.id;
-  if (parsed.data.owner_id) {
+  // Every standalone client starts with its creator as owner; admins can reassign it afterward.
+  if (startOnboarding && !companyCreationAccess.forceCreatorAsOwner && parsed.data.owner_id) {
     const selectedOwner = await prisma.workspaceMember.findFirst({
       where: {
         workspace_id: auth.currentWorkspaceId,
@@ -250,7 +275,7 @@ async function POST_handler(req: NextRequest) {
     },
   });
 
-  const onboardingResult = parsed.data.start_onboarding === false
+  const onboardingResult = startOnboarding === false
     ? null
     : await startClientOnboardingForCompany({
         companyId: company.id,

@@ -306,9 +306,9 @@ export default function CreateCompanyDialog({
 
   if (!open) return null;
 
-  const dialogTitle = onboardingMode ? t("companyDialog.onboardingTitle") : t("companyDialog.title");
-  const dialogSubtitle = onboardingMode ? t("companyDialog.onboardingSubtitle") : t("companyDialog.subtitle");
-  const submitLabel = onboardingMode ? t("companyDialog.createAndStart") : t("common.create");
+  const dialogTitle = onboardingMode ? t("companyDialog.onboardingTitle") : t("companyDialog.standaloneTitle");
+  const dialogSubtitle = onboardingMode ? t("companyDialog.onboardingSubtitle") : t("companyDialog.standaloneSubtitle");
+  const submitLabel = onboardingMode ? t("companyDialog.createAndStart") : t("companyDialog.createStandalone");
 
   const addService = (value: string) => {
     const service = value.trim();
@@ -386,13 +386,13 @@ export default function CreateCompanyDialog({
         included_services: includedServices,
         notes: notes.trim() || null,
         description: notes.trim() || null,
-        owner_id: assigneeId || null,
+        owner_id: onboardingMode ? assigneeId || null : null,
         contact_name: contactName.trim() || null,
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
         contact_role: contactRole.trim() || null,
-        responsible_department_id: departmentId || null,
-        responsible_department_name: selectedDepartmentName || null,
+        responsible_department_id: onboardingMode ? departmentId || null : null,
+        responsible_department_name: onboardingMode ? selectedDepartmentName || null : null,
       };
       const res = await fetch(onboardingMode ? "/api/onboarding/client-wizard" : "/api/companies", {
         method: "POST",
@@ -407,7 +407,11 @@ export default function CreateCompanyDialog({
                 responsible_salesperson_id: assigneeId || null,
                 contract_value: parsedContractValue,
               }
-            : basePayload,
+            : {
+                ...basePayload,
+                // Creating a client is deliberately separate from starting its onboarding workflow.
+                start_onboarding: false,
+              },
         ),
       });
       if (!res.ok) throw new Error(await readApiError(res, t("companyDialog.createFailed")));
@@ -429,7 +433,7 @@ export default function CreateCompanyDialog({
         });
       } else {
         const company = (await res.json()) as Company;
-        toast.success(t("companyDialog.created", { name: company.name }));
+        toast.success(t("companyDialog.createdWithoutOnboarding", { name: company.name }));
         onCreated?.(company);
       }
       reset();
@@ -482,6 +486,7 @@ export default function CreateCompanyDialog({
           contact_role: contactRole.trim() || null,
           responsible_department_id: departmentId || null,
           responsible_department_name: selectedDepartmentName || null,
+          start_onboarding: false,
         }),
       });
       if (!res.ok) throw new Error(await readApiError(res, t("companyDialog.createFailed")));
@@ -913,42 +918,44 @@ export default function CreateCompanyDialog({
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Field label={t("companyDialog.responsibleDepartment")}>
-              <div className="relative">
-                <FieldIcon icon={<Users className="h-5 w-5" />} />
-                <select
-                  value={departmentId}
-                  onChange={(e) => setDepartmentId(e.target.value)}
-                  className={cn(fieldClass, "appearance-none")}
-                  disabled={loadingOptions}
-                >
-                  <option value="">{t("companyDialog.notAssigned")}</option>
-                  {departments.map((department) => (
-                    <option key={department.id} value={department.id}>{department.name}</option>
-                  ))}
-                </select>
-                <SelectIcon />
-              </div>
-            </Field>
-            <Field label={t("companyDialog.assigneeOwner")}>
-              <div className="relative">
-                <FieldIcon icon={<UserRound className="h-5 w-5" />} />
-                <select
-                  value={assigneeId}
-                  onChange={(e) => setAssigneeId(e.target.value)}
-                  className={cn(fieldClass, "appearance-none")}
-                  disabled={loadingOptions}
-                >
-                  <option value="">{t("companyDialog.currentAdmin")}</option>
-                  {filteredAssignees.map((member) => (
-                    <option key={member.id} value={member.id}>{member.name || member.email}</option>
-                  ))}
-                </select>
-                <SelectIcon />
-              </div>
-            </Field>
-          </div>
+          {onboardingMode && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Field label={t("companyDialog.responsibleDepartment")}>
+                <div className="relative">
+                  <FieldIcon icon={<Users className="h-5 w-5" />} />
+                  <select
+                    value={departmentId}
+                    onChange={(e) => setDepartmentId(e.target.value)}
+                    className={cn(fieldClass, "appearance-none")}
+                    disabled={loadingOptions}
+                  >
+                    <option value="">{t("companyDialog.notAssigned")}</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>{department.name}</option>
+                    ))}
+                  </select>
+                  <SelectIcon />
+                </div>
+              </Field>
+              <Field label={t("companyDialog.assigneeOwner")}>
+                <div className="relative">
+                  <FieldIcon icon={<UserRound className="h-5 w-5" />} />
+                  <select
+                    value={assigneeId}
+                    onChange={(e) => setAssigneeId(e.target.value)}
+                    className={cn(fieldClass, "appearance-none")}
+                    disabled={loadingOptions}
+                  >
+                    <option value="">{t("companyDialog.currentAdmin")}</option>
+                    {filteredAssignees.map((member) => (
+                      <option key={member.id} value={member.id}>{member.name || member.email}</option>
+                    ))}
+                  </select>
+                  <SelectIcon />
+                </div>
+              </Field>
+            </div>
+          )}
 
           <div className="grid gap-6 lg:grid-cols-3">
             <Field label={t("companyDialog.clientContact")}>
