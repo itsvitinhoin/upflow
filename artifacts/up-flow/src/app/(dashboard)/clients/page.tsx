@@ -63,8 +63,13 @@ export default function ClientsPage() {
         }
       : null,
   });
-  const canCreateStandalone = creationAccess?.canCreateStandalone ?? contextCreationAccess.canCreateStandalone;
-  const canStartOnboarding = creationAccess?.canStartOnboarding ?? contextCreationAccess.canStartOnboarding;
+  // Keep a known-positive workspace context visible while the access endpoint
+  // catches up after a role or department change. The API still authorizes the
+  // action, so this never grants server-side access on its own.
+  const canCreateStandalone =
+    contextCreationAccess.canCreateStandalone || creationAccess?.canCreateStandalone === true;
+  const canStartOnboarding =
+    contextCreationAccess.canStartOnboarding || creationAccess?.canStartOnboarding === true;
 
   useEffect(() => {
     let mounted = true;

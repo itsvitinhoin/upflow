@@ -25,6 +25,8 @@ test("standalone client creation remains separate from onboarding", () => {
   assert.match(clientsPage, /mode=\{creationMode \?\? "company"\}/);
   assert.match(clientsPage, /useAppUser/);
   assert.match(clientsPage, /resolveCompanyCreationAccess/);
+  assert.doesNotMatch(clientsPage, /creationAccess\?\.canCreateStandalone \?\?/);
+  assert.match(clientsPage, /contextCreationAccess\.canCreateStandalone/);
   assert.match(clientsPage, /create-standalone-client/);
   assert.match(clientsPage, /create-client-onboarding/);
   assert.match(companiesAccessRoute, /resolveCompanyCreationAccess/);
