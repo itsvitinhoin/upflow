@@ -4,7 +4,16 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import type { CSSProperties } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { toast } from "sonner";
-import { Plus, Calendar, AlertCircle, MessageSquare, Trash2, MoreHorizontal } from "lucide-react";
+import {
+  Plus,
+  Calendar,
+  AlertCircle,
+  MessageSquare,
+  Trash2,
+  MoreHorizontal,
+  ExternalLink,
+  FileText,
+} from "lucide-react";
 import { cn, getInitials, isOverdue, relativeDueDateLabel } from "@/lib/utils";
 import { getTaskCoverDisplayUrl } from "@/lib/task-images";
 import { useLanguage } from "@/components/language-provider";
@@ -16,6 +25,7 @@ import { PriorityBadge } from "@/components/projects/priority-ui";
 import { RH_BOARD_FIELD_NAME, getRhBoardColumnColor } from "@/lib/rh-board";
 import { CLICKUP_STATUS_FIELD_NAME, clickupStatusColor } from "@/lib/clickup-status";
 import { SPACE_TASK_STATUS_FIELD_NAME, taskStatusForSpaceTaskStatus } from "@/lib/space-task-status";
+import { parseTaskBrief } from "@/lib/task-templates";
 import type {
   CustomFieldDefinition,
   Task,
@@ -38,6 +48,7 @@ interface KanbanBoardProps {
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string) => void;
   selectionMode?: boolean;
+  showBriefingDetails?: boolean;
 }
 
 const COLUMNS = [
@@ -71,6 +82,37 @@ function columnLabel(
   return fallback;
 }
 
+function isCreativeBriefingType(type: string) {
+  const normalized = type
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return normalized === "creative briefing" || normalized === "briefing de criacao";
+}
+
+function isReferenceFileLink(label: string) {
+  const normalized = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return normalized === "reference file link" || normalized === "arquivo de referencia link";
+}
+
+function externalUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+function linkLabel(value: string) {
+  const url = externalUrl(value);
+  if (!url) return value;
+  return `${url.host}${url.pathname === "/" ? "" : url.pathname}`;
+}
+
 export default function KanbanBoard({
   projectId,
   spaceId,
@@ -85,6 +127,7 @@ export default function KanbanBoard({
   selectedTaskIds,
   onToggleTaskSelection,
   selectionMode = false,
+  showBriefingDetails = false,
 }: KanbanBoardProps) {
   const { language, t } = useLanguage();
   const spaceStatusField = customFields.find(
@@ -309,7 +352,14 @@ export default function KanbanBoard({
   return (
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex h-[calc(100dvh-300px)] min-h-[440px] max-w-full gap-4 overflow-x-auto overscroll-x-contain pb-5 sm:h-[calc(100dvh-280px)]">
+        <div
+          className={cn(
+            "flex max-w-full gap-4 overflow-x-auto overscroll-x-contain pb-5",
+            showBriefingDetails
+              ? "h-[calc(100dvh-270px)] min-h-[520px] sm:h-[calc(100dvh-250px)]"
+              : "h-[calc(100dvh-300px)] min-h-[440px] sm:h-[calc(100dvh-280px)]",
+          )}
+        >
           {boardColumns.map(({ key, label, color, hex }) => (
             <Droppable key={key} droppableId={key}>
               {(provided, snapshot) => {
@@ -321,7 +371,10 @@ export default function KanbanBoard({
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "upflow-kanban-column flex h-full w-[min(88vw,380px)] flex-shrink-0 flex-col overflow-hidden rounded-2xl transition-all sm:w-[360px] xl:w-[380px]",
+                    "upflow-kanban-column flex h-full flex-shrink-0 flex-col overflow-hidden rounded-2xl transition-all",
+                    showBriefingDetails
+                      ? "w-[min(90vw,470px)] sm:w-[430px] xl:w-[460px]"
+                      : "w-[min(88vw,380px)] sm:w-[360px] xl:w-[380px]",
                     snapshot.isDraggingOver && "border-sky-400/50 shadow-[0_0_36px_rgba(59,130,246,0.22)] ring-1 ring-sky-400/30",
                   )}
                 >
@@ -355,6 +408,19 @@ export default function KanbanBoard({
                       );
                       const isSelected = selectedTaskIds?.has(task.id) ?? false;
                       const coverImageUrl = getTaskCoverDisplayUrl(task.cover_image_url);
+                      const structuredBrief = showBriefingDetails
+                        ? parseTaskBrief(task.description, language)
+                        : null;
+                      const isCreativeBrief = Boolean(
+                        structuredBrief && isCreativeBriefingType(structuredBrief.type),
+                      );
+                      const briefingDetails = isCreativeBrief
+                        ? (structuredBrief?.details ?? [])
+                            .filter((detail) => !isReferenceFileLink(detail.label))
+                            .slice(0, 12)
+                        : [];
+                      const plainDescription =
+                        showBriefingDetails && !isCreativeBrief ? task.description?.trim() : "";
                       return (
                         <Draggable
                           key={task.id}
@@ -381,7 +447,8 @@ export default function KanbanBoard({
                                 openTask(task);
                               }}
                               className={cn(
-                                "upflow-task-card group relative cursor-pointer rounded-xl p-3 transition-all hover:-translate-y-0.5",
+                                "upflow-task-card group relative cursor-pointer rounded-xl transition-all hover:-translate-y-0.5",
+                                showBriefingDetails ? "p-3.5" : "p-3",
                                 snapshot.isDragging && "rotate-1 opacity-95 shadow-[0_24px_60px_rgba(59,130,246,0.24)]",
                                 isSelected && "bg-blue-500/10 ring-2 ring-blue-400/70",
                               )}
@@ -411,7 +478,12 @@ export default function KanbanBoard({
                                 </div>
                               )}
                               {coverImageUrl && (
-                                <div className="-mx-3 -mt-3 mb-3 overflow-hidden rounded-t-xl border-b border-border bg-muted/30">
+                                <div
+                                  className={cn(
+                                    "mb-3 overflow-hidden rounded-t-xl border-b border-border bg-muted/30",
+                                    showBriefingDetails ? "-mx-3.5 -mt-3.5" : "-mx-3 -mt-3",
+                                  )}
+                                >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
                                     src={coverImageUrl}
@@ -440,6 +512,60 @@ export default function KanbanBoard({
                                   <AlertCircle className="w-3.5 h-3.5 text-upflow-danger flex-shrink-0" />
                                 )}
                               </div>
+
+                              {briefingDetails.length > 0 && (
+                                <div className="mt-3 border-t border-border/80 pt-3">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                                    <FileText className="h-3.5 w-3.5" />
+                                    {t("creativeBrief.title")}
+                                  </div>
+                                  <dl className="mt-2 grid grid-cols-1 gap-x-3 gap-y-2 sm:grid-cols-2">
+                                    {briefingDetails.map((detail) => {
+                                      const url = externalUrl(detail.value);
+                                      return (
+                                        <div
+                                          key={`${detail.label}-${detail.value}`}
+                                          className={cn("min-w-0", url && "sm:col-span-2")}
+                                        >
+                                          <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                            {detail.label}
+                                          </dt>
+                                          {url ? (
+                                            <dd className="mt-0.5 min-w-0">
+                                              <a
+                                                href={url.toString()}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                onClick={(event) => event.stopPropagation()}
+                                                onMouseDown={(event) => event.stopPropagation()}
+                                                className="inline-flex max-w-full items-center gap-1 break-all text-xs font-medium text-primary hover:underline"
+                                              >
+                                                <span className="truncate">{linkLabel(detail.value)}</span>
+                                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                              </a>
+                                            </dd>
+                                          ) : (
+                                            <dd className="mt-0.5 break-words text-xs leading-5 text-foreground">
+                                              {detail.value}
+                                            </dd>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </dl>
+                                </div>
+                              )}
+
+                              {plainDescription && (
+                                <div className="mt-3 border-t border-border/80 pt-3">
+                                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                    {t("task.descriptionBrief")}
+                                  </p>
+                                  <p className="mt-1 whitespace-pre-line break-words text-xs leading-5 text-foreground/85 line-clamp-6">
+                                    {plainDescription}
+                                  </p>
+                                </div>
+                              )}
 
                               <div className="mt-2">
                                 <PriorityBadge priority={task.priority} t={t} />

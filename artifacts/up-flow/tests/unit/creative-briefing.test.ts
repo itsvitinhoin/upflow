@@ -48,6 +48,7 @@ test("creative briefing deadlines skip weekends", () => {
 test("Design Queue receives a Forms view and secured reference upload flow", () => {
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
+  const board = read("src/components/projects/kanban-board.tsx");
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const referenceRoute = read("src/app/api/tasks/[id]/creative-reference/route.ts");
   const assetsRoute = read("src/app/api/task-assets/[...path]/route.ts");
@@ -55,8 +56,12 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(projectPage, /isDesignQueueProject/);
   assert.match(projectPage, /CreativeBriefingForm/);
   assert.match(projectPage, /enableForms=\{isDesignQueue\}/);
+  assert.match(projectPage, /showBriefingDetails=\{isDesignQueue\}/);
   assert.match(toolbar, /view: "list" \| "board" \| "form"/);
   assert.match(toolbar, /toolbar\.forms/);
+  assert.match(board, /parseTaskBrief/);
+  assert.match(board, /isCreativeBriefingType/);
+  assert.match(board, /showBriefingDetails/);
   assert.match(tasksRoute, /company_id\?: string \| null/);
   assert.match(tasksRoute, /Tasks in a client project must stay linked to that client/);
   assert.match(referenceRoute, /MAX_REFERENCE_BYTES = 20 \* 1024 \* 1024/);

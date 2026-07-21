@@ -556,6 +556,7 @@ export default function ProjectPage() {
                 selectedTaskIds={selectedTaskIdSet}
                 onToggleTaskSelection={toggleTaskSelection}
                 selectionMode={selectionMode}
+                showBriefingDetails={isDesignQueue}
               />
             ) : (
               <ListView
