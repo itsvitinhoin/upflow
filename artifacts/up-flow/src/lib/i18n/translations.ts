@@ -3799,7 +3799,7 @@ export const translations: Record<Language, Record<string, string>> = {
     "onboardingWorkflow.noServiceAssignments": "Nenhum servico contratado foi adicionado a este onboarding.",
     "onboardingWorkflow.schedulingRoutedHint": "Esta reuniao de onboarding e agendada pela tarefa do departamento. Abra para criar o evento no calendario.",
     "onboardingWorkflow.financeRoutedHint": "Este item e concluido pela tarefa do Finance. Abra para preencher o cadastro financeiro ou anexar o contrato privado.",
-    "onboardingWorkflow.deferredEmptyBody": "Este cliente ainda não tem um workflow de onboarding. O Comercial ou um administrador pode iniciá-lo quando o cliente estiver pronto.",
+    "onboardingWorkflow.deferredEmptyBody": "Este cliente ainda n\u00e3o tem um workflow de onboarding. O Comercial ou um administrador pode inici\u00e1-lo quando o cliente estiver pronto.",
     "onboardingWorkflow.financeRoutedBody": "Financeiro e contrato agora ficam no workspace Finance. Abra as tarefas roteadas abaixo para concluir o cadastro e o contrato privado.",
     "onboardingWorkflow.noSchedulingTasks": "Nenhuma tarefa de agendamento foi roteada para este onboarding.",
     "onboardingWorkflow.noRoutedFinanceTasks": "Nenhuma tarefa roteada do Finance foi encontrada para este onboarding.",
