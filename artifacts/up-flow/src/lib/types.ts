@@ -53,6 +53,7 @@ export interface Project {
     service_type: string | null;
   } | null;
   _count: { tasks: number };
+  pending_todo_count?: number;
 }
 
 export interface Space {

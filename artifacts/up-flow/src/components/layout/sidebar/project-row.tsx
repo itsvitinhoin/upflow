@@ -30,6 +30,8 @@ export function ProjectRow({
 }: ProjectRowProps) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
+  const pendingTodoCount = project.pending_todo_count ?? 0;
+  const pendingTodoLabel = t("sidebar.pendingTodoCount", { count: pendingTodoCount });
 
   useEffect(() => {
     if (!open) return;
@@ -98,6 +100,18 @@ export function ProjectRow({
         />
         <span className="truncate">{project.name}</span>
       </Link>
+      <span
+        aria-label={pendingTodoLabel}
+        title={pendingTodoLabel}
+        className={cn(
+          "flex h-5 min-w-5 flex-shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums",
+          pendingTodoCount > 0
+            ? "bg-amber-500/10 text-amber-700 ring-1 ring-amber-500/20 dark:bg-amber-300/[0.14] dark:text-amber-100 dark:ring-amber-200/20"
+            : "bg-muted text-muted-foreground dark:bg-white/[0.15]",
+        )}
+      >
+        {pendingTodoCount}
+      </span>
       {canManageWorkspace && (
       <div className="relative" onMouseDown={(e) => e.stopPropagation()}>
         <button

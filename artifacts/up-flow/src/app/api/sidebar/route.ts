@@ -7,7 +7,10 @@ import {
   buildFolderBreadcrumb,
   type SidebarSearchResult,
 } from "@/lib/sidebar-discovery";
-import { countPendingTodoTasks } from "@/lib/sidebar-pending-tasks";
+import {
+  addProjectPendingTodoCounts,
+  countPendingTodoTasks,
+} from "@/lib/sidebar-pending-tasks";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +98,23 @@ async function GET_handler(req: NextRequest) {
     };
   };
 
+  const withProjectPendingTodoCounts = async <T extends { id: string }>(
+    projectRows: T[],
+  ): Promise<Array<T & { pending_todo_count: number }>> => {
+    if (projectRows.length === 0) return [];
+
+    const taskCounts = await prisma.task.groupBy({
+      by: ["project_id"],
+      where: {
+        project_id: { in: projectRows.map((project) => project.id) },
+        status: "todo",
+      },
+      _count: { _all: true },
+    });
+
+    return addProjectPendingTodoCounts(projectRows, taskCounts);
+  };
+
   if (q) {
     const [matchingSpaces, matchingProjects, matchingFolders, pinnedClients] = await Promise.all([
       prisma.space.findMany({
@@ -153,6 +173,8 @@ async function GET_handler(req: NextRequest) {
         },
       }),
     ]);
+
+    const sidebarProjects = await withProjectPendingTodoCounts(matchingProjects);
 
     const folderById = new Map(matchingFolders.map((folder) => [folder.id, folder]));
     const pendingFolderIds = new Set<string>();
@@ -266,7 +288,7 @@ async function GET_handler(req: NextRequest) {
 
     return NextResponse.json({
       spaces: { items: sidebarSpaces, nextCursor: null },
-      projects: { items: matchingProjects, nextCursor: null },
+      projects: { items: sidebarProjects, nextCursor: null },
       folders: { items: folders, nextCursor: null },
       pinned_clients: pinnedClients,
       search_results: searchResults,
@@ -328,9 +350,11 @@ async function GET_handler(req: NextRequest) {
     }),
   ]);
 
+  const sidebarProjects = await withProjectPendingTodoCounts(projects);
+
   return NextResponse.json({
     spaces: buildPage(spaces.map(withPendingTodoCount), limit),
-    projects: buildPage(projects, limit),
+    projects: buildPage(sidebarProjects, limit),
     folders: buildPage(folders, limit),
     pinned_clients: pinnedClients,
     search_results: [],
