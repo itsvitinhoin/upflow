@@ -1,22 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Zap, ArrowLeft } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { establishPasswordRecoverySession } from "@/lib/supabase/recovery";
 import { useLanguage } from "@/components/language-provider";
 
 /**
  * Set-a-new-password landing page.
  *
- * Supabase's password-recovery flow appends `#access_token=...&type=recovery`
- * to the redirect URL on success. We exchange that for a session client-side,
+ * Supabase returns either a PKCE `?code=` or a legacy
+ * `#access_token=...&type=recovery` callback. We exchange it client-side,
  * then call `updateUser({ password })` once the user submits a new password.
  */
 export default function ResetPasswordPage() {
-  const router = useRouter();
   const { t } = useLanguage();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -25,35 +24,35 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Parse access_token from URL hash (Supabase's standard recovery flow).
-    const hash =
-      typeof window !== "undefined" ? window.location.hash.slice(1) : "";
-    const params = new URLSearchParams(hash);
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-    const type = params.get("type");
+    let active = true;
+    // Handle the recovery callback ourselves so we support both Supabase's
+    // PKCE `?code=` callbacks and legacy `#access_token=` callbacks.
+    const supabase = createSupabaseBrowserClient({ detectSessionInUrl: false });
 
-    if (!accessToken || type !== "recovery") {
-      setError(
-        t("auth.reset.invalidLink"),
-      );
-      return;
-    }
-    const supabase = createSupabaseBrowserClient();
-    supabase.auth
-      .setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken ?? "",
-      })
-      .then(({ error: sErr }) => {
-        if (sErr) {
-          setError(
-            t("auth.reset.invalidLink"),
-          );
+    void (async () => {
+      try {
+        const result = await establishPasswordRecoverySession(supabase, {
+          search: window.location.search,
+          hash: window.location.hash,
+        });
+        if (!active) return;
+
+        if (result !== "ready") {
+          setError(t("auth.reset.invalidLink"));
           return;
         }
+
+        // Tokens and one-time codes should not remain in browser history.
+        window.history.replaceState(null, "", window.location.pathname);
         setReady(true);
-      });
+      } catch {
+        if (active) setError(t("auth.reset.invalidLink"));
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, [t]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,9 +74,8 @@ export default function ResetPasswordPage() {
         return;
       }
       toast.success(t("auth.reset.updated"));
-      // The recovery session is a normal Supabase session; push to home.
-      router.push("/");
-      router.refresh();
+      // A full navigation lets the browser persist session cookies first.
+      window.location.assign("/");
     } catch {
       toast.error(t("auth.reset.updateRequestFailed"));
     } finally {

@@ -1,6 +1,10 @@
 import { createBrowserClient } from "@supabase/ssr";
 
-export function createSupabaseBrowserClient() {
+export type SupabaseBrowserClientOptions = {
+  detectSessionInUrl?: boolean;
+};
+
+export function createSupabaseBrowserClient(options: SupabaseBrowserClientOptions = {}) {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -9,7 +13,7 @@ export function createSupabaseBrowserClient() {
         flowType: "pkce",
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: options.detectSessionInUrl ?? true,
       },
     }
   );
