@@ -540,7 +540,7 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     const laterCompanyResponse = await api.post("/api/companies", {
       data: {
         name: uniq("Later Vesti workflow company"),
-        included_services: ["Meta Ads"],
+        included_services: ["Meta Ads", "Vesti"],
         start_onboarding: true,
       },
     });
@@ -557,13 +557,22 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
       (task) => task.title === "Marketing B2B onboarding form",
     )?.id;
     expect(laterB2BProjectId).toBeTruthy();
+    const laterVestiTasks = laterCompany.created_onboarding_tasks.filter((task) =>
+      task.title.startsWith("Vesti: "),
+    );
+    expect(laterVestiTasks).toHaveLength(10);
+    expect(laterVestiTasks.every((task) => task.project_id === laterB2BProjectId)).toBe(true);
 
     const directOnboardingResponse = await api.get(`/api/onboarding/${laterCompany.onboarding_id}`);
     expect(directOnboardingResponse.ok()).toBeTruthy();
     const directOnboarding = (await directOnboardingResponse.json()) as {
       sequence_status: string;
       marketing_b2b_released_at: string | null;
-      checklist_items: Array<{ automation_key: string | null }>;
+      checklist_items: Array<{
+        automation_key: string | null;
+        title: string;
+        task: { project_id: string } | null;
+      }>;
     };
     expect(directOnboarding.sequence_status).toBe("marketing_b2b_ready");
     expect(directOnboarding.marketing_b2b_released_at).toBeTruthy();
@@ -572,6 +581,11 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
         (item) => item.automation_key === "up_zero_website_configuration",
       ),
     ).toBe(false);
+    const directVestiItems = directOnboarding.checklist_items.filter((item) =>
+      item.title.startsWith("Vesti: "),
+    );
+    expect(directVestiItems).toHaveLength(10);
+    expect(directVestiItems.every((item) => item.task?.project_id === laterB2BProjectId)).toBe(true);
 
     const directFormResponse = await api.get(
       `/api/onboarding/marketing-b2b-form/${laterB2BTaskId}`,
@@ -583,33 +597,6 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     };
     expect(directForm.can_edit).toBe(true);
     expect(directForm.up_zero_dependency).toMatchObject({ uses_up_zero: false, blocked: false });
-
-    const addVestiResponse = await api.patch(`/api/companies/${laterCompany.id}`, {
-      data: { included_services: ["Meta Ads", "Vesti"] },
-    });
-    expect(
-      addVestiResponse.ok(),
-      `adding Vesti failed: ${addVestiResponse.status()} ${await addVestiResponse.text()}`,
-    ).toBeTruthy();
-    const syncedCompany = (await addVestiResponse.json()) as {
-      onboarding_id: string;
-      synced_onboarding_tasks: Array<{ title: string; project_id: string }>;
-      moved_onboarding_tasks: number;
-    };
-    expect(syncedCompany.onboarding_id).toBe(laterCompany.onboarding_id);
-    expect(syncedCompany.synced_onboarding_tasks).toHaveLength(10);
-    expect(
-      syncedCompany.synced_onboarding_tasks.every((task) => task.project_id === laterB2BProjectId),
-    ).toBe(true);
-
-    const syncedOnboardingResponse = await api.get(`/api/onboarding/${laterCompany.onboarding_id}`);
-    expect(syncedOnboardingResponse.ok()).toBeTruthy();
-    const syncedOnboarding = (await syncedOnboardingResponse.json()) as {
-      checklist_items: Array<{ title: string; task: { project_id: string } | null }>;
-    };
-    const syncedVestiItems = syncedOnboarding.checklist_items.filter((item) => item.title.startsWith("Vesti: "));
-    expect(syncedVestiItems).toHaveLength(10);
-    expect(syncedVestiItems.every((item) => item.task?.project_id === laterB2BProjectId)).toBe(true);
 
     const repeatSyncResponse = await api.patch(`/api/companies/${laterCompany.id}`, {
       data: { included_services: ["Meta Ads", "Vesti"] },
