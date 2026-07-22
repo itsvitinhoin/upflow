@@ -39,7 +39,8 @@ test("standalone client creation remains separate from onboarding", () => {
   assert.match(companiesRoute, /forceCreatorAsOwner/);
   assert.match(companiesRoute, /if \(startOnboarding && !companyCreationAccess\.forceCreatorAsOwner/);
   assert.match(companiesRoute, /canStartOnboarding/);
-  assert.match(onboardingPanel, /isCommercialOrSalesDepartmentName/);
+  assert.match(onboardingPanel, /\/api\/companies\/access/);
+  assert.match(onboardingPanel, /canStartClientOnboarding/);
   assert.match(onboardingPanel, /companyId && !projectId/);
   assert.match(deferredDialog, /company_id: companyId/);
   assert.doesNotMatch(deferredDialog, /contact_name:/);

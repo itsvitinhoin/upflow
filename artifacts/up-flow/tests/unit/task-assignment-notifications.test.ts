@@ -52,7 +52,8 @@ test("onboarding form reassignment updates the form task without requiring a mat
   const onboardingRoute = read("src/app/api/onboarding/[id]/route.ts");
 
   assert.match(onboardingRoute, /onboardingMeeting\.findUnique/);
-  assert.match(onboardingRoute, /if \(meeting\)/);
+  assert.match(onboardingRoute, /if \(meeting && leaderWasProvided\)/);
+  assert.match(onboardingRoute, /if \(form && leaderWasProvided\)/);
   assert.match(onboardingRoute, /marketingB2BOnboardingForm\.findFirst/);
   assert.match(onboardingRoute, /marketingB2COnboardingForm\.findFirst/);
   assert.match(onboardingRoute, /data: \{ assignee_id: nextLeaderId \}/);
