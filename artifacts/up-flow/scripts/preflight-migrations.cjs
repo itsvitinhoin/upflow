@@ -5,8 +5,8 @@ const prismaCommand = isWindows ? "prisma.cmd" : "prisma";
 
 function canProceedWithPendingMigrations(output) {
   return (
-    output.includes("Following migration have not yet been applied:") &&
-    !output.includes("Following migration have failed")
+    /Following migrations? have not yet been applied:/.test(output) &&
+    !/Following migrations? have failed/.test(output)
   );
 }
 

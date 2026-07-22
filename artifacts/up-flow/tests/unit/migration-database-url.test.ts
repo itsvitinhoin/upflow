@@ -86,6 +86,10 @@ test("Vercel migration checks use the application pooler instead of a stale dire
 
 test("release migration preflight permits reviewed pending migrations but blocks failed ones", () => {
   assert.equal(
+    canProceedWithPendingMigrations("Following migrations have not yet been applied:\n20260721180000_expose_department_onboarding_work"),
+    true,
+  );
+  assert.equal(
     canProceedWithPendingMigrations("Following migration have not yet been applied:\n20260717173000_add_space_sidebar_visibility"),
     true,
   );
