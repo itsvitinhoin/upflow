@@ -336,11 +336,45 @@ export interface Department {
   _count: { members: number };
 }
 
+export type CalendarEventType =
+  | "meeting"
+  | "client_call"
+  | "internal_meeting"
+  | "task"
+  | "reminder"
+  | "deadline";
+
+export type CalendarEventPriority = "low" | "medium" | "high";
+export type CalendarEventStatus = "scheduled" | "cancelled";
+
 export interface CalendarEventAttendee {
   id: string;
   user_id: string;
-  status: string;
-  user?: { id: string; name: string; email: string };
+  created_at?: string;
+  user?: { id: string; name: string; email: string; avatar_url?: string | null };
+}
+
+export interface CalendarEventReminder {
+  id: string;
+  event_id: string;
+  minutes_before: number;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface CalendarEventAttachment {
+  id: string;
+  event_id: string;
+  kind: "file" | "link" | "document";
+  name: string;
+  url: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  document_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  document?: { id: string; title: string; project_id: string } | null;
+  download_url?: string | null;
 }
 
 export interface CalendarEvent {
@@ -348,22 +382,35 @@ export interface CalendarEvent {
   workspace_id: string;
   title: string;
   description: string | null;
-  type: "meeting" | "task" | "reminder" | "deadline";
+  type: CalendarEventType;
+  status: CalendarEventStatus;
   starts_at: string;
   ends_at: string | null;
-  timezone: string;
+  timezone: string | null;
   created_by: string;
   project_id: string | null;
   task_id: string | null;
-  company_id?: string | null;
+  company_id: string | null;
+  space_id: string | null;
+  responsible_user_id: string | null;
+  priority: CalendarEventPriority;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
   location: string | null;
   meeting_url: string | null;
   color: string | null;
   created_at: string;
   updated_at: string;
+  creator?: { id: string; name: string; email: string; avatar_url?: string | null } | null;
   project?: { id: string; name: string } | null;
   task?: { id: string; title: string } | null;
+  company?: { id: string; name: string } | null;
+  space?: { id: string; name: string; icon?: string | null } | null;
+  responsible?: { id: string; name: string; email: string; avatar_url?: string | null } | null;
+  cancelled_by_user?: { id: string; name: string; email: string } | null;
   attendees?: CalendarEventAttendee[];
+  reminders?: CalendarEventReminder[];
+  attachments?: CalendarEventAttachment[];
 }
 
 export interface TimeEntry {

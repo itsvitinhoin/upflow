@@ -6,11 +6,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
-import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, Trash2, Video, X } from "lucide-react";
-import { appDateKey, appTimeInputValue, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
+import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, Trash2, Video } from "lucide-react";
+import { appDateKey, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import TaskCreateSheet from "@/components/projects/task-create-sheet";
+import EventEditorSheet from "@/components/calendar/event-editor-sheet";
 import { useLanguage } from "@/components/language-provider";
 import { useAppUser } from "@/components/user-provider";
 
@@ -51,13 +52,6 @@ function eventTime(event: CalendarEvent) {
   return formatTime(event.starts_at);
 }
 
-function toTimeInput(value: string) {
-  return appTimeInputValue(value);
-}
-
-function mergeSelectedDate(selected: Date, time: string) {
-  return mergeAppDateAndTime(selected, time);
-}
 
 const taskColor: Record<Task["priority"], string> = {
   low: "bg-upflow-success/30 text-upflow-success border-l-upflow-success",
@@ -131,6 +125,15 @@ function eventHasEnded(event: CalendarEvent, now: Date) {
 }
 
 function eventDisplayState(event: CalendarEvent, now: Date) {
+  const cancelled = (event as CalendarEvent & { status?: string }).status === "cancelled";
+  if (cancelled) {
+    return {
+      isComplete: false,
+      isAutoComplete: false,
+      isCancelled: true,
+      color: "bg-muted/60 text-muted-foreground border-l-muted-foreground",
+    };
+  }
   const manuallyComplete = eventIsComplete(event);
   const automaticallyComplete = !manuallyComplete && eventHasEnded(event, now);
   const isComplete = manuallyComplete || automaticallyComplete;
@@ -138,6 +141,7 @@ function eventDisplayState(event: CalendarEvent, now: Date) {
   return {
     isComplete,
     isAutoComplete: automaticallyComplete,
+    isCancelled: false,
     color: isComplete ? COMPLETED_EVENT_COLOR : eventColor(event),
   };
 }
@@ -572,7 +576,7 @@ export default function CalendarPage() {
                             e.stopPropagation();
                             setEditingEvent(event);
                           }}
-                          className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", eventVisualClass(event, display))}
+                          className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", display.isCancelled && "opacity-60 line-through", eventVisualClass(event, display))}
                         >
                           {display.isComplete && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
                           {isRoomBooking && !display.isComplete && <DoorOpen className="mr-0.5 inline h-2.5 w-2.5" />}
@@ -702,6 +706,7 @@ export default function CalendarPage() {
                         className={cn(
                           "group flex cursor-pointer items-center gap-2 rounded-lg border-l-2 px-3 py-2 transition-colors hover:bg-accent dark:hover:bg-white/5",
                           eventVisualClass(event, display),
+                          display.isCancelled && "opacity-60 line-through",
                         )}
                       >
                         {isRoomBooking && !display.isComplete ? (
@@ -877,17 +882,21 @@ export default function CalendarPage() {
       />
 
       {editingEvent && (
-        <EventEditor
+        <EventEditorSheet
           event={editingEvent}
-          selected={selected}
+          people={people}
           onClose={() => setEditingEvent(null)}
           onChanged={(event) => {
             setEvents((prev) => prev.map((item) => (item.id === event.id ? event : item)));
-            setEditingEvent(null);
+            setEditingEvent(event);
           }}
           onDeleted={(id) => {
             setEvents((prev) => prev.filter((item) => item.id !== id));
             setEditingEvent(null);
+          }}
+          onDuplicated={(event) => {
+            setEvents((prev) => [...prev, event].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
+            setEditingEvent(event);
           }}
         />
       )}
@@ -947,164 +956,5 @@ export default function CalendarPage() {
         </div>
       )}
     </>
-  );
-}
-
-function EventEditor({
-  event,
-  selected,
-  onClose,
-  onChanged,
-  onDeleted,
-}: {
-  event: CalendarEvent;
-  selected: Date;
-  onClose: () => void;
-  onChanged: (event: CalendarEvent) => void;
-  onDeleted: (id: string) => void;
-}) {
-  const { t } = useLanguage();
-  const isRoomBooking = isMeetingRoomEvent(event);
-  const roomLocation = event.location || ROOM_NAME;
-  const [title, setTitle] = useState(event.title);
-  const [time, setTime] = useState(toTimeInput(event.starts_at));
-  const [location, setLocation] = useState(isRoomBooking ? roomLocation : event.location ?? "");
-  const [submitting, setSubmitting] = useState(false);
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) {
-      toast.error(t("calendar.titleRequired"));
-      return;
-    }
-    const startsAt = mergeSelectedDate(selected, time);
-    const endsAt = new Date(startsAt.getTime() + 30 * 60 * 1000);
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/calendar/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title.trim(),
-          starts_at: startsAt.toISOString(),
-          ends_at: endsAt.toISOString(),
-          location: isRoomBooking ? roomLocation : location.trim() || null,
-        }),
-      });
-      if (res.status === 403) {
-        toast.error(t("calendar.noPermission"));
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to update event");
-      onChanged((await res.json()) as CalendarEvent);
-      toast.success(t("calendar.eventUpdated"));
-    } catch {
-      toast.error(t("calendar.couldNotUpdate"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const remove = async () => {
-    if (!confirm(t("calendar.deleteConfirm", { title: event.title }))) return;
-    setSubmitting(true);
-    try {
-      const res = await fetch(`/api/calendar/events/${event.id}`, { method: "DELETE" });
-      if (res.status === 403) {
-        toast.error(t("calendar.noPermission"));
-        return;
-      }
-      if (!res.ok) throw new Error("Failed to delete event");
-      onDeleted(event.id);
-      toast.success(t("calendar.eventDeleted"));
-    } catch {
-      toast.error(t("calendar.couldNotDelete"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <form
-        onSubmit={save}
-        className="max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-2xl p-4 glass-strong sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-foreground">
-            {t("calendar.manageEvent", {
-              type: isRoomBooking
-                ? t("calendar.roomBooking")
-                : event.type === "meeting"
-                  ? t("calendar.meeting")
-                  : t("calendar.event"),
-            })}
-          </h2>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldTitle")}</label>
-        <input
-          autoFocus
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
-        />
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldTime")}</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-foreground mb-1.5">{t("calendar.fieldLocation")}</label>
-            <input
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              disabled={isRoomBooking}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring dark:border-white/10 dark:bg-white/5"
-            />
-            {isRoomBooking && (
-              <p className="mt-1 text-[11px] text-muted-foreground">{t("calendar.roomBookingLocked")}</p>
-            )}
-          </div>
-        </div>
-        <div className="mt-6 grid gap-2 sm:flex">
-          <button
-            type="button"
-            onClick={remove}
-            disabled={submitting}
-            className="flex h-10 items-center justify-center rounded-lg border border-upflow-danger/30 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-40 sm:w-10"
-            aria-label={t("calendar.couldNotDelete")}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="flex-1 rounded-lg border border-border py-2 text-sm text-foreground hover:bg-accent disabled:opacity-40 dark:border-white/10 dark:hover:bg-white/10"
-          >
-            {t("common.cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium py-2 rounded-lg disabled:opacity-50"
-          >
-            {submitting ? t("common.saving") : t("common.save")}
-          </button>
-        </div>
-      </form>
-    </div>
   );
 }

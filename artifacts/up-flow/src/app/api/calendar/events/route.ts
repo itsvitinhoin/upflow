@@ -8,19 +8,29 @@ import { recordActivity } from "@/lib/activity";
 import { parseDateParam } from "@/lib/time-range";
 import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
 import { recomputeOnboardingProgress } from "@/lib/onboarding";
+import {
+  calendarEventDetailInclude,
+  serializeCalendarEvent,
+  validateCalendarEventRelations,
+} from "./event-detail";
 
 const EventSchema = z.object({
-  title: z.string().trim().min(1),
-  description: z.string().trim().optional().nullable(),
-  type: z.enum(["meeting", "task", "reminder", "deadline"]).default("meeting"),
+  title: z.string().trim().min(1).max(500),
+  description: z.string().trim().max(50_000).optional().nullable(),
+  type: z.enum(["meeting", "client_call", "internal_meeting", "task", "reminder", "deadline"]).default("meeting"),
   starts_at: z.string().datetime(),
   ends_at: z.string().datetime().optional().nullable(),
-  timezone: z.string().trim().optional().nullable(),
+  timezone: z.string().trim().max(100).optional().nullable(),
   project_id: z.string().uuid().optional().nullable(),
   task_id: z.string().uuid().optional().nullable(),
-  attendee_ids: z.array(z.string().uuid()).optional(),
-  location: z.string().trim().optional().nullable(),
-  meeting_url: z.string().trim().url().optional().nullable(),
+  company_id: z.string().uuid().optional().nullable(),
+  space_id: z.string().uuid().optional().nullable(),
+  responsible_user_id: z.string().uuid().optional().nullable(),
+  attendee_ids: z.array(z.string().uuid()).max(200).optional(),
+  reminder_minutes: z.array(z.number().int().min(1).max(525_600)).max(20).optional(),
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
+  location: z.string().trim().max(1_000).optional().nullable(),
+  meeting_url: z.string().trim().url().max(2_000).optional().nullable(),
   color: z.string().trim().optional().nullable(),
 });
 
@@ -76,18 +86,10 @@ async function GET_handler(req: NextRequest) {
         : {}),
     },
     orderBy: [{ starts_at: "asc" }, { id: "asc" }],
-    include: {
-      creator: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true } },
-      task: { select: { id: true, title: true } },
-      attendees: {
-        include: { user: { select: { id: true, name: true, email: true } } },
-        orderBy: { created_at: "asc" },
-      },
-    },
+    include: calendarEventDetailInclude,
   });
 
-  return NextResponse.json({ items, nextCursor: null });
+  return NextResponse.json({ items: items.map(serializeCalendarEvent), nextCursor: null });
 }
 
 async function POST_handler(req: NextRequest) {
@@ -157,30 +159,23 @@ async function POST_handler(req: NextRequest) {
   }
 
   const eventProjectId = body.project_id || linkedTask?.project_id || null;
-  if (body.project_id && linkedTask && body.project_id !== linkedTask.project_id) {
-    return NextResponse.json({ error: "Task does not belong to the selected project" }, { status: 400 });
-  }
-
-  if (eventProjectId) {
-    const project = await prisma.project.findFirst({
-      where: { id: eventProjectId, workspace_id: auth.currentWorkspaceId },
-      select: { id: true },
-    });
-    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 400 });
-  }
-
   const attendeeIds = Array.from(new Set([
     ...(body.attendee_ids ?? []),
     ...(linkedTask?.assignee_id ? [linkedTask.assignee_id] : []),
+    ...(body.responsible_user_id ? [body.responsible_user_id] : []),
   ]));
-  if (attendeeIds.length > 0) {
-    const members = await prisma.workspaceMember.findMany({
-      where: { workspace_id: auth.currentWorkspaceId, user_id: { in: attendeeIds } },
-      select: { user_id: true },
-    });
-    if (members.length !== attendeeIds.length) {
-      return NextResponse.json({ error: "All attendees must be workspace members" }, { status: 400 });
-    }
+  const reminderMinutes = Array.from(new Set(body.reminder_minutes ?? [])).sort((a, b) => a - b);
+  const relationValidation = await validateCalendarEventRelations({
+    workspaceId: auth.currentWorkspaceId,
+    projectId: eventProjectId,
+    taskId: body.task_id || null,
+    companyId: body.company_id || null,
+    spaceId: body.space_id || null,
+    responsibleUserId: body.responsible_user_id || null,
+    attendeeIds,
+  });
+  if (!relationValidation.ok) {
+    return NextResponse.json({ error: relationValidation.error }, { status: 400 });
   }
 
   const event = await prisma.calendarEvent.create({
@@ -195,17 +190,17 @@ async function POST_handler(req: NextRequest) {
       created_by: auth.prismaUser.id,
       project_id: eventProjectId,
       task_id: body.task_id || null,
+      company_id: body.company_id || null,
+      space_id: body.space_id || null,
+      responsible_user_id: body.responsible_user_id || null,
+      priority: body.priority,
       location: body.location || null,
       meeting_url: body.meeting_url || null,
       color: body.color || null,
-      attendees: {
-        create: attendeeIds.map((user_id) => ({ user_id })),
-      },
+      attendees: { create: attendeeIds.map((user_id) => ({ user_id })) },
+      reminders: { create: reminderMinutes.map((minutes_before) => ({ minutes_before })) },
     },
-    include: {
-      creator: { select: { id: true, name: true, email: true } },
-      attendees: { include: { user: { select: { id: true, name: true, email: true } } } },
-    },
+    include: calendarEventDetailInclude,
   });
 
   await recordActivity({
@@ -216,7 +211,8 @@ async function POST_handler(req: NextRequest) {
     entity_id: event.id,
     project_id: event.project_id,
     task_id: event.task_id,
-    metadata: { title: event.title, starts_at: event.starts_at.toISOString() },
+    company_id: event.company_id,
+    metadata: { title: event.title, starts_at: event.starts_at.toISOString(), type: event.type },
   });
 
   await notifyCalendarEventAssignees({
@@ -252,7 +248,7 @@ async function POST_handler(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(event, { status: 201 });
+  return NextResponse.json(serializeCalendarEvent(event), { status: 201 });
 }
 
 export const GET = withErrorReporting("api:calendar/events:GET", GET_handler);

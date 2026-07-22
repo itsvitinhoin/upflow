@@ -1,94 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace, isWorkspaceAdminFor, type AuthUser } from "@/lib/auth-helpers";
+import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
+import { getSupabaseAdminClient } from "@/lib/supabase-server";
+import {
+  calendarEventDetailInclude,
+  canManageCalendarEvent,
+  EVENT_ATTACHMENT_BUCKET,
+  isCalendarEventStoragePath,
+  loadCalendarEventDetail,
+  serializeCalendarEvent,
+  validateCalendarEventRelations,
+} from "../event-detail";
 
 const UpdateEventSchema = z.object({
-  title: z.string().trim().min(1).optional(),
-  description: z.string().trim().optional().nullable(),
-  type: z.enum(["meeting", "task", "reminder", "deadline"]).optional(),
+  title: z.string().trim().min(1).max(500).optional(),
+  description: z.string().trim().max(50_000).optional().nullable(),
+  type: z.enum(["meeting", "client_call", "internal_meeting", "task", "reminder", "deadline"]).optional(),
   starts_at: z.string().datetime().optional(),
   ends_at: z.string().datetime().optional().nullable(),
-  timezone: z.string().trim().optional().nullable(),
+  timezone: z.string().trim().max(100).optional().nullable(),
   project_id: z.string().uuid().optional().nullable(),
   task_id: z.string().uuid().optional().nullable(),
-  attendee_ids: z.array(z.string().uuid()).optional(),
-  location: z.string().trim().optional().nullable(),
-  meeting_url: z.string().trim().url().optional().nullable(),
+  company_id: z.string().uuid().optional().nullable(),
+  space_id: z.string().uuid().optional().nullable(),
+  responsible_user_id: z.string().uuid().optional().nullable(),
+  attendee_ids: z.array(z.string().uuid()).max(200).optional(),
+  reminder_minutes: z.array(z.number().int().min(1).max(525_600)).max(20).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+  location: z.string().trim().max(1_000).optional().nullable(),
+  meeting_url: z.string().trim().url().max(2_000).optional().nullable(),
   color: z.string().trim().optional().nullable(),
 });
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-async function loadEvent(id: string) {
-  return prisma.calendarEvent.findUnique({
-    where: { id },
-    include: {
-      attendees: { select: { user_id: true } },
-      creator: { select: { id: true, name: true, email: true } },
-      project: { select: { id: true, name: true } },
-      task: { select: { id: true, title: true } },
-    },
-  });
-}
-
-async function canManageEvent(
-  auth: AuthUser,
-  event: { workspace_id: string; created_by: string },
-) {
-  if (event.created_by === auth.prismaUser.id) return true;
-  if (isWorkspaceAdminFor(auth, event.workspace_id)) return true;
-
-  const membership = await prisma.workspaceMember.findFirst({
-    where: {
-      workspace_id: event.workspace_id,
-      user_id: auth.prismaUser.id,
-      status: "active",
-      role: { in: ["owner", "admin"] },
-    },
-    select: { id: true },
-  });
-
-  return Boolean(membership);
-}
-
-async function GET_handler(
-  req: NextRequest,
-  { params }: RouteContext,
-) {
+async function GET_handler(req: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
 
-  const event = await loadEvent(id);
-  if (!event) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, event.workspace_id)) {
+  const event = await loadCalendarEventDetail(id);
+  if (!event || !canAccessWorkspace(auth, event.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  return NextResponse.json(event);
+  return NextResponse.json(serializeCalendarEvent(event));
 }
 
-async function PATCH_handler(
-  req: NextRequest,
-  { params }: RouteContext,
-) {
+async function PATCH_handler(req: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  const existing = await loadEvent(id);
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, existing.workspace_id)) {
+  const existing = await loadCalendarEventDetail(id);
+  if (!existing || !canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!(await canManageEvent(auth, existing))) {
+  if (!(await canManageCalendarEvent(auth, existing))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -97,50 +72,57 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid event", issues: parsed.error.flatten() }, { status: 400 });
   }
   const body = parsed.data;
-
   const startsAt = body.starts_at ? new Date(body.starts_at) : existing.starts_at;
-  const endsAt =
-    body.ends_at === undefined
-      ? existing.ends_at
-      : body.ends_at
-        ? new Date(body.ends_at)
-        : null;
+  const endsAt = body.ends_at === undefined ? existing.ends_at : body.ends_at ? new Date(body.ends_at) : null;
   if (endsAt && endsAt <= startsAt) {
     return NextResponse.json({ error: "ends_at must be after starts_at" }, { status: 400 });
   }
 
-  if (body.project_id) {
-    const project = await prisma.project.findFirst({
-      where: { id: body.project_id, workspace_id: existing.workspace_id },
-      select: { id: true },
-    });
-    if (!project) return NextResponse.json({ error: "Project not found" }, { status: 400 });
-  }
+  const taskId = body.task_id === undefined ? existing.task_id : body.task_id || null;
+  const linkedTask = taskId
+    ? await prisma.task.findFirst({
+        where: { id: taskId, project: { workspace_id: existing.workspace_id } },
+        select: { id: true, project_id: true },
+      })
+    : null;
+  if (taskId && !linkedTask) return NextResponse.json({ error: "Task not found" }, { status: 400 });
 
-  if (body.task_id) {
-    const task = await prisma.task.findFirst({
-      where: { id: body.task_id, project: { workspace_id: existing.workspace_id } },
-      select: { id: true },
-    });
-    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 400 });
-  }
-
-  const attendeeIds = body.attendee_ids
-    ? Array.from(new Set(body.attendee_ids))
-    : undefined;
-  const previousAttendeeIds = new Set(
-    existing.attendees.map((attendee) => attendee.user_id),
+  const requestedProjectId = body.project_id === undefined ? existing.project_id : body.project_id || null;
+  const projectId = linkedTask && !requestedProjectId ? linkedTask.project_id : requestedProjectId;
+  const companyId = body.company_id === undefined ? existing.company_id : body.company_id || null;
+  const spaceId = body.space_id === undefined ? existing.space_id : body.space_id || null;
+  const responsibleUserId =
+    body.responsible_user_id === undefined
+      ? existing.responsible_user_id
+      : body.responsible_user_id || null;
+  const attendeeIds = Array.from(
+    new Set([
+      ...(body.attendee_ids === undefined
+        ? existing.attendees.map((attendee) => attendee.user_id)
+        : body.attendee_ids),
+      ...(responsibleUserId ? [responsibleUserId] : []),
+    ]),
   );
-  if (attendeeIds && attendeeIds.length > 0) {
-    const members = await prisma.workspaceMember.findMany({
-      where: { workspace_id: existing.workspace_id, user_id: { in: attendeeIds } },
-      select: { user_id: true },
-    });
-    if (members.length !== attendeeIds.length) {
-      return NextResponse.json({ error: "All attendees must be workspace members" }, { status: 400 });
-    }
+  const relationValidation = await validateCalendarEventRelations({
+    workspaceId: existing.workspace_id,
+    projectId,
+    taskId,
+    companyId,
+    spaceId,
+    responsibleUserId,
+    attendeeIds,
+  });
+  if (!relationValidation.ok) {
+    return NextResponse.json({ error: relationValidation.error }, { status: 400 });
   }
 
+  const reminderMinutes =
+    body.reminder_minutes === undefined
+      ? undefined
+      : Array.from(new Set(body.reminder_minutes)).sort((a, b) => a - b);
+  const previousAttendeeIds = new Set(existing.attendees.map((attendee) => attendee.user_id));
+  const replaceAttendees = body.attendee_ids !== undefined || body.responsible_user_id !== undefined;
+  const newlyAddedAttendees = attendeeIds.filter((userId) => !previousAttendeeIds.has(userId));
   const updated = await prisma.calendarEvent.update({
     where: { id },
     data: {
@@ -150,22 +132,29 @@ async function PATCH_handler(
       ...(body.starts_at !== undefined && { starts_at: startsAt }),
       ...(body.ends_at !== undefined && { ends_at: endsAt }),
       ...(body.timezone !== undefined && { timezone: body.timezone || null }),
-      ...(body.project_id !== undefined && { project_id: body.project_id || null }),
-      ...(body.task_id !== undefined && { task_id: body.task_id || null }),
+      project_id: projectId,
+      task_id: taskId,
+      company_id: companyId,
+      space_id: spaceId,
+      responsible_user_id: responsibleUserId,
+      ...(body.priority !== undefined && { priority: body.priority }),
       ...(body.location !== undefined && { location: body.location || null }),
       ...(body.meeting_url !== undefined && { meeting_url: body.meeting_url || null }),
       ...(body.color !== undefined && { color: body.color || null }),
-      ...(attendeeIds && {
-        attendees: {
+      ...(replaceAttendees && {
+        attendees: { deleteMany: {}, create: attendeeIds.map((user_id) => ({ user_id })) },
+      }),
+      ...(reminderMinutes !== undefined && {
+        reminders: {
           deleteMany: {},
-          create: attendeeIds.map((user_id) => ({ user_id })),
+          create: reminderMinutes.map((minutes_before) => ({
+            minutes_before,
+            enabled: existing.status !== "cancelled",
+          })),
         },
       }),
     },
-    include: {
-      creator: { select: { id: true, name: true, email: true } },
-      attendees: { include: { user: { select: { id: true, name: true, email: true } } } },
-    },
+    include: calendarEventDetailInclude,
   });
 
   await recordActivity({
@@ -176,13 +165,10 @@ async function PATCH_handler(
     entity_id: updated.id,
     project_id: updated.project_id,
     task_id: updated.task_id,
+    company_id: updated.company_id,
     metadata: { title: updated.title },
   });
-
-  if (attendeeIds) {
-    const newlyAddedAttendees = attendeeIds.filter(
-      (userId) => !previousAttendeeIds.has(userId),
-    );
+  if (replaceAttendees) {
     await notifyCalendarEventAssignees({
       event: updated,
       attendeeIds: newlyAddedAttendees,
@@ -190,26 +176,41 @@ async function PATCH_handler(
     });
   }
 
-  return NextResponse.json(updated);
+  return NextResponse.json(serializeCalendarEvent(updated));
 }
 
-async function DELETE_handler(
-  req: NextRequest,
-  { params }: RouteContext,
-) {
+async function DELETE_handler(req: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   const _r = await requireAuth();
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
   void req;
 
-  const existing = await loadEvent(id);
-  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canAccessWorkspace(auth, existing.workspace_id)) {
+  const existing = await loadCalendarEventDetail(id);
+  if (!existing || !canAccessWorkspace(auth, existing.workspace_id)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!(await canManageEvent(auth, existing))) {
+  if (!(await canManageCalendarEvent(auth, existing))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const fileAttachments = existing.attachments.filter((attachment) => attachment.kind === "file");
+  if (
+    fileAttachments.some(
+      (attachment) =>
+        attachment.storage_bucket !== EVENT_ATTACHMENT_BUCKET ||
+        !isCalendarEventStoragePath(existing.workspace_id, existing.id, attachment.storage_path),
+    )
+  ) {
+    return NextResponse.json({ error: "Event attachment storage is invalid" }, { status: 409 });
+  }
+  if (fileAttachments.length > 0) {
+    const { error } = await getSupabaseAdminClient()
+      .storage.from(EVENT_ATTACHMENT_BUCKET)
+      .remove(fileAttachments.map((attachment) => attachment.storage_path!));
+    if (error) {
+      return NextResponse.json({ error: "Could not remove private event files" }, { status: 503 });
+    }
   }
 
   await prisma.calendarEvent.delete({ where: { id } });
@@ -221,9 +222,9 @@ async function DELETE_handler(
     entity_id: existing.id,
     project_id: existing.project_id,
     task_id: existing.task_id,
+    company_id: existing.company_id,
     metadata: { title: existing.title },
   });
-
   return NextResponse.json({ success: true });
 }
 

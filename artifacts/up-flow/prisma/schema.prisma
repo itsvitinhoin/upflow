@@ -75,9 +75,22 @@ enum CustomFieldType {
 
 enum CalendarEventType {
   meeting
+  client_call
+  internal_meeting
   task
   reminder
   deadline
+}
+
+enum CalendarEventStatus {
+  scheduled
+  cancelled
+}
+
+enum CalendarEventAttachmentKind {
+  file
+  link
+  document
 }
 
 enum TimeEntryStatus {
@@ -104,7 +117,10 @@ model User {
   memberships              WorkspaceMember[]
   invites_sent             WorkspaceInvite[]       @relation("Inviter")
   calendar_events_created  CalendarEvent[]         @relation("CalendarEventsCreated")
+  calendar_events_responsible CalendarEvent[] @relation("CalendarEventsResponsible")
+  calendar_events_cancelled CalendarEvent[] @relation("CalendarEventsCancelled")
   calendar_event_attendees CalendarEventAttendee[] @relation("CalendarEventAttendees")
+  calendar_event_attachments_created CalendarEventAttachment[] @relation("CalendarEventAttachmentCreator")
   time_entries             TimeEntry[]
   activity_events          ActivityEvent[]         @relation("ActivityActor")
   companies_owned          Company[]               @relation("CompanyOwner")
@@ -314,6 +330,7 @@ model Space {
   projects     Project[]
   folders      Folder[]
   workflow_statuses WorkflowStatus[]
+  calendar_events CalendarEvent[]
 
   @@index([workspace_id])
   @@index([workspace_id, position, created_at])
@@ -487,6 +504,12 @@ model CalendarEvent {
   project_id   String?
   task_id      String?
   company_id   String?
+  space_id     String?
+  responsible_user_id String?
+  priority     TaskPriority @default(medium)
+  status       CalendarEventStatus @default(scheduled)
+  cancelled_at DateTime?
+  cancelled_by String?
   location     String?
   meeting_url  String?
   color        String?
@@ -497,13 +520,21 @@ model CalendarEvent {
   project      Project?                @relation(fields: [project_id], references: [id], onDelete: SetNull)
   task         Task?                   @relation(fields: [task_id], references: [id], onDelete: SetNull)
   company      Company?                @relation(fields: [company_id], references: [id], onDelete: SetNull)
+  space        Space?                  @relation(fields: [space_id], references: [id], onDelete: SetNull)
+  responsible  User?                   @relation("CalendarEventsResponsible", fields: [responsible_user_id], references: [id], onDelete: SetNull)
+  cancelled_by_user User?              @relation("CalendarEventsCancelled", fields: [cancelled_by], references: [id], onDelete: SetNull)
   attendees    CalendarEventAttendee[]
+  reminders    CalendarEventReminder[]
+  attachments  CalendarEventAttachment[]
 
   @@index([workspace_id, starts_at])
   @@index([created_by])
   @@index([project_id])
   @@index([task_id])
   @@index([company_id])
+  @@index([space_id])
+  @@index([responsible_user_id])
+  @@index([workspace_id, status, starts_at])
 }
 
 model CalendarEventAttendee {
@@ -516,6 +547,40 @@ model CalendarEventAttendee {
 
   @@unique([event_id, user_id])
   @@index([user_id])
+}
+
+model CalendarEventReminder {
+  id             String        @id @default(uuid())
+  event_id       String
+  minutes_before Int
+  enabled        Boolean       @default(true)
+  created_at     DateTime      @default(now())
+  event          CalendarEvent @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, minutes_before])
+  @@index([event_id, enabled])
+}
+
+model CalendarEventAttachment {
+  id             String                      @id @default(uuid())
+  event_id       String
+  kind           CalendarEventAttachmentKind
+  name           String
+  url            String?
+  storage_bucket String?
+  storage_path   String?
+  mime_type      String?
+  size_bytes     Int?
+  document_id    String?
+  created_by     String?
+  created_at     DateTime                    @default(now())
+  event          CalendarEvent               @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  document       Doc?                        @relation(fields: [document_id], references: [id], onDelete: Cascade)
+  creator        User?                       @relation("CalendarEventAttachmentCreator", fields: [created_by], references: [id], onDelete: SetNull)
+
+  @@index([event_id, created_at])
+  @@index([document_id])
+  @@index([created_by])
 }
 
 model TimeEntry {
@@ -1241,6 +1306,7 @@ model Doc {
   workspace             Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   project               Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
   author                User      @relation(fields: [author_id], references: [id])
+  calendar_event_attachments CalendarEventAttachment[]
 
   @@index([workspace_id])
 }
