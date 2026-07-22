@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   isFinanceOnboardingFormLocation,
   isFinanceOnboardingSpace,
+  marketingFormRouteForOnboarding,
   routeForOnboardingChecklistItem,
   routeForService,
 } from "../../src/lib/onboarding-routing";
@@ -23,6 +24,20 @@ test("onboarding routes recognize named department workflows", () => {
   assert.equal(routeForService("Marketing B2C onboarding"), "marketing_b2c");
   assert.equal(routeForService("Cadastro financeiro"), "finance");
   assert.equal(routeForService("Suporte tecnico"), "support");
+});
+
+test("client segment selects the marketing onboarding form before legacy department fallback", () => {
+  assert.equal(marketingFormRouteForOnboarding("B2B", null), "marketing_b2b");
+  assert.equal(marketingFormRouteForOnboarding("B2C", null), "marketing_b2c");
+  assert.equal(
+    marketingFormRouteForOnboarding("Marketing B2B", "Marketing B2C"),
+    "marketing_b2b",
+  );
+  assert.equal(
+    marketingFormRouteForOnboarding("Creative production", "Marketing B2C"),
+    "marketing_b2c",
+  );
+  assert.equal(marketingFormRouteForOnboarding("Creative production", null), null);
 });
 
 test("unknown onboarding work never falls back into Commercial", () => {

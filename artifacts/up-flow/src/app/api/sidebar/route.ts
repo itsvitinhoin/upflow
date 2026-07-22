@@ -41,7 +41,6 @@ async function GET_handler(req: NextRequest) {
     AND: [
       readableProjectsWhere,
       { sidebar_hidden: false },
-      { kind: { not: "onboarding" as const } },
     ],
   };
   // Select the navigation fields explicitly so a release can still read

@@ -9,11 +9,14 @@ function read(rel: string) {
   return readFileSync(join(ROOT, rel), "utf8");
 }
 
-test("generated client onboarding work is hidden without deleting or reparenting it", () => {
+test("generated client onboarding work is visible in its department spaces", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260716160000_scalable_client_navigation/migration.sql");
   const spaceVisibilityMigration = read(
     "prisma/migrations/20260717173000_add_space_sidebar_visibility/migration.sql",
+  );
+  const departmentOnboardingVisibilityMigration = read(
+    "prisma/migrations/20260721180000_expose_department_onboarding_work/migration.sql",
   );
   const onboarding = read("src/lib/onboarding.ts");
 
@@ -33,19 +36,23 @@ test("generated client onboarding work is hidden without deleting or reparenting
     spaceVisibilityMigration,
     /Space_workspace_id_sidebar_hidden_idx/,
   );
-  assert.match(onboarding, /sidebarHidden: true/);
-  assert.match(onboarding, /sidebar_hidden: true/);
+  assert.match(departmentOnboardingVisibilityMigration, /UPDATE "Project"/);
+  assert.match(departmentOnboardingVisibilityMigration, /"kind" = 'onboarding'/);
+  assert.match(departmentOnboardingVisibilityMigration, /WITH RECURSIVE onboarding_folder_ids/);
+  assert.match(onboarding, /sidebarHidden: false/);
+  assert.match(onboarding, /sidebar_hidden: false/);
 });
 
-test("the sidebar hides generated branches by default but search keeps client work discoverable", () => {
+test("the sidebar includes visible generated onboarding work", () => {
   const sidebarRoute = read("src/app/api/sidebar/route.ts");
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
 
   assert.match(
     sidebarRoute,
-    /AND:\s*\[\s*readableProjectsWhere,\s*\{ sidebar_hidden: false \},\s*\{ kind: \{ not: "onboarding" as const \} \},\s*\]/,
+    /AND:\s*\[\s*readableProjectsWhere,\s*\{ sidebar_hidden: false \},\s*\]/,
   );
+  assert.doesNotMatch(sidebarRoute, /kind: \{ not: "onboarding" as const \}/);
   assert.match(sidebarRoute, /sidebar_hidden: false/);
   assert.match(sidebarRoute, /company: \{ is: \{ name: \{ contains: q/);
   assert.match(sidebarRoute, /pinned_clients: pinnedClients/);

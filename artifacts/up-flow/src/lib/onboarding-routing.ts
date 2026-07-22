@@ -38,6 +38,17 @@ export function routeForResponsibleDepartment(
   return null;
 }
 
+export function marketingFormRouteForOnboarding(
+  serviceType: string | null | undefined,
+  responsibleDepartmentName: string | null | undefined,
+): "marketing_b2b" | "marketing_b2c" | null {
+  for (const value of [serviceType, responsibleDepartmentName]) {
+    const route = routeForResponsibleDepartment(value);
+    if (route === "marketing_b2b" || route === "marketing_b2c") return route;
+  }
+  return null;
+}
+
 export function routeForService(service: string | null | undefined): OnboardingTaskRoute {
   const key = normalizeOnboardingRouteValue(service ?? "");
   if (!key) return "general_admin";

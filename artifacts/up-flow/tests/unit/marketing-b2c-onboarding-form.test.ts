@@ -45,6 +45,12 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /const formServiceAlreadyAssigned = b2bFormServiceKeys\.has\(serviceMapKey\) \|\| b2cFormServiceKeys\.has\(serviceMapKey\)/);
   assert.match(helper, /const dedicatedServiceTask = shouldCreateDedicatedServiceTask\(service\)/);
   assert.match(helper, /formServiceAlreadyAssigned && !dedicatedServiceTask/);
+  assert.match(helper, /marketingOnboardingProjectId = b2cProjectId/);
+  assert.match(helper, /const dedicatedWorkflowRoute = marketingFormRoute \?\? "marketing_b2b"/);
+  assert.match(
+    helper,
+    /resolveOnboardingRouteProjectId\(tx,\s*\{[\s\S]*?route: dedicatedWorkflowRoute/,
+  );
   assert.match(
     helper,
     /const b2cMeetingTask = await createTask\(\{[\s\S]*?project_id: b2cProjectId,[\s\S]*?title: "Onboarding: schedule Marketing B2C kickoff meeting"/,
@@ -53,7 +59,11 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /space:\s*\{\s*select:\s*\{\s*id:\s*true,\s*name:\s*true\s*\}\s*\}/);
   assert.match(helper, /sourceProjectSpaceName = sourceProject\?\.space\?\.name/);
   assert.match(helper, /responsibleDepartmentName = input\.responsibleDepartmentName \?\? responsibleDepartment\?\.name \?\? sourceProjectSpaceName/);
-  assert.match(helper, /responsibleDepartmentRoute === "marketing_b2c"/);
+  assert.match(
+    helper,
+    /marketingFormRouteForOnboarding\([\s\S]*company\.service_type,[\s\S]*responsibleDepartmentName/,
+  );
+  assert.match(helper, /marketingFormRoute === "marketing_b2c"/);
   assert.match(routing, /key\.includes\("content calendar"\)/);
   assert.match(routing, /key\.includes\("campanhas"\)/);
   assert.match(helper, /key === "tiktok ads"/);

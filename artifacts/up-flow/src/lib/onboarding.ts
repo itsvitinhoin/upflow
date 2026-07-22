@@ -7,6 +7,7 @@ import { ownerKeyForDepartmentLabel, ownerKeyForTaskRoute } from "@/lib/onboardi
 import {
   type OnboardingTaskRoute,
   normalizeOnboardingRouteValue,
+  marketingFormRouteForOnboarding,
   routeForOnboardingChecklistItem,
   routeForResponsibleDepartment,
   routeForService,
@@ -347,7 +348,7 @@ const ROUTE_SPACE_ALIASES: Record<OnboardingTaskRoute, string[]> = {
   commercial: ["commercial", "comercial"],
   finance: ["finance", "financial", "financeiro"],
   support: ["support", "technical support", "suporte", "suporte tecnico"],
-  marketing_b2b: ["marketing b2b", "paid media", "media buying", "marketing"],
+  marketing_b2b: ["marketing b2b", "paid media", "media buying"],
   marketing_b2c: ["marketing b2c", "consumer marketing", "b2c", "varejo", "ecommerce"],
   creative_design: ["creative and design", "creative design", "creative & design", "criativo", "design"],
   general_admin: ["general admin"],
@@ -595,6 +596,8 @@ function serviceWorkflowFor(
 export function isMarketingB2BFormService(service: string) {
   const key = normalizedName(service);
   return (
+    key === "marketing b2b" ||
+    key === "b2b" ||
     key === "meta ads" ||
     key === "google ads" ||
     key === "tiktok ads" ||
@@ -614,6 +617,8 @@ export function isMarketingB2BFormService(service: string) {
 export function isMarketingB2CFormService(service: string) {
   const key = normalizedName(service);
   return (
+    key === "marketing b2c" ||
+    key === "b2c" ||
     key === "meta ads" ||
     key === "google ads" ||
     key === "tiktok ads" ||
@@ -747,9 +752,19 @@ async function ensureFolder(
       parent_id: input.parentId ?? null,
       name: { equals: input.name, mode: "insensitive" },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, sidebar_hidden: true },
   });
-  if (existing) return existing;
+  if (existing) {
+    const sidebarHidden = input.sidebarHidden ?? false;
+    if (existing.sidebar_hidden !== sidebarHidden) {
+      return db.folder.update({
+        where: { id: existing.id },
+        data: { sidebar_hidden: sidebarHidden },
+        select: { id: true, name: true },
+      });
+    }
+    return existing;
+  }
 
   return db.folder.create({
     data: {
@@ -782,7 +797,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
     name: "Onboarding",
     parentId: null,
     icon: "folder",
-    sidebarHidden: true,
+    sidebarHidden: false,
   });
   const clientFolder = await ensureFolder(db, {
     workspaceId: input.workspaceId,
@@ -791,7 +806,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
     name: input.companyName,
     parentId: onboardingFolder.id,
     icon: "folder",
-    sidebarHidden: true,
+    sidebarHidden: false,
   });
 
   const projectName = input.companyName.trim() || "Marketing B2B Onboarding";
@@ -808,12 +823,12 @@ export async function resolveMarketingB2BOnboardingProjectId(
   if (existingProject) {
     if (
       !existingProject.onboarding_enabled ||
-      !existingProject.sidebar_hidden ||
+      existingProject.sidebar_hidden ||
       existingProject.kind !== "onboarding"
     ) {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { onboarding_enabled: true, sidebar_hidden: true, kind: "onboarding" },
+        data: { onboarding_enabled: true, sidebar_hidden: false, kind: "onboarding" },
         select: { id: true },
       });
     }
@@ -836,7 +851,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
       data: {
         name: projectName,
         onboarding_enabled: true,
-        sidebar_hidden: true,
+        sidebar_hidden: false,
         kind: "onboarding",
       },
       select: { id: true },
@@ -853,7 +868,7 @@ export async function resolveMarketingB2BOnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
       onboarding_enabled: true,
-      sidebar_hidden: true,
+      sidebar_hidden: false,
       kind: "onboarding",
       description:
         "Marketing B2B onboarding form and execution tasks for this client.",
@@ -880,7 +895,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     name: "Onboarding",
     parentId: null,
     icon: "folder",
-    sidebarHidden: true,
+    sidebarHidden: false,
   });
   const clientFolder = await ensureFolder(db, {
     workspaceId: input.workspaceId,
@@ -889,7 +904,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     name: input.companyName,
     parentId: onboardingFolder.id,
     icon: "folder",
-    sidebarHidden: true,
+    sidebarHidden: false,
   });
 
   const projectName = input.companyName.trim() || "Marketing B2C Onboarding";
@@ -905,10 +920,10 @@ export async function resolveMarketingB2COnboardingProjectId(
     select: { id: true, sidebar_hidden: true, kind: true },
   });
   if (existingProject) {
-    if (!existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
+    if (existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { sidebar_hidden: true, kind: "onboarding" },
+        data: { sidebar_hidden: false, kind: "onboarding" },
         select: { id: true },
       });
     }
@@ -929,7 +944,7 @@ export async function resolveMarketingB2COnboardingProjectId(
     if (legacyProject) {
       const renamedProject = await db.project.update({
         where: { id: legacyProject.id },
-        data: { name: projectName, sidebar_hidden: true, kind: "onboarding" },
+        data: { name: projectName, sidebar_hidden: false, kind: "onboarding" },
         select: { id: true },
       });
       return renamedProject.id;
@@ -944,7 +959,7 @@ export async function resolveMarketingB2COnboardingProjectId(
       folder_id: clientFolder.id,
       company_id: input.companyId,
       name: projectName,
-      sidebar_hidden: true,
+      sidebar_hidden: false,
       kind: "onboarding",
       description:
         "Marketing B2C onboarding form and execution tasks for this client.",
@@ -975,7 +990,7 @@ async function resolveDepartmentClientOnboardingProjectId(
     name: input.rootFolderName,
     parentId: null,
     icon: "folder",
-    sidebarHidden: true,
+    sidebarHidden: false,
   });
   const clientFolder = await ensureFolder(db, {
     workspaceId: input.workspaceId,
@@ -984,7 +999,7 @@ async function resolveDepartmentClientOnboardingProjectId(
     name: input.companyName,
     parentId: onboardingFolder.id,
     icon: "folder",
-    sidebarHidden: true,
+    sidebarHidden: false,
   });
 
   const projectName = input.companyName.trim() || input.fallbackProjectName;
@@ -999,10 +1014,10 @@ async function resolveDepartmentClientOnboardingProjectId(
     select: { id: true, sidebar_hidden: true, kind: true },
   });
   if (existingProject) {
-    if (!existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
+    if (existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { sidebar_hidden: true, kind: "onboarding" },
+        data: { sidebar_hidden: false, kind: "onboarding" },
         select: { id: true },
       });
     }
@@ -1017,7 +1032,7 @@ async function resolveDepartmentClientOnboardingProjectId(
       folder_id: clientFolder.id,
       company_id: input.companyId,
       name: projectName,
-      sidebar_hidden: true,
+      sidebar_hidden: false,
       kind: "onboarding",
       description: input.description,
     },
@@ -1963,11 +1978,14 @@ async function syncDedicatedServiceWorkflows(
   };
   if (workflows.size === 0) return result;
 
-  const projectId = await resolveMarketingB2BOnboardingProjectId(tx, {
+  const marketingFormRoute = marketingFormRouteForOnboarding(input.company.service_type, null) ?? "marketing_b2b";
+  const marketingDepartmentLabel = marketingFormRoute === "marketing_b2c" ? "Marketing B2C" : "Marketing B2B";
+  const projectId = await resolveOnboardingRouteProjectId(tx, {
     workspaceId: input.company.workspace_id,
     companyId: input.company.id,
     companyName: input.company.name,
     ownerId: input.actorId,
+    route: marketingFormRoute,
   });
   const [items, assignments, meetings, mappingRows, adminFallback, positionAggregate] = await Promise.all([
     tx.onboardingChecklistItem.findMany({
@@ -2009,14 +2027,14 @@ async function syncDedicatedServiceWorkflows(
     tx.task.aggregate({ where: { project_id: projectId }, _max: { position: true } }),
   ]);
   const marketingMapping = mappingRows.find(
-    (mapping) => ownerKeyForDepartmentLabel(mapping.service) === ownerKeyForTaskRoute("marketing_b2b"),
+    (mapping) => ownerKeyForDepartmentLabel(mapping.service) === ownerKeyForTaskRoute(marketingFormRoute),
   );
   const fallbackLeader =
     marketingMapping?.leader ??
-    (await ownerForRoute(tx, input.company.workspace_id, "marketing_b2b", adminFallback));
+    (await ownerForRoute(tx, input.company.workspace_id, marketingFormRoute, adminFallback));
   const fallbackDepartment =
     marketingMapping?.department ??
-    (await departmentForRoute(tx, input.company.workspace_id, "marketing_b2b"));
+    (await departmentForRoute(tx, input.company.workspace_id, marketingFormRoute));
   let nextSortOrder = Math.max(-1, ...items.map((item) => item.sort_order)) + 1;
   let nextTaskPosition = (positionAggregate._max.position ?? -1) + 1;
 
@@ -2026,7 +2044,7 @@ async function syncDedicatedServiceWorkflows(
     const leaderId = assignment?.leader_id ?? marketingMapping?.leader_id ?? fallbackLeader?.id ?? input.company.owner_id;
     const departmentId = assignment?.department_id ?? marketingMapping?.department_id ?? fallbackDepartment?.id ?? null;
     const departmentName =
-      assignment?.department_name ?? marketingMapping?.department?.name ?? fallbackDepartment?.name ?? "Marketing B2B";
+      assignment?.department_name ?? marketingMapping?.department?.name ?? fallbackDepartment?.name ?? marketingDepartmentLabel;
     const needsMapping = assignment ? assignment.status === "needs_mapping" : !marketingMapping?.leader_id;
     if (!assignment) {
       assignment = await tx.onboardingServiceAssignment.create({
@@ -2039,7 +2057,7 @@ async function syncDedicatedServiceWorkflows(
           department_name: departmentName,
           status: needsMapping ? "needs_mapping" : "assigned",
           notes: needsMapping
-            ? "Needs Marketing B2B department responsible mapping. Fallback owner was assigned for continuity."
+            ? `Needs ${marketingDepartmentLabel} department responsible mapping. Fallback owner was assigned for continuity.`
             : null,
         },
         select: {
@@ -2098,7 +2116,7 @@ async function syncDedicatedServiceWorkflows(
         result.createdTasks.push({
           id: task.id,
           title: task.title,
-          route: "marketing_b2b",
+          route: marketingFormRoute,
           project_id: projectId,
           assignee_id: task.assignee_id,
         });
@@ -2282,8 +2300,10 @@ async function createOnboardingRecords(
       : null;
   const sourceProjectSpaceName = sourceProject?.space?.name ?? null;
   const responsibleDepartmentName = input.responsibleDepartmentName ?? responsibleDepartment?.name ?? sourceProjectSpaceName ?? null;
-  const responsibleDepartmentRoute = routeForResponsibleDepartment(responsibleDepartmentName);
-  const responsibleIsB2C = responsibleDepartmentRoute === "marketing_b2c";
+  const marketingFormRoute = marketingFormRouteForOnboarding(
+    company.service_type,
+    responsibleDepartmentName,
+  );
 
   const mappingRows = await tx.serviceLeaderMapping.findMany({
     where: { workspace_id: company.workspace_id, active: true },
@@ -2615,7 +2635,13 @@ async function createOnboardingRecords(
   });
 
   let position = 70;
-  const b2bFormServices = responsibleIsB2C ? [] : contractedServices.filter(isMarketingB2BFormService);
+  const b2bFormServices =
+    marketingFormRoute === "marketing_b2c"
+      ? []
+      : contractedServices.filter(isMarketingB2BFormService);
+  const shouldCreateB2BForm =
+    marketingFormRoute === "marketing_b2b" ||
+    (marketingFormRoute === null && b2bFormServices.length > 0);
   const b2bFormServiceKeys = new Set(b2bFormServices.map(serviceKey));
   const b2bAssignments: Array<{
     service: string;
@@ -2650,8 +2676,8 @@ async function createOnboardingRecords(
     b2bAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
   }
 
-  let marketingB2BProjectId: string | null = null;
-  if (b2bFormServices.length > 0) {
+  let marketingOnboardingProjectId: string | null = null;
+  if (shouldCreateB2BForm) {
     const fallbackLeader = await ownerForDepartmentRoute("marketing_b2b", adminFallback);
     const formOwnerId = b2bAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
     const b2bProjectId = await resolveMarketingB2BOnboardingProjectId(tx, {
@@ -2660,12 +2686,12 @@ async function createOnboardingRecords(
       companyName: company.name,
       ownerId: input.actorId,
     });
-    marketingB2BProjectId = b2bProjectId;
+    marketingOnboardingProjectId = b2bProjectId;
     const b2bTask = await createTask({
       project_id: b2bProjectId,
       route: "marketing_b2b",
       title: "Marketing B2B onboarding form",
-      description: `Marketing B2B queue action: complete the client onboarding form for ${b2bFormServices.join(", ")}. Fields are optional and autosaved. Click Finalize onboarding B2B to update the central onboarding progress.`,
+      description: `Marketing B2B queue action: complete the client onboarding form for ${b2bFormServices.join(", ") || "the contracted services"}. Fields are optional and autosaved. Click Finalize onboarding B2B to update the central onboarding progress.`,
       status: "todo",
       priority: "high",
       assignee_id: formOwnerId,
@@ -2748,9 +2774,17 @@ async function createOnboardingRecords(
     position += 20;
   }
 
-  const b2cFormServices = responsibleIsB2C
-    ? contractedServices
-    : contractedServices.filter((service) => isMarketingB2CFormService(service) && !isMarketingB2BFormService(service));
+  const b2cFormServices =
+    marketingFormRoute === "marketing_b2b"
+      ? []
+      : contractedServices.filter(
+          (service) =>
+            isMarketingB2CFormService(service) &&
+            (marketingFormRoute === "marketing_b2c" || !isMarketingB2BFormService(service)),
+        );
+  const shouldCreateB2CForm =
+    marketingFormRoute === "marketing_b2c" ||
+    (marketingFormRoute === null && b2cFormServices.length > 0);
   const b2cFormServiceKeys = new Set(b2cFormServices.map(serviceKey));
   const b2cAssignments: Array<{
     service: string;
@@ -2785,7 +2819,7 @@ async function createOnboardingRecords(
     b2cAssignments.push({ service, leaderId, departmentId, departmentName, needsMapping });
   }
 
-  if (b2cFormServices.length > 0) {
+  if (shouldCreateB2CForm) {
     const fallbackLeader = await ownerForDepartmentRoute("marketing_b2c", adminFallback);
     const formOwnerId = b2cAssignments.find((assignment) => assignment.leaderId)?.leaderId ?? fallbackLeader?.id ?? null;
     const b2cProjectId = await resolveMarketingB2COnboardingProjectId(tx, {
@@ -2794,11 +2828,12 @@ async function createOnboardingRecords(
       companyName: company.name,
       ownerId: input.actorId,
     });
+    marketingOnboardingProjectId = b2cProjectId;
     const b2cTask = await createTask({
       project_id: b2cProjectId,
       route: "marketing_b2c",
       title: "Marketing B2C onboarding form",
-      description: `Marketing B2C queue action: complete the client onboarding form for ${b2cFormServices.join(", ")}. Fields are optional and autosaved. Click Finalize onboarding B2C to update the central onboarding progress.`,
+      description: `Marketing B2C queue action: complete the client onboarding form for ${b2cFormServices.join(", ") || "the contracted services"}. Fields are optional and autosaved. Click Finalize onboarding B2C to update the central onboarding progress.`,
       status: "todo",
       priority: "high",
       assignee_id: formOwnerId,
@@ -2891,8 +2926,8 @@ async function createOnboardingRecords(
     if (formServiceAlreadyAssigned && !dedicatedServiceTask) continue;
 
     const route =
-      dedicatedServiceTask && (responsibleDepartmentRoute === "marketing_b2b" || responsibleDepartmentRoute === "marketing_b2c")
-        ? responsibleDepartmentRoute
+      dedicatedServiceTask && marketingFormRoute
+        ? marketingFormRoute
         : routeForService(service);
     const assignmentRoute = route;
     const mapping = departmentMappingForRoute(assignmentRoute);
@@ -2920,13 +2955,15 @@ async function createOnboardingRecords(
     }
 
     const dedicatedWorkflow = serviceWorkflowFor(service);
+    const dedicatedWorkflowRoute = marketingFormRoute ?? "marketing_b2b";
     const serviceProjectId = dedicatedWorkflow
-      ? marketingB2BProjectId ??
-        (await resolveMarketingB2BOnboardingProjectId(tx, {
+      ? marketingOnboardingProjectId ??
+        (await resolveOnboardingRouteProjectId(tx, {
           workspaceId: company.workspace_id,
           companyId: company.id,
           companyName: company.name,
           ownerId: input.actorId,
+          route: dedicatedWorkflowRoute,
         }))
       : await queueProjectId(route);
     if (dedicatedWorkflow) {
