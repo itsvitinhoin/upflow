@@ -28,6 +28,10 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectsPage, /Trash2/);
   assert.match(projectsPage, /t\("common\.delete"\)/);
   assert.match(projectsPage, /fetch\(`\/api\/projects\/\$\{project\.id\}`,\s*\{\s*method:\s*"DELETE",?\s*\}\)/);
+  assert.match(projectRoute, /findActiveOnboardingProject\(tx, \[project\]\)/);
+  assert.match(projectRoute, /if \(!result\.ok\)[\s\S]*status: 409/);
+  assert.match(projectDelete, /export async function findActiveOnboardingProject/);
+  assert.match(projectDelete, /status: \{ not: "onboarding_complete" \}/);
   assert.match(projectsPage, /deletingProjectId/);
   assert.match(projectsPage, /setRefreshKey\(\(value\) => value \+ 1\)/);
   assert.match(projectsPage, /t\("projects\.deleted"\)/);
@@ -46,6 +50,8 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectDelete, /clientContract\.updateMany/);
   assert.match(projectDelete, /project\.deleteMany/);
   assert.match(projectRoute, /deleted\.projects !== 1/);
+  assert.match(folderRoute, /findActiveOnboardingProject\(tx, projects\)/);
+  assert.match(folderRoute, /if \(!result\.ok\)[\s\S]*status: 409/);
   assert.match(projectRoute, /workspace_id:\s*project\.workspace_id/);
   assert.match(projectRoute, /deleted:\s*result/);
   assert.match(folderRoute, /getDescendantFolderIds/);

@@ -48,6 +48,20 @@ export async function collectTaskDescendantIds(tx: Tx, taskIds: string[]) {
   return Array.from(collected);
 }
 
+/**
+ * Returns the first onboarding item linked to a task being deleted (including
+ * descendants). Generic task deletion must not silently sever onboarding steps.
+ */
+export async function findOnboardingTaskLink(tx: Tx, taskIds: string[]) {
+  const allTaskIds = await collectTaskDescendantIds(tx, taskIds);
+  if (allTaskIds.length === 0) return null;
+
+  return tx.onboardingChecklistItem.findFirst({
+    where: { task_id: { in: allTaskIds } },
+    select: { id: true, onboarding_id: true, title: true },
+  });
+}
+
 export async function deleteTasksByIds(
   tx: Tx,
   taskIds: string[],

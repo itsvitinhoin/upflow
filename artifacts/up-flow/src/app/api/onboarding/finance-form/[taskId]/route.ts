@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
-import { loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
+import { getOnboardingCompletionBlocker, loadOnboardingAccess, recomputeOnboardingProgress } from "@/lib/onboarding";
 import { isFinanceOnboardingFormLocation } from "@/lib/onboarding-routing";
 import { canReadProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -223,7 +223,7 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid finance onboarding form", issues: parsed.error.flatten() }, { status: 400 });
   }
 
-  await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     if (parsed.data.finance) {
       await tx.company.update({
         where: { id: access.item.onboarding.company_id },
@@ -232,6 +232,13 @@ async function PATCH_handler(
     }
 
     if (parsed.data.complete) {
+      const blocker = await getOnboardingCompletionBlocker(tx, access.item.onboarding_id, {
+        id: access.item.id,
+        department: access.item.department,
+        title: access.item.title,
+        task_id: access.item.task_id,
+      });
+      if (blocker) return { blocker };
       await tx.task.update({
         where: { id: access.item.task_id ?? params.taskId },
         data: { status: "done" },
@@ -259,7 +266,15 @@ async function PATCH_handler(
         });
       }
     }
+    return { blocker: null };
   });
+
+  if (result.blocker) {
+    return NextResponse.json(
+      { error: result.blocker },
+      { status: 409 },
+    );
+  }
 
   await recordActivity({
     workspace_id: access.item.workspace_id,

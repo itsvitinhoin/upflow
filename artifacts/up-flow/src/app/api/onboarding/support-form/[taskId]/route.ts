@@ -9,6 +9,7 @@ import {
   recomputeOnboardingProgress,
 } from "@/lib/onboarding";
 import { canContributeToProject, canReadProject } from "@/lib/project-access";
+import { routeForOnboardingChecklistItem } from "@/lib/onboarding-routing";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const SupportGroupSchema = z.object({
@@ -136,7 +137,7 @@ async function getAccess(taskId: string) {
   const auth = _r.auth;
 
   const item = await loadSupportTask(taskId);
-  if (!item || !item.task || isUpZeroConfigurationChecklistItem(item)) {
+  if (!item || !item.task || isUpZeroConfigurationChecklistItem(item) || routeForOnboardingChecklistItem(item) !== "support") {
     return { ok: false as const, response: NextResponse.json({ error: "Not found" }, { status: 404 }) };
   }
 

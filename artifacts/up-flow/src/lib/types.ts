@@ -496,6 +496,14 @@ export interface SidebarPinnedClient {
   };
 }
 
+export interface OnboardingCapabilities {
+  can_manage: boolean;
+  can_update_finance: boolean;
+  can_update_support: boolean;
+  can_upload_contract: boolean;
+  editable_checklist_item_ids: string[];
+}
+
 export interface ClientOnboarding {
   id: string;
   workspace_id: string;
@@ -533,6 +541,7 @@ export interface ClientOnboarding {
   support_group?: SupportGroup | null;
   marketing_b2b_forms?: MarketingB2BOnboardingFormSummary[];
   marketing_b2c_forms?: MarketingB2COnboardingFormSummary[];
+  capabilities?: OnboardingCapabilities;
 }
 
 export interface OnboardingChecklistItem {

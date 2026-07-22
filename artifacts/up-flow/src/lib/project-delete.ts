@@ -7,6 +7,27 @@ export interface ProjectDeleteTarget {
   id: string;
   workspace_id: string;
 }
+/**
+ * Finds an in-progress onboarding that still depends on one of these projects.
+ * Completed onboarding history can be retained after its source project is removed.
+ */
+export async function findActiveOnboardingProject(
+  tx: Tx,
+  projects: ProjectDeleteTarget[],
+) {
+  const projectIds = Array.from(
+    new Set(projects.map((project) => project.id).filter(Boolean)),
+  );
+  if (!projectIds.length) return null;
+
+  return tx.clientOnboarding.findFirst({
+    where: {
+      project_id: { in: projectIds },
+      status: { not: "onboarding_complete" },
+    },
+    select: { id: true, project_id: true },
+  });
+}
 
 export interface DeletedProjectCounts {
   approval_events: number;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { canAccessWorkspace } from "@/lib/auth-helpers";
-import { onboardingSelect, redactOnboardingContracts, loadOnboardingAccess } from "@/lib/onboarding";
+import { onboardingCapabilities, onboardingSelect, redactOnboardingContracts, loadOnboardingAccess } from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 async function GET_handler(req: NextRequest) {
@@ -93,7 +93,12 @@ async function GET_handler(req: NextRequest) {
   for (const row of rows) {
     if (!canAccessWorkspace(auth, row.workspace_id)) continue;
     const access = await loadOnboardingAccess(auth, row.id);
-    items.push(redactOnboardingContracts(row, Boolean(access?.canViewPrivateContract)));
+    if (!access) continue;
+    const redacted = redactOnboardingContracts(row, access.canViewPrivateContract);
+    items.push({
+      ...redacted,
+      capabilities: onboardingCapabilities(access, row.checklist_items),
+    });
   }
 
   return NextResponse.json({ items });

@@ -11,7 +11,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
-import { deleteTasksByIds } from "@/lib/task-delete";
+import { deleteTasksByIds, findOnboardingTaskLink } from "@/lib/task-delete";
 import {
   canAssignUserToProject,
   canContributeToProject,
@@ -432,6 +432,18 @@ async function deleteHandler(req: NextRequest) {
     }
   }
 
+  const deletion = await prisma.$transaction(async (tx) => {
+    const onboardingTask = await findOnboardingTaskLink(tx, ids);
+    if (onboardingTask) return { blocked: true as const };
+    return { blocked: false as const, deleted: await deleteTasksByIds(tx, ids) };
+  });
+  if (deletion.blocked) {
+    return NextResponse.json(
+      { error: "One or more tasks are part of client onboarding and cannot be deleted." },
+      { status: 409 },
+    );
+  }
+
   for (const task of tasks) {
     await recordActivity({
       workspace_id: task.project.workspace_id,
@@ -446,8 +458,7 @@ async function deleteHandler(req: NextRequest) {
     });
   }
 
-  const deleted = await prisma.$transaction((tx) => deleteTasksByIds(tx, ids));
-  return NextResponse.json({ success: true, deleted });
+  return NextResponse.json({ success: true, deleted: deletion.deleted });
 }
 
 export const GET = withErrorReporting("api:tasks:GET", getHandler);

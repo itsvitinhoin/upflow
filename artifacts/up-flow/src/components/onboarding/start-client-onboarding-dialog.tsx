@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Building2, ClipboardCheck, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -88,6 +88,7 @@ export default function StartClientOnboardingDialog({
   const [expectedStartDate, setExpectedStartDate] = useState("");
   const [contractValue, setContractValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const dialogRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -102,6 +103,49 @@ export default function StartClientOnboardingDialog({
     setExpectedStartDate(todayInputDate());
     setContractValue(company?.contract_value == null ? "" : String(company.contract_value));
   }, [company, open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!submitting) {
+          event.preventDefault();
+          onClose();
+        }
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open, submitting]);
 
   if (!open) return null;
 
@@ -182,9 +226,10 @@ export default function StartClientOnboardingDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-md dark:bg-[#020617]/[0.72]"
-      onClick={onClose}
+      onClick={submitting ? undefined : onClose}
     >
       <form
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={t("onboardingWorkflow.start")}

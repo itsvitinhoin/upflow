@@ -78,6 +78,13 @@ function usesUpZero(item: ClientOnboarding) {
   );
 }
 
+function isMarketingB2COnboarding(item: ClientOnboarding) {
+  return (item.marketing_b2c_forms ?? []).length > 0 || (item.checklist_items ?? []).some((check) => {
+    const details = `${check.department} ${check.title}`.toLowerCase();
+    return details.includes("marketing b2c") || details.includes("b2c");
+  });
+}
+
 function upZeroTechnicalItem(item: ClientOnboarding) {
   return (item.checklist_items ?? []).find(
     (check) => check.automation_key === "up_zero_website_configuration",
@@ -87,6 +94,7 @@ function upZeroTechnicalItem(item: ClientOnboarding) {
 function marketingB2BBlockedByUpZero(item: ClientOnboarding) {
   return (
     usesUpZero(item) &&
+    !isMarketingB2COnboarding(item) &&
     !item.up_zero_configuration_completed_at &&
     !item.marketing_b2b_released_at &&
     !item.marketing_b2b_dependency_overridden_at
@@ -225,6 +233,7 @@ export default function OnboardingQueuePage() {
             <label className="relative block w-full lg:max-w-md">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
+                aria-label={t("onboardingQueue.searchPlaceholder")}
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -301,6 +310,19 @@ function ReadinessBoard({
   const completeSteps = (item.checklist_items ?? []).filter((check) => check.status === "complete").length;
   const totalSteps = Math.max((item.checklist_items ?? []).length, 1);
   const technicalItem = upZeroTechnicalItem(item);
+  const isB2C = isMarketingB2COnboarding(item);
+  const marketingDepartment = isB2C ? "Marketing B2C" : "Marketing B2B";
+  const marketingTitle = isB2C ? t("marketingB2CForm.summaryTitle") : t("onboardingBoard.marketingB2BOnboarding");
+  const marketingDepartmentLabel = isB2C ? t("marketingB2CForm.department") : t("onboardingBoard.department.marketingB2B");
+  const workflowHref = `/clients/${item.company_id}#onboarding`;
+  const meetings = item.meetings ?? [];
+  const meetingsScheduled = meetings.length > 0 && meetings.every((meeting) => meeting.scheduled);
+  const meetingStageState = meetings.length > 0
+    ? meetingsScheduled ? "done" : meetings.some((meeting) => meeting.scheduled) ? "review" : "pending"
+    : null;
+  const commercialStatus = item.commercial_completed_at
+    ? t("onboardingBoard.completed")
+    : statusFromDepartment(item, "Commercial", t);
   const upZeroBlocked = marketingB2BBlockedByUpZero(item);
   const owner = !item.commercial_completed_at
     ? item.salesperson ?? null
@@ -311,8 +333,9 @@ function ReadinessBoard({
     ? t("onboardingBoard.department.commercial")
     : upZeroBlocked
       ? t("onboardingBoard.department.technicalSupport")
-      : t("onboardingBoard.department.marketingB2B");
+      : marketingDepartmentLabel;
   const services = item.contracted_services?.slice(0, 4).join(", ") || t("onboardingBoard.servicesPending");
+  const clientType = isB2C ? "B2C" : "B2B";
   const creativeItems = (item.checklist_items ?? []).filter((entry) => {
     const text = `${entry.department} ${entry.title}`.toLowerCase();
     return text.includes("creative") || text.includes("design") || text.includes("visita");
@@ -332,7 +355,7 @@ function ReadinessBoard({
                   <h3 className="truncate text-2xl font-black text-foreground dark:text-white">{item.company?.name ?? t("clients.unknownClient")}</h3>
                   <span className={cn("rounded-lg border px-3 py-1 text-xs font-black", statusClass(item.status))}>{statusLabel(item.sequence_status || item.status, t)}</span>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">B2B - {services}</p>
+                <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">{clientType} - {services}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -345,7 +368,7 @@ function ReadinessBoard({
               <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-sm font-bold text-foreground hover:border-blue-400/60 hover:bg-accent dark:border-slate-700 dark:bg-transparent dark:text-slate-200">
                 <FileText className="h-4 w-4" /> {t("onboardingBoard.editClient")}
               </Link>
-              <Link href={`/clients/${item.company_id}`} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-sm font-black text-primary-foreground">
+              <Link href={workflowHref} className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-2 text-sm font-black text-primary-foreground">
                 <Rocket className="h-4 w-4" /> {t("clients.openClient")}
               </Link>
             </div>
@@ -364,18 +387,20 @@ function ReadinessBoard({
           <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-[repeat(9,minmax(0,1fr))]">
             {stageDefinitions.map((stage, index) => {
               const check = findStageItem(item.checklist_items ?? [], stage.department, stage.key);
-              const state = check?.status === "complete" ? "done" : check?.status === "in_progress" ? "review" : index > completeSteps ? "locked" : "pending";
+              const state = stage.key === "meeting" && meetingStageState
+                ? meetingStageState
+                : check?.status === "complete" ? "done" : check?.status === "in_progress" ? "review" : index > completeSteps ? "locked" : "pending";
               return <StageStep key={stage.key} index={index + 1} label={t(stage.labelKey)} state={state} t={t} />;
             })}
           </div>
         </section>
 
         <section className="space-y-2">
-          <WorkflowRow index={1} icon={ClipboardCheck} title={t("onboardingBoard.stage.commercial")} status={t("onboardingBoard.completed")} tone="green" meta={[t("onboardingBoard.brandType", { type: "B2B" }), t("onboardingBoard.plan", { services })]} action={t("onboardingBoard.editPlan")} />
-          <WorkflowRow index={2} icon={DollarSign} title={t("onboardingBoard.financeRegistration")} status={statusFromDepartment(item, "Finance", t)} tone="blue" meta={[t("onboardingBoard.brandName"), "CNPJ", t("onboardingBoard.phone"), t("onboardingBoard.email"), t("onboardingBoard.monthlyFee")]} action={t("onboardingBoard.openFinanceForm")} />
-          <WorkflowRow index={3} icon={LockKeyhole} title={t("onboardingBoard.privateContract")} status={(item.contracts ?? []).length ? t("onboardingBoard.sent") : t("onboardingBoard.notSent")} tone={(item.contracts ?? []).length ? "green" : "amber"} meta={[t("onboardingBoard.uploadContract"), t("onboardingBoard.validation")]} action={t("onboardingBoard.uploadContract")} />
-          <WorkflowRow index={4} icon={Users} title={t("onboardingBoard.serviceLeaderAssignment")} status={missingMappings(item).length ? t("onboardingBoard.needsMapping") : t("onboardingBoard.assigned")} tone={missingMappings(item).length ? "amber" : "green"} meta={(item.service_assignments ?? []).slice(0, 4).map((assignment) => `${assignment.service}: ${assignment.leader?.name ?? t("onboardingBoard.noOwner")}`)} action={t("common.save")} />
-          <WorkflowRow index={5} icon={MessageSquare} title={t("onboardingBoard.stage.support")} status={item.support_group?.group_created ? t("onboardingBoard.groupCreated") : t("onboardingBoard.pending")} tone={item.support_group?.group_created ? "green" : "blue"} meta={[item.support_group?.group_name ?? t("onboardingBoard.communicationGroup"), item.support_group?.group_link ?? t("onboardingBoard.pendingGroupLink")]} action={t("onboardingBoard.saveGroupLink")} />
+          <WorkflowRow index={1} icon={ClipboardCheck} title={t("onboardingBoard.stage.commercial")} status={commercialStatus} tone={item.commercial_completed_at ? "green" : "amber"} meta={[t("onboardingBoard.brandType", { type: clientType }), t("onboardingBoard.plan", { services })]} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
+          <WorkflowRow index={2} icon={DollarSign} title={t("onboardingBoard.financeRegistration")} status={statusFromDepartment(item, "Finance", t)} tone="blue" meta={[t("onboardingBoard.brandName"), "CNPJ", t("onboardingBoard.phone"), t("onboardingBoard.email"), t("onboardingBoard.monthlyFee")]} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
+          <WorkflowRow index={3} icon={LockKeyhole} title={t("onboardingBoard.privateContract")} status={(item.contracts ?? []).length ? t("onboardingBoard.sent") : t("onboardingBoard.notSent")} tone={(item.contracts ?? []).length ? "green" : "amber"} meta={[t("onboardingBoard.uploadContract"), t("onboardingBoard.validation")]} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
+          <WorkflowRow index={4} icon={Users} title={t("onboardingBoard.serviceLeaderAssignment")} status={missingMappings(item).length ? t("onboardingBoard.needsMapping") : t("onboardingBoard.assigned")} tone={missingMappings(item).length ? "amber" : "green"} meta={(item.service_assignments ?? []).slice(0, 4).map((assignment) => `${assignment.service}: ${assignment.leader?.name ?? t("onboardingBoard.noOwner")}`)} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
+          <WorkflowRow index={5} icon={MessageSquare} title={t("onboardingBoard.stage.support")} status={item.support_group?.group_created ? t("onboardingBoard.groupCreated") : t("onboardingBoard.pending")} tone={item.support_group?.group_created ? "green" : "blue"} meta={[item.support_group?.group_name ?? t("onboardingBoard.communicationGroup"), item.support_group?.group_link ?? t("onboardingBoard.pendingGroupLink")]} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
           {usesUpZero(item) ? (
             <WorkflowRow
               index={6}
@@ -387,12 +412,13 @@ function ReadinessBoard({
                 technicalItem ? onboardingTitleLabel(technicalItem.title, t) : t("onboardingBoard.configureUpZero"),
                 t("onboardingBoard.owner", { owner: technicalItem?.owner?.name ?? t("onboardingBoard.technicalSupportPending") }),
               ]}
-              action={t("onboardingBoard.openTask")}
+              href={workflowHref}
+              action={t("onboardingBoard.openWorkflow")}
             />
           ) : null}
-          <WorkflowRow index={usesUpZero(item) ? 7 : 6} icon={ClipboardCheck} title={t("onboardingBoard.marketingB2BOnboarding")} status={upZeroBlocked ? t("onboardingBoard.blocked") : statusFromDepartment(item, "Marketing B2B", t)} tone={upZeroBlocked ? "amber" : "purple"} meta={upZeroBlocked ? [t("onboardingBoard.blocker.upZero")] : [t("onboardingBoard.openForm"), t("onboardingBoard.requestMissingInfo"), t("onboardingBoard.markComplete")]} action={t("onboardingBoard.openForm")} />
-          <WorkflowRow index={usesUpZero(item) ? 8 : 7} icon={Palette} title={t("onboardingBoard.stage.creative")} status={statusFromDepartment(item, "Creative", t)} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${onboardingTitleLabel(entry.title, t)}: ${entry.status === "complete" ? t("onboardingBoard.completed") : t("onboardingBoard.pending")}`) : [t("onboardingBoard.brandGuidelineMeeting"), t("onboardingBoard.technicalVisit")]} action={t("onboardingBoard.openCreativeTasks")} />
-          <WorkflowRow index={usesUpZero(item) ? 9 : 8} icon={CalendarDays} title={t("onboardingBoard.meetings")} status={(item.meetings ?? []).every((meeting) => meeting.scheduled) ? t("onboardingBoard.scheduledPlural") : t("onboardingBoard.notScheduled")} tone="rose" meta={(item.meetings ?? []).slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? t("onboardingBoard.scheduled") : t("onboardingBoard.notScheduled")}`)} action={t("common.save")} />
+          <WorkflowRow index={usesUpZero(item) ? 7 : 6} icon={ClipboardCheck} title={marketingTitle} status={upZeroBlocked ? t("onboardingBoard.blocked") : statusFromDepartment(item, marketingDepartment, t)} tone={upZeroBlocked ? "amber" : "purple"} meta={upZeroBlocked ? [t("onboardingBoard.blocker.upZero")] : [t("onboardingBoard.openForm"), t("onboardingBoard.requestMissingInfo"), t("onboardingBoard.markComplete")]} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
+          <WorkflowRow index={usesUpZero(item) ? 8 : 7} icon={Palette} title={t("onboardingBoard.stage.creative")} status={statusFromDepartment(item, "Creative", t)} tone="purple" meta={creativeItems.length ? creativeItems.slice(0, 3).map((entry) => `${onboardingTitleLabel(entry.title, t)}: ${entry.status === "complete" ? t("onboardingBoard.completed") : t("onboardingBoard.pending")}`) : [t("onboardingBoard.brandGuidelineMeeting"), t("onboardingBoard.technicalVisit")]} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
+          <WorkflowRow index={usesUpZero(item) ? 9 : 8} icon={CalendarDays} title={t("onboardingBoard.meetings")} status={meetingsScheduled ? t("onboardingBoard.scheduledPlural") : t("onboardingBoard.notScheduled")} tone={meetingsScheduled ? "green" : "rose"} meta={meetings.slice(0, 3).map((meeting) => `${meeting.service}: ${meeting.scheduled ? t("onboardingBoard.scheduled") : t("onboardingBoard.notScheduled")}`)} action={t("onboardingBoard.openWorkflow")} href={workflowHref} />
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
@@ -428,7 +454,7 @@ function ReadinessBoard({
           <h4 className="flex items-center gap-2 font-black text-foreground dark:text-white"><Rocket className="h-4 w-4 text-blue-600 dark:text-blue-300" /> {t("onboardingBoard.nextAction")}</h4>
           <p className="mt-4 font-black text-foreground dark:text-white">{upZeroBlocked ? t("onboardingBoard.configureUpZero") : next ? onboardingTitleLabel(next.title, t) : t("onboardingBoard.readyToStart")}</p>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{upZeroBlocked ? t("onboardingBoard.blocker.upZero") : next ? t("onboardingBoard.completeStepToUnlock") : t("onboardingBoard.allRequiredComplete")}</p>
-          <Link href={`/clients/${item.company_id}`} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-primary-foreground">{t("clients.openClient")}</Link>
+          <Link href={workflowHref} className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-3 text-sm font-black text-primary-foreground">{t("clients.openClient")}</Link>
         </section>
       </aside>
     </article>
@@ -496,7 +522,7 @@ function MetricLine({ icon: Icon, label, value }: { icon: ComponentType<{ classN
   );
 }
 
-function WorkflowRow({ index, icon: Icon, title, status, tone, meta, action }: { index: number; icon: ComponentType<{ className?: string }>; title: string; status: string; tone: "green" | "blue" | "amber" | "purple" | "rose"; meta: string[]; action: string }) {
+function WorkflowRow({ index, icon: Icon, title, status, tone, meta, action, href }: { index: number; icon: ComponentType<{ className?: string }>; title: string; status: string; tone: "green" | "blue" | "amber" | "purple" | "rose"; meta: string[]; action: string; href: string }) {
   const toneClass = {
     green: "border-emerald-400/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     blue: "border-blue-400/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
@@ -516,7 +542,7 @@ function WorkflowRow({ index, icon: Icon, title, status, tone, meta, action }: {
       </div>
       <div className="flex items-center gap-2 lg:justify-end">
         <span className={cn("rounded-lg border px-2 py-1 text-[11px] font-black", toneClass)}>{status}</span>
-        <button type="button" className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-black text-foreground hover:border-blue-400/60 hover:bg-accent dark:border-slate-700 dark:bg-transparent dark:text-slate-200">{action}</button>
+        <Link href={href} className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-black text-foreground hover:border-blue-400/60 hover:bg-accent dark:border-slate-700 dark:bg-transparent dark:text-slate-200">{action}</Link>
       </div>
     </div>
   );

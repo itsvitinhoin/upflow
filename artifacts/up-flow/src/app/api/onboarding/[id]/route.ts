@@ -9,6 +9,7 @@ import {
   isMarketingB2BFormService,
   isMarketingB2CFormService,
   loadOnboardingAccess,
+  onboardingCapabilities,
   onboardingSelect,
   overrideUpZeroMarketingB2BGate,
   recomputeOnboardingProgress,
@@ -92,7 +93,11 @@ async function GET_handler(
   if (!onboarding) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const access = await loadOnboardingAccess(auth, onboarding.id);
   if (!access) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json(redactOnboardingContracts(onboarding, access.canViewPrivateContract));
+  const redacted = redactOnboardingContracts(onboarding, access.canViewPrivateContract);
+  return NextResponse.json({
+    ...redacted,
+    capabilities: onboardingCapabilities(access, onboarding.checklist_items),
+  });
 }
 
 async function PATCH_handler(
@@ -201,11 +206,16 @@ async function PATCH_handler(
 
     if (parsed.data.service_assignment) {
       if (!access.admin) return null;
-      if (parsed.data.service_assignment.leader_id) {
+      const serviceAssignment = parsed.data.service_assignment;
+      const leaderWasProvided = Object.hasOwn(serviceAssignment, "leader_id");
+      const departmentWasProvided = Object.hasOwn(serviceAssignment, "department_id");
+      const notesWereProvided = Object.hasOwn(serviceAssignment, "notes");
+
+      if (leaderWasProvided && serviceAssignment.leader_id) {
         const member = await tx.workspaceMember.findFirst({
           where: {
             workspace_id: access.onboarding.workspace_id,
-            user_id: parsed.data.service_assignment.leader_id,
+            user_id: serviceAssignment.leader_id,
             status: "active",
             role: { not: "guest" },
           },
@@ -213,31 +223,33 @@ async function PATCH_handler(
         });
         if (!member) throw new Error("Selected leader is not an active workspace member.");
       }
-      if (parsed.data.service_assignment.department_id) {
+      if (departmentWasProvided && serviceAssignment.department_id) {
         const department = await tx.department.findFirst({
           where: {
-            id: parsed.data.service_assignment.department_id,
+            id: serviceAssignment.department_id,
             workspace_id: access.onboarding.workspace_id,
           },
           select: { id: true },
         });
         if (!department) throw new Error("Selected department does not belong to this workspace.");
       }
-      await tx.onboardingServiceAssignment.update({
+      const assignment = await tx.onboardingServiceAssignment.update({
         where: {
           onboarding_id_service: {
             onboarding_id: id,
-            service: parsed.data.service_assignment.service,
+            service: serviceAssignment.service,
           },
         },
         data: {
-          leader_id: parsed.data.service_assignment.leader_id ?? undefined,
-          department_id: parsed.data.service_assignment.department_id ?? undefined,
-          notes: parsed.data.service_assignment.notes,
-          status: parsed.data.service_assignment.leader_id ? "assigned" : "unassigned",
+          ...(leaderWasProvided
+            ? { leader_id: serviceAssignment.leader_id, status: serviceAssignment.leader_id ? "assigned" : "unassigned" }
+            : {}),
+          ...(departmentWasProvided ? { department_id: serviceAssignment.department_id } : {}),
+          ...(notesWereProvided ? { notes: serviceAssignment.notes } : {}),
         },
+        select: { leader_id: true },
       });
-      const service = parsed.data.service_assignment.service;
+      const service = serviceAssignment.service;
       const meeting = await tx.onboardingMeeting.findUnique({
         where: {
           onboarding_id_service: {
@@ -247,13 +259,13 @@ async function PATCH_handler(
         },
         select: { id: true, checklist_item_id: true },
       });
-      if (meeting) {
+      if (meeting && leaderWasProvided) {
         await tx.onboardingMeeting.update({
           where: { id: meeting.id },
-          data: { leader_id: parsed.data.service_assignment.leader_id ?? null },
+          data: { leader_id: assignment.leader_id },
         });
       }
-      if (meeting?.checklist_item_id) {
+      if (meeting?.checklist_item_id && leaderWasProvided) {
         const projectContext = access.onboarding.project_id
           ? await tx.project.findUnique({
               where: { id: access.onboarding.project_id },
@@ -269,7 +281,7 @@ async function PATCH_handler(
           where: { id: access.onboarding.company_id },
           select: { name: true },
         });
-        const service = parsed.data.service_assignment.service;
+        const service = serviceAssignment.service;
         const taskProjectId = await resolveOnboardingTaskProjectId(tx, {
           workspaceId: access.onboarding.workspace_id,
           companyId: access.onboarding.company_id,
@@ -281,7 +293,7 @@ async function PATCH_handler(
         });
         const checklistItem = await tx.onboardingChecklistItem.update({
           where: { id: meeting.checklist_item_id },
-          data: { owner_id: parsed.data.service_assignment.leader_id ?? null },
+          data: { owner_id: assignment.leader_id },
           select: { id: true, task_id: true, sort_order: true },
         });
         let taskId = checklistItem.task_id;
@@ -294,7 +306,7 @@ async function PATCH_handler(
               description: `Schedule the ${service} onboarding meeting and save the date/link in the onboarding workflow.`,
               status: "todo",
               priority: "medium",
-              assignee_id: parsed.data.service_assignment.leader_id ?? null,
+              assignee_id: assignment.leader_id,
               position: checklistItem.sort_order,
             },
           });
@@ -307,13 +319,13 @@ async function PATCH_handler(
           await tx.task.update({
             where: { id: taskId },
             data: {
-              assignee_id: parsed.data.service_assignment.leader_id ?? null,
+              assignee_id: assignment.leader_id,
               project_id: taskProjectId,
             },
           });
         }
         notificationTargets.push({
-          userId: parsed.data.service_assignment.leader_id,
+          userId: assignment.leader_id,
           taskId,
           workspaceId: access.onboarding.workspace_id,
           onboardingId: id,
@@ -345,8 +357,8 @@ async function PATCH_handler(
           })
         : null;
       const form = b2bForm ?? b2cForm;
-      if (form) {
-        const nextLeaderId = parsed.data.service_assignment.leader_id ?? null;
+      if (form && leaderWasProvided) {
+        const nextLeaderId = assignment.leader_id;
         await Promise.all([
           tx.onboardingChecklistItem.update({
             where: { id: form.checklist_item_id },

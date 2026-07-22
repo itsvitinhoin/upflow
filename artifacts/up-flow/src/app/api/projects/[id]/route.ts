@@ -8,7 +8,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { parseAppDate } from "@/lib/utils";
 import { canReadProject } from "@/lib/project-access";
-import { deleteProjectsByIds } from "@/lib/project-delete";
+import { deleteProjectsByIds, findActiveOnboardingProject } from "@/lib/project-delete";
 import { z } from "zod";
 
 const UpdateProjectSchema = z.object({
@@ -261,6 +261,11 @@ async function DELETE_handler(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    const activeOnboarding = await findActiveOnboardingProject(tx, [project]);
+    if (activeOnboarding) {
+      return { ok: false as const };
+    }
+
     const deleted = await deleteProjectsByIds(tx, [project]);
 
     if (deleted.projects !== 1) {
@@ -278,10 +283,14 @@ async function DELETE_handler(
       },
     });
 
-    return deleted;
+    return { ok: true as const, deleted };
   });
 
-  return NextResponse.json({ success: true, deleted: result });
+  if (!result.ok) {
+    return NextResponse.json({ error: "Complete the active onboarding workflow before deleting its project." }, { status: 409 });
+  }
+
+  return NextResponse.json({ success: true, deleted: result.deleted });
 }
 export const GET = withErrorReporting("api:projects/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:projects/id:PATCH", PATCH_handler);

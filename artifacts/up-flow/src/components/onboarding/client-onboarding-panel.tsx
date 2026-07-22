@@ -16,9 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
-import { useAppUser } from "@/components/user-provider";
 import StartClientOnboardingDialog from "@/components/onboarding/start-client-onboarding-dialog";
-import { isCommercialOrSalesDepartmentName } from "@/lib/company-creation-access";
 import type { ClientOnboarding, Company, Department, OnboardingChecklistItem, OnboardingServiceAssignment, TeamMember } from "@/lib/types";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -200,10 +198,10 @@ function nullableList(value: string[]) {
 }
 export default function ClientOnboardingPanel({ companyId, projectId, company, onChanged }: Props) {
   const { t } = useLanguage();
-  const user = useAppUser();
   const [onboarding, setOnboarding] = useState<ClientOnboarding | null>(null);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [canStartClientOnboarding, setCanStartClientOnboarding] = useState(false);
   const [showStartClientOnboardingDialog, setShowStartClientOnboardingDialog] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [teamOptions, setTeamOptions] = useState<{
@@ -225,13 +223,9 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   const [assignmentDrafts, setAssignmentDrafts] = useState<Record<string, { leader_id: string; department_id: string; notes: string }>>({});
   const [overrideReason, setOverrideReason] = useState("");
 
-  const canStartClientOnboarding = Boolean(
-    user?.isSuperAdmin ||
-      user?.currentRole === "owner" ||
-      user?.currentRole === "admin" ||
-      (user?.currentRole === "member" &&
-        isCommercialOrSalesDepartmentName(user.currentDepartmentName)),
-  );
+  const canManageOnboarding = Boolean(onboarding?.capabilities?.can_manage);
+  const canUpdateSupport = Boolean(onboarding?.capabilities?.can_update_support);
+  const editableChecklistItemIds = onboarding?.capabilities?.editable_checklist_item_ids ?? [];
 
   const load = async (options?: { silent?: boolean }) => {
     if (!companyId && !projectId) return;
@@ -301,6 +295,24 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
       }
     };
     void loadTeamOptions();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadCompanyAccess = async () => {
+      try {
+        const res = await fetch("/api/companies/access", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { can_start_onboarding?: boolean };
+        if (!ignore) setCanStartClientOnboarding(data.can_start_onboarding === true);
+      } catch {
+        if (!ignore) setCanStartClientOnboarding(false);
+      }
+    };
+    void loadCompanyAccess();
     return () => {
       ignore = true;
     };
@@ -417,7 +429,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   };
 
   const updateItem = async (item: OnboardingChecklistItem, status: "pending" | "in_progress" | "complete") => {
-    if (!onboarding) return;
+    if (!onboarding || !editableChecklistItemIds.includes(item.id)) return;
     setSaving(item.id);
     try {
       const res = await fetch(`/api/onboarding/${onboarding.id}/items/${item.id}`, {
@@ -439,7 +451,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   };
 
   const saveSupport = async () => {
-    if (!onboarding) return;
+    if (!onboarding || !canUpdateSupport) return;
     const clientParticipants = inputToList(support.client_participants);
     const mainContact = support.main_client_contact.trim();
     if (mainContact && !clientParticipants.includes(mainContact)) {
@@ -479,7 +491,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   };
 
   const saveServiceAssignment = async (assignment: OnboardingServiceAssignment) => {
-    if (!onboarding || !teamOptions.isAdmin) return;
+    if (!onboarding || !canManageOnboarding) return;
     const draft = assignmentDrafts[assignment.service] ?? { leader_id: "", department_id: "", notes: "" };
     setSaving(`assignment:${assignment.id}`);
     try {
@@ -509,7 +521,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   };
 
   const overrideCompletion = async () => {
-    if (!onboarding || !teamOptions.isAdmin) return;
+    if (!onboarding || !canManageOnboarding) return;
     const reason = overrideReason.trim();
     if (reason.length < 8) {
       toast.error(t("onboardingWorkflow.overrideReasonRequired"));
@@ -539,7 +551,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
   const renderServiceAssignmentControls = (compact = false) => (
     <div className={cn("space-y-2", compact && "mt-3 rounded-lg border border-blue-300/10 bg-blue-500/[0.15] p-3")}>
       <p className="text-xs text-muted-foreground">
-        {teamOptions.isAdmin ? t("onboardingWorkflow.assignmentsHint") : t("onboardingWorkflow.adminOnlyAssignments")}
+        {canManageOnboarding ? t("onboardingWorkflow.assignmentsHint") : t("onboardingWorkflow.adminOnlyAssignments")}
       </p>
       {(onboarding?.service_assignments ?? []).length === 0 && (
         <div className="rounded-lg border border-dashed border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground dark:border-white/10 dark:bg-white/[0.15]">
@@ -568,7 +580,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
             </div>
             <select
               value={draft.department_id}
-              disabled={!teamOptions.isAdmin}
+              disabled={!canManageOnboarding}
               title={t("companyDialog.responsibleDepartment")}
               onChange={(event) =>
                 setAssignmentDrafts((current) => ({
@@ -585,7 +597,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
             </select>
             <select
               value={draft.leader_id}
-              disabled={!teamOptions.isAdmin}
+              disabled={!canManageOnboarding}
               title={t("companyDialog.assigneeOwner")}
               onChange={(event) =>
                 setAssignmentDrafts((current) => ({
@@ -602,7 +614,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
             </select>
             <button
               onClick={() => saveServiceAssignment(assignment)}
-              disabled={!teamOptions.isAdmin || saving === `assignment:${assignment.id}`}
+              disabled={!canManageOnboarding || saving === `assignment:${assignment.id}`}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-500 px-3 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
             >
               {saving === `assignment:${assignment.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -634,7 +646,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
               <h3 className="mt-2 text-xl font-bold text-foreground">{t("onboardingWorkflow.emptyTitle")}</h3>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{companyId && !projectId ? t("onboardingWorkflow.deferredEmptyBody") : t("onboardingWorkflow.emptyBody")}</p>
             </div>
-            {projectId && (
+            {projectId && teamOptions.isAdmin && (
               <button
                 onClick={start}
                 disabled={starting}
@@ -819,11 +831,17 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
         </a>
       )}
 
-      {teamOptions.isAdmin && onboarding.status !== "onboarding_complete" && (
+      {onboarding.status !== "onboarding_complete" && (
         <div className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 dark:border-blue-300/[0.15] dark:bg-white/[0.15] md:grid-cols-[1fr_auto] md:items-end">
+          {!canManageOnboarding && (
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              {t("onboardingWorkflow.readOnlyOverride")}
+            </p>
+          )}
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700/75 dark:text-blue-100/[0.55]">{t("onboardingWorkflow.overrideTitle")}</span>
             <input
+              disabled={!canManageOnboarding || saving === "completion-override"}
               value={overrideReason}
               onChange={(event) => setOverrideReason(event.target.value)}
               placeholder={t("onboardingWorkflow.overridePlaceholder")}
@@ -832,7 +850,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
           </label>
           <button
             onClick={overrideCompletion}
-            disabled={saving === "completion-override"}
+            disabled={!canManageOnboarding || saving === "completion-override"}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-3 text-sm font-semibold text-emerald-100 hover:bg-emerald-400/[0.15] disabled:opacity-60"
           >
             {saving === "completion-override" ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -885,6 +903,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                       const showAssignmentControls =
                         department.toLowerCase().includes("internal") &&
                         (normalizedTitle.includes("service leaders") || normalizedTitle.includes("lider") || normalizedTitle.includes("líder"));
+                      const canUpdateItem = editableChecklistItemIds.includes(item.id);
                       return (
                         <div key={item.id} className="rounded-lg border border-border bg-background p-3 dark:border-white/[0.15] dark:bg-[#070d1c]/70">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -908,7 +927,7 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                               {item.status !== "complete" && !showAssignmentControls && !isRoutedTaskItem && (
                                 <button
                                   onClick={() => updateItem(item, "complete")}
-                                  disabled={saving === item.id}
+                                  disabled={!canUpdateItem || saving === item.id}
                                   className="rounded-lg border border-emerald-300/25 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-100 hover:bg-emerald-400/[0.15] disabled:opacity-60"
                                 >
                                   {saving === item.id ? t("common.saving") : t("onboardingWorkflow.markDone")}
@@ -916,6 +935,11 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                               )}
                             </div>
                           </div>
+                          {item.status !== "complete" && !showAssignmentControls && !isRoutedTaskItem && !canUpdateItem && (
+                            <p className="mt-2 text-xs text-muted-foreground" role="status">
+                              {t("onboardingWorkflow.readOnlyStep")}
+                            </p>
+                          )}
                           {isRoutedTaskItem && (
                             <p className="mt-2 rounded-lg border border-blue-400/20 bg-blue-500/5 px-3 py-2 text-xs text-blue-700/80 dark:border-blue-300/10 dark:text-blue-100/[0.55]">
                               {routedHint}
@@ -1017,7 +1041,12 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
 
           <div id="support-group" className="scroll-mt-24">
             <Panel title={t("onboardingWorkflow.supportGroup")} icon={<Users className="h-4 w-4" />}>
-              <div className="space-y-3">
+              {!canUpdateSupport && (
+                <p className="mb-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-100">
+                  {t("onboardingWorkflow.readOnlySupport")}
+                </p>
+              )}
+              <fieldset disabled={!canUpdateSupport || saving === "support"} className="space-y-3 disabled:opacity-60">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Field label={t("onboardingWorkflow.groupName")}>
                     <input
@@ -1102,13 +1131,13 @@ export default function ClientOnboardingPanel({ companyId, projectId, company, o
                 </Field>
                 <button
                   onClick={saveSupport}
-                  disabled={saving === "support"}
+                  disabled={!canUpdateSupport || saving === "support"}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-400 disabled:opacity-60"
                 >
                   {saving === "support" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                   {support.status === "created" ? t("onboardingWorkflow.markGroupCreated") : t("onboardingWorkflow.saveSupportGroup")}
                 </button>
-              </div>
+              </fieldset>
             </Panel>
           </div>
         </div>

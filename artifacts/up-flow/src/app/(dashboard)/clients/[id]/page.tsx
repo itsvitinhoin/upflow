@@ -5,6 +5,7 @@ import { notFound, useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, Trash2, TrendingUp, Users, X } from "lucide-react";
 import Header from "@/components/layout/header";
+import ClientOnboardingPanel from "@/components/onboarding/client-onboarding-panel";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import type { Company, CompanyContact, CompanyNote, TimeEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -232,7 +233,7 @@ export default function ClientDetailPage() {
 
     if (!res.ok) {
       setSavingPlan(false);
-      setPlanError(t("clientDetail.couldNotSavePlan"));
+      setPlanError(await parseErrorMessage(res, t("clientDetail.couldNotSavePlan")));
       return;
     }
 
@@ -421,6 +422,13 @@ export default function ClientDetailPage() {
           </section>
         ) : null}
 
+        <section id="onboarding" className="scroll-mt-24">
+          <ClientOnboardingPanel
+            companyId={company.id}
+            company={company}
+            onChanged={() => loadCompany({ silent: true })}
+          />
+        </section>
         <section className="glass rounded-xl p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

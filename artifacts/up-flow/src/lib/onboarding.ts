@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
-import type { AuthUser } from "@/lib/auth-helpers";
-import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import type { OnboardingCapabilities } from "@/lib/types";
+import { canAccessWorkspace, isWorkspaceAdminFor, type AuthUser } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
 import { logError } from "@/lib/log-error";
 import { ownerKeyForDepartmentLabel, ownerKeyForTaskRoute } from "@/lib/onboarding-department-owners";
@@ -520,7 +520,7 @@ export async function getOnboardingCompletionBlocker(
       where: { checklist_item_id: item.id },
       select: { status: true },
     });
-    if (form?.status !== "complete") {
+    if (form && form.status !== "complete") {
       return "Finalize the Marketing B2B onboarding form before marking this task done.";
     }
   }
@@ -530,18 +530,16 @@ export async function getOnboardingCompletionBlocker(
       where: { checklist_item_id: item.id },
       select: { status: true },
     });
-    if (form?.status !== "complete") {
+    if (form && form.status !== "complete") {
       return "Finalize the Marketing B2C onboarding form before marking this task done.";
     }
   }
 
-  if (department.includes("service")) {
     const meeting = await db.onboardingMeeting.findFirst({
       where: { onboarding_id: onboardingId, checklist_item_id: item.id },
       select: { scheduled: true },
     });
-    if (!meeting?.scheduled) return "Schedule the onboarding meeting before marking this service done.";
-  }
+  if (meeting && !meeting.scheduled) return "Schedule the onboarding meeting before marking this task done.";
 
   return null;
 }
@@ -3822,13 +3820,13 @@ export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string)
     },
   });
   if (!onboarding) return null;
+  if (!canAccessWorkspace(auth, onboarding.workspace_id)) return null;
   const admin = isWorkspaceAdminFor(auth, onboarding.workspace_id);
-  const member = await prisma.workspaceMember.findUnique({
+  const member = await prisma.workspaceMember.findFirst({
     where: {
-      workspace_id_user_id: {
-        workspace_id: onboarding.workspace_id,
-        user_id: auth.prismaUser.id,
-      },
+      workspace_id: onboarding.workspace_id,
+      user_id: auth.prismaUser.id,
+      status: "active",
     },
     include: { department: { select: { name: true } } },
   });
@@ -3898,6 +3896,21 @@ export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string)
       }
       return false;
     },
+  };
+}
+
+export function onboardingCapabilities(
+  access: NonNullable<Awaited<ReturnType<typeof loadOnboardingAccess>>>,
+  checklistItems: Array<{ id: string; department: string; owner_id?: string | null; title?: string | null }>,
+): OnboardingCapabilities {
+  return {
+    can_manage: access.canManage,
+    can_update_finance: access.canUpdateFinance,
+    can_update_support: access.canUpdateSupport,
+    can_upload_contract: access.canUploadContract,
+    editable_checklist_item_ids: checklistItems
+      .filter((item) => access.canUpdateChecklistItem(item))
+      .map((item) => item.id),
   };
 }
 

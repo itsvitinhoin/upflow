@@ -7,7 +7,7 @@ import {
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
 import { buildFolderTree, getDescendantFolderIds, wouldCreateFolderCycle } from "@/lib/folder-tree";
-import { deleteProjectsByIds } from "@/lib/project-delete";
+import { deleteProjectsByIds, findActiveOnboardingProject } from "@/lib/project-delete";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 type FolderTreeNode = ReturnType<typeof buildFolderTree>[number];
@@ -209,7 +209,7 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const deleted = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const allFolders = await tx.folder.findMany({
       where: { workspace_id: folder.workspace_id, space_id: folder.space_id },
       select: { id: true, parent_id: true },
@@ -222,19 +222,31 @@ async function DELETE_handler(
       },
       select: { id: true, workspace_id: true },
     });
+    const activeOnboarding = await findActiveOnboardingProject(tx, projects);
+    if (activeOnboarding) {
+      return { ok: false as const };
+    }
+
     const projectDeletes = await deleteProjectsByIds(tx, projects);
     const folderDeletes = await tx.folder.deleteMany({
       where: { id: { in: folderIds }, workspace_id: folder.workspace_id },
     });
 
     return {
-      folders: folderDeletes.count,
-      lists: projectDeletes.projects,
-      projects: projectDeletes.projects,
-      nested_folders: Math.max(folderDeletes.count - 1, 0),
-      project_records: { ...projectDeletes },
+      ok: true as const,
+      deleted: {
+        folders: folderDeletes.count,
+        lists: projectDeletes.projects,
+        projects: projectDeletes.projects,
+        nested_folders: Math.max(folderDeletes.count - 1, 0),
+        project_records: { ...projectDeletes },
+      },
     };
   });
+  if (!result.ok) {
+    return NextResponse.json({ error: "Complete the active onboarding workflow before deleting its project." }, { status: 409 });
+  }
+  const deleted = result.deleted;
   await recordActivity({
     workspace_id: folder.workspace_id,
     actor_id: auth.prismaUser.id,

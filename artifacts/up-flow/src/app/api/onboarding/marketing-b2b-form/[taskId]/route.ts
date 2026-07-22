@@ -650,6 +650,15 @@ async function getAccess(taskId: string) {
   const _r = await requireAuth();
   if (!_r.ok) return { ok: false as const, response: _r.response };
   const auth = _r.auth;
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, assignee_id: true, project: { select: { id: true, workspace_id: true, owner_id: true } } },
+  });
+  if (!task) return { ok: false as const, response: NextResponse.json({ error: "Not found" }, { status: 404 }) };
+  if (!(await canReadProject(auth, task.project)) && task.assignee_id !== auth.prismaUser.id) {
+    return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
   const form = (await loadForm(taskId)) ?? (await ensureBackfilledB2BForm(taskId));
   if (!form) {
     return { ok: false as const, response: NextResponse.json({ error: "Not found" }, { status: 404 }) };
@@ -712,6 +721,7 @@ async function POST_handler(
   const { taskId } = await params;
   const access = await getAccess(taskId);
   if (!access.ok) return access.response;
+  if (!access.canEdit) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   try {
     const workflowSync = await syncClientOnboardingServices({

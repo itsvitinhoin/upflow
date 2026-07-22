@@ -9,7 +9,7 @@ import { broadcastNotification } from "@/lib/supabase-server";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
 import { parseTaskImageUrl } from "@/lib/task-images";
-import { deleteTasksByIds } from "@/lib/task-delete";
+import { deleteTasksByIds, findOnboardingTaskLink } from "@/lib/task-delete";
 import { normalizeCommentThread } from "@/lib/comment-mentions";
 import {
   getOnboardingTaskStartBlocker,
@@ -446,6 +446,18 @@ async function DELETE_handler(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const deletion = await prisma.$transaction(async (tx) => {
+    const onboardingTask = await findOnboardingTaskLink(tx, [id]);
+    if (onboardingTask) return { blocked: true as const };
+    return { blocked: false as const, deleted: await deleteTasksByIds(tx, [id]) };
+  });
+  if (deletion.blocked) {
+    return NextResponse.json(
+      { error: "This task is part of client onboarding and cannot be deleted." },
+      { status: 409 },
+    );
+  }
+
   await recordActivity({
     workspace_id: task.project.workspace_id,
     actor_id: prismaUser.id,
@@ -456,8 +468,7 @@ async function DELETE_handler(
     task_id: task.id,
     metadata: { title: task.title },
   });
-  const deleted = await prisma.$transaction((tx) => deleteTasksByIds(tx, [id]));
-  return NextResponse.json({ success: true, deleted });
+  return NextResponse.json({ success: true, deleted: deletion.deleted });
 }
 export const GET = withErrorReporting("api:tasks/id:GET", GET_handler);
 export const PATCH = withErrorReporting("api:tasks/id:PATCH", PATCH_handler);

@@ -6,7 +6,8 @@ import { requireAuth } from "@/lib/auth-response";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
-import { syncClientOnboardingServices } from "@/lib/onboarding";
+import { parseContractedServices, syncClientOnboardingServices } from "@/lib/onboarding";
+import { normalizeOnboardingRouteValue } from "@/lib/onboarding-routing";
 
 const UpdateCompanySchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -34,6 +35,16 @@ const UpdateCompanySchema = z.object({
   payment_terms: z.string().trim().nullable().optional(),
   contract_start_date: z.string().nullable().optional(),
 });
+
+function sameServiceSet(left: unknown, right: unknown) {
+  const normalize = (value: string) => normalizeOnboardingRouteValue(value);
+  const toSet = (services: unknown) => Array.from(
+    new Set(parseContractedServices(services).map(normalize).filter((value) => value.length > 0)),
+  ).sort();
+  const leftSet = toSet(left);
+  const rightSet = toSet(right);
+  return leftSet.length === rightSet.length && leftSet.every((service, index) => service === rightSet[index]);
+}
 
 async function getCompany(id: string, workspaceId: string) {
   const company = await prisma.company.findFirst({
@@ -244,6 +255,25 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid company", issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  const includedServicesChanged = "included_services" in parsed.data &&
+    !sameServiceSet(company.included_services, parsed.data.included_services ?? []);
+  if (includedServicesChanged) {
+    const activeOnboarding = await prisma.clientOnboarding.findFirst({
+      where: {
+        workspace_id: company.workspace_id,
+        company_id: company.id,
+        status: { not: "onboarding_complete" },
+      },
+      select: { contracted_services: true },
+    });
+    if (activeOnboarding && !sameServiceSet(activeOnboarding.contracted_services, parsed.data.included_services ?? [])) {
+      return NextResponse.json(
+        { error: "Services cannot be changed while onboarding is active. Update the onboarding workflow first." },
+        { status: 409 },
+      );
+    }
+  }
+
   const updateData = { ...parsed.data } as Record<string, unknown>;
   if ("included_services" in parsed.data) {
     updateData.included_services =
@@ -272,7 +302,7 @@ async function PATCH_handler(
     metadata: { name: updated.name },
   });
 
-  const onboardingSync = "included_services" in parsed.data
+  const onboardingSync = includedServicesChanged
     ? await syncClientOnboardingServices({
         companyId: updated.id,
         workspaceId: company.workspace_id,
