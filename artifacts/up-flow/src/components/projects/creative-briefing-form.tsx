@@ -681,10 +681,6 @@ export default function CreativeBriefingForm({
       toast.error(t("creativeBrief.designerRequired"));
       return;
     }
-    if (!selectedCompany) {
-      toast.error(t("creativeBrief.brandRequired"));
-      return;
-    }
     if (manualVideoInput && !manualVideoResult) {
       toast.error(t("creativeBrief.manualVideoRequired"));
       return;
@@ -722,7 +718,7 @@ export default function CreativeBriefingForm({
       const descriptionInput = {
         designerNames: selectedDesigners.map((designer) => designer.name),
         requesterName,
-        brandName: selectedCompany.name,
+        brandName: selectedCompany?.name ?? "",
         videoSizes: resolvedVideoSizes,
         formats: resolvedFormats,
         formatDescription: manualFormatInput
@@ -749,7 +745,7 @@ export default function CreativeBriefingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: buildCreativeBriefingTitle(
-            selectedCompany.name,
+            selectedCompany?.name ?? "",
             resolvedFormats.join(", "),
             language,
           ),
@@ -757,7 +753,7 @@ export default function CreativeBriefingForm({
           status: "todo",
           priority,
           project_id: projectId,
-          company_id: selectedCompany.id,
+          company_id: selectedCompany?.id ?? null,
           assignee_id: primaryDesigner.id,
           due_date: dueDate,
         }),
@@ -1756,7 +1752,6 @@ export default function CreativeBriefingForm({
               disabled={
                 submitting ||
                 companiesLoading ||
-                companies.length === 0 ||
                 designerUsers.length === 0
               }
               className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#65afff] bg-[#1d72f0] px-5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(37,122,255,0.45)] transition hover:bg-[#3184fb] disabled:cursor-not-allowed disabled:opacity-60"

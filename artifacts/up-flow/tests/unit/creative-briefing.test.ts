@@ -86,6 +86,25 @@ test("creative briefing descriptions stay parseable as normal UP Flow task brief
     buildCreativeBriefingTitle("Acme", "Carousel"),
     "Creative briefing: Acme - Carousel",
   );
+  assert.equal(
+    buildCreativeBriefingTitle("", "Carousel"),
+    "Creative briefing: Carousel",
+  );
+});
+
+test("creative briefings can omit a brand", () => {
+  const description = buildCreativeBriefingDescription({
+    designerNames: ["Ana Designer"],
+    videoSizes: ["1080 x 1920"],
+    formats: ["Carousel"],
+    priority: "medium",
+  });
+
+  const parsed = parseTaskBrief(description);
+  assert.equal(
+    parsed?.details.some((item) => item.label === "Brand"),
+    false,
+  );
 });
 
 test("manual creative dimensions and formats are saved in the task brief", () => {
@@ -217,6 +236,10 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(form, /creativeBrief\.reviewAndSend/);
   assert.match(projectPage, /onDesignerRosterConfigured=\{loadData\}/);
   assert.match(form, /creativeBrief\.requester/);
+  assert.doesNotMatch(form, /toast\.error\(t\("creativeBrief\.brandRequired"\)\)/);
+  assert.match(form, /brandName: selectedCompany\?\.name \?\? ""/);
+  assert.match(form, /company_id: selectedCompany\?\.id \?\? null/);
+  assert.doesNotMatch(form, /companies\.length === 0/);
   assert.doesNotMatch(form, /setDesignerIds\(\[me\.id\]\)/);
   assert.match(form, /creativeBrief\.description/);
   assert.match(form, /referenceImagePreview/);

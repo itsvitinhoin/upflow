@@ -64,7 +64,7 @@ export function formatCreativeBriefingDimensions(
 export interface CreativeBriefingDescriptionInput {
   designerNames: string[];
   requesterName?: string | null;
-  brandName: string;
+  brandName?: string | null;
   videoSizes: string[];
   formats: string[];
   formatDescription?: string | null;
@@ -198,11 +198,10 @@ export function buildCreativeBriefingTitle(
   locale: CreativeBriefingLocale = "en",
 ) {
   const copy = COPY[locale];
-  const brand =
-    singleLine(brandName) || (locale === "pt-BR" ? "marca" : "brand");
+  const brand = singleLine(brandName);
   const selectedFormat =
     singleLine(format) || (locale === "pt-BR" ? "criação" : "creative");
-  return `${copy.titlePrefix}: ${brand} - ${selectedFormat}`;
+  return `${copy.titlePrefix}: ${[brand, selectedFormat].filter(Boolean).join(" - ")}`;
 }
 
 export function buildCreativeBriefingDescription(
@@ -213,7 +212,7 @@ export function buildCreativeBriefingDescription(
   const details: Array<[string, string]> = [
     [copy.requester, singleLine(input.requesterName)],
     [copy.designers, joinedValues(input.designerNames)],
-    [copy.brand, input.brandName],
+    [copy.brand, singleLine(input.brandName)],
     [copy.videoSizes, joinedValues(input.videoSizes)],
     [copy.formats, joinedValues(input.formats)],
     [copy.priority, labelForPriority(input.priority, locale)],
