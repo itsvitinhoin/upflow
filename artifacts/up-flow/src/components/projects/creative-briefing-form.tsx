@@ -9,19 +9,27 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import {
+  ArrowRight,
+  Bookmark,
+  Building2,
   CheckCircle2,
   ChevronDown,
   Clock3,
   FileText,
   Globe2,
   ImageIcon,
+  Info,
   Layers3,
+  Lightbulb,
   Link2,
   Loader2,
   Paperclip,
-  Save,
+  Plus,
+  Search,
   Send,
+  Sparkles,
   Upload,
   UsersRound,
   Video,
@@ -136,6 +144,9 @@ export default function CreativeBriefingForm({
   const { language, t } = useLanguage();
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(true);
+  const [designerSearch, setDesignerSearch] = useState("");
+  const [brandSearch, setBrandSearch] = useState("");
+  const [brandPickerOpen, setBrandPickerOpen] = useState(false);
   const [designerIds, setDesignerIds] = useState<string[]>([]);
   const [companyId, setCompanyId] = useState("");
   const [videoSizes, setVideoSizes] = useState<string[]>([VIDEO_SIZES[2]]);
@@ -188,6 +199,25 @@ export default function CreativeBriefingForm({
     () => filterCreativeBriefingDesigners(users),
     [users],
   );
+  const filteredDesignerUsers = useMemo(() => {
+    const query = designerSearch.trim().toLocaleLowerCase();
+    if (!query) return designerUsers;
+    return designerUsers.filter((designer) =>
+      [designer.name, designer.email]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(query),
+    );
+  }, [designerSearch, designerUsers]);
+  const filteredCompanies = useMemo(() => {
+    const query = brandSearch.trim().toLocaleLowerCase();
+    if (!query) return companies;
+    return companies.filter((company) =>
+      company.name.toLocaleLowerCase().includes(query),
+    );
+  }, [brandSearch, companies]);
+  const recentCompanies = useMemo(() => companies.slice(0, 3), [companies]);
   const designerIdSet = useMemo(
     () => new Set(designerUsers.map((designer) => designer.id)),
     [designerUsers],
@@ -229,6 +259,11 @@ export default function CreativeBriefingForm({
     : selectedFormats.map((option) => option.label);
   const selectedCompany =
     companies.find((company) => company.id === companyId) ?? null;
+  const selectCompany = (company: CompanyOption) => {
+    setCompanyId(company.id);
+    setBrandSearch(company.name);
+    setBrandPickerOpen(false);
+  };
   const estimatedHours = manualFormatInput
     ? 0
     : selectedFormats.reduce((total, option) => total + option.hours, 0);
@@ -319,6 +354,12 @@ export default function CreativeBriefingForm({
   useEffect(() => {
     setReferenceUrlPreviewFailed(false);
   }, [visualReferenceUrl]);
+
+  useEffect(() => {
+    if (selectedCompany && !brandPickerOpen) {
+      setBrandSearch(selectedCompany.name);
+    }
+  }, [brandPickerOpen, selectedCompany]);
 
   useEffect(() => {
     if (!referenceFile || !/^image\/(png|jpeg)$/.test(referenceFile.type)) {
@@ -819,484 +860,682 @@ export default function CreativeBriefingForm({
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#2a5ca9] bg-[#020a1b] p-3 text-slate-100 shadow-[0_18px_55px_rgba(1,12,37,0.45)] sm:p-6">
+    <div className="relative overflow-hidden rounded-xl border border-[#0d4b8f] bg-[#010814] p-2 text-slate-100 shadow-[0_20px_65px_rgba(0,8,28,0.55)] sm:p-3">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-35"
+        className="pointer-events-none absolute inset-0 opacity-40"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(57,132,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(57,132,255,0.10) 1px, transparent 1px)",
+            "linear-gradient(rgba(51,128,255,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(51,128,255,0.09) 1px, transparent 1px)",
           backgroundSize: "36px 36px",
         }}
       />
       <div
-        className="pointer-events-none absolute -right-28 top-8 h-56 w-56 rounded-full border border-blue-400/25"
         aria-hidden="true"
+        className="pointer-events-none absolute -right-20 top-20 h-56 w-56 rounded-full border border-blue-400/20"
       />
-      <div
-        className="pointer-events-none absolute -bottom-36 -left-20 h-64 w-64 rounded-full border border-cyan-400/20"
-        aria-hidden="true"
-      />
-
       <form
         onSubmit={submit}
-        className="relative mx-auto max-w-5xl overflow-hidden rounded-2xl border border-[#4476c4] bg-[#041126]/95 shadow-[0_0_48px_rgba(23,107,255,0.18)]"
+        className="relative mx-auto max-w-[1200px] overflow-hidden rounded-xl border border-[#123f78] bg-[linear-gradient(145deg,rgba(3,14,33,0.98),rgba(2,10,24,0.98))] shadow-[0_0_52px_rgba(18,96,214,0.16)]"
       >
-        <header className="border-b border-[#305993] px-5 py-6 sm:px-9 sm:py-8">
-          <div className="flex items-start gap-4 sm:gap-6">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#4d8cf4] bg-[#0a2144] shadow-[0_0_24px_rgba(48,117,255,0.28)] sm:h-16 sm:w-16">
-              <FileText className="h-7 w-7 text-[#4c9cff]" />
+        <header className="grid gap-6 border-b border-[#163d70] px-5 py-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_264px] lg:items-center lg:px-10 lg:py-6">
+          <div className="flex min-w-0 items-start gap-5">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border border-[#1780ff] bg-[#06265a] shadow-[0_0_28px_rgba(36,132,255,0.38)]">
+              <FileText className="h-8 w-8 text-[#39a0ff]" />
             </div>
             <div className="min-w-0">
-              <p className="text-2xl font-bold tracking-normal text-white sm:text-4xl">
+              <h1 className="text-3xl font-bold tracking-normal text-white sm:text-[32px]">
                 {t("creativeBrief.title")}
-              </p>
-              <p className="mt-1 text-sm text-[#a8bad9] sm:text-lg">
+              </h1>
+              <p className="mt-1 text-base text-[#d7e5fb]">
                 {t("creativeBrief.subtitle")}
               </p>
-              <p className="mt-3 text-sm text-[#c7d8f3]">
-                <span className="font-semibold text-[#8fbaff]">
-                  {t("creativeBrief.requester")}:
-                </span>{" "}
-                <span className="font-semibold text-white">
-                  {requesterName}
+              <div className="mt-3 flex items-center gap-2 text-sm">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#356eff] font-semibold text-white">
+                  {getInitials(requesterName)}
                 </span>
-              </p>
+                <span className="text-[#76b2ff]">
+                  {t("creativeBrief.requester")}:
+                </span>
+                <span className="font-semibold text-white">{requesterName}</span>
+              </div>
             </div>
           </div>
+          <aside className="rounded-xl border border-[#214b80] bg-[#07152a]/80 px-5 py-4 shadow-[inset_0_1px_0_rgba(143,199,255,0.06)]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#58a6ff]">
+              <Sparkles className="h-4 w-4" />
+              {t("creativeBrief.tips")}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[#e1ebfb]">
+              {t("creativeBrief.tipsCopy")}
+            </p>
+          </aside>
         </header>
 
-        <div className="space-y-7 px-5 py-6 sm:px-9 sm:py-8">
-          <div className="grid gap-5 md:grid-cols-2 md:gap-x-10">
-            <BriefField label={t("creativeBrief.designer")} required>
-              <MultiSelectField
-                values={designerIds}
-                onChange={setDesignerIds}
+        <div className="grid gap-3 p-3 sm:p-5 lg:grid-cols-2">
+          <section className="rounded-xl border border-[#183a66] bg-[linear-gradient(145deg,rgba(8,22,45,0.92),rgba(5,16,33,0.92))] p-4 sm:p-5">
+            <BriefingSectionHeading
+              step="1"
+              title={t("creativeBrief.designer")}
+              description={t("creativeBrief.chooseDesigners")}
+            />
+            <div className="relative mt-4">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8ca5ca]" />
+              <input
+                type="search"
+                value={designerSearch}
+                onChange={(event) => setDesignerSearch(event.target.value)}
                 disabled={submitting || designerUsers.length === 0}
-                options={designerUsers.map((user) => ({
-                  value: user.id,
-                  label: user.name,
-                }))}
+                placeholder={t("creativeBrief.searchDesigners")}
+                className="h-10 w-full rounded-lg border border-[#2a5f9f] bg-[#09192f] pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-[#7588a6] focus:border-[#3692ff] focus:ring-2 focus:ring-[#1879ff]/25 disabled:cursor-not-allowed disabled:opacity-60"
               />
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-[#92a8cb]">
-                <CheckCircle2 className="h-3.5 w-3.5 text-[#4d95ff]" />
-                {t("creativeBrief.designerHint")}
-              </p>
-              {designerUsers.length === 0 ? (
-                <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3">
-                  <p className="text-xs text-amber-200">
-                    {canConfigureDesignerRoster
-                      ? t("creativeBrief.noDesignersAdmin")
-                      : t("creativeBrief.noDesigners")}
-                  </p>
-                  {canConfigureDesignerRoster ? (
-                    <div className="mt-3">
-                      {!designerSetupOpen ? (
-                        <button
-                          type="button"
-                          onClick={() => setDesignerSetupOpen(true)}
-                          disabled={submitting}
-                          className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[#5ca4ff] bg-[#0b2d61] px-3 text-xs font-semibold text-white transition hover:bg-[#123d7d] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <UsersRound className="h-4 w-4" />
-                          {t("creativeBrief.setupDesigners")}
-                        </button>
-                      ) : (
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              {t("creativeBrief.setupDesignersTitle")}
-                            </p>
-                            <p className="mt-1 text-xs text-[#b9c9e5]">
-                              {t("creativeBrief.setupDesignersDescription")}
-                            </p>
-                          </div>
-                          <MultiSelectField
-                            values={designerSetupIds}
-                            onChange={setDesignerSetupIds}
-                            disabled={savingDesignerRoster}
-                            options={users.map((user) => ({
-                              value: user.id,
-                              label: user.name,
-                            }))}
-                          />
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setDesignerSetupOpen(false)}
-                              disabled={savingDesignerRoster}
-                              className="min-h-9 rounded-md border border-[#486b9f] px-3 text-xs font-semibold text-[#d7e5ff] transition hover:bg-[#10284c] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {t("common.cancel")}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={saveDesignerRoster}
-                              disabled={
-                                savingDesignerRoster ||
-                                designerSetupIds.length === 0
-                              }
-                              className="inline-flex min-h-9 items-center gap-2 rounded-md bg-[#1767e8] px-3 text-xs font-semibold text-white transition hover:bg-[#2b7df4] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {savingDesignerRoster ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <UsersRound className="h-3.5 w-3.5" />
-                              )}
-                              {t("creativeBrief.setupDesignersSave")}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-            </BriefField>
+            </div>
 
-            <BriefField label={t("creativeBrief.brand")} required>
-              <SelectField
-                value={companyId}
-                onChange={setCompanyId}
+            {designerUsers.length > 0 ? (
+              <div className="mt-3 grid gap-2 rounded-xl border border-[#1b3e6b] bg-[#07162a]/80 p-3 sm:grid-cols-2">
+                {filteredDesignerUsers.map((designer) => {
+                  const selected = designerIds.includes(designer.id);
+                  const isOwner = selected && primaryDesigner?.id === designer.id;
+                  return (
+                    <label
+                      key={designer.id}
+                      className={cn(
+                        "group flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm transition",
+                        selected
+                          ? "bg-[#0b2e66] text-white"
+                          : "text-[#e1ecff] hover:bg-[#10284a]",
+                        submitting && "cursor-not-allowed opacity-60",
+                      )}
+                    >
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={selected}
+                        disabled={submitting}
+                        onChange={() =>
+                          setDesignerIds((current) =>
+                            toggleMultiSelectValue(current, designer.id),
+                          )
+                        }
+                      />
+                      <span
+                        className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition",
+                          selected
+                            ? "border-[#55a9ff] bg-[#247bfd] text-white shadow-[0_0_12px_rgba(40,129,255,0.55)]"
+                            : "border-[#526c91] bg-[#0b192b] text-transparent group-hover:border-[#78aaff]",
+                        )}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                      </span>
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#586276] bg-[#1e2430] text-[10px] font-semibold text-white">
+                        {getInitials(designer.name)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {designer.name}
+                      </span>
+                      {isOwner ? (
+                        <span className="rounded-full border border-[#177fff] bg-[#0b2e66] px-2 py-0.5 text-[11px] font-semibold text-[#74bbff]">
+                          {t("creativeBrief.owner")}
+                        </span>
+                      ) : null}
+                    </label>
+                  );
+                })}
+                {filteredDesignerUsers.length === 0 ? (
+                  <p className="col-span-full px-2 py-3 text-sm text-[#9bb2d6]">
+                    {t("creativeBrief.noDesignerMatches")}
+                  </p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl border border-amber-400/35 bg-amber-400/5 p-4">
+                <p className="text-sm text-amber-200">
+                  {canConfigureDesignerRoster
+                    ? t("creativeBrief.noDesignersAdmin")
+                    : t("creativeBrief.noDesigners")}
+                </p>
+                {canConfigureDesignerRoster ? (
+                  <div className="mt-3">
+                    {!designerSetupOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setDesignerSetupOpen(true)}
+                        disabled={submitting}
+                        className="inline-flex min-h-9 items-center gap-2 rounded-md border border-[#5ca4ff] bg-[#0b2d61] px-3 text-xs font-semibold text-white transition hover:bg-[#123d7d] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <UsersRound className="h-4 w-4" />
+                        {t("creativeBrief.setupDesigners")}
+                      </button>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-xs text-[#c3d3ef]">
+                          {t("creativeBrief.setupDesignersDescription")}
+                        </p>
+                        <MultiSelectField
+                          values={designerSetupIds}
+                          onChange={setDesignerSetupIds}
+                          disabled={savingDesignerRoster}
+                          options={users.map((user) => ({
+                            value: user.id,
+                            label: user.name,
+                          }))}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setDesignerSetupOpen(false)}
+                            disabled={savingDesignerRoster}
+                            className="min-h-9 rounded-md border border-[#486b9f] px-3 text-xs font-semibold text-[#d7e5ff] transition hover:bg-[#10284c] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {t("common.cancel")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={saveDesignerRoster}
+                            disabled={
+                              savingDesignerRoster ||
+                              designerSetupIds.length === 0
+                            }
+                            className="inline-flex min-h-9 items-center gap-2 rounded-md bg-[#1767e8] px-3 text-xs font-semibold text-white transition hover:bg-[#2b7df4] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {savingDesignerRoster ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <UsersRound className="h-3.5 w-3.5" />
+                            )}
+                            {t("creativeBrief.setupDesignersSave")}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-[#b8c9e5]">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#4c9cff]" />
+              {t("creativeBrief.designerHint")}
+            </p>
+          </section>
+          <section className="rounded-xl border border-[#183a66] bg-[linear-gradient(145deg,rgba(8,22,45,0.92),rgba(5,16,33,0.92))] p-4 sm:p-5">
+            <BriefingSectionHeading
+              step="2"
+              title={t("creativeBrief.brand")}
+              description={t("creativeBrief.brandHelp")}
+            />
+            <div className="relative mt-4">
+              <Building2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#91a9cc]" />
+              <input
+                type="search"
+                value={brandSearch}
+                onFocus={() => setBrandPickerOpen(true)}
+                onChange={(event) => {
+                  setBrandSearch(event.target.value);
+                  setBrandPickerOpen(true);
+                  if (selectedCompany?.name !== event.target.value) {
+                    setCompanyId("");
+                  }
+                }}
                 disabled={submitting || companiesLoading}
                 placeholder={
                   companiesLoading
                     ? t("common.loading")
-                    : t("creativeBrief.select")
+                    : t("creativeBrief.searchBrand")
                 }
-                options={companies.map((company) => ({
-                  value: company.id,
-                  label: company.name,
-                }))}
+                className="h-10 w-full rounded-lg border border-[#2a5f9f] bg-[#09192f] pl-11 pr-11 text-sm text-white outline-none transition placeholder:text-[#7588a6] focus:border-[#3692ff] focus:ring-2 focus:ring-[#1879ff]/25 disabled:cursor-not-allowed disabled:opacity-60"
               />
-              {!companiesLoading && companies.length === 0 ? (
-                <p className="mt-2 text-xs text-amber-300">
-                  {t("creativeBrief.noBrands")}
-                </p>
-              ) : null}
-            </BriefField>
-
-            <BriefField label={t("creativeBrief.videoSize")}>
-              <MultiSelectField
-                values={manualVideoInput ? [MANUAL_VIDEO_SIZE] : videoSizes}
-                onChange={handleVideoSizeSelection}
-                disabled={submitting}
-                options={[
-                  ...VIDEO_SIZES.map((value) => ({ value, label: value })),
-                  {
-                    value: MANUAL_VIDEO_SIZE,
-                    label: t("creativeBrief.manualInput"),
-                  },
-                ]}
-              />
-              {manualVideoInput ? (
-                <div className="mt-3 rounded-lg border border-[#385b91] bg-[#06162d] p-3">
-                  <p className="text-xs text-[#b9c9e5]">
-                    {t("creativeBrief.manualVideoInstruction")}
-                  </p>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <label className="block text-xs font-semibold text-[#d7e5ff]">
-                      {t("creativeBrief.width")}
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        inputMode="decimal"
-                        value={manualVideoWidth}
-                        onChange={(event) =>
-                          setManualVideoWidth(event.target.value)
-                        }
-                        disabled={submitting}
-                        className="mt-1 h-11 w-full rounded-md border border-[#385b91] bg-[#07162e] px-3 text-sm text-white outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-                      />
-                    </label>
-                    <label className="block text-xs font-semibold text-[#d7e5ff]">
-                      {t("creativeBrief.height")}
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        inputMode="decimal"
-                        value={manualVideoHeight}
-                        onChange={(event) =>
-                          setManualVideoHeight(event.target.value)
-                        }
-                        disabled={submitting}
-                        className="mt-1 h-11 w-full rounded-md border border-[#385b91] bg-[#07162e] px-3 text-sm text-white outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-                      />
-                    </label>
-                    <label className="block text-xs font-semibold text-[#d7e5ff]">
-                      {t("creativeBrief.unit")}
-                      <div className="mt-1">
-                        <SelectField
-                          value={manualVideoUnit}
-                          onChange={(value) =>
-                            setManualVideoUnit(
-                              value as CreativeBriefingDimensionUnit,
-                            )
-                          }
-                          disabled={submitting}
-                          options={DIMENSION_UNITS.map((unit) => ({
-                            value: unit,
-                            label: unit,
-                          }))}
-                        />
-                      </div>
-                    </label>
-                  </div>
-                  <p className="mt-3 text-sm text-[#b9c9e5]" aria-live="polite">
-                    <span className="font-semibold text-white">
-                      {t("creativeBrief.manualDimensionResult")}:
-                    </span>{" "}
-                    <span className="text-[#8fbaff]">
-                      {manualVideoResult ??
-                        t("creativeBrief.manualDimensionPending")}
-                    </span>
-                  </p>
+              <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#aac1e1]" />
+              {brandPickerOpen && !companiesLoading ? (
+                <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-lg border border-[#2c5d98] bg-[#07162c] p-1 shadow-[0_14px_30px_rgba(0,0,0,0.34)]">
+                  {filteredCompanies.map((company) => (
+                    <button
+                      key={company.id}
+                      type="button"
+                      onClick={() => selectCompany(company)}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition hover:bg-[#123260]",
+                        company.id === companyId
+                          ? "bg-[#123260] text-white"
+                          : "text-[#c9d9f0]",
+                      )}
+                    >
+                      <Building2 className="h-4 w-4 shrink-0 text-[#5ba8ff]" />
+                      <span className="truncate">{company.name}</span>
+                      {company.id === companyId ? (
+                        <CheckCircle2 className="ml-auto h-4 w-4 text-[#50a8ff]" />
+                      ) : null}
+                    </button>
+                  ))}
+                  {filteredCompanies.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-[#9ab0cf]">
+                      {t("creativeBrief.noBrands")}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
-              <p className="mt-2 text-xs text-[#92a8cb]">
-                {t("creativeBrief.multiSelectHint")}
-              </p>
-            </BriefField>
-
-            <BriefField label={t("creativeBrief.format")}>
-              <MultiSelectField
-                values={manualFormatInput ? [MANUAL_FORMAT] : formats}
-                onChange={handleFormatSelection}
-                disabled={submitting}
-                options={[
-                  ...formatOptions.map((option) => ({
-                    value: option.value,
-                    label: option.label,
-                  })),
-                  {
-                    value: MANUAL_FORMAT,
-                    label: t("creativeBrief.manualInput"),
-                  },
-                ]}
-              />
-              {manualFormatInput ? (
-                <div className="mt-3 space-y-3 rounded-lg border border-[#385b91] bg-[#06162d] p-3">
-                  <p className="text-xs text-[#b9c9e5]">
-                    {t("creativeBrief.manualFormatInstruction")}
-                  </p>
-                  <label className="block text-xs font-semibold text-[#d7e5ff]">
-                    {t("creativeBrief.manualFormatName")}
-                    <input
-                      type="text"
-                      value={manualFormatName}
-                      onChange={(event) =>
-                        setManualFormatName(event.target.value)
-                      }
-                      disabled={submitting}
-                      maxLength={120}
-                      placeholder={t(
-                        "creativeBrief.manualFormatNamePlaceholder",
-                      )}
-                      className="mt-1 h-11 w-full rounded-md border border-[#385b91] bg-[#07162e] px-3 text-sm text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-                    />
-                  </label>
-                  <label className="block text-xs font-semibold text-[#d7e5ff]">
-                    {t("creativeBrief.manualFormatDescription")}
-                    <textarea
-                      value={manualFormatDescription}
-                      onChange={(event) =>
-                        setManualFormatDescription(event.target.value)
-                      }
-                      disabled={submitting}
-                      maxLength={600}
-                      placeholder={t(
-                        "creativeBrief.manualFormatDescriptionPlaceholder",
-                      )}
-                      className="mt-1 min-h-24 w-full resize-y rounded-md border border-[#385b91] bg-[#07162e] px-3 py-2 text-sm text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-                    />
-                  </label>
-                </div>
-              ) : null}
-              <p className="mt-2 text-xs text-[#92a8cb]">
-                {t("creativeBrief.multiSelectHint")}
-              </p>
-            </BriefField>
-          </div>
-
-          <BriefField label={t("creativeBrief.brandRules")}>
-            <div className="relative">
-              <FileText className="pointer-events-none absolute left-4 top-4 h-5 w-5 text-[#96b7e8]" />
-              <textarea
-                value={brandRules}
-                onChange={(event) => setBrandRules(event.target.value)}
-                disabled={submitting}
-                placeholder={t("creativeBrief.brandRulesPlaceholder")}
-                className="min-h-28 w-full resize-y rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-              />
             </div>
-          </BriefField>
 
-          <BriefField label={t("creativeBrief.description")}>
-            <textarea
-              value={briefDescription}
-              onChange={(event) => setBriefDescription(event.target.value)}
-              disabled={submitting}
-              placeholder={t("creativeBrief.descriptionPlaceholder")}
-              className="min-h-36 w-full resize-y rounded-lg border border-[#385b91] bg-[#07162e] px-4 py-3 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-            />
-          </BriefField>
-
-          <BriefField label={t("creativeBrief.driveUrl")}>
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] md:items-center">
-              <div className="relative">
-                <Link2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#96b7e8]" />
-                <input
-                  type="url"
-                  value={driveUrl}
-                  onChange={(event) => setDriveUrl(event.target.value)}
-                  disabled={submitting}
-                  placeholder="https://"
-                  className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
-                />
+            {!companiesLoading && recentCompanies.length > 0 ? (
+              <div className="mt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#a4b8d8]">
+                  {t("creativeBrief.recentBrands")}
+                </p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {recentCompanies.map((company) => {
+                    const selected = company.id === companyId;
+                    return (
+                      <button
+                        key={company.id}
+                        type="button"
+                        onClick={() => selectCompany(company)}
+                        className={cn(
+                          "flex min-h-16 items-center gap-2 rounded-lg border px-2.5 text-left transition",
+                          selected
+                            ? "border-[#2c87ff] bg-[#0d3065] shadow-[0_0_16px_rgba(32,124,255,0.22)]"
+                            : "border-[#1c3e68] bg-[#0a192e] hover:border-[#3974ba] hover:bg-[#0e2547]",
+                        )}
+                      >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#121d30] text-[#74b9ff]">
+                          <Building2 className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-xs font-semibold text-white">
+                            {company.name}
+                          </span>
+                          <span className="mt-0.5 block text-[11px] text-[#a3b8d8]">
+                            {t("creativeBrief.brandCardLabel")}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setBrandPickerOpen((current) => !current)}
+                    className="flex min-h-16 items-center justify-center gap-2 rounded-lg border border-[#1c3e68] bg-[#0a192e] text-xs font-semibold text-[#a8d0ff] transition hover:border-[#3974ba] hover:bg-[#0e2547]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {t("creativeBrief.viewAll")}
+                  </button>
+                </div>
               </div>
-              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">
-                {t("creativeBrief.or")}
-              </span>
+            ) : null}
+
+            <Link
+              href="/clients"
+              className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-[#237eea] bg-[#08204a]/45 px-4 text-sm font-semibold text-[#54a9ff] transition hover:bg-[#0b2e63]"
+            >
+              <Plus className="h-4 w-4" />
+              {t("creativeBrief.createBrand")}
+            </Link>
+            <div className="mt-3 flex gap-3 rounded-xl border border-[#1c3e68] bg-[#0a192e] px-4 py-3">
+              <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-[#f6ba35]" />
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  {t("creativeBrief.reminder")}
+                </p>
+                <p className="mt-0.5 text-xs leading-5 text-[#b7c9e4]">
+                  {t("creativeBrief.createBrandHint")}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-[#183a66] bg-[linear-gradient(145deg,rgba(8,22,45,0.92),rgba(5,16,33,0.92))] p-4 sm:p-5">
+            <BriefingSectionHeading
+              step="3"
+              title={t("creativeBrief.videoSize")}
+              description={t("creativeBrief.videoSizeHelp")}
+            />
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {VIDEO_SIZES.map((size) => {
+                const [ratio, dimensions] = size.split(" - ");
+                const selected = !manualVideoInput && videoSizes.includes(size);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() =>
+                      handleVideoSizeSelection(
+                        selected
+                          ? videoSizes.filter((value) => value !== size)
+                          : [...videoSizes, size],
+                      )
+                    }
+                    aria-pressed={selected}
+                    className={cn(
+                      "relative flex min-h-28 flex-col items-center justify-center rounded-xl border px-2 py-3 text-center transition",
+                      selected
+                        ? "border-[#2688ff] bg-[#0b2e66] shadow-[0_0_22px_rgba(30,125,255,0.25)]"
+                        : "border-[#1f426e] bg-[#0a192e] hover:border-[#3c76bc] hover:bg-[#102747]",
+                      submitting && "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "absolute left-3 top-3 flex h-5 w-5 items-center justify-center rounded border",
+                        selected
+                          ? "border-[#5db0ff] bg-[#2277f7] text-white"
+                          : "border-[#526d91] bg-[#0b192b] text-transparent",
+                      )}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <ImageIcon className="h-7 w-7 text-[#82b9ff]" />
+                    <span className="mt-2 text-base font-bold text-white">{ratio}</span>
+                    <span className="mt-1 text-xs text-[#c4d5ed]">{dimensions}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className={cn(
+                "mt-3 rounded-xl border p-3 transition",
+                manualVideoInput
+                  ? "border-[#2589ff] bg-[#0b2e66]/70"
+                  : "border-[#1f426e] bg-[#0a192e]",
+              )}
+            >
               <button
                 type="button"
                 disabled={submitting}
-                onClick={() => driveFileInputRef.current?.click()}
-                onDragEnter={() => setDraggingDriveFiles(true)}
-                onDragLeave={() => setDraggingDriveFiles(false)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={onDriveFilesDrop}
-                className={cn(
-                  "flex min-h-[52px] items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-3 text-left transition",
-                  draggingDriveFiles
-                    ? "border-[#5ca0ff] bg-[#10366b]/70"
-                    : "border-[#3b679e] bg-[#06162d] hover:border-[#5ca0ff] hover:bg-[#0b2144]",
-                  submitting && "cursor-not-allowed opacity-60",
-                )}
+                onClick={() =>
+                  handleVideoSizeSelection(
+                    manualVideoInput ? [] : [MANUAL_VIDEO_SIZE],
+                  )
+                }
+                aria-pressed={manualVideoInput}
+                className="flex w-full items-center gap-3 text-left"
               >
-                <Upload className="h-5 w-5 shrink-0 text-[#89b4f5]" />
-                <span className="text-sm font-semibold text-white">
-                  {t("creativeBrief.driveUpload")}
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                    manualVideoInput
+                      ? "border-[#5db0ff] bg-[#2277f7] text-white"
+                      : "border-[#526d91] bg-[#0b192b] text-transparent",
+                  )}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-white">
+                    {t("creativeBrief.manualInput")}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[#b7c9e4]">
+                    {t("creativeBrief.manualVideoInstruction")}
+                  </span>
                 </span>
               </button>
-              <input
-                ref={driveFileInputRef}
-                type="file"
-                multiple
-                accept="image/png,image/jpeg,application/pdf"
-                className="hidden"
-                onChange={onDriveFilesInput}
-              />
+              {manualVideoInput ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto_1fr_1fr] sm:items-end">
+                  <label className="block text-xs font-medium text-[#b7c9e4]">
+                    {t("creativeBrief.width")}
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      inputMode="decimal"
+                      value={manualVideoWidth}
+                      onChange={(event) => setManualVideoWidth(event.target.value)}
+                      disabled={submitting}
+                      placeholder="1080"
+                      className="mt-1.5 h-11 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                    />
+                  </label>
+                  <span className="hidden pb-3 text-[#9db7dc] sm:block">x</span>
+                  <label className="block text-xs font-medium text-[#b7c9e4]">
+                    {t("creativeBrief.height")}
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      inputMode="decimal"
+                      value={manualVideoHeight}
+                      onChange={(event) => setManualVideoHeight(event.target.value)}
+                      disabled={submitting}
+                      placeholder="1920"
+                      className="mt-1.5 h-11 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-[#b7c9e4]">
+                    {t("creativeBrief.unit")}
+                    <select
+                      value={manualVideoUnit}
+                      onChange={(event) =>
+                        setManualVideoUnit(
+                          event.target.value as CreativeBriefingDimensionUnit,
+                        )
+                      }
+                      disabled={submitting}
+                      className="mt-1.5 h-11 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 text-sm text-white outline-none transition focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                    >
+                      {DIMENSION_UNITS.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="sm:col-span-4 text-xs text-[#a7bddc]" aria-live="polite">
+                    {manualVideoResult
+                      ? t("creativeBrief.manualDimensionResult") + ": " + manualVideoResult
+                      : t("creativeBrief.manualUnitHint")}
+                  </p>
+                </div>
+              ) : null}
             </div>
-            <p className="mt-2 text-xs text-[#92a8cb]">
-              {t("creativeBrief.driveUploadHint")}
-            </p>
-            {driveFiles.length > 0 ? (
-              <ul className="mt-3 space-y-2">
-                {driveFiles.map((file) => (
-                  <li
-                    key={fileKey(file)}
-                    className="flex items-center gap-2 rounded-lg border border-[#315c94] bg-[#081a34] px-3 py-2 text-sm text-[#d7e5ff]"
+          </section>
+          <section className="rounded-xl border border-[#183a66] bg-[linear-gradient(145deg,rgba(8,22,45,0.92),rgba(5,16,33,0.92))] p-4 sm:p-5">
+            <BriefingSectionHeading
+              step="4"
+              title={t("creativeBrief.format")}
+              description={t("creativeBrief.formatHelp")}
+            />
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {formatOptions.map((option) => {
+                const Icon = option.icon;
+                const selected = !manualFormatInput && formats.includes(option.value);
+                const descriptionKey =
+                  option.value === "carousel"
+                    ? "creativeBrief.formatCarouselDescription"
+                    : option.value === "banner"
+                      ? "creativeBrief.formatBannerDescription"
+                      : option.value === "single_image"
+                        ? "creativeBrief.formatSingleImageDescription"
+                        : "creativeBrief.formatVideoEditDescription";
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={submitting}
+                    onClick={() =>
+                      handleFormatSelection(
+                        selected
+                          ? formats.filter((value) => value !== option.value)
+                          : [...formats, option.value],
+                      )
+                    }
+                    aria-pressed={selected}
+                    className={cn(
+                      "relative flex min-h-[94px] items-center gap-3 rounded-xl border p-3 text-left transition",
+                      selected
+                        ? "border-[#2688ff] bg-[#0b2e66] shadow-[0_0_22px_rgba(30,125,255,0.22)]"
+                        : "border-[#1f426e] bg-[#0a192e] hover:border-[#3c76bc] hover:bg-[#102747]",
+                      submitting && "cursor-not-allowed opacity-60",
+                    )}
                   >
+                    <span
+                      className={cn(
+                        "absolute left-3 top-3 flex h-5 w-5 items-center justify-center rounded border",
+                        selected
+                          ? "border-[#5db0ff] bg-[#2277f7] text-white"
+                          : "border-[#526d91] bg-[#0b192b] text-transparent",
+                      )}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                    </span>
+                    <Icon className="ml-7 h-8 w-8 shrink-0 text-[#8fc4ff]" />
+                    <span>
+                      <span className="block text-sm font-semibold text-white">
+                        {option.label}
+                      </span>
+                      <span className="mt-1 block max-w-[19ch] text-xs leading-4 text-[#c5d6ed]">
+                        {t(descriptionKey)}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div
+              className={cn(
+                "mt-2 rounded-xl border p-3 transition",
+                manualFormatInput
+                  ? "border-[#2589ff] bg-[#0b2e66]/70"
+                  : "border-[#1f426e] bg-[#0a192e]",
+              )}
+            >
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() =>
+                  handleFormatSelection(
+                    manualFormatInput ? [] : [MANUAL_FORMAT],
+                  )
+                }
+                aria-pressed={manualFormatInput}
+                className="flex w-full items-center gap-3 text-left"
+              >
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
+                    manualFormatInput
+                      ? "border-[#5db0ff] bg-[#2277f7] text-white"
+                      : "border-[#526d91] bg-[#0b192b] text-transparent",
+                  )}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-semibold text-white">
+                    {t("creativeBrief.manualInput")}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-[#b7c9e4]">
+                    {t("creativeBrief.manualFormatInstruction")}
+                  </span>
+                </span>
+              </button>
+              {manualFormatInput ? (
+                <div className="mt-3 grid gap-2">
+                  <input
+                    type="text"
+                    value={manualFormatName}
+                    onChange={(event) => setManualFormatName(event.target.value)}
+                    disabled={submitting}
+                    maxLength={120}
+                    placeholder={t("creativeBrief.manualFormatNamePlaceholder")}
+                    className="h-10 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                  />
+                  <textarea
+                    value={manualFormatDescription}
+                    onChange={(event) =>
+                      setManualFormatDescription(event.target.value)
+                    }
+                    disabled={submitting}
+                    maxLength={600}
+                    placeholder={t(
+                      "creativeBrief.manualFormatDescriptionPlaceholder",
+                    )}
+                    className="min-h-16 w-full resize-y rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 py-2 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                  />
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section className="lg:col-span-2 rounded-xl border border-[#183a66] bg-[linear-gradient(145deg,rgba(8,22,45,0.92),rgba(5,16,33,0.92))] p-4 sm:p-5">
+            <BriefingSectionHeading
+              step="5"
+              title={t("creativeBrief.brandRules")}
+              description={t("creativeBrief.brandRulesHelp")}
+            />
+            <div className="mt-4 grid gap-5 lg:grid-cols-2">
+              <div>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragEnter={() => setDraggingReference(true)}
+                  onDragLeave={() => setDraggingReference(false)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={onReferenceDrop}
+                  className={cn(
+                    "flex min-h-36 w-full flex-col items-center justify-center rounded-lg border border-dashed px-5 py-5 text-center transition",
+                    draggingReference
+                      ? "border-[#4b9bff] bg-[#0d326c]"
+                      : "border-[#237eea] bg-[#06182f] hover:border-[#63afff] hover:bg-[#0a2347]",
+                    submitting && "cursor-not-allowed opacity-60",
+                  )}
+                >
+                  <Upload className="h-9 w-9 text-[#368cff]" />
+                  <span className="mt-3 text-sm font-semibold text-white">
+                    {t("creativeBrief.uploadDropTitle")}
+                  </span>
+                  <span className="mt-1 text-xs text-[#7fc0ff]">
+                    {t("creativeBrief.uploadDropOr")}
+                  </span>
+                  <span className="mt-2 text-xs text-[#b9cae3]">
+                    {t("creativeBrief.uploadDropTypes")}
+                  </span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,application/pdf"
+                  className="hidden"
+                  onChange={onFileInput}
+                />
+                {referenceFile ? (
+                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-[#315c94] bg-[#081a34] px-3 py-2 text-sm text-[#d7e5ff]">
                     <Paperclip className="h-4 w-4 shrink-0 text-[#75adff]" />
-                    <span className="min-w-0 flex-1 truncate">{file.name}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {referenceFile.name}
+                    </span>
                     <span className="shrink-0 text-xs text-[#9eb7dd]">
-                      {Math.ceil(file.size / 1024)} KB
+                      {Math.ceil(referenceFile.size / 1024)} KB
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
-                        setDriveFiles((current) =>
-                          current.filter(
-                            (candidate) => fileKey(candidate) !== fileKey(file),
-                          ),
-                        )
-                      }
+                      onClick={() => setReferenceFile(null)}
                       className="rounded p-1 text-[#b4c9e9] transition hover:bg-white/10 hover:text-white"
                       aria-label={t("creativeBrief.removeFile")}
                       title={t("creativeBrief.removeFile")}
                     >
                       <X className="h-4 w-4" />
                     </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </BriefField>
-
-          <BriefField label={t("creativeBrief.visualReference")}>
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_42px_minmax(0,1fr)] md:items-center">
-              <div className="relative">
-                <Globe2 className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#96b7e8]" />
-                <input
-                  type="url"
-                  value={visualReferenceUrl}
-                  onChange={(event) =>
-                    setVisualReferenceUrl(event.target.value)
-                  }
+                  </div>
+                ) : null}
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-white">
+                  {t("creativeBrief.quickNotes")}
+                </label>
+                <p className="mt-1 text-xs leading-5 text-[#b9cae3]">
+                  {t("creativeBrief.quickNotesHelp")}
+                </p>
+                <textarea
+                  value={brandRules}
+                  onChange={(event) => setBrandRules(event.target.value)}
                   disabled={submitting}
-                  placeholder="https://"
-                  className="h-[52px] w-full rounded-lg border border-[#385b91] bg-[#07162e] py-3 pl-12 pr-4 text-base text-white placeholder:text-[#7689aa] outline-none transition focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25 disabled:opacity-60"
+                  placeholder={t("creativeBrief.brandRulesPlaceholder")}
+                  className="mt-3 min-h-36 w-full resize-y rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 py-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
                 />
               </div>
-              <span className="hidden text-center text-sm text-[#a5b8d7] md:block">
-                {t("creativeBrief.or")}
-              </span>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={() => fileInputRef.current?.click()}
-                onDragEnter={() => setDraggingReference(true)}
-                onDragLeave={() => setDraggingReference(false)}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={onReferenceDrop}
-                className={cn(
-                  "flex min-h-28 items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-4 text-left transition",
-                  draggingReference
-                    ? "border-[#5ca0ff] bg-[#10366b]/70"
-                    : "border-[#3b679e] bg-[#06162d] hover:border-[#5ca0ff] hover:bg-[#0b2144]",
-                  submitting && "cursor-not-allowed opacity-60",
-                )}
-              >
-                <Upload className="h-7 w-7 shrink-0 text-[#89b4f5]" />
-                <span className="min-w-0">
-                  <span className="block text-base font-semibold text-white">
-                    {t("creativeBrief.upload")}
-                  </span>
-                  <span className="mt-1 block text-xs text-[#9fb3d4]">
-                    {t("creativeBrief.uploadHint")}
-                  </span>
-                </span>
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,application/pdf"
-                className="hidden"
-                onChange={onFileInput}
-              />
             </div>
-            {referenceFile ? (
-              <div className="mt-3 flex items-center gap-2 rounded-lg border border-[#315c94] bg-[#081a34] px-3 py-2 text-sm text-[#d7e5ff]">
-                <Paperclip className="h-4 w-4 shrink-0 text-[#75adff]" />
-                <span className="min-w-0 flex-1 truncate">
-                  {referenceFile.name}
-                </span>
-                <span className="shrink-0 text-xs text-[#9eb7dd]">
-                  {Math.ceil(referenceFile.size / 1024)} KB
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setReferenceFile(null)}
-                  className="rounded p-1 text-[#b4c9e9] transition hover:bg-white/10 hover:text-white"
-                  aria-label={t("creativeBrief.removeFile")}
-                  title={t("creativeBrief.removeFile")}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : null}
             {referencePreviewSource ? (
               <figure className="mt-4 overflow-hidden rounded-lg border border-[#315c94] bg-[#06162d]">
                 <div className="flex items-center justify-between gap-3 border-b border-[#2d568c] px-3 py-2">
@@ -1314,172 +1553,259 @@ export default function CreativeBriefingForm({
                   src={referencePreviewSource}
                   alt={t("creativeBrief.visualPreview")}
                   onError={() => {
-                    if (!referenceImagePreview)
-                      setReferenceUrlPreviewFailed(true);
+                    if (!referenceImagePreview) setReferenceUrlPreviewFailed(true);
                   }}
-                  className="aspect-video w-full bg-[#020a1b] object-contain"
+                  className="max-h-72 w-full bg-[#020a1b] object-contain"
                 />
               </figure>
             ) : null}
-          </BriefField>
-
-          <div className="grid gap-7 md:grid-cols-2 md:gap-x-10">
-            <BriefField label={t("creativeBrief.priority")}>
-              <div className="grid grid-cols-3 overflow-hidden rounded-lg border border-[#385b91] bg-[#07162e] p-1">
-                {(["low", "medium", "high"] as const).map((option) => (
+          </section>
+          <details className="lg:col-span-2 rounded-xl border border-[#183a66] bg-[#06152b]/75">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-[#cfe3ff] [&::-webkit-details-marker]:hidden">
+              <span>{t("creativeBrief.additionalDetails")}</span>
+              <ArrowRight className="h-4 w-4 text-[#61aaff]" />
+            </summary>
+            <div className="grid gap-4 border-t border-[#183a66] p-4 lg:grid-cols-2">
+              <label className="block text-sm font-semibold text-white">
+                {t("creativeBrief.description")}
+                <textarea
+                  value={briefDescription}
+                  onChange={(event) => setBriefDescription(event.target.value)}
+                  disabled={submitting}
+                  placeholder={t("creativeBrief.descriptionPlaceholder")}
+                  className="mt-2 min-h-28 w-full resize-y rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 py-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                />
+              </label>
+              <div className="space-y-4">
+                <label className="block text-sm font-semibold text-white">
+                  {t("creativeBrief.driveUrl")}
+                  <span className="relative mt-2 block">
+                    <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#96b7e8]" />
+                    <input
+                      type="url"
+                      value={driveUrl}
+                      onChange={(event) => setDriveUrl(event.target.value)}
+                      disabled={submitting}
+                      placeholder="https://"
+                      className="h-10 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                    />
+                  </span>
+                </label>
+                <div>
                   <button
-                    key={option}
                     type="button"
                     disabled={submitting}
-                    onClick={() => setPriority(option)}
-                    aria-pressed={priority === option}
+                    onClick={() => driveFileInputRef.current?.click()}
+                    onDragEnter={() => setDraggingDriveFiles(true)}
+                    onDragLeave={() => setDraggingDriveFiles(false)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={onDriveFilesDrop}
                     className={cn(
-                      "min-h-12 rounded-md px-2 text-sm font-semibold transition",
-                      priority === option
-                        ? "bg-[#1767e8] text-white shadow-[0_0_18px_rgba(45,131,255,0.55)]"
-                        : "text-[#a9bade] hover:bg-[#11284b] hover:text-white",
+                      "flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 text-sm font-semibold transition",
+                      draggingDriveFiles
+                        ? "border-[#5ca0ff] bg-[#10366b]/70"
+                        : "border-[#3b679e] bg-[#06162d] text-[#d9e8ff] hover:border-[#5ca0ff] hover:bg-[#0b2144]",
+                      submitting && "cursor-not-allowed opacity-60",
                     )}
                   >
-                    {t(`creativeBrief.priority.${option}`)}
+                    <Upload className="h-4 w-4 text-[#89b4f5]" />
+                    {t("creativeBrief.driveUpload")}
                   </button>
-                ))}
+                  <input
+                    ref={driveFileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/png,image/jpeg,application/pdf"
+                    className="hidden"
+                    onChange={onDriveFilesInput}
+                  />
+                  {driveFiles.length > 0 ? (
+                    <ul className="mt-2 space-y-2">
+                      {driveFiles.map((file) => (
+                        <li
+                          key={fileKey(file)}
+                          className="flex items-center gap-2 rounded-lg border border-[#315c94] bg-[#081a34] px-3 py-2 text-sm text-[#d7e5ff]"
+                        >
+                          <Paperclip className="h-4 w-4 shrink-0 text-[#75adff]" />
+                          <span className="min-w-0 flex-1 truncate">
+                            {file.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDriveFiles((current) =>
+                                current.filter(
+                                  (candidate) =>
+                                    fileKey(candidate) !== fileKey(file),
+                                ),
+                              )
+                            }
+                            className="rounded p-1 text-[#b4c9e9] transition hover:bg-white/10 hover:text-white"
+                            aria-label={t("creativeBrief.removeFile")}
+                            title={t("creativeBrief.removeFile")}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               </div>
-            </BriefField>
-
-            <BriefField label={t("creativeBrief.deadline")}>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {(["standard", "rush", "extended", "custom"] as const).map(
-                    (preset) => (
+              <label className="block text-sm font-semibold text-white">
+                {t("creativeBrief.visualReference")}
+                <span className="relative mt-2 block">
+                  <Globe2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#96b7e8]" />
+                  <input
+                    type="url"
+                    value={visualReferenceUrl}
+                    onChange={(event) => setVisualReferenceUrl(event.target.value)}
+                    disabled={submitting}
+                    placeholder="https://"
+                    className="h-10 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-[#7c91af] focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                  />
+                </span>
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {t("creativeBrief.priority")}
+                  </p>
+                  <div className="mt-2 grid grid-cols-3 rounded-lg border border-[#355d94] bg-[#0b1a30] p-1">
+                    {(["low", "medium", "high"] as const).map((option) => (
                       <button
-                        key={preset}
+                        key={option}
                         type="button"
                         disabled={submitting}
-                        onClick={() => setDeadlinePreset(preset)}
-                        aria-pressed={deadlinePreset === preset}
+                        onClick={() => setPriority(option)}
                         className={cn(
-                          "min-h-12 rounded-lg border px-3 py-2 text-left text-xs font-semibold transition",
-                          deadlinePreset === preset
-                            ? "border-[#4c9cff] bg-[#0b2d61] text-white shadow-[0_0_18px_rgba(39,126,255,0.22)]"
-                            : "border-[#385b91] bg-[#07162e] text-[#b8cae8] hover:border-[#5a8ed4] hover:bg-[#0a2040]",
+                          "min-h-9 rounded-md px-2 text-xs font-semibold transition",
+                          priority === option
+                            ? "bg-[#1767e8] text-white"
+                            : "text-[#a9bade] hover:bg-[#11284b] hover:text-white",
                         )}
                       >
-                        <span className="flex items-center gap-2">
-                          <Clock3 className="h-4 w-4 shrink-0 text-[#66a6ff]" />
-                          {t(`creativeBrief.deadline.${preset}`)}
-                        </span>
+                        {t("creativeBrief.priority." + option)}
                       </button>
-                    ),
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {t("creativeBrief.deadline")}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-1">
+                    {(["standard", "rush", "extended", "custom"] as const).map(
+                      (preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => setDeadlinePreset(preset)}
+                          className={cn(
+                            "min-h-9 rounded-md border px-2 text-left text-[11px] font-semibold transition",
+                            deadlinePreset === preset
+                              ? "border-[#4c9cff] bg-[#0b2d61] text-white"
+                              : "border-[#385b91] bg-[#07162e] text-[#b8cae8] hover:border-[#5a8ed4]",
+                          )}
+                        >
+                          {t("creativeBrief.deadline." + preset)}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                  {deadlinePreset === "custom" ? (
+                    <BrazilianDateInput
+                      value={customDueDate}
+                      onChange={setCustomDueDate}
+                      disabled={submitting}
+                      className="mt-2 h-10 w-full rounded-lg border border-[#355d94] bg-[#0b1a30] px-3 text-sm text-white outline-none transition focus:border-[#4f9aff] focus:ring-2 focus:ring-[#2679ff]/25"
+                    />
+                  ) : (
+                    <p className="mt-2 flex items-center gap-1 text-[11px] text-[#9cb4d6]">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      {dueDateLabel}
+                    </p>
                   )}
                 </div>
-                {deadlinePreset === "custom" ? (
-                  <BrazilianDateInput
-                    value={customDueDate}
-                    onChange={setCustomDueDate}
-                    disabled={submitting}
-                    className="h-12 w-full rounded-lg border border-[#385b91] bg-[#07162e] px-4 text-sm text-white outline-none transition placeholder:text-[#7689aa] focus:border-[#4f95ff] focus:ring-2 focus:ring-[#2679ff]/25"
-                  />
-                ) : (
-                  <p className="text-xs text-[#99b0d2]">{dueDateLabel}</p>
-                )}
               </div>
-            </BriefField>
-          </div>
-
-          <section className="border-t border-[#2b5187] pt-6">
-            <div className="flex items-center gap-3 text-white">
-              <Clock3 className="h-5 w-5 text-[#66a6ff]" />
-              <h3 className="text-lg font-semibold">
-                {t("creativeBrief.estimatedTime")}
-              </h3>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {formatOptions.map((option) => {
-                const Icon = option.icon;
-                const selected = formats.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() =>
-                      setFormats((current) =>
-                        toggleMultiSelectValue(current, option.value),
-                      )
-                    }
-                    aria-pressed={selected}
-                    className={cn(
-                      "min-h-28 rounded-lg border p-4 text-left transition",
-                      selected
-                        ? "border-[#4c9cff] bg-[#0b2d61] shadow-[0_0_22px_rgba(39,126,255,0.24)]"
-                        : "border-[#385b91] bg-[#07162e] hover:border-[#5a8ed4] hover:bg-[#0a2040]",
-                    )}
-                  >
-                    <Icon className="h-7 w-7 text-[#4e9cff]" />
-                    <span className="mt-3 block text-sm font-semibold text-white">
-                      {option.label}
-                    </span>
-                    <span className="mt-1 block text-2xl font-bold text-[#5ca4ff]">
-                      {option.hours}h
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          </details>
         </div>
-
-        <footer className="flex flex-col-reverse gap-3 border-t border-[#2b5187] px-5 py-5 sm:flex-row sm:justify-end sm:px-9">
+        <footer className="sticky bottom-0 flex flex-col gap-3 border-t border-[#163d70] bg-[#041126]/95 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <button
             type="button"
             onClick={saveDraft}
             disabled={submitting || !draftLoaded}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[#5a81bd] bg-[#07172f] px-5 text-sm font-semibold text-white transition hover:border-[#78aaff] hover:bg-[#0c2850] disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-lg border border-[#314d77] bg-[#07162c] px-4 text-sm font-semibold text-white transition hover:border-[#6295d2] hover:bg-[#0c284f] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Save className="h-4 w-4" />
+            <Bookmark className="h-4 w-4 text-[#a8c6f0]" />
             {t("creativeBrief.saveDraft")}
           </button>
-          <button
-            type="submit"
-            disabled={
-              submitting ||
-              companiesLoading ||
-              companies.length === 0 ||
-              designerUsers.length === 0
-            }
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-[#55a4ff] bg-[#1468eb] px-6 text-sm font-semibold text-white shadow-[0_0_24px_rgba(37,122,255,0.48)] transition hover:bg-[#2a7cf4] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            {t("creativeBrief.submit")}
-          </button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => window.history.back()}
+              disabled={submitting}
+              className="min-h-10 rounded-lg border border-[#314d77] bg-[#07162c] px-5 text-sm font-semibold text-[#e5efff] transition hover:border-[#6295d2] hover:bg-[#0c284f] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="submit"
+              disabled={
+                submitting ||
+                companiesLoading ||
+                companies.length === 0 ||
+                designerUsers.length === 0
+              }
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#65afff] bg-[#1d72f0] px-5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(37,122,255,0.45)] transition hover:bg-[#3184fb] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {t("creativeBrief.reviewAndSend")}
+            </button>
+          </div>
         </footer>
       </form>
     </div>
   );
 }
 
-function BriefField({
-  label,
-  required = false,
-  children,
+function BriefingSectionHeading({
+  step,
+  title,
+  description,
 }: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
+  step: string;
+  title: string;
+  description: string;
 }) {
   return (
-    <div className="block">
-      <span className="mb-2 block text-base font-semibold text-white">
-        {label}
-        {required ? <span className="ml-1 text-[#7bb0ff]">*</span> : null}
-      </span>
-      {children}
+    <div>
+      <div className="flex items-center gap-3">
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#287bf5] text-sm font-bold text-white shadow-[0_0_16px_rgba(39,126,255,0.45)]">
+          {step}
+        </span>
+        <h2 className="text-base font-bold text-white">{title}</h2>
+      </div>
+      <p className="mt-1 text-sm text-[#b8c9e5]">{description}</p>
     </div>
   );
+}
+
+function getInitials(value: string) {
+  return value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toLocaleUpperCase();
 }
 
 function toggleMultiSelectValue(values: string[], value: string) {

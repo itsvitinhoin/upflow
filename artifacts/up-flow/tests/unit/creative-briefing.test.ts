@@ -209,6 +209,12 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(form, /formatCreativeBriefingDimensions/);
   assert.match(form, /manualFormatInput/);
   assert.match(form, /creativeBrief\.manualInput/);
+  assert.match(form, /function BriefingSectionHeading/);
+  assert.match(form, /creativeBrief\.tips/);
+  assert.match(form, /creativeBrief\.searchDesigners/);
+  assert.match(form, /creativeBrief\.recentBrands/);
+  assert.match(form, /creativeBrief\.manualUnitHint/);
+  assert.match(form, /creativeBrief\.reviewAndSend/);
   assert.match(projectPage, /onDesignerRosterConfigured=\{loadData\}/);
   assert.match(form, /creativeBrief\.requester/);
   assert.doesNotMatch(form, /setDesignerIds\(\[me\.id\]\)/);
