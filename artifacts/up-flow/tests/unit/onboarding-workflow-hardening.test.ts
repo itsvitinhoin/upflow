@@ -12,6 +12,7 @@ function read(rel: string) {
 test("onboarding workflow hardening keeps actions, access, and integrity aligned", () => {
   const board = read("src/app/(dashboard)/onboarding/page.tsx");
   const clientPage = read("src/app/(dashboard)/clients/[id]/page.tsx");
+  const onboardingDetail = read("src/app/(dashboard)/onboarding/[companyId]/page.tsx");
   const onboarding = read("src/lib/onboarding.ts");
   const companyRoute = read("src/app/api/companies/[id]/route.ts");
   const financeRoute = read("src/app/api/onboarding/finance-form/[taskId]/route.ts");
@@ -31,8 +32,11 @@ test("onboarding workflow hardening keeps actions, access, and integrity aligned
   const startDialog = read("src/components/onboarding/start-client-onboarding-dialog.tsx");
 
 
-  assert.match(clientPage, /ClientOnboardingPanel/);
-  assert.match(clientPage, /<section id="onboarding"/);
+  assert.doesNotMatch(clientPage, /ClientOnboardingPanel/);
+  assert.doesNotMatch(clientPage, /<section id="onboarding"/);
+  assert.match(onboardingDetail, /ClientOnboardingPanel/);
+  assert.match(onboardingDetail, /companyId=\{companyId\}/);
+  assert.match(board, /const workflowHref = `\/onboarding\/\$\{item\.company_id\}`/);
   assert.match(board, /function isMarketingB2COnboarding/);
   assert.match(board, /meetings\.length > 0 && meetings\.every/);
   assert.match(board, /function WorkflowRow\([\s\S]*href: string/);

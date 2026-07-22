@@ -314,7 +314,7 @@ function ReadinessBoard({
   const marketingDepartment = isB2C ? "Marketing B2C" : "Marketing B2B";
   const marketingTitle = isB2C ? t("marketingB2CForm.summaryTitle") : t("onboardingBoard.marketingB2BOnboarding");
   const marketingDepartmentLabel = isB2C ? t("marketingB2CForm.department") : t("onboardingBoard.department.marketingB2B");
-  const workflowHref = `/clients/${item.company_id}#onboarding`;
+  const workflowHref = `/onboarding/${item.company_id}`;
   const meetings = item.meetings ?? [];
   const meetingsScheduled = meetings.length > 0 && meetings.every((meeting) => meeting.scheduled);
   const meetingStageState = meetings.length > 0

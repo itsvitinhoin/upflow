@@ -28,6 +28,7 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   const listView = read("src/components/projects/list-view.tsx");
   const kanbanBoard = read("src/components/projects/kanban-board.tsx");
   const queuePage = read("src/app/(dashboard)/onboarding/page.tsx");
+  const onboardingDetail = read("src/app/(dashboard)/onboarding/[companyId]/page.tsx");
   const notifications = read("src/lib/notification-links.ts");
 
   assert.match(schema, /project_id\s+String\?\s+@unique/);
@@ -102,6 +103,8 @@ test("streamlined client onboarding uses a client-first wizard and stable depart
   assert.match(kanbanBoard, /readTaskApiError/);
   assert.match(onboardingPanel, /onboardingWorkflow\.overrideAction/);
   assert.match(queuePage, /onboardingQueue\.view\.missingMapping/);
+  assert.match(onboardingDetail, /ClientOnboardingPanel/);
+  assert.match(queuePage, /\/onboarding\/\$\{item\.company_id\}/);
   assert.match(notifications, /client_onboarding/);
-  assert.match(notifications, /\/clients\/\$\{data\.company_id\}/);
+  assert.match(notifications, /\/onboarding\/\$\{data\.company_id\}/);
 });

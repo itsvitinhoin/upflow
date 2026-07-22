@@ -20,7 +20,7 @@ export function getNotificationHref(notification: Notification): string | null {
   }
 
   if (data?.source?.startsWith("client_onboarding") && data.company_id) {
-    return `/clients/${data.company_id}`;
+    return `/onboarding/${data.company_id}`;
   }
 
   if (notification.type === "member_joined") {
