@@ -28,6 +28,11 @@ import {
   taskBoardStatusValue,
   taskStatusForTaskBoardOption,
 } from "@/lib/task-board-status";
+import {
+  getCreativeBriefingRequester,
+  isCreativeBriefingOwnershipDetailLabel,
+  isCreativeBriefingType,
+} from "@/lib/creative-briefing";
 
 interface TaskDetailSheetProps {
   task: Task;
@@ -341,6 +346,19 @@ export default function TaskDetailSheet({
   const subtasks = currentTask.subtasks ?? [];
   const doneCount = subtasks.filter((s) => s.status === "done").length;
   const structuredBrief = parseTaskBrief(currentTask.description, language);
+  const isCreativeBrief = Boolean(
+    structuredBrief && isCreativeBriefingType(structuredBrief.type),
+  );
+  const creativeBriefRequester =
+    isCreativeBrief && structuredBrief
+      ? getCreativeBriefingRequester(structuredBrief.details)
+      : null;
+  const visibleBriefDetails =
+    isCreativeBrief && structuredBrief
+      ? structuredBrief.details.filter(
+          (detail) => !isCreativeBriefingOwnershipDetailLabel(detail.label),
+        )
+      : (structuredBrief?.details ?? []);
   const insertMention = (
     userId: string,
     setText: Dispatch<SetStateAction<string>>,
@@ -508,9 +526,25 @@ export default function TaskDetailSheet({
                   </span>
                   <span className="text-xs text-muted-foreground">{t("task.structuredBrief")}</span>
                 </div>
-                {structuredBrief.details.length > 0 && (
+                {isCreativeBrief ? (
+                  <div className="mb-3 grid gap-3 border-b border-border/70 pb-3 sm:grid-cols-2">
+                    <BriefingOwnershipPerson
+                      label={t("creativeBrief.requester")}
+                      name={
+                        creativeBriefRequester ??
+                        t("creativeBrief.requesterNotRecorded")
+                      }
+                    />
+                    <BriefingOwnershipPerson
+                      label={t("creativeBrief.assignedDesigners")}
+                      name={currentTask.assignee?.name ?? t("common.unassigned")}
+                      email={currentTask.assignee?.email}
+                    />
+                  </div>
+                ) : null}
+                {visibleBriefDetails.length > 0 && (
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {structuredBrief.details.slice(0, 24).map((item) => {
+                    {visibleBriefDetails.slice(0, 24).map((item) => {
                       const assetPath = getTaskAssetPath(item.value);
                       const assetUrl = assetPath
                         ? `/api/task-assets/${assetPath.split("/").map(encodeURIComponent).join("/")}`
@@ -808,6 +842,39 @@ async function readTaskApiError(res: Response, fallback: string) {
 
 function displayCommentBody(body: string) {
   return body.replace(/@\[([^\]]+)\]\([0-9a-fA-F-]{36}\)/g, "@$1");
+}
+
+function BriefingOwnershipPerson({
+  label,
+  name,
+  email,
+}: {
+  label: string;
+  name: string;
+  email?: string | null;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <div className="mt-1.5 flex min-w-0 items-center gap-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-bold text-primary">
+          {getInitials(name)}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-foreground">
+            {name}
+          </span>
+          {email ? (
+            <span className="block truncate text-xs text-muted-foreground">
+              {email}
+            </span>
+          ) : null}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function MentionPicker({

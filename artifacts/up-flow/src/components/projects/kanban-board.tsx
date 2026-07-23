@@ -29,6 +29,7 @@ import {
   taskStatusForTaskBoardOption,
 } from "@/lib/task-board-status";
 import { parseTaskBrief } from "@/lib/task-templates";
+import { isCreativeBriefingType } from "@/lib/creative-briefing";
 import type {
   CustomFieldDefinition,
   Task,
@@ -83,14 +84,6 @@ function columnLabel(
   if (key === "in_progress") return t("status.inProgress");
   if (key === "done") return t("status.done");
   return fallback;
-}
-
-function isCreativeBriefingType(type: string) {
-  const normalized = type
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  return normalized === "creative briefing" || normalized === "briefing de criacao";
 }
 
 function isReferenceFileLink(label: string) {

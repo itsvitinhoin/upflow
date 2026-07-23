@@ -8,6 +8,9 @@ import {
   buildCreativeBriefingTitle,
   filterCreativeBriefingDesigners,
   formatCreativeBriefingDimensions,
+  getCreativeBriefingRequester,
+  isCreativeBriefingOwnershipDetailLabel,
+  isCreativeBriefingType,
 } from "../../src/lib/creative-briefing";
 import { parseTaskBrief } from "../../src/lib/task-templates";
 
@@ -197,6 +200,21 @@ test("creative briefing only offers Creative & Design members as designers", () 
   );
 });
 
+test("creative briefing ownership keeps requester separate from the live task assignee", () => {
+  assert.equal(isCreativeBriefingType("Creative briefing"), true);
+  assert.equal(isCreativeBriefingType("Briefing de cria\u00e7\u00e3o"), true);
+  assert.equal(
+    getCreativeBriefingRequester([
+      { label: "Solicitante", value: "Stefan Bang" },
+      { label: "Designers", value: "Luiz Paulo, Gabriel Rocha" },
+    ]),
+    "Stefan Bang",
+  );
+  assert.equal(isCreativeBriefingOwnershipDetailLabel("Requester"), true);
+  assert.equal(isCreativeBriefingOwnershipDetailLabel("Designers"), true);
+  assert.equal(isCreativeBriefingOwnershipDetailLabel("Formats"), false);
+});
+
 test("Design Queue receives a Forms view and secured reference upload flow", () => {
   const projectPage = read("src/app/(dashboard)/projects/[id]/page.tsx");
   const toolbar = read("src/components/projects/project-toolbar.tsx");
@@ -258,5 +276,8 @@ test("Design Queue receives a Forms view and secured reference upload flow", () 
   assert.match(referenceRoute, /drive_file/);
   assert.match(referenceRoute, /canContributeToProject/);
   assert.match(assetsRoute, /description: \{ contains: reference \}/);
-  assert.match(taskDetail, /structuredBrief\.details\.slice\(0, 24\)/);
+  assert.match(taskDetail, /getCreativeBriefingRequester/);
+  assert.match(taskDetail, /currentTask\.assignee\?\.name/);
+  assert.match(taskDetail, /creativeBrief\.assignedDesigners/);
+  assert.match(taskDetail, /visibleBriefDetails\.slice\(0, 24\)/);
 });

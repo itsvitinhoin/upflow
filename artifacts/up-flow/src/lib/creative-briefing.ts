@@ -10,6 +10,11 @@ export interface CreativeBriefingMember {
   department_name?: string | null;
 }
 
+export interface CreativeBriefingDetail {
+  label: string;
+  value: string;
+}
+
 function normalizeDepartmentName(value: string | null | undefined) {
   return (value ?? "")
     .normalize("NFD")
@@ -36,6 +41,37 @@ export function filterCreativeBriefingDesigners<
   return members.filter((member) =>
     isCreativeDesignDepartmentName(member.department_name),
   );
+}
+
+function normalizeCreativeBriefingText(value: string | null | undefined) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isCreativeBriefingType(value: string | null | undefined) {
+  const type = normalizeCreativeBriefingText(value);
+  return type === "creative briefing" || type === "briefing de criacao";
+}
+
+export function getCreativeBriefingRequester(
+  details: ReadonlyArray<CreativeBriefingDetail>,
+) {
+  const requester = details.find((detail) => {
+    const label = normalizeCreativeBriefingText(detail.label);
+    return label === "requester" || label === "solicitante";
+  });
+  return requester ? singleLine(requester.value) || null : null;
+}
+
+export function isCreativeBriefingOwnershipDetailLabel(
+  value: string | null | undefined,
+) {
+  const label = normalizeCreativeBriefingText(value);
+  return label === "requester" || label === "solicitante" || label === "designers";
 }
 
 export function formatCreativeBriefingDimensions(
