@@ -162,7 +162,20 @@ export default function KanbanBoard({
   }, [boardStatus]);
   const [columns, setColumns] = useState<Record<string, Task[]>>({});
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [activeColumnKey, setActiveColumnKey] = useState<string | null>(
+    () => boardColumns[0]?.key ?? null,
+  );
   const isDraggingRef = useRef(false);
+  const boardScrollRef = useRef<HTMLDivElement | null>(null);
+  const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    setActiveColumnKey((current) =>
+      current && boardColumns.some((column) => column.key === current)
+        ? current
+        : (boardColumns[0]?.key ?? null),
+    );
+  }, [boardColumns]);
 
   useEffect(() => {
     const grouped: Record<string, Task[]> = Object.fromEntries(
@@ -330,10 +343,69 @@ export default function KanbanBoard({
     }
   };
 
+  const scrollToColumn = (columnKey: string) => {
+    const board = boardScrollRef.current;
+    const column = columnRefs.current[columnKey];
+    if (!board || !column) return;
+
+    const boardRect = board.getBoundingClientRect();
+    const columnRect = column.getBoundingClientRect();
+    const maxScrollLeft = Math.max(0, board.scrollWidth - board.clientWidth);
+    const scrollLeft = Math.min(
+      Math.max(0, board.scrollLeft + columnRect.left - boardRect.left - 12),
+      maxScrollLeft,
+    );
+    const prefersReducedMotion =
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+
+    setActiveColumnKey(columnKey);
+    board.scrollTo({
+      left: scrollLeft,
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+    });
+  };
+
   return (
     <>
+      <nav
+        aria-label={t("toolbar.status")}
+        className="mb-3 flex max-w-full items-center gap-2 overflow-x-auto pb-1"
+      >
+        {boardColumns.map(({ key, label, color, hex }, columnIndex) => {
+          const displayLabel = isColumnKey(key) ? columnLabel(key, label, t) : label;
+          const isActiveColumn = activeColumnKey === key;
+
+          return (
+            <button
+              key={key}
+              type="button"
+              data-kanban-scroll-target={key}
+              aria-controls={`kanban-column-${columnIndex}`}
+              aria-pressed={isActiveColumn}
+              onClick={() => scrollToColumn(key)}
+              className={cn(
+                "flex flex-shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+                isActiveColumn
+                  ? "border-primary/45 bg-primary/10 text-primary shadow-sm"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/35 hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              <span
+                className={cn("h-2 w-2 rounded-full shadow-[0_0_10px_currentColor]", color)}
+                style={{ color: hex }}
+              />
+              <span>{displayLabel}</span>
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+                {columns[key]?.length ?? 0}
+              </span>
+            </button>
+          );
+        })}
+      </nav>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div
+          ref={boardScrollRef}
+          data-kanban-scroll-container
           className={cn(
             "flex max-w-full gap-4 overflow-x-auto overscroll-x-contain pb-5",
             showBriefingDetails
@@ -341,21 +413,29 @@ export default function KanbanBoard({
               : "h-[calc(100dvh-300px)] min-h-[440px] sm:h-[calc(100dvh-280px)]",
           )}
         >
-          {boardColumns.map(({ key, label, color, hex }) => (
+          {boardColumns.map(({ key, label, color, hex }, columnIndex) => (
             <Droppable key={key} droppableId={key}>
               {(provided, snapshot) => {
                 const columnTasks = columns[key] ?? [];
                 const displayLabel = isColumnKey(key) ? columnLabel(key, label, t) : label;
+                const isActiveColumn = activeColumnKey === key;
 
                 return (
                 <div
-                  ref={provided.innerRef}
+                  id={`kanban-column-${columnIndex}`}
+                  data-kanban-column={key}
+                  data-kanban-active={isActiveColumn ? "true" : "false"}
+                  ref={(element) => {
+                    provided.innerRef(element);
+                    columnRefs.current[key] = element;
+                  }}
                   {...provided.droppableProps}
                   className={cn(
                     "upflow-kanban-column flex h-full flex-shrink-0 flex-col overflow-hidden rounded-2xl transition-all",
                     showBriefingDetails
                       ? "w-[min(90vw,470px)] sm:w-[430px] xl:w-[460px]"
                       : "w-[min(88vw,380px)] sm:w-[360px] xl:w-[380px]",
+                    isActiveColumn && "border-primary/45 shadow-[0_0_30px_rgba(59,130,246,0.18)] ring-1 ring-primary/25",
                     snapshot.isDraggingOver && "border-sky-400/50 shadow-[0_0_36px_rgba(59,130,246,0.22)] ring-1 ring-sky-400/30",
                   )}
                 >
@@ -363,16 +443,25 @@ export default function KanbanBoard({
                     className="flex items-center gap-2 border-t-2 px-4 py-3"
                     style={{ borderColor: hex }}
                   >
-                    <div
-                      className={cn("h-2.5 w-2.5 rounded-full shadow-[0_0_14px_currentColor]", color)}
-                      style={{ color: hex }}
-                    />
-                    <span className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                      {displayLabel}
-                    </span>
-                    <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                      {columnTasks.length}
-                    </span>
+                    <button
+                      type="button"
+                      data-kanban-column-header={key}
+                      aria-controls={`kanban-column-${columnIndex}`}
+                      aria-pressed={isActiveColumn}
+                      onClick={() => scrollToColumn(key)}
+                      className="flex min-w-0 items-center gap-2 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                    >
+                      <span
+                        className={cn("h-2.5 w-2.5 rounded-full shadow-[0_0_14px_currentColor]", color)}
+                        style={{ color: hex }}
+                      />
+                      <span className="truncate text-xs font-semibold text-foreground uppercase tracking-wider">
+                        {displayLabel}
+                      </span>
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                        {columnTasks.length}
+                      </span>
+                    </button>
                     <button
                       onClick={() => addTaskToColumn(key)}
                       className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground"

@@ -178,6 +178,35 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await ctx.close();
   });
 
+  test("Kanban status navigation scrolls the selected column into view", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("KanbanScrollProj"));
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 640, height: 900 });
+    await page.goto(`/projects/${projectId}`);
+    await page.getByRole("button", { name: /^Board$/ }).click();
+
+    const board = page.locator("[data-kanban-scroll-container]");
+    const doneNavigation = page.locator("[data-kanban-scroll-target='done']");
+    await expect(board).toBeVisible();
+    await expect(doneNavigation).toBeVisible();
+    await doneNavigation.click();
+
+    await expect(doneNavigation).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(() => board.evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(0);
+    await expect(page.locator("[data-kanban-column='done']")).toHaveAttribute(
+      "data-kanban-active",
+      "true",
+    );
+
+    await ctx.close();
+  });
+
   test("group/sort/filter/columns toolbar controls open their menus", async ({
     browser,
     baseURL,
