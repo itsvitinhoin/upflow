@@ -120,6 +120,9 @@ async function GET_handler(
       marketing_b2c_onboarding_form: {
         select: { id: true, status: true, completed_at: true },
       },
+      custom_field_values: {
+        select: { definition_id: true, value: true },
+      },
     },
   });
 

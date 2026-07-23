@@ -143,6 +143,7 @@ test("space dashboards and department task creation use department presets", () 
 
 test("RH board fields drive project board columns and setup refresh", () => {
   const kanbanBoard = readFileSync(join(root, "src/components/projects/kanban-board.tsx"), "utf8");
+  const boardStatus = readFileSync(join(root, "src/lib/task-board-status.ts"), "utf8");
   const projectPage = readFileSync(join(root, "src/app/(dashboard)/projects/[id]/page.tsx"), "utf8");
   const spacePage = readFileSync(join(root, "src/app/(dashboard)/spaces/[id]/page.tsx"), "utf8");
   const defaultsRoute = readFileSync(
@@ -150,7 +151,8 @@ test("RH board fields drive project board columns and setup refresh", () => {
     "utf8",
   );
 
-  assert.match(kanbanBoard, /RH_BOARD_FIELD_NAME/);
+  assert.match(kanbanBoard, /resolveTaskBoardStatus/);
+  assert.match(boardStatus, /RH_BOARD_FIELD_NAME/);
   assert.match(kanbanBoard, /custom-fields/);
   assert.match(kanbanBoard, /addTaskToColumn/);
   assert.match(projectPage, /initialCustomFieldValues/);

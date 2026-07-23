@@ -44,11 +44,17 @@ import {
   DEFAULT_TASK_TEMPLATE_ID,
   type TaskTemplateId,
 } from "@/lib/task-templates";
+import {
+  resolveTaskBoardStatus,
+  taskBoardStatusValue,
+  taskStatusForTaskBoardOption,
+} from "@/lib/task-board-status";
 import type {
   CustomFieldDefinition,
   Project,
   Task,
   TaskAssignee,
+  WorkflowStatus,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -105,6 +111,7 @@ export default function TaskCreateSheet({
   const [projectContext, setProjectContext] = useState<Project | null>(null);
   const [users, setUsers] = useState<TaskAssignee[]>([]);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [workflowStatuses, setWorkflowStatuses] = useState<WorkflowStatus[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
@@ -122,6 +129,24 @@ export default function TaskCreateSheet({
     [projectContext, projects, selectedProjectId],
   );
   const selectedAssignee = users.find((user) => user.id === assigneeId) ?? null;
+  const boardStatus = useMemo(
+    () =>
+      selectedProjectId
+        ? resolveTaskBoardStatus({
+            customFields,
+            workflowStatuses,
+            projectId: selectedProjectId,
+            spaceId: selectedProject?.space_id,
+          })
+        : null,
+    [customFields, selectedProject?.space_id, selectedProjectId, workflowStatuses],
+  );
+  const selectedBoardStatusValue = boardStatus
+    ? taskBoardStatusValue(boardStatus, fieldValues[boardStatus.field.id], status)
+    : "";
+  const visibleCustomFields = boardStatus
+    ? customFields.filter((field) => field.id !== boardStatus.field.id)
+    : customFields;
 
   useEffect(() => {
     if (!open) return;
@@ -139,6 +164,7 @@ export default function TaskCreateSheet({
     setProjectContext(null);
     setUsers([]);
     setCustomFields([]);
+    setWorkflowStatuses([]);
     setTitleError("");
     setProjectError("");
     setProjectsError(null);
@@ -184,6 +210,7 @@ export default function TaskCreateSheet({
       setProjectContext(null);
       setUsers([]);
       setCustomFields([]);
+      setWorkflowStatuses([]);
       setContextError(null);
       return;
     }
@@ -193,6 +220,7 @@ export default function TaskCreateSheet({
     setContextError(null);
     setUsers([]);
     setCustomFields([]);
+    setWorkflowStatuses([]);
     setAssigneeId("");
     setFieldValues(initialCustomFieldValues ?? {});
 
@@ -208,23 +236,30 @@ export default function TaskCreateSheet({
         }
         setProjectContext(project);
 
-        const [usersResponse, fieldsResponse] = await Promise.all([
+        const [usersResponse, fieldsResponse, workflowStatusesResponse] = await Promise.all([
           fetch(`/api/users?workspace_id=${project.workspace_id}&status=active&limit=500`, {
             signal: controller.signal,
           }),
           fetch(`/api/projects/${selectedProjectId}/custom-fields`, {
             signal: controller.signal,
           }),
+          fetch(`/api/workflow-statuses?project_id=${selectedProjectId}&category=task&limit=100`, {
+            signal: controller.signal,
+          }),
         ]);
         if (!usersResponse.ok || !fieldsResponse.ok) {
           throw new Error(t("task.contextLoadError"));
         }
-        const [usersData, fieldsData] = await Promise.all([
+        const [usersData, fieldsData, workflowStatusesData] = await Promise.all([
           usersResponse.json() as Promise<{ items?: TaskAssignee[] }>,
           fieldsResponse.json() as Promise<CustomFieldDefinition[]>,
+          workflowStatusesResponse.ok
+            ? (workflowStatusesResponse.json() as Promise<{ items?: WorkflowStatus[] }>)
+            : Promise.resolve({ items: [] as WorkflowStatus[] }),
         ]);
         setUsers(usersData.items ?? []);
         setCustomFields(Array.isArray(fieldsData) ? fieldsData : []);
+        setWorkflowStatuses(workflowStatusesData.items ?? []);
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
         logError("task-create-sheet:load-context", error, { project_id: selectedProjectId });
@@ -279,9 +314,19 @@ export default function TaskCreateSheet({
     setSubmitting(true);
     setAnnouncement(t("common.creating"));
     try {
-      const customFieldEntries = Object.entries(fieldValues)
+      const fieldValuesForSubmit =
+        boardStatus && selectedBoardStatusValue
+          ? {
+              ...fieldValues,
+              [boardStatus.field.id]: selectedBoardStatusValue,
+            }
+          : fieldValues;
+      const customFieldEntries = Object.entries(fieldValuesForSubmit)
         .filter(([, value]) => value !== null && value !== undefined && value !== "")
         .map(([definition_id, value]) => ({ definition_id, value }));
+      const statusForSubmit = boardStatus
+        ? taskStatusForTaskBoardOption(boardStatus, selectedBoardStatusValue) ?? status
+        : status;
       const response = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -293,7 +338,7 @@ export default function TaskCreateSheet({
             notes,
             translate: t,
           }),
-          status,
+          status: statusForSubmit,
           priority,
           project_id: selectedProjectId,
           assignee_id: assigneeId || null,
@@ -503,14 +548,14 @@ export default function TaskCreateSheet({
                     />
                   </ProgressiveSection>
 
-                  {customFields.length > 0 ? (
+                  {visibleCustomFields.length > 0 ? (
                     <ProgressiveSection
                       icon={FolderKanban}
                       title={t("task.detailsCustomFields")}
-                      count={customFields.length}
+                      count={visibleCustomFields.length}
                     >
                       <div className="space-y-4">
-                        {customFields.map((field) => (
+                        {visibleCustomFields.map((field) => (
                           <Field key={`${selectedProjectId}:${field.id}`} label={field.name}>
                             <CustomFieldInput
                               definition={field}
@@ -534,18 +579,34 @@ export default function TaskCreateSheet({
                     <Field label={t("task.statusLabel")} htmlFor="task-status">
                       <select
                         id="task-status"
-                        value={status}
+                        value={boardStatus ? selectedBoardStatusValue : status}
                         onChange={(event) => {
-                          setStatus(event.target.value as Task["status"]);
+                          const value = event.target.value;
+                          if (boardStatus) {
+                            setFieldValues((previous) => ({
+                              ...previous,
+                              [boardStatus.field.id]: value,
+                            }));
+                            const mappedStatus = taskStatusForTaskBoardOption(boardStatus, value);
+                            if (mappedStatus) setStatus(mappedStatus);
+                          } else {
+                            setStatus(value as Task["status"]);
+                          }
                           markDirty();
                         }}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
                       >
-                        {STATUS_OPTIONS.map((option) => (
-                          <option key={option} value={option}>
-                            {statusLabel(option, t)}
-                          </option>
-                        ))}
+                        {boardStatus
+                          ? boardStatus.options.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.value}
+                              </option>
+                            ))
+                          : STATUS_OPTIONS.map((option) => (
+                              <option key={option} value={option}>
+                                {statusLabel(option, t)}
+                              </option>
+                            ))}
                       </select>
                     </Field>
                   </ProgressiveSection>
@@ -578,7 +639,7 @@ export default function TaskCreateSheet({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submitting || projectsLoading}
+                  disabled={submitting || projectsLoading || contextLoading}
                   className="min-w-32"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

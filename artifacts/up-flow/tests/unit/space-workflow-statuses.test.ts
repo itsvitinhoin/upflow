@@ -40,6 +40,7 @@ test("Space workflows are persisted, authorized, synchronized, and rendered as b
   const sync = read("src/lib/space-workflow-statuses.ts");
   const manager = read("src/components/spaces/space-workflow-status-manager.tsx");
   const board = read("src/components/projects/kanban-board.tsx");
+  const boardStatus = read("src/lib/task-board-status.ts");
 
   assert.match(schema, /space_id\s+String\?/);
   assert.match(schema, /workflow_statuses\s+WorkflowStatus\[\]/);
@@ -51,6 +52,7 @@ test("Space workflows are persisted, authorized, synchronized, and rendered as b
   assert.match(sync, /SPACE_TASK_STATUS_FIELD_NAME/);
   assert.match(sync, /renamedValues/);
   assert.match(manager, /space\.taskStatuses/);
-  assert.match(board, /SPACE_TASK_STATUS_FIELD_NAME/);
+  assert.match(board, /resolveTaskBoardStatus/);
+  assert.match(boardStatus, /SPACE_TASK_STATUS_FIELD_NAME/);
   assert.match(board, /task_status/);
 });

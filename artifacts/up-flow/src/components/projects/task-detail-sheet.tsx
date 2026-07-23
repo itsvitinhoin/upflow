@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import {
@@ -11,17 +11,33 @@ import { useLanguage } from "@/components/language-provider";
 import TaskCoverImageControl from "@/components/projects/task-cover-image-control";
 import TaskAssigneePicker from "@/components/projects/task-assignee-picker";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
-import type { Task, Comment, TaskAssignee, Subtask } from "@/lib/types";
+import type {
+  Comment,
+  CustomFieldDefinition,
+  Subtask,
+  Task,
+  TaskAssignee,
+  WorkflowStatus,
+} from "@/lib/types";
 import { logError } from "@/lib/log-error";
 import { parseTaskBrief } from "@/lib/task-templates";
 import { getTaskAssetPath } from "@/lib/task-images";
 import { appendVisibleMention } from "@/lib/comment-mentions";
+import {
+  resolveTaskBoardStatus,
+  taskBoardStatusValue,
+  taskStatusForTaskBoardOption,
+} from "@/lib/task-board-status";
 
 interface TaskDetailSheetProps {
   task: Task;
   users?: TaskAssignee[];
+  customFields?: CustomFieldDefinition[];
+  workflowStatuses?: WorkflowStatus[];
+  spaceId?: string | null;
   onClose: () => void;
   onUpdate: () => void;
+  onChanged?: () => void;
 }
 
 interface DetailTask extends Omit<Task, "subtasks"> {
@@ -29,7 +45,16 @@ interface DetailTask extends Omit<Task, "subtasks"> {
   comments?: Comment[];
 }
 
-export default function TaskDetailSheet({ task, users: initialUsers, onClose, onUpdate }: TaskDetailSheetProps) {
+export default function TaskDetailSheet({
+  task,
+  users: initialUsers,
+  customFields = [],
+  workflowStatuses = [],
+  spaceId,
+  onClose,
+  onUpdate,
+  onChanged,
+}: TaskDetailSheetProps) {
   const { language, t } = useLanguage();
   const [currentTask, setCurrentTask] = useState<DetailTask>(task as DetailTask);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -110,6 +135,69 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
     });
     // Don't let a single rejection poison the chain — swallow here AFTER
     // logging above, so the next queued update still runs.
+    updateChain.current = next.catch(() => {});
+    return next;
+  };
+
+  const boardStatus = useMemo(
+    () =>
+      resolveTaskBoardStatus({
+        customFields,
+        workflowStatuses,
+        projectId: currentTask.project_id,
+        spaceId,
+      }),
+    [currentTask.project_id, customFields, spaceId, workflowStatuses],
+  );
+  const selectedBoardStatusValue = boardStatus
+    ? taskBoardStatusValue(
+        boardStatus,
+        currentTask.custom_field_values?.find(
+          (fieldValue) => fieldValue.definition_id === boardStatus.field.id,
+        )?.value,
+        currentTask.status,
+      )
+    : "";
+
+  const updateBoardStatus = (value: string) => {
+    if (!boardStatus) return;
+    const taskStatus = taskStatusForTaskBoardOption(boardStatus, value);
+    const next = updateChain.current.then(async () => {
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/tasks/${currentTask.id}/custom-fields`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            definition_id: boardStatus.field.id,
+            value,
+            ...(taskStatus ? { task_status: taskStatus } : {}),
+          }),
+        });
+        if (!res.ok) throw new Error(await readTaskApiError(res, t("common.failedToUpdate")));
+        setCurrentTask((previous) => ({
+          ...previous,
+          ...(taskStatus ? { status: taskStatus } : {}),
+          custom_field_values: [
+            ...(previous.custom_field_values ?? []).filter(
+              (fieldValue) => fieldValue.definition_id !== boardStatus.field.id,
+            ),
+            { definition_id: boardStatus.field.id, value },
+          ],
+        }));
+        onChanged?.();
+        toast.success(t("common.updated"));
+      } catch (err) {
+        logError("task-sheet:update-board-status", err, {
+          id: currentTask.id,
+          definition_id: boardStatus.field.id,
+          value,
+        });
+        toast.error(err instanceof Error ? err.message : t("common.failedToUpdate"));
+      } finally {
+        setSaving(false);
+      }
+    });
     updateChain.current = next.catch(() => {});
     return next;
   };
@@ -311,13 +399,27 @@ export default function TaskDetailSheet({ task, users: initialUsers, onClose, on
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
               <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.status")}</span>
               <select
-                value={currentTask.status}
-                onChange={(e) => update({ status: e.target.value as Task["status"] })}
+                value={boardStatus ? selectedBoardStatusValue : currentTask.status}
+                onChange={(e) =>
+                  boardStatus
+                    ? updateBoardStatus(e.target.value)
+                    : update({ status: e.target.value as Task["status"] })
+                }
                 className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="todo">{t("status.todo")}</option>
-                <option value="in_progress">{t("status.inProgress")}</option>
-                <option value="done">{t("status.done")}</option>
+                {boardStatus ? (
+                  boardStatus.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.value}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="todo">{t("status.todo")}</option>
+                    <option value="in_progress">{t("status.inProgress")}</option>
+                    <option value="done">{t("status.done")}</option>
+                  </>
+                )}
               </select>
             </div>
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">

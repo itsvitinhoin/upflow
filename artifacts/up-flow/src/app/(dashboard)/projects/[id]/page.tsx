@@ -668,6 +668,10 @@ export default function ProjectPage() {
         <TaskDetailSheet
           task={selectedTask}
           users={users}
+          customFields={customFields}
+          workflowStatuses={workflowStatuses}
+          spaceId={project.space_id}
+          onChanged={loadData}
           onClose={() => {
             setSelectedTask(null);
             if (focusedTaskId) router.replace(`/projects/${id}`, { scroll: false });

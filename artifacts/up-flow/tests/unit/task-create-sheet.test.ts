@@ -57,6 +57,20 @@ test("the sheet preserves inherited defaults and posts the existing API shape", 
   assert.match(sheet, /due_date: dueDate \|\| null/);
 });
 
+test("task status selectors use the project's board stages when available", () => {
+  const createSheet = read("src/components/projects/task-create-sheet.tsx");
+  const detailSheet = read("src/components/projects/task-detail-sheet.tsx");
+  const taskDetailRoute = read("src/app/api/tasks/[id]/route.ts");
+
+  assert.match(createSheet, /resolveTaskBoardStatus/);
+  assert.match(createSheet, /taskStatusForTaskBoardOption/);
+  assert.match(createSheet, /fieldValuesForSubmit/);
+  assert.match(detailSheet, /resolveTaskBoardStatus/);
+  assert.match(detailSheet, /\/api\/tasks\/\$\{currentTask\.id\}\/custom-fields/);
+  assert.match(detailSheet, /task_status: taskStatus/);
+  assert.match(taskDetailRoute, /custom_field_values:/);
+});
+
 test("task creation provides inline validation, announcements, and discard protection", () => {
   const sheet = read("src/components/projects/task-create-sheet.tsx");
 
