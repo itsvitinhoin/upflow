@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { buildPage, parsePagination } from "@/lib/pagination";
@@ -37,10 +38,24 @@ async function GET_handler(req: NextRequest) {
   const projectsCursor = searchParams.get("projects_cursor");
   const foldersCursor = searchParams.get("folders_cursor");
   const readableProjectsWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
-  const visibleProjectWhere = {
+  // Department onboarding work used to be hidden from the sidebar. Keep the
+  // semantic onboarding records discoverable while a workspace is catching up
+  // with the visibility migration, without exposing unrelated hidden work.
+  const visibleProjectWhere: Prisma.ProjectWhereInput = {
     AND: [
       readableProjectsWhere,
-      { sidebar_hidden: false },
+      {
+        OR: [
+          { sidebar_hidden: false },
+          { kind: "onboarding" },
+          {
+            AND: [
+              { onboarding_enabled: true },
+              { company_id: { not: null } },
+            ],
+          },
+        ],
+      },
     ],
   };
   // Select the navigation fields explicitly so a release can still read

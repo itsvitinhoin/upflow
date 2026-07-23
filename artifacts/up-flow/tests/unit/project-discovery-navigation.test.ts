@@ -47,12 +47,13 @@ test("folder breadcrumbs include every ancestor and stop on malformed cycles", (
   assert.deepEqual(buildFolderBreadcrumb("a", cyclic), ["B", "A"]);
 });
 
-test("sidebar search is flat, breadcrumbed, and excludes onboarding projects", () => {
+test("sidebar search is flat, breadcrumbed, and includes visible onboarding projects", () => {
   const route = read("src/app/api/sidebar/route.ts");
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const dataHook = read("src/components/layout/sidebar/use-panel-data.ts");
 
-  assert.match(route, /kind:\s*\{\s*not:\s*"onboarding"/);
+  assert.match(route, /kind:\s*"onboarding"/);
+  assert.match(route, /onboarding_enabled:\s*true/);
   assert.match(route, /search_results:\s*searchResults/);
   assert.match(route, /buildFolderBreadcrumb\(project\.folder_id, folderById\)/);
   assert.match(panel, /<SidebarSearchResults/);

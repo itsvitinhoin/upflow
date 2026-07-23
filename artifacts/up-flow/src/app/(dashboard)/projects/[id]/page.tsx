@@ -197,7 +197,16 @@ export default function ProjectPage() {
     return tasks.find(formTaskForProject) ?? null;
   }, [focusedTaskId, project?.space?.name, tasks]);
   const currentWorkflowKind = workflowFormTask ? workflowFormKind(workflowFormTask) : null;
-  const showWorkflowFormFirst = Boolean(workflowFormTask && currentWorkflowKind && viewParam !== "kanban");
+  const workflowFormTaskId = workflowFormTask?.id ?? null;
+  const workflowView =
+    viewParam === "list"
+      ? "list"
+      : viewParam === "kanban" || viewParam === "board"
+        ? "board"
+        : "form";
+  const showWorkflowFormFirst = Boolean(
+    workflowFormTask && currentWorkflowKind && workflowView === "form",
+  );
   const isDesignQueue = isDesignQueueProject(project);
   const isSocialMedia = isSocialMediaProject(project);
   const selectedTaskIdSet = useMemo(() => new Set(selectedTaskIds), [selectedTaskIds]);
@@ -233,6 +242,12 @@ export default function ProjectPage() {
   }, [me]);
 
   useEffect(() => {
+    if (workflowFormTaskId && currentWorkflowKind) {
+      setToolbar((current) =>
+        current.view === workflowView ? current : { ...current, view: workflowView },
+      );
+      return;
+    }
     if (!isDesignQueue) {
       setToolbar((current) =>
         current.view === "form" ? { ...current, view: "board" } : current,
@@ -244,7 +259,7 @@ export default function ProjectPage() {
     setToolbar((current) =>
       current.view === requestedView ? current : { ...current, view: requestedView },
     );
-  }, [isDesignQueue, viewParam]);
+  }, [currentWorkflowKind, isDesignQueue, viewParam, workflowFormTaskId, workflowView]);
 
   if (loading) {
     return (
@@ -280,6 +295,12 @@ export default function ProjectPage() {
 
   const handleToolbarChange = (next: ToolbarState) => {
     setToolbar(next);
+    if (workflowFormTask && currentWorkflowKind && next.view !== toolbar.view) {
+      const view = next.view === "board" ? "kanban" : next.view;
+      const task = next.view === "form" ? `&task=${workflowFormTask.id}` : "";
+      router.replace(`/projects/${id}?view=${view}${task}`, { scroll: false });
+      return;
+    }
     if (!isDesignQueue || next.view === toolbar.view) return;
     const view = next.view === "form" ? "briefing" : next.view;
     router.replace(`/projects/${id}?view=${view}`, { scroll: false });
@@ -413,10 +434,10 @@ export default function ProjectPage() {
             <button
               type="button"
               onClick={() => router.replace(`/projects/${id}?view=form&task=${workflowFormTask.id}`, { scroll: false })}
-              aria-pressed={showWorkflowFormFirst}
+              aria-pressed={workflowView === "form"}
               className={cn(
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
-                showWorkflowFormFirst
+                workflowView === "form"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
@@ -426,15 +447,28 @@ export default function ProjectPage() {
             <button
               type="button"
               onClick={() => router.replace(`/projects/${id}?view=kanban`, { scroll: false })}
-              aria-pressed={!showWorkflowFormFirst}
+              aria-pressed={workflowView === "board"}
               className={cn(
                 "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
-                !showWorkflowFormFirst
+                workflowView === "board"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
-              {t("marketingB2BForm.kanbanTab")}
+              {t("toolbar.board")}
+            </button>
+            <button
+              type="button"
+              onClick={() => router.replace(`/projects/${id}?view=list`, { scroll: false })}
+              aria-pressed={workflowView === "list"}
+              className={cn(
+                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold transition",
+                workflowView === "list"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t("toolbar.list")}
             </button>
           </div>
         )}

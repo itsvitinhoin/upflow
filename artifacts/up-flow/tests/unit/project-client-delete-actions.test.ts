@@ -32,6 +32,7 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectRoute, /if \(!result\.ok\)[\s\S]*status: 409/);
   assert.match(projectDelete, /export async function findActiveOnboardingProject/);
   assert.match(projectDelete, /status: \{ not: "onboarding_complete" \}/);
+  assert.match(projectDelete, /checklist_items:[\s\S]*task:[\s\S]*project_id: \{ in: projectIds \}/);
   assert.match(projectsPage, /deletingProjectId/);
   assert.match(projectsPage, /setRefreshKey\(\(value\) => value \+ 1\)/);
   assert.match(projectsPage, /t\("projects\.deleted"\)/);

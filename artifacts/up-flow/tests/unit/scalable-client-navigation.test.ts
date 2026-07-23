@@ -18,6 +18,9 @@ test("generated client onboarding work is visible in its department spaces", () 
   const departmentOnboardingVisibilityMigration = read(
     "prisma/migrations/20260721180000_expose_department_onboarding_work/migration.sql",
   );
+  const legacyOnboardingVisibilityMigration = read(
+    "prisma/migrations/20260722120000_repair_legacy_onboarding_visibility/migration.sql",
+  );
   const onboarding = read("src/lib/onboarding.ts");
 
   assert.match(schema, /sidebar_hidden\s+Boolean\s+@default\(false\)/);
@@ -39,6 +42,9 @@ test("generated client onboarding work is visible in its department spaces", () 
   assert.match(departmentOnboardingVisibilityMigration, /UPDATE "Project"/);
   assert.match(departmentOnboardingVisibilityMigration, /"kind" = 'onboarding'/);
   assert.match(departmentOnboardingVisibilityMigration, /WITH RECURSIVE onboarding_folder_ids/);
+  assert.match(legacyOnboardingVisibilityMigration, /"onboarding_enabled" = true/);
+  assert.match(legacyOnboardingVisibilityMigration, /MarketingB2BOnboardingForm/);
+  assert.match(legacyOnboardingVisibilityMigration, /WITH RECURSIVE onboarding_folder_ids/);
   assert.match(onboarding, /sidebarHidden: false/);
   assert.match(onboarding, /sidebar_hidden: false/);
 });
@@ -48,12 +54,12 @@ test("the sidebar includes visible generated onboarding work", () => {
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
 
-  assert.match(
-    sidebarRoute,
-    /AND:\s*\[\s*readableProjectsWhere,\s*\{ sidebar_hidden: false \},\s*\]/,
-  );
+  assert.match(sidebarRoute, /const visibleProjectWhere: Prisma\.ProjectWhereInput/);
   assert.doesNotMatch(sidebarRoute, /kind: \{ not: "onboarding" as const \}/);
   assert.match(sidebarRoute, /sidebar_hidden: false/);
+  assert.match(sidebarRoute, /kind: "onboarding"/);
+  assert.match(sidebarRoute, /onboarding_enabled: true/);
+  assert.match(sidebarRoute, /company_id: \{ not: null \}/);
   assert.match(sidebarRoute, /company: \{ is: \{ name: \{ contains: q/);
   assert.match(sidebarRoute, /pinned_clients: pinnedClients/);
   assert.match(panelData, /pinned_clients\?: SidebarPinnedClient\[\]/);

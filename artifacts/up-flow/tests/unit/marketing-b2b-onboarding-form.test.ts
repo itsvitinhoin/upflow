@@ -171,7 +171,11 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(kanbanBoard, /onOpenTask/);
   assert.match(projectPage, /MarketingB2BOnboardingForm/);
   assert.doesNotMatch(projectPage, /ClientOnboardingPanel/);
-  assert.match(projectPage, /viewParam !== "kanban"/);
+  assert.match(projectPage, /viewParam === "list"/);
+  assert.match(projectPage, /viewParam === "kanban" \|\| viewParam === "board"/);
+  assert.match(projectPage, /\?view=list/);
+  assert.match(projectPage, /t\("toolbar\.board"\)/);
+  assert.match(projectPage, /t\("toolbar\.list"\)/);
   assert.match(projectPage, /\?view=form&task=/);
   assert.match(projectPage, /embedded[\s\S]*onClose=\{\(\) => router\.replace\(`[\s\S]*\?view=kanban/);
   assert.match(projectPage, /onAddTask=\{\(\) => setCreateOpen\(\{ status: "todo" \}\)\}/);

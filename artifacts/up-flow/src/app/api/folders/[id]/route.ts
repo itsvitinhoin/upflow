@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   canAccessWorkspace,
@@ -46,13 +47,31 @@ async function GET_handler(
   }
 
   const includeHiddenChildren = folder.sidebar_hidden;
+  // Older department onboarding projects may still carry the previous
+  // sidebar-hidden flag. A folder that is already visible must never look
+  // empty just because its client-scoped onboarding project has not yet been
+  // normalized by the data migration.
+  const visibleProjectWhere: Prisma.ProjectWhereInput = includeHiddenChildren
+    ? {}
+    : {
+        OR: [
+          { sidebar_hidden: false },
+          { kind: "onboarding" },
+          {
+            AND: [
+              { onboarding_enabled: true },
+              { company_id: { not: null } },
+            ],
+          },
+        ],
+      };
 
   const [projects, allFolders] = await Promise.all([
     prisma.project.findMany({
       where: {
         folder_id: folder.id,
         workspace_id: folder.workspace_id,
-        ...(includeHiddenChildren ? {} : { sidebar_hidden: false }),
+        ...visibleProjectWhere,
       },
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       select: {

@@ -22,8 +22,19 @@ export async function findActiveOnboardingProject(
 
   return tx.clientOnboarding.findFirst({
     where: {
-      project_id: { in: projectIds },
       status: { not: "onboarding_complete" },
+      OR: [
+        { project_id: { in: projectIds } },
+        {
+          checklist_items: {
+            some: {
+              task: {
+                is: { project_id: { in: projectIds } },
+              },
+            },
+          },
+        },
+      ],
     },
     select: { id: true, project_id: true },
   });
