@@ -152,6 +152,22 @@ export default function Panel({
     }
   };
 
+  const handleDuplicateFolder = async (f: FolderT) => {
+    try {
+      const res = await fetch(`/api/folders/${f.id}/duplicate`, { method: "POST" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("sidebar.couldNotDuplicateFolder"));
+      }
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      toast.success(t("sidebar.folderDuplicated"));
+      loadPanel({ force: true });
+    } catch (err) {
+      logError("sidebar:duplicate-folder", err, { id: f.id });
+      toast.error(err instanceof Error ? err.message : t("sidebar.couldNotDuplicateFolder"));
+    }
+  };
+
   const handleUnpinClient = async (companyId: string) => {
     setUnpinningClientId(companyId);
     try {
@@ -186,6 +202,7 @@ export default function Panel({
     setCreateListFor,
     handleDeleteSpace,
     handleDeleteFolder,
+    handleDuplicateFolder,
   };
 
   const unassignedItems = projectsBySpace(null);

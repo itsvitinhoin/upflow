@@ -10,6 +10,7 @@ import {
   Pencil,
   UserPlus,
   Trash2,
+  Copy,
 } from "lucide-react";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import { ProjectRow } from "@/components/layout/sidebar/project-row";
@@ -39,6 +40,7 @@ export interface NodeHandlers {
   setShareTarget: (s: Space) => void;
   handleDeleteSpace: (s: Space) => void;
   handleDeleteFolder: (f: FolderT) => void;
+  handleDuplicateFolder: (f: FolderT) => void;
 }
 
 interface SpaceNodeProps extends NodeHandlers {
@@ -73,6 +75,7 @@ export function SpaceNode({
   setShareTarget,
   handleDeleteSpace,
   handleDeleteFolder,
+  handleDuplicateFolder,
 }: SpaceNodeProps) {
   const { t } = useLanguage();
   const isCollapsed = !!collapsed[sp.id];
@@ -263,6 +266,7 @@ export function SpaceNode({
               setRenameFolderTarget={setRenameFolderTarget}
               setCreateListFor={setCreateListFor}
               handleDeleteFolder={handleDeleteFolder}
+              handleDuplicateFolder={handleDuplicateFolder}
             />
           ))}
           {visibleLooseLists.map((p) => (
@@ -273,6 +277,7 @@ export function SpaceNode({
               onMove={() => setMoveTarget(p)}
               onNavigate={onNavigate}
               onDeleted={() => loadPanel({ force: true })}
+              onDuplicated={() => loadPanel({ force: true })}
               isActive={pathname === `/projects/${p.id}`}
               canManageWorkspace={canManageWorkspace}
             />
@@ -315,6 +320,7 @@ interface FolderNodeProps {
     v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
   ) => void;
   handleDeleteFolder: (f: FolderT) => void;
+  handleDuplicateFolder: (f: FolderT) => void;
 }
 
 export function FolderNode({
@@ -336,6 +342,7 @@ export function FolderNode({
   setRenameFolderTarget,
   setCreateListFor,
   handleDeleteFolder,
+  handleDuplicateFolder,
 }: FolderNodeProps) {
   const { t } = useLanguage();
   const fCollapsed = !!collapsed[f.id];
@@ -457,6 +464,16 @@ export function FolderNode({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpenId(() => null);
+                  handleDuplicateFolder(f);
+                }}
+                className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
+              >
+                <Copy className="w-3 h-3" /> {t("common.duplicate")}
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpenId(() => null);
                   handleDeleteFolder(f);
                 }}
                 className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left text-upflow-danger hover:bg-upflow-danger/10 dark:border-white/5"
@@ -502,6 +519,7 @@ export function FolderNode({
                   setRenameFolderTarget={setRenameFolderTarget}
                   setCreateListFor={setCreateListFor}
                   handleDeleteFolder={handleDeleteFolder}
+                  handleDuplicateFolder={handleDuplicateFolder}
                 />
               ))}
               {visibleItems.map((p) => (
@@ -512,6 +530,7 @@ export function FolderNode({
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
                 onDeleted={() => loadPanel({ force: true })}
+                onDuplicated={() => loadPanel({ force: true })}
                 isActive={pathname === `/projects/${p.id}`}
                 canManageWorkspace={canManageWorkspace}
               />
@@ -610,6 +629,7 @@ export function UnassignedNode({
                 onMove={() => setMoveTarget(p)}
                 onNavigate={onNavigate}
                 onDeleted={() => loadPanel({ force: true })}
+                onDuplicated={() => loadPanel({ force: true })}
                 isActive={pathname === `/projects/${p.id}`}
                 canManageWorkspace={canManageWorkspace}
               />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Folder, MoreHorizontal, Trash2 } from "lucide-react";
+import { Copy, Folder, MoreHorizontal, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ interface ProjectRowProps {
   onMove: () => void;
   onNavigate?: () => void;
   onDeleted: () => void;
+  onDuplicated: () => void;
   isActive: boolean;
   canManageWorkspace: boolean;
 }
@@ -25,6 +26,7 @@ export function ProjectRow({
   onMove,
   onNavigate,
   onDeleted,
+  onDuplicated,
   isActive,
   canManageWorkspace,
 }: ProjectRowProps) {
@@ -69,6 +71,23 @@ export function ProjectRow({
     } catch (err) {
       logError("sidebar:project-row:delete", err, { id: project.id });
       toast.error(err instanceof Error ? err.message : t("projects.couldNotDelete"));
+    }
+  };
+
+  const handleDuplicate = async () => {
+    setOpen(false);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/duplicate`, { method: "POST" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("projects.couldNotDuplicate"));
+      }
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      toast.success(t("projects.duplicated"));
+      onDuplicated();
+    } catch (err) {
+      logError("sidebar:project-row:duplicate", err, { id: project.id });
+      toast.error(err instanceof Error ? err.message : t("projects.couldNotDuplicate"));
     }
   };
 
@@ -137,6 +156,13 @@ export function ProjectRow({
               className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-accent dark:hover:bg-white/5"
             >
               <Folder className="w-3 h-3" /> {t("projects.moveToSpace")}
+            </button>
+            <button
+              role="menuitem"
+              onClick={handleDuplicate}
+              className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
+            >
+              <Copy className="w-3 h-3" /> {t("common.duplicate")}
             </button>
             <button
               role="menuitem"
