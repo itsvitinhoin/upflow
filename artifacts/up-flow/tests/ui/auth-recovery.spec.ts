@@ -137,7 +137,7 @@ test.describe("Password recovery pages", () => {
     const continueButton = page.getByRole("button", { name: "Continue to reset password" });
     await continueButton.click();
 
-    await expect(page.getByRole("alert")).toHaveText(
+    await expect(page.locator("p[role='alert']")).toHaveText(
       "We couldn't open the reset form. Please try again.",
     );
     await expect(continueButton).toBeEnabled();
