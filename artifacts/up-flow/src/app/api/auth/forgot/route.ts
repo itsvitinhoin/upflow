@@ -87,26 +87,30 @@ async function sendCustomResetEmail(email: string, redirectTo: string): Promise<
     const { data, error } = await admin.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: { redirectTo },
     });
 
-    if (error || !data?.properties?.action_link) {
+    if (
+      error ||
+      !data?.properties?.hashed_token ||
+      data.properties.verification_type !== "recovery"
+    ) {
       // This can mean an unknown user, but it can also mean that Supabase
-      // rejected `redirectTo` or the service key is invalid. Let the native
+      // rejected the request or the service key is invalid. Let the native
       // recovery endpoint make the account-enumeration-safe decision instead
       // of falsely reporting a successful email.
-      logError("auth:forgot:link", error ?? new Error("no action_link"), { email });
+      logError("auth:forgot:link", error ?? new Error("missing recovery token hash"), { email });
       return false;
     }
 
-    // Do not put Supabase's one-time action link directly in email. Mail
-    // scanners can prefetch and consume it before the recipient clicks. The
-    // encrypted state survives email-link tracking without exposing the
-    // recovery token and is resolved only after an explicit user action.
+    // Do not put Supabase's recovery token in the email. Mail scanners can
+    // prefetch and consume one-time links before the recipient clicks. The
+    // encrypted state survives email-link tracking and is resolved only after
+    // an explicit user action. We deliberately verify the token hash in the
+    // browser instead of following the server-generated action link: that
+    // avoids a PKCE callback with no originating browser verifier.
     const resetUrl = createPasswordRecoveryStateConfirmationUrl({
       appOrigin: new URL(redirectTo).origin,
-      actionLink: data.properties.action_link,
-      redirectTo,
+      tokenHash: data.properties.hashed_token,
       secret: serviceKey,
     });
     const rendered = passwordResetEmail({

@@ -1,12 +1,12 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
-import { validatePasswordRecoveryActionLink } from "@/lib/supabase/recovery-link";
 
 // This module imports node:crypto and must only be used by Node route handlers.
 
-const STATE_VERSION = 1;
+const STATE_VERSION = 2;
 const IV_BYTES = 12;
 const AUTH_TAG_BYTES = 16;
 const MAX_STATE_LENGTH = 4096;
+const MAX_TOKEN_HASH_LENGTH = 1024;
 export const PASSWORD_RECOVERY_STATE_TTL_SECONDS = 60 * 60;
 const PASSWORD_RECOVERY_STATE_PURPOSE = "password-recovery";
 
@@ -15,13 +15,12 @@ type PasswordRecoveryStatePayload = {
   purpose: typeof PASSWORD_RECOVERY_STATE_PURPOSE;
   audience: string;
   expiresAt: number;
-  actionLink: string;
-  redirectTo: string;
+  tokenHash: string;
 };
 
 export type CreatePasswordRecoveryStateOptions = {
-  actionLink: string;
-  redirectTo: string;
+  appOrigin: string;
+  tokenHash: string;
   secret: string;
   now?: number;
 };
@@ -32,50 +31,45 @@ export type ReadPasswordRecoveryStateOptions = {
   now?: number;
 };
 
-export type CreatePasswordRecoveryStateConfirmationUrlOptions =
-  CreatePasswordRecoveryStateOptions & {
-    appOrigin: string;
-  };
+export type CreatePasswordRecoveryStateConfirmationUrlOptions = CreatePasswordRecoveryStateOptions;
 
-export type ReadPasswordRecoveryActionLinkOptions = ReadPasswordRecoveryStateOptions & {
-  supabaseUrl: string | undefined;
-  expectedRedirectTo: string;
+export type ReadPasswordRecoveryTokenHashOptions = ReadPasswordRecoveryStateOptions & {
+  expectedAppOrigin: string;
 };
 
 /**
- * Put an encrypted, short-lived state value in the email URL instead of the
- * Supabase action URL. Unlike URL fragments, a normal query value survives
- * email link tracking, while the raw Supabase recovery URL is only revealed
- * after the recipient explicitly continues from the confirmation screen.
+ * Put an encrypted, short-lived state value in the email URL instead of a
+ * Supabase bearer URL. Unlike URL fragments, a normal query value survives
+ * email-link tracking. The token hash is only returned after the recipient
+ * explicitly continues from the confirmation screen.
  */
 export function createPasswordRecoveryStateConfirmationUrl({
   appOrigin,
-  actionLink,
-  redirectTo,
+  tokenHash,
   secret,
   now = Date.now(),
 }: CreatePasswordRecoveryStateConfirmationUrlOptions): string {
   const confirmationUrl = new URL("/auth/reset/confirm", appOrigin);
   confirmationUrl.searchParams.set(
     "state",
-    createPasswordRecoveryState({ actionLink, redirectTo, secret, now }),
+    createPasswordRecoveryState({ appOrigin, tokenHash, secret, now }),
   );
   return confirmationUrl.toString();
 }
 
 export function createPasswordRecoveryState({
-  actionLink,
-  redirectTo,
+  appOrigin,
+  tokenHash,
   secret,
   now = Date.now(),
 }: CreatePasswordRecoveryStateOptions): string {
+  const audience = new URL(appOrigin).origin;
   const payload: PasswordRecoveryStatePayload = {
     version: STATE_VERSION,
     purpose: PASSWORD_RECOVERY_STATE_PURPOSE,
-    audience: new URL(redirectTo).origin,
+    audience,
     expiresAt: Math.floor(now / 1000) + PASSWORD_RECOVERY_STATE_TTL_SECONDS,
-    actionLink,
-    redirectTo,
+    tokenHash,
   };
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
@@ -122,9 +116,9 @@ export function readPasswordRecoveryState({
       typeof payload.audience !== "string" ||
       typeof payload.expiresAt !== "number" ||
       payload.expiresAt <= Math.floor(now / 1000) ||
-      typeof payload.actionLink !== "string" ||
-      typeof payload.redirectTo !== "string" ||
-      new URL(payload.redirectTo).origin !== payload.audience
+      typeof payload.tokenHash !== "string" ||
+      !isTokenHash(payload.tokenHash) ||
+      new URL(payload.audience).origin !== payload.audience
     ) {
       return null;
     }
@@ -134,29 +128,23 @@ export function readPasswordRecoveryState({
       purpose: PASSWORD_RECOVERY_STATE_PURPOSE,
       audience: payload.audience,
       expiresAt: payload.expiresAt,
-      actionLink: payload.actionLink,
-      redirectTo: payload.redirectTo,
+      tokenHash: payload.tokenHash,
     };
   } catch {
     return null;
   }
 }
 
-export function readPasswordRecoveryActionLink({
+export function readPasswordRecoveryTokenHash({
   state,
   secret,
-  supabaseUrl,
-  expectedRedirectTo,
+  expectedAppOrigin,
   now,
-}: ReadPasswordRecoveryActionLinkOptions): string | null {
+}: ReadPasswordRecoveryTokenHashOptions): string | null {
   const payload = readPasswordRecoveryState({ state, secret, now });
-  if (!payload || !sameUrl(payload.redirectTo, expectedRedirectTo)) return null;
+  if (!payload || !sameOrigin(payload.audience, expectedAppOrigin)) return null;
 
-  return validatePasswordRecoveryActionLink({
-    actionLink: payload.actionLink,
-    supabaseUrl,
-    expectedRedirectTo,
-  });
+  return payload.tokenHash;
 }
 
 function encryptionKey(secret: string): Buffer {
@@ -175,13 +163,13 @@ function isEncodedState(state: string): boolean {
   return state.length > 0 && state.length <= MAX_STATE_LENGTH && /^[A-Za-z0-9_-]+$/.test(state);
 }
 
-function sameUrl(left: string, right: string): boolean {
+function isTokenHash(tokenHash: string): boolean {
+  return tokenHash.length > 0 && tokenHash.length <= MAX_TOKEN_HASH_LENGTH && !/[\u0000-\u001F\u007F\s]/.test(tokenHash);
+}
+
+function sameOrigin(left: string, right: string): boolean {
   try {
-    const leftUrl = new URL(left);
-    const rightUrl = new URL(right);
-    leftUrl.hash = "";
-    rightUrl.hash = "";
-    return leftUrl.toString() === rightUrl.toString();
+    return new URL(left).origin === new URL(right).origin;
   } catch {
     return false;
   }

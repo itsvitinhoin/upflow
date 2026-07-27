@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEmailOrigin } from "@/lib/email/origin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { readPasswordRecoveryActionLink } from "@/lib/supabase/recovery-state";
+import { readPasswordRecoveryTokenHash } from "@/lib/supabase/recovery-state";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const runtime = "nodejs";
@@ -23,7 +23,8 @@ function invalidStateResponse() {
 
 /**
  * Resolve the opaque reset-email state only after a person clicks Continue.
- * The Supabase bearer URL is never present in the email URL or browser history.
+ * The Supabase recovery token is never present in the email URL or browser
+ * history. The browser exchanges the returned token hash with Supabase.
  */
 async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, {
@@ -38,23 +39,22 @@ async function POST_handler(req: NextRequest) {
   const state = typeof body?.state === "string" ? body.state : null;
   if (!state) return invalidStateResponse();
 
-  let expectedRedirectTo: string;
+  let expectedAppOrigin: string;
   try {
-    expectedRedirectTo = `${getEmailOrigin(req)}/auth/reset`;
+    expectedAppOrigin = getEmailOrigin(req);
   } catch {
     return invalidStateResponse();
   }
 
-  const actionLink = readPasswordRecoveryActionLink({
+  const tokenHash = readPasswordRecoveryTokenHash({
     state,
     secret: process.env.SUPABASE_SERVICE_ROLE_KEY,
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    expectedRedirectTo,
+    expectedAppOrigin,
   });
-  if (!actionLink) return invalidStateResponse();
+  if (!tokenHash) return invalidStateResponse();
 
   return NextResponse.json(
-    { actionLink },
+    { tokenHash },
     {
       headers: {
         "Cache-Control": "no-store",

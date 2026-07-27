@@ -12,6 +12,9 @@ test("consumes a password-recovery callback only once while language state hydra
     /const recoveryLocation = \{\s*search: window\.location\.search,\s*hash: window\.location\.hash,\s*\};/,
   );
   assert.match(page, /establishPasswordRecoverySession\(supabase, recoveryLocation\)/);
+  assert.match(page, /new URLSearchParams\(recoveryLocation\.search\)\.get\("recovery"\) === "1"/);
+  assert.match(page, /await verifiedRecoverySession\(supabase\)/);
+  assert.match(page, /supabase\.auth\.getSession\(\)/);
   assert.match(page, /\}, \[\]\);/);
   assert.doesNotMatch(page, /\}, \[t\]\);/);
 });

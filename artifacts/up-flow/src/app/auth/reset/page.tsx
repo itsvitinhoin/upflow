@@ -11,9 +11,10 @@ import { useLanguage } from "@/components/language-provider";
 /**
  * Set-a-new-password landing page.
  *
- * Supabase returns either a PKCE `?code=` or a legacy
- * `#access_token=...&type=recovery` callback. We exchange it client-side,
- * then call `updateUser({ password })` once the user submits a new password.
+ * The primary recovery flow arrives here after the confirmation page verifies
+ * a token hash and establishes a browser session. Legacy Supabase callbacks
+ * can still arrive as a PKCE `?code=` or a
+ * `#access_token=...&type=recovery` fragment and are handled client-side.
  */
 export default function ResetPasswordPage() {
   const { t } = useLanguage();
@@ -37,13 +38,16 @@ export default function ResetPasswordPage() {
       search: window.location.search,
       hash: window.location.hash,
     };
+    const verifiedRecovery = new URLSearchParams(recoveryLocation.search).get("recovery") === "1";
     // Handle the recovery callback ourselves so we support both Supabase's
-    // PKCE `?code=` callbacks and legacy `#access_token=` callbacks.
+    // legacy callback formats and a session verified by the confirmation page.
     const supabase = createSupabaseBrowserClient({ detectSessionInUrl: false });
 
     void (async () => {
       try {
-        const result = await establishPasswordRecoverySession(supabase, recoveryLocation);
+        const result = verifiedRecovery
+          ? await verifiedRecoverySession(supabase)
+          : await establishPasswordRecoverySession(supabase, recoveryLocation);
         if (!active) return;
 
         if (result !== "ready") {
@@ -187,4 +191,9 @@ export default function ResetPasswordPage() {
       </div>
     </div>
   );
+}
+
+async function verifiedRecoverySession(supabase: ReturnType<typeof createSupabaseBrowserClient>) {
+  const { data, error } = await supabase.auth.getSession();
+  return error || !data.session ? "invalid" : "ready";
 }

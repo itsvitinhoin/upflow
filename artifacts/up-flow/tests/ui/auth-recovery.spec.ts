@@ -79,7 +79,7 @@ test.describe("Password recovery pages", () => {
     await ctx.close();
   });
 
-  test("opaque confirmation state is scrubbed and resolved only after Continue", async ({
+  test("opaque confirmation state is scrubbed and verified only after Continue", async ({
     browser,
     baseURL,
   }) => {
@@ -87,6 +87,7 @@ test.describe("Password recovery pages", () => {
     const page = await ctx.newPage();
     const state = "opaque-recovery-state";
     let continuationRequests = 0;
+    let verificationRequests = 0;
 
     await page.route("**/api/auth/forgot/continue", async (route) => {
       continuationRequests += 1;
@@ -95,11 +96,21 @@ test.describe("Password recovery pages", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ actionLink: "https://recovery.example.test/verified" }),
+        body: JSON.stringify({ tokenHash: "one-time-token-hash" }),
       });
     });
-    await page.route("https://recovery.example.test/verified", async (route) => {
-      await route.fulfill({ status: 200, body: "verified" });
+    await page.route("**/auth/v1/verify**", async (route) => {
+      verificationRequests += 1;
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postDataJSON()).toEqual({
+        token_hash: "one-time-token-hash",
+        type: "recovery",
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(recoverySession()),
+      });
     });
 
     await page.goto(`/auth/reset/confirm?state=${state}`);
@@ -110,8 +121,10 @@ test.describe("Password recovery pages", () => {
     expect(continuationRequests).toBe(0);
 
     await page.getByRole("button", { name: "Continue to reset password" }).click();
-    await expect(page).toHaveURL("https://recovery.example.test/verified");
+    await expect(page).toHaveURL(/\/auth\/reset(?:\?recovery=1)?$/);
+    await expect(page.getByLabel("New password")).toBeVisible();
     expect(continuationRequests).toBe(1);
+    expect(verificationRequests).toBe(1);
 
     await ctx.close();
   });
@@ -150,3 +163,29 @@ test.describe("Password recovery pages", () => {
     await ctx.close();
   });
 });
+
+function recoverySession() {
+  const now = new Date().toISOString();
+  return {
+    access_token: "test-access-token",
+    refresh_token: "test-refresh-token",
+    token_type: "bearer",
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: {
+      id: "00000000-0000-4000-8000-000000000001",
+      aud: "authenticated",
+      role: "authenticated",
+      email: "person@example.com",
+      email_confirmed_at: now,
+      phone: "",
+      confirmed_at: now,
+      last_sign_in_at: now,
+      app_metadata: { provider: "email", providers: ["email"] },
+      user_metadata: {},
+      identities: [],
+      created_at: now,
+      updated_at: now,
+    },
+  };
+}

@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Zap } from "lucide-react";
 import { getPasswordRecoveryActionLink } from "@/lib/supabase/recovery-link";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useLanguage } from "@/components/language-provider";
 
 /**
  * An email scanner may fetch the link in a reset email before its recipient
  * does. This interstitial deliberately waits for an explicit button click
- * before navigating to Supabase's one-time recovery action link.
+ * before verifying Supabase's one-time recovery token.
  */
 export default function ResetConfirmationPage() {
   const { t } = useLanguage();
@@ -80,18 +81,29 @@ export default function ResetConfirmationPage() {
         credentials: "omit",
         referrerPolicy: "no-referrer",
       });
-      const payload = (await response.json().catch(() => null)) as { actionLink?: unknown } | null;
+      const payload = (await response.json().catch(() => null)) as { tokenHash?: unknown } | null;
       if (response.status === 400) {
         setInvalid(true);
         return;
       }
-      if (!response.ok || typeof payload?.actionLink !== "string") {
+      if (!response.ok || typeof payload?.tokenHash !== "string") {
         setTemporaryError(true);
         return;
       }
 
+      const supabase = createSupabaseBrowserClient({ detectSessionInUrl: false });
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: payload.tokenHash,
+        type: "recovery",
+      });
+      if (error || !data.session) {
+        if (isRetryableRecoveryError(error)) setTemporaryError(true);
+        else setInvalid(true);
+        return;
+      }
+
       navigating = true;
-      window.location.replace(payload.actionLink);
+      window.location.replace("/auth/reset?recovery=1");
     } catch {
       setTemporaryError(true);
     } finally {
@@ -163,5 +175,15 @@ export default function ResetConfirmationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function isRetryableRecoveryError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const candidate = error as { name?: unknown; status?: unknown };
+  return (
+    candidate.name === "AuthRetryableFetchError" ||
+    (typeof candidate.status === "number" && candidate.status >= 500)
   );
 }

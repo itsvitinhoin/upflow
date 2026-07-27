@@ -64,7 +64,7 @@ function requestUrl(input: RequestInfo | URL): string {
   return input.url;
 }
 
-test("falls back to Supabase recovery email when custom link generation fails", async () => {
+test("falls back to Supabase recovery email when custom token generation fails", async () => {
   const env = snapshotEnv();
   const originalFetch = globalThis.fetch;
   const urls: string[] = [];
@@ -104,7 +104,7 @@ test("falls back to Supabase recovery email when custom link generation fails", 
   }
 });
 
-test("custom recovery email uses an opaque confirmation state instead of a direct action link", async () => {
+test("custom recovery email uses an opaque confirmation state instead of a direct recovery token", async () => {
   const env = snapshotEnv();
   const originalFetch = globalThis.fetch;
   configureRecoveryEnv();
@@ -118,15 +118,25 @@ test("custom recovery email uses an opaque confirmation state instead of a direc
       type: "recovery",
       redirect_to: "https://app.example/auth/reset",
     });
+  const tokenHash = "one-time-token-hash";
   let email: { html?: string; text?: string } | null = null;
+  let generateLinkBody: Record<string, unknown> | null = null;
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = requestUrl(input);
     if (url.includes("/auth/v1/admin/generate_link")) {
-      return new Response(JSON.stringify({ action_link: actionLink }), {
+      generateLinkBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
+      return new Response(
+        JSON.stringify({
+          action_link: actionLink,
+          hashed_token: tokenHash,
+          verification_type: "recovery",
+        }),
+        {
         status: 200,
         headers: { "Content-Type": "application/json" },
-      });
+        },
+      );
     }
     if (url === "https://api.resend.com/emails") {
       email = JSON.parse(String(init?.body)) as { html?: string; text?: string };
@@ -149,11 +159,14 @@ test("custom recovery email uses an opaque confirmation state instead of a direc
     assert.ok(confirmationUrl, "email should contain an opaque confirmation URL");
     assert.ok(!email?.html?.includes(actionLink), "email must not expose a direct action link");
     assert.ok(!email?.text?.includes(actionLink), "plaintext fallback must not expose a direct action link");
+    assert.ok(!email?.html?.includes(tokenHash), "email must not expose the recovery token hash");
+    assert.ok(!email?.text?.includes(tokenHash), "plaintext fallback must not expose the recovery token hash");
+    assert.equal(generateLinkBody?.redirect_to, undefined, "custom token generation must not need a redirect URL");
     const state = new URL(confirmationUrl!).searchParams.get("state");
     const payload = readPasswordRecoveryState({ state: state ?? "", secret: "service-role-key" });
-    assert.equal(payload?.version, 1);
-    assert.equal(payload?.actionLink, actionLink);
-    assert.equal(payload?.redirectTo, "https://app.example/auth/reset");
+    assert.equal(payload?.version, 2);
+    assert.equal(payload?.tokenHash, tokenHash);
+    assert.equal(payload?.audience, "https://app.example");
     assert.ok((payload?.expiresAt ?? 0) > Math.floor(Date.now() / 1000));
   } finally {
     restoreEnv(env);

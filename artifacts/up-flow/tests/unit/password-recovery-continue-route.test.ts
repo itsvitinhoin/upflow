@@ -15,16 +15,8 @@ const envNames = [
 ] as const;
 
 const appOrigin = "https://app.example";
-const redirectTo = `${appOrigin}/auth/reset`;
-const supabaseUrl = "https://project.supabase.test";
 const secret = "service-role-key";
-const actionLink =
-  `${supabaseUrl}/auth/v1/verify?` +
-  new URLSearchParams({
-    token: "one-time-token",
-    type: "recovery",
-    redirect_to: redirectTo,
-  });
+const tokenHash = "one-time-token-hash";
 
 function snapshotEnv() {
   return Object.fromEntries(envNames.map((name) => [name, process.env[name]]));
@@ -41,7 +33,7 @@ function restoreEnv(snapshot: Record<string, string | undefined>) {
 function configureEnv() {
   process.env.NODE_ENV = "development";
   process.env.APP_URL = appOrigin;
-  process.env.NEXT_PUBLIC_SUPABASE_URL = supabaseUrl;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.test";
   process.env.SUPABASE_SERVICE_ROLE_KEY = secret;
   delete process.env.REDIS_URL;
   delete process.env.UPSTASH_REDIS_REST_URL;
@@ -65,19 +57,19 @@ test("resolves a valid opaque recovery state only after Continue", async () => {
   const env = snapshotEnv();
   configureEnv();
   try {
-    const state = createPasswordRecoveryState({ actionLink, redirectTo, secret });
+    const state = createPasswordRecoveryState({ appOrigin, tokenHash, secret });
     const response = await POST(makeRequest(state, "203.0.113.111"));
 
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(response.headers.get("referrer-policy"), "no-referrer");
-    assert.deepEqual(await response.json(), { actionLink });
+    assert.deepEqual(await response.json(), { tokenHash });
   } finally {
     restoreEnv(env);
   }
 });
 
-test("rejects an invalid or oversized recovery state without exposing an action link", async () => {
+test("rejects an invalid or oversized recovery state without exposing a token hash", async () => {
   const env = snapshotEnv();
   configureEnv();
   try {
@@ -85,6 +77,7 @@ test("rejects an invalid or oversized recovery state without exposing an action 
     assert.equal(invalid.status, 400);
     const invalidBody = (await invalid.json()) as { error?: unknown };
     assert.match(String(invalidBody.error), /invalid or has expired/i);
+    assert.doesNotMatch(JSON.stringify(invalidBody), /one-time-token-hash/);
 
     const oversized = await POST(makeRequest("a".repeat(9 * 1024), "203.0.113.113"));
     assert.equal(oversized.status, 400);

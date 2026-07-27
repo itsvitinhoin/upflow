@@ -61,7 +61,7 @@ test("rejects confirmation links that are not this app's recovery callback", () 
   }
 });
 
-test("confirmation page supports opaque state, scrubs callbacks, and waits for a click", () => {
+test("confirmation page verifies opaque state after a click, then opens the reset form", () => {
   const page = readFileSync("src/app/auth/reset/confirm/confirm-page.tsx", "utf8");
   const middleware = readFileSync("src/middleware.ts", "utf8");
   assert.match(page, /const recoveryHash = useRef<string \| null>\(null\)/);
@@ -75,6 +75,8 @@ test("confirmation page supports opaque state, scrubs callbacks, and waits for a
   assert.match(page, /continuationStarted\.current/);
   assert.match(page, /response\.status === 400/);
   assert.match(page, /setTemporaryError\(true\)/);
+  assert.match(page, /supabase\.auth\.verifyOtp\(\{\s*token_hash: payload\.tokenHash,\s*type: "recovery",\s*\}\)/);
+  assert.match(page, /window\.location\.replace\("\/auth\/reset\?recovery=1"\)/);
   assert.match(page, /window\.location\.replace\(actionLink\)/);
   assert.match(page, /type="button"/);
   assert.match(middleware, /pathname === "\/auth\/reset\/confirm"/);
