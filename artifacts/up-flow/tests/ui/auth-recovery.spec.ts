@@ -83,7 +83,10 @@ test.describe("Password recovery pages", () => {
     browser,
     baseURL,
   }) => {
-    const ctx = await browser.newContext({ baseURL });
+    // CI uses a local mock Supabase URL that the production CSP correctly
+    // blocks. The route below supplies the mocked Auth response, so bypass
+    // CSP only for this isolated browser test.
+    const ctx = await browser.newContext({ baseURL, bypassCSP: true });
     const page = await ctx.newPage();
     const state = "opaque-recovery-state";
     let continuationRequests = 0;
