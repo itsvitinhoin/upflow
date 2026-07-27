@@ -137,9 +137,9 @@ test.describe("Password recovery pages", () => {
     const continueButton = page.getByRole("button", { name: "Continue to reset password" });
     await continueButton.click();
 
-    await expect(
-      page.getByRole("alert", { name: "We couldn't open the reset form. Please try again." }),
-    ).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveText(
+      "We couldn't open the reset form. Please try again.",
+    );
     await expect(continueButton).toBeEnabled();
     await expect(page).toHaveURL(/\/auth\/reset\/confirm$/);
     await expect(page.getByText(/reset link is invalid or has expired/i)).not.toBeVisible();
