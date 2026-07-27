@@ -10,6 +10,8 @@ import {
 } from "@/lib/rh-board";
 import { SOCIAL_MEDIA_LIST_PRESET } from "@/lib/social-media";
 import type { TaskTemplateId } from "@/lib/task-templates";
+import { isCreativeDesignDepartmentName } from "@/lib/company-creation-access";
+import { isDesignQueueName } from "@/lib/system-projects";
 
 export type DepartmentSpaceKey =
   | "comercial"
@@ -260,11 +262,17 @@ export function normalizeDepartmentSpaceName(input: string) {
 export function getDepartmentSpacePreset(name: string | null | undefined) {
   if (!name) return null;
   const normalized = normalizeDepartmentSpaceName(name);
-  return (
+  const exactPreset =
     DEPARTMENT_SPACE_PRESETS.find(
       (preset) => normalizeDepartmentSpaceName(preset.name) === normalized,
-    ) ?? null
-  );
+    ) ?? null;
+  if (exactPreset) return exactPreset;
+
+  return isCreativeDesignDepartmentName(name)
+    ? DEPARTMENT_SPACE_PRESETS.find(
+        (preset) => preset.department_key === "creative_design",
+      ) ?? null
+    : null;
 }
 
 async function pickDepartmentOwnerId(workspaceId: string, fallbackOwnerId: string) {
@@ -305,6 +313,68 @@ function getRootListPresets(preset: DepartmentSpacePreset) {
   }
 
   return [...listPresetsByName.values()];
+}
+
+async function ensureCreativeDesignQueue(
+  workspaceId: string,
+  spaceId: string,
+  ownerId: string,
+) {
+  const queueWhere = {
+    workspace_id: workspaceId,
+    space_id: spaceId,
+    company_id: null,
+    name: { equals: "Design Queue", mode: "insensitive" as const },
+  };
+  const select = {
+    id: true,
+    name: true,
+    folder_id: true,
+    sidebar_hidden: true,
+    kind: true,
+  };
+  const rootQueue = await prisma.project.findFirst({
+    where: { ...queueWhere, folder_id: null },
+    select,
+  });
+  const queue =
+    rootQueue ??
+    (await prisma.project.findFirst({
+      where: queueWhere,
+      select,
+      orderBy: [{ created_at: "asc" }, { id: "asc" }],
+    }));
+
+  if (!queue) {
+    await prisma.project.create({
+      data: {
+        name: "Design Queue",
+        workspace_id: workspaceId,
+        owner_id: ownerId,
+        space_id: spaceId,
+        kind: "operational_queue",
+      },
+    });
+    return;
+  }
+
+  if (
+    queue.folder_id !== null ||
+    queue.sidebar_hidden ||
+    queue.kind !== "operational_queue" ||
+    !isDesignQueueName(queue.name) ||
+    queue.name !== "Design Queue"
+  ) {
+    await prisma.project.update({
+      where: { id: queue.id },
+      data: {
+        name: "Design Queue",
+        folder_id: null,
+        sidebar_hidden: false,
+        kind: "operational_queue",
+      },
+    });
+  }
 }
 
 async function ensureDepartmentListModel(
@@ -432,7 +502,13 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
 
     for (const preset of DEPARTMENT_SPACE_PRESETS) {
       const normalizedPresetName = normalizeDepartmentSpaceName(preset.name);
-      let space = spacesByName.get(normalizedPresetName);
+      let space =
+        spacesByName.get(normalizedPresetName) ??
+        existingSpaces.find(
+          (candidate) =>
+            getDepartmentSpacePreset(candidate.name)?.department_key ===
+            preset.department_key,
+        );
 
       if (!space) {
         space = await prisma.space.create({
@@ -448,6 +524,8 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
         spacesByName.set(normalizedPresetName, space);
         nextPosition += 1;
       }
+
+      spacesByName.set(normalizedPresetName, space);
     }
 
     const departmentSpaceIds = DEPARTMENT_SPACE_PRESETS.map(
@@ -558,6 +636,10 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
           data: listData,
           skipDuplicates: true,
         });
+      }
+
+      if (preset.department_key === "creative_design") {
+        await ensureCreativeDesignQueue(workspaceId, space.id, ownerId);
       }
 
       const configuredRootListPresets = rootListPresets.filter(

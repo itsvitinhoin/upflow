@@ -9,6 +9,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { parseAppDate } from "@/lib/utils";
 import { canReadProject } from "@/lib/project-access";
 import { deleteProjectsByIds, findActiveOnboardingProject } from "@/lib/project-delete";
+import { isProtectedDesignQueue } from "@/lib/system-projects";
 import { z } from "zod";
 
 const UpdateProjectSchema = z.object({
@@ -71,7 +72,15 @@ async function PATCH_handler(
 
   const project = await prisma.project.findUnique({
     where: { id },
-    select: { id: true, workspace_id: true, company_id: true },
+    select: {
+      id: true,
+      workspace_id: true,
+      company_id: true,
+      name: true,
+      space_id: true,
+      folder_id: true,
+      space: { select: { name: true } },
+    },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, project.workspace_id)) {
@@ -111,6 +120,25 @@ async function PATCH_handler(
   }
   if (parsedClosingDate === "invalid" || parsedOnboardingStartDate === "invalid") {
     return NextResponse.json({ error: "Invalid onboarding date" }, { status: 400 });
+  }
+
+  const isProtectedQueue = isProtectedDesignQueue({
+    projectName: project.name,
+    spaceName: project.space?.name,
+  });
+  if (
+    isProtectedQueue &&
+    ((name !== undefined && name !== project.name) ||
+      (space_id !== undefined && space_id !== project.space_id) ||
+      (folder_id !== undefined && folder_id !== project.folder_id))
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "Design Queue is a protected Creative & Design system list and cannot be renamed or moved.",
+      },
+      { status: 409 },
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -251,13 +279,27 @@ async function DELETE_handler(
   void req;
   const { id } = await params;
 
-  const project = await prisma.project.findUnique({ where: { id } });
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: { space: { select: { name: true } } },
+  });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (!isWorkspaceAdminFor(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (
+    isProtectedDesignQueue({
+      projectName: project.name,
+      spaceName: project.space?.name,
+    })
+  ) {
+    return NextResponse.json(
+      { error: "Design Queue is a protected Creative & Design system list and cannot be deleted." },
+      { status: 409 },
+    );
   }
 
   const result = await prisma.$transaction(async (tx) => {

@@ -8,6 +8,7 @@ import type { Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import { logError } from "@/lib/log-error";
+import { isProtectedDesignQueue } from "@/lib/system-projects";
 
 interface ProjectRowProps {
   project: Project;
@@ -34,6 +35,10 @@ export function ProjectRow({
   const [open, setOpen] = useState(false);
   const pendingTodoCount = project.pending_todo_count ?? 0;
   const pendingTodoLabel = t("sidebar.pendingTodoCount", { count: pendingTodoCount });
+  const protectedDesignQueue = isProtectedDesignQueue({
+    projectName: project.name,
+    spaceName: project.space?.name,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -147,30 +152,37 @@ export function ProjectRow({
             role="menu"
             className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-xl border border-border bg-popover/95 text-xs text-popover-foreground shadow-xl backdrop-blur-xl dark:border-blue-300/10 dark:bg-[#080d1d]/95 dark:text-foreground dark:shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
           >
-            <button
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onMove();
-              }}
-              className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-accent dark:hover:bg-white/5"
-            >
-              <Folder className="w-3 h-3" /> {t("projects.moveToSpace")}
-            </button>
+            {!protectedDesignQueue && (
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onMove();
+                }}
+                className="w-full flex items-center gap-2 text-left px-3 py-2 hover:bg-accent dark:hover:bg-white/5"
+              >
+                <Folder className="w-3 h-3" /> {t("projects.moveToSpace")}
+              </button>
+            )}
             <button
               role="menuitem"
               onClick={handleDuplicate}
-              className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
+              className={cn(
+                "w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5",
+                !protectedDesignQueue && "border-t border-border dark:border-white/5",
+              )}
             >
               <Copy className="w-3 h-3" /> {t("common.duplicate")}
             </button>
-            <button
-              role="menuitem"
-              onClick={handleDelete}
-              className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left text-upflow-danger hover:bg-upflow-danger/10 dark:border-white/5"
-            >
-              <Trash2 className="w-3 h-3" /> {t("common.delete")}
-            </button>
+            {!protectedDesignQueue && (
+              <button
+                role="menuitem"
+                onClick={handleDelete}
+                className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left text-upflow-danger hover:bg-upflow-danger/10 dark:border-white/5"
+              >
+                <Trash2 className="w-3 h-3" /> {t("common.delete")}
+              </button>
+            )}
           </div>
         )}
       </div>

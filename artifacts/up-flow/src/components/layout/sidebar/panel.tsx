@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { LogOut, PanelLeftClose, Pin, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
@@ -22,6 +22,8 @@ import {
 } from "@/components/layout/sidebar/space-tree";
 import { usePanelData } from "@/components/layout/sidebar/use-panel-data";
 import { SidebarSearchResults } from "@/components/layout/sidebar/search-results";
+import { isCreativeDesignDepartmentName } from "@/lib/company-creation-access";
+import { isDesignQueueName } from "@/lib/system-projects";
 
 interface PanelProps {
   pathname: string;
@@ -94,6 +96,7 @@ export default function Panel({
   >(null);
   const [sidebarQuery, setSidebarQuery] = useState("");
   const [unpinningClientId, setUnpinningClientId] = useState<string | null>(null);
+  const restoredDesignQueueFor = useRef<string | null>(null);
   const normalizedQuery = sidebarQuery.trim().toLowerCase();
   const isSearching = normalizedQuery.length > 0;
   const canManageWorkspace =
@@ -106,6 +109,54 @@ export default function Panel({
 
     return () => window.clearTimeout(handle);
   }, [isSearching, loadPanel, sidebarQuery]);
+
+  useEffect(() => {
+    if (!canManageWorkspace || isSearching || loadingPanel) return;
+
+    const creativeSpaceMissingQueue = spaces.find(
+      (space) =>
+        isCreativeDesignDepartmentName(space.name) &&
+        !projects.some(
+          (project) =>
+            project.space_id === space.id &&
+            !project.folder_id &&
+            isDesignQueueName(project.name),
+        ),
+    );
+    if (!creativeSpaceMissingQueue) return;
+
+    const repairKey = `${currentWorkspaceId}:${creativeSpaceMissingQueue.id}`;
+    if (restoredDesignQueueFor.current === repairKey) return;
+    restoredDesignQueueFor.current = repairKey;
+
+    let cancelled = false;
+    void fetch(
+      `/api/spaces/${creativeSpaceMissingQueue.id}/department-defaults`,
+      { method: "POST" },
+    )
+      .then((response) => {
+        if (!response.ok || cancelled) return;
+        window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+        loadPanel({ force: true });
+      })
+      .catch((error) => {
+        logError("sidebar:restore-design-queue", error, {
+          spaceId: creativeSpaceMissingQueue.id,
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canManageWorkspace,
+    currentWorkspaceId,
+    isSearching,
+    loadPanel,
+    loadingPanel,
+    projects,
+    spaces,
+  ]);
 
   const projectsBySpace = (spaceId: string | null) =>
     projects.filter((p) => (p.space_id ?? null) === spaceId);
