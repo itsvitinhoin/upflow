@@ -1,0 +1,123 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+    branches: [staging]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: upflow-staging-release
+  # Do not cancel an in-progress Prisma migration. Later staging releases wait
+  # their turn instead of risking a partially applied database change.
+  cancel-in-progress: false
+
+jobs:
+  verify-staging:
+    name: Verify staging release gates
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'staging' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Require the tested staging commit
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -z "${HEAD_SHA}" ]; then
+            echo "::error::The successful Test workflow did not report a staging commit SHA."
+            exit 1
+          fi
+
+          echo "Staging release is using Test-verified commit ${HEAD_SHA}."
+
+  migrate-staging:
+    name: Migrate staging database
+    needs: verify-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    env:
+      DATABASE_URL: ${{ secrets.UPFLOW_STAGING_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.UPFLOW_STAGING_DIRECT_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Require the direct staging database URL
+        run: |
+          if [ -z "${DIRECT_URL}" ]; then
+            echo "::error::Set UPFLOW_STAGING_DIRECT_URL in the GitHub staging environment."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @workspace/up-flow run db:generate
+
+      - name: Verify migration readiness before staging release
+        run: pnpm --filter @workspace/up-flow run db:migrate:preflight
+
+      - name: Apply reviewed Prisma migrations to staging
+        run: pnpm --filter @workspace/up-flow run db:migrate:deploy
+
+      - name: Verify migration state after staging release
+        run: pnpm --filter @workspace/up-flow run db:migrate:status
+
+  deploy-staging:
+    name: Deploy and probe staging
+    needs: migrate-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      VERCEL_ORG_ID: ${{ vars.UPFLOW_STAGING_VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.UPFLOW_STAGING_VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Require isolated staging Vercel credentials
+        run: |
+          if [ -z "${VERCEL_ORG_ID}" ] || [ -z "${VERCEL_PROJECT_ID}" ] || [ -z "${VERCEL_TOKEN}" ]; then
+            echo "::error::Set UPFLOW_STAGING_VERCEL_ORG_ID and UPFLOW_STAGING_VERCEL_PROJECT_ID as staging variables, plus VERCEL_TOKEN as a staging secret."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Deploy the Test-verified staging commit
+        run: >-
+          npx --yes vercel@56.2.1 deploy --prod --yes
+          --token "${VERCEL_TOKEN}"
+
+      - name: Probe the deployed staging health endpoint
+        run: >-
+          npx --yes vercel@56.2.1 curl /api/health
+          --yes --fail --silent --show-error
