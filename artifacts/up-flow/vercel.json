@@ -1,7 +1,7 @@
 {
   "installCommand": "pnpm install --frozen-lockfile",
   "git": {
-    "deploymentEnabled": true
+    "deploymentEnabled": false
   },
   "crons": [
     {
