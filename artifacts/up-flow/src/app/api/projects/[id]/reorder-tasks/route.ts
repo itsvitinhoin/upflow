@@ -146,14 +146,16 @@ async function POST_handler(
     ),
   );
 
-  const onboardingSync =
-    srcColumn !== dstColumn
-      ? await syncOnboardingChecklistFromTaskStatus(prisma, {
-          taskId: movedTaskId,
-          status: dstColumn,
-          actorId: auth.prismaUser.id,
-        })
-      : null;
+  // Reordering within Done can be a retry after the task status committed but
+  // a keyed onboarding side effect did not. Reconciliation is idempotent.
+  const shouldSyncOnboarding = srcColumn !== dstColumn || dstColumn === "done";
+  const onboardingSync = shouldSyncOnboarding
+    ? await syncOnboardingChecklistFromTaskStatus(prisma, {
+        taskId: movedTaskId,
+        status: dstColumn,
+        actorId: auth.prismaUser.id,
+      })
+    : null;
 
   return NextResponse.json({ success: true, count: updates.length, onboarding_sync: onboardingSync });
 }

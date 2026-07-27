@@ -327,14 +327,19 @@ async function PATCH_handler(
     return updated;
   });
 
-  const onboardingSync =
-    status !== undefined && status !== oldTask.status
-      ? await syncOnboardingChecklistFromTaskStatus(prisma, {
-          taskId: task.id,
-          status,
-          actorId: prismaUser.id,
-        })
-      : null;
+  // A prior request can persist the task status before an onboarding side
+  // effect (such as the Finance campaign-start handoff) finishes. Replaying a
+  // completed status is safe because onboarding automations use unique keys,
+  // and lets a retry reconcile that missed side effect.
+  const shouldSyncOnboarding =
+    status !== undefined && (status !== oldTask.status || status === "done");
+  const onboardingSync = shouldSyncOnboarding
+    ? await syncOnboardingChecklistFromTaskStatus(prisma, {
+        taskId: task.id,
+        status,
+        actorId: prismaUser.id,
+      })
+    : null;
   const socialMediaMoodboardSync =
     status !== undefined && status !== oldTask.status
       ? await syncSocialMediaMoodboardWorkflow(task.id, status)

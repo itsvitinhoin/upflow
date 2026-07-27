@@ -6,6 +6,7 @@ import { logError } from "@/lib/log-error";
 import { ownerKeyForDepartmentLabel, ownerKeyForTaskRoute } from "@/lib/onboarding-department-owners";
 import {
   type OnboardingTaskRoute,
+  isFinanceCampaignStartedAutomationKey,
   normalizeOnboardingRouteValue,
   marketingFormRouteForOnboarding,
   routeForOnboardingChecklistItem,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/onboarding-routing";
 import { prisma } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/supabase-server";
+import { formatDate } from "@/lib/utils";
 
 import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 export { routeForService } from "@/lib/onboarding-routing";
@@ -78,6 +80,9 @@ export const UP_ZERO_CONFIGURATION_AUTOMATION_KEY = "up_zero_website_configurati
 export const UP_ZERO_CONFIGURATION_TASK_TITLE = "Configure UP Zero website";
 export const UP_ZERO_MARKETING_B2B_DEPENDENCY_MESSAGE =
   "Waiting for UP Zero website configuration by Technical Support.";
+export const VESTI_CAMPAIGN_STARTED_AUTOMATION_KEY = "marketing_b2b_vesti_campaign_start";
+export const UP_ZERO_CAMPAIGN_STARTED_AUTOMATION_KEY = "marketing_b2b_up_zero_campaign_start";
+export const CAMPAIGN_STARTED_TASK_TITLE = "Iniciar Campanha";
 
 export function isUpZeroConfigurationChecklistItem(item: {
   automation_key?: string | null;
@@ -109,6 +114,8 @@ type ServiceWorkflowStep = {
   description: string;
   meeting?: boolean;
   priority?: "low" | "medium" | "high";
+  automationKey?: string;
+  marketingB2BOnly?: boolean;
 };
 
 const ONBOARDING_PRESENTATION_URL = "https://www.canva.com/folder/FAHOKHrZriY";
@@ -164,6 +171,14 @@ export const VESTI_ONBOARDING_WORKFLOW = [
       "Obter API Key e Company ID da Vesti; conectar os dados; criar o dashboard; validar os dados do cliente; e enviar o acesso ao cliente.",
     priority: "high",
   },
+  {
+    title: CAMPAIGN_STARTED_TASK_TITLE,
+    description:
+      "Iniciar a campanha do cliente. Ao concluir, o Financeiro recebe automaticamente o aviso de início dos serviços.",
+    priority: "high",
+    automationKey: VESTI_CAMPAIGN_STARTED_AUTOMATION_KEY,
+    marketingB2BOnly: true,
+  },
 ] as const satisfies readonly ServiceWorkflowStep[];
 
 export const UP_ZERO_ONBOARDING_WORKFLOW = [
@@ -209,6 +224,14 @@ export const UP_ZERO_ONBOARDING_WORKFLOW = [
   {
     title: "Treinar o cliente no uso do UP Dash",
     description: "Apresentar o UP Dash ao cliente, explicar os indicadores e orientar o uso recorrente do dashboard.",
+  },
+  {
+    title: CAMPAIGN_STARTED_TASK_TITLE,
+    description:
+      "Iniciar a campanha do cliente. Ao concluir, o Financeiro recebe automaticamente o aviso de início dos serviços.",
+    priority: "high",
+    automationKey: UP_ZERO_CAMPAIGN_STARTED_AUTOMATION_KEY,
+    marketingB2BOnly: true,
   },
 ] as const satisfies readonly ServiceWorkflowStep[];
 
@@ -460,6 +483,10 @@ export async function getOnboardingCompletionBlocker(
   const department = item.department.toLowerCase();
   const isUpZeroConfiguration = isUpZeroConfigurationChecklistItem(item);
 
+  if (isFinanceCampaignStartedAutomationKey(item.automation_key)) {
+    return null;
+  }
+
   if (item.task_id && !isUpZeroConfiguration) {
     const gate = await getUpZeroMarketingB2BGate(db, onboardingId);
     if (gate?.blocked && gate.marketing_b2b_task_ids.includes(item.task_id)) {
@@ -586,10 +613,49 @@ export function hasUpZeroService(services: unknown) {
 
 function serviceWorkflowFor(
   service: string,
+  route?: OnboardingTaskRoute | null,
 ): { serviceName: string; steps: readonly ServiceWorkflowStep[] } | null {
   const key = normalizedName(service);
-  if (key === "vesti") return { serviceName: "Vesti", steps: VESTI_ONBOARDING_WORKFLOW };
-  if (key === "up zero") return { serviceName: "UP Zero", steps: UP_ZERO_ONBOARDING_WORKFLOW };
+  const workflow =
+    key === "vesti"
+      ? { serviceName: "Vesti", steps: VESTI_ONBOARDING_WORKFLOW }
+      : key === "up zero"
+        ? { serviceName: "UP Zero", steps: UP_ZERO_ONBOARDING_WORKFLOW }
+        : null;
+  if (!workflow) return null;
+
+  const steps: readonly ServiceWorkflowStep[] = workflow.steps;
+
+  return {
+    ...workflow,
+    steps:
+      route === "marketing_b2c"
+        ? steps.filter((step) => !step.marketingB2BOnly)
+        : steps,
+  };
+}
+
+async function persistedMarketingFormRoute(
+  tx: Tx,
+  onboardingId: string,
+): Promise<"marketing_b2b" | "marketing_b2c" | null> {
+  const [b2cForm, b2bForm] = await Promise.all([
+    tx.marketingB2COnboardingForm.findFirst({
+      where: { onboarding_id: onboardingId },
+      select: { id: true },
+    }),
+    tx.marketingB2BOnboardingForm.findFirst({
+      where: { onboarding_id: onboardingId },
+      select: { id: true },
+    }),
+  ]);
+
+  // Existing onboarding records keep their original route even if a later
+  // client edit removes or changes service_type. Favor B2C if malformed
+  // legacy data contains both forms: that conservative choice prevents a
+  // B2B-only campaign handoff from appearing in a consumer workflow.
+  if (b2cForm) return "marketing_b2c";
+  if (b2bForm) return "marketing_b2b";
   return null;
 }
 
@@ -1952,9 +2018,13 @@ async function syncDedicatedServiceWorkflows(
     currentServices?: Prisma.JsonValue | null;
   },
 ): Promise<DedicatedWorkflowSyncResult> {
+  const marketingFormRoute =
+    (await persistedMarketingFormRoute(tx, input.onboardingId)) ??
+    marketingFormRouteForOnboarding(input.company.service_type, null) ??
+    "marketing_b2b";
   const workflows = new Map<string, { serviceName: string; steps: readonly ServiceWorkflowStep[] }>();
   for (const service of input.services) {
-    const workflow = serviceWorkflowFor(service);
+    const workflow = serviceWorkflowFor(service, marketingFormRoute);
     if (workflow) workflows.set(normalizedName(workflow.serviceName), workflow);
   }
 
@@ -1978,7 +2048,6 @@ async function syncDedicatedServiceWorkflows(
   };
   if (workflows.size === 0) return result;
 
-  const marketingFormRoute = marketingFormRouteForOnboarding(input.company.service_type, null) ?? "marketing_b2b";
   const marketingDepartmentLabel = marketingFormRoute === "marketing_b2c" ? "Marketing B2C" : "Marketing B2B";
   const projectId = await resolveOnboardingRouteProjectId(tx, {
     workspaceId: input.company.workspace_id,
@@ -1995,6 +2064,7 @@ async function syncDedicatedServiceWorkflows(
         title: true,
         department: true,
         task_id: true,
+        automation_key: true,
         sort_order: true,
         owner_id: true,
         notes: true,
@@ -2091,10 +2161,20 @@ async function syncDedicatedServiceWorkflows(
           result.movedTasks += 1;
         }
         const department = step.meeting ? "Service Onboarding" : `${workflow.serviceName} Workflow`;
-        if (item.department !== department || item.owner_id !== leaderId || item.notes !== step.description) {
+        if (
+          item.department !== department ||
+          item.owner_id !== leaderId ||
+          item.notes !== step.description ||
+          item.automation_key !== (step.automationKey ?? null)
+        ) {
           await tx.onboardingChecklistItem.update({
             where: { id: item.id },
-            data: { department, owner_id: leaderId, notes: step.description },
+            data: {
+              department,
+              owner_id: leaderId,
+              notes: step.description,
+              automation_key: step.automationKey ?? null,
+            },
           });
         }
       } else {
@@ -2126,6 +2206,7 @@ async function syncDedicatedServiceWorkflows(
             where: { id: item.id },
             data: {
               task_id: task.id,
+              automation_key: step.automationKey ?? null,
               department: step.meeting ? "Service Onboarding" : `${workflow.serviceName} Workflow`,
               owner_id: leaderId,
               notes: step.description,
@@ -2135,6 +2216,7 @@ async function syncDedicatedServiceWorkflows(
               title: true,
               department: true,
               task_id: true,
+              automation_key: true,
               sort_order: true,
               owner_id: true,
               notes: true,
@@ -2147,6 +2229,7 @@ async function syncDedicatedServiceWorkflows(
               onboarding_id: input.onboardingId,
               workspace_id: input.company.workspace_id,
               task_id: task.id,
+              automation_key: step.automationKey ?? null,
               department: step.meeting ? "Service Onboarding" : `${workflow.serviceName} Workflow`,
               title,
               owner_id: leaderId,
@@ -2158,6 +2241,7 @@ async function syncDedicatedServiceWorkflows(
               title: true,
               department: true,
               task_id: true,
+              automation_key: true,
               sort_order: true,
               owner_id: true,
               notes: true,
@@ -2954,8 +3038,8 @@ async function createOnboardingRecords(
       });
     }
 
-    const dedicatedWorkflow = serviceWorkflowFor(service);
     const dedicatedWorkflowRoute = marketingFormRoute ?? "marketing_b2b";
+    const dedicatedWorkflow = serviceWorkflowFor(service, dedicatedWorkflowRoute);
     const serviceProjectId = dedicatedWorkflow
       ? marketingOnboardingProjectId ??
         (await resolveOnboardingRouteProjectId(tx, {
@@ -2986,6 +3070,7 @@ async function createOnboardingRecords(
             onboarding_id: onboarding.id,
             workspace_id: company.workspace_id,
             task_id: workflowTask.id,
+            automation_key: step.automationKey ?? null,
             department: step.meeting ? "Service Onboarding" : `${dedicatedWorkflow.serviceName} Workflow`,
             title: `${dedicatedWorkflow.serviceName}: ${step.title}`,
             owner_id: leaderId,
@@ -3668,6 +3753,144 @@ export async function recomputeOnboardingProgress(db: Db, onboardingId: string) 
   });
 }
 
+type CampaignStartedFinanceHandoff = {
+  serviceName: "Vesti" | "UP Zero";
+  financeAutomationKey: string;
+};
+
+function campaignStartedFinanceHandoffFor(automationKey: string | null | undefined): CampaignStartedFinanceHandoff | null {
+  if (automationKey === VESTI_CAMPAIGN_STARTED_AUTOMATION_KEY) {
+    return {
+      serviceName: "Vesti",
+      financeAutomationKey: "finance_campaign_started:vesti",
+    };
+  }
+  if (automationKey === UP_ZERO_CAMPAIGN_STARTED_AUTOMATION_KEY) {
+    return {
+      serviceName: "UP Zero",
+      financeAutomationKey: "finance_campaign_started:up_zero",
+    };
+  }
+  return null;
+}
+
+async function createFinanceCampaignStartedHandoff(
+  db: Db,
+  input: {
+    onboardingId: string;
+    sourceTaskTitle: string;
+    sourceAutomationKey: string | null;
+    actorId: string;
+    startedAt: Date;
+  },
+): Promise<OnboardingAssignmentNotificationTarget | null> {
+  const handoff = campaignStartedFinanceHandoffFor(input.sourceAutomationKey);
+  if (!handoff) return null;
+
+  const onboarding = await db.clientOnboarding.findUniqueOrThrow({
+    where: { id: input.onboardingId },
+    select: {
+      id: true,
+      workspace_id: true,
+      company_id: true,
+      created_by: true,
+      company: { select: { name: true, owner_id: true } },
+    },
+  });
+  const [mappingRows, adminFallback] = await Promise.all([
+    db.serviceLeaderMapping.findMany({
+      where: { workspace_id: onboarding.workspace_id, active: true },
+      select: {
+        service: true,
+        leader: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    findAdminFallback(db, onboarding.workspace_id),
+  ]);
+  // The Finance leader mapping is the source of truth for this recipient. In
+  // the current workspace it points to Pedro, while remaining configurable for
+  // every other workspace.
+  const financeMapping = mappingRows.find(
+    (mapping) => ownerKeyForDepartmentLabel(mapping.service) === "finance",
+  );
+  const financeOwner =
+    financeMapping?.leader ??
+    (await ownerForRoute(db, onboarding.workspace_id, "finance", adminFallback));
+  const ownerId = financeOwner?.id ?? onboarding.company.owner_id;
+  const financeProjectId = await resolveFinanceOnboardingProjectId(db, {
+    workspaceId: onboarding.workspace_id,
+    companyId: onboarding.company_id,
+    companyName: onboarding.company.name,
+    ownerId: onboarding.created_by,
+  });
+  const [taskPosition, checklistPosition] = await Promise.all([
+    db.task.aggregate({ where: { project_id: financeProjectId }, _max: { position: true } }),
+    db.onboardingChecklistItem.aggregate({
+      where: { onboarding_id: onboarding.id },
+      _max: { sort_order: true },
+    }),
+  ]);
+  const startedOn = formatDate(input.startedAt);
+  const taskTitle = `Início de serviços — ${onboarding.company.name} — ${handoff.serviceName} (${startedOn})`;
+  const taskDescription = [
+    `Marketing B2B iniciou os serviços de ${handoff.serviceName} para ${onboarding.company.name}.`,
+    `Data de início: ${startedOn}.`,
+    `Tarefa de origem: ${input.sourceTaskTitle}.`,
+    "Registrar o início para acompanhamento financeiro e faturamento.",
+  ].join("\n");
+
+  try {
+    const handoffItem = await db.onboardingChecklistItem.create({
+      data: {
+        onboarding: { connect: { id: onboarding.id } },
+        workspace: { connect: { id: onboarding.workspace_id } },
+        automation_key: handoff.financeAutomationKey,
+        department: "Finance",
+        title: taskTitle,
+        required: false,
+        owner: { connect: { id: ownerId } },
+        notes: taskDescription,
+        sort_order: (checklistPosition._max.sort_order ?? -1) + 1,
+        task: {
+          create: {
+            project: { connect: { id: financeProjectId } },
+            company: { connect: { id: onboarding.company_id } },
+            title: taskTitle,
+            description: taskDescription,
+            status: "todo" as const,
+            priority: "medium" as const,
+            assignee: { connect: { id: ownerId } },
+            position: (taskPosition._max.position ?? -1) + 1,
+          },
+        },
+      },
+      include: {
+        task: {
+          select: { id: true, title: true },
+        },
+      },
+    });
+    if (!handoffItem.task) return null;
+    return {
+      userId: ownerId,
+      taskId: handoffItem.task.id,
+      workspaceId: onboarding.workspace_id,
+      onboardingId: onboarding.id,
+      actorId: input.actorId,
+      label: handoffItem.task.title,
+      companyId: onboarding.company_id,
+    };
+  } catch (error) {
+    // The source task can be retried or completed concurrently. The unique
+    // automation key makes the existing Finance handoff authoritative and
+    // ensures that only its creator sends the notification.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function syncOnboardingChecklistFromTaskStatus(
   db: Db,
   input: { taskId: string; status: "todo" | "in_progress" | "done"; actorId: string },
@@ -3683,18 +3906,21 @@ export async function syncOnboardingChecklistFromTaskStatus(
       status: true,
       task_id: true,
       automation_key: true,
+      completed_at: true,
     },
   });
   if (!item) return { linked: false as const };
 
+  let completedAt = item.completed_at;
   if (input.status === "done") {
     const blocker = await getOnboardingCompletionBlocker(db, item.onboarding_id, item);
     if (blocker) return { linked: true as const, blocked: true as const, reason: blocker };
+    completedAt ??= new Date();
     await db.onboardingChecklistItem.update({
       where: { id: item.id },
       data: {
         status: "complete",
-        completed_at: new Date(),
+        completed_at: completedAt,
         completed_by: input.actorId,
       },
     });
@@ -3715,6 +3941,17 @@ export async function syncOnboardingChecklistFromTaskStatus(
   }
 
   let transitionNotificationTargets: OnboardingAssignmentNotificationTarget[] = [];
+  if (input.status === "done" && completedAt) {
+    const campaignHandoff = await createFinanceCampaignStartedHandoff(db, {
+      onboardingId: item.onboarding_id,
+      sourceTaskTitle: item.title,
+      sourceAutomationKey: item.automation_key,
+      actorId: input.actorId,
+      startedAt: completedAt,
+    });
+    if (campaignHandoff) transitionNotificationTargets.push(campaignHandoff);
+  }
+
   if (isUpZeroConfigurationChecklistItem(item)) {
     if (input.status === "done") {
       const release = await releaseUpZeroMarketingB2B(db, {

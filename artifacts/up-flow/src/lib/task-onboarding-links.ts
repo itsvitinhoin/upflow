@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { TaskOnboardingAction, TaskOnboardingLink } from "@/lib/types";
+import { isFinanceCampaignStartedAutomationKey } from "@/lib/onboarding-routing";
 
 type RawOnboardingChecklistLink = {
   id: string;
@@ -28,6 +29,10 @@ function actionForOnboardingLink(link: RawOnboardingChecklistLink): TaskOnboardi
   const title = normalized(link.title);
 
   if (link.automation_key === "up_zero_website_configuration") {
+    return null;
+  }
+
+  if (isFinanceCampaignStartedAutomationKey(link.automation_key)) {
     return null;
   }
 

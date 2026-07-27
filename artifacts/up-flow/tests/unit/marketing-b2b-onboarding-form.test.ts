@@ -55,7 +55,13 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(helper, /const existingAssignment =[\s\S]*b2bAssignments\.find[\s\S]*b2cAssignments\.find/);
   assert.match(helper, /if \(!existingAssignment\) \{[\s\S]*onboardingServiceAssignment\.create/);
   assert.match(helper, /VESTI_ONBOARDING_WORKFLOW[\s\S]*Criar e validar o UP Dash/);
+  assert.match(helper, /VESTI_ONBOARDING_WORKFLOW[\s\S]*CAMPAIGN_STARTED_TASK_TITLE/);
+  assert.match(helper, /VESTI_CAMPAIGN_STARTED_AUTOMATION_KEY = "marketing_b2b_vesti_campaign_start"/);
   assert.match(helper, /UP_ZERO_ONBOARDING_WORKFLOW[\s\S]*Treinar o cliente no uso do UP Dash/);
+  assert.match(helper, /UP_ZERO_ONBOARDING_WORKFLOW[\s\S]*CAMPAIGN_STARTED_TASK_TITLE/);
+  assert.match(helper, /UP_ZERO_CAMPAIGN_STARTED_AUTOMATION_KEY = "marketing_b2b_up_zero_campaign_start"/);
+  assert.match(helper, /marketingB2BOnly: true/);
+  assert.match(helper, /automation_key: step\.automationKey \?\? null/);
   assert.match(helper, /https:\/\/www\.canva\.com\/folder\/FAHOKHrZriY/);
   assert.match(helper, /for \(const \[stepIndex, step\] of dedicatedWorkflow\.steps\.entries\(\)\)/);
   assert.match(helper, /department: step\.meeting \? "Service Onboarding"/);

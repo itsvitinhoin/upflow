@@ -275,8 +275,8 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     expect(company.onboarding_id).toBeTruthy();
 
     const createdTitles = company.created_onboarding_tasks.map((task) => task.title);
-    expect(createdTitles.filter((title) => title.startsWith("Vesti: "))).toHaveLength(10);
-    expect(createdTitles.filter((title) => title.startsWith("UP Zero: "))).toHaveLength(9);
+    expect(createdTitles.filter((title) => title.startsWith("Vesti: "))).toHaveLength(11);
+    expect(createdTitles.filter((title) => title.startsWith("UP Zero: "))).toHaveLength(10);
     expect(createdTitles.filter((title) => title === "Configure UP Zero website")).toHaveLength(1);
     expect(createdTitles).toEqual(
       expect.arrayContaining([
@@ -284,10 +284,12 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
         "Vesti: Agendar apresentação e dia do onboarding",
         "Vesti: Realizar onboarding",
         "Vesti: Criar e validar o UP Dash",
+        "Vesti: Iniciar Campanha",
         "UP Zero: Criar grupo de WhatsApp e capa",
         "UP Zero: Realizar configuração técnica",
         "UP Zero: Preparar briefing de criativos",
         "UP Zero: Treinar o cliente no uso do UP Dash",
+        "UP Zero: Iniciar Campanha",
       ]),
     );
     const b2bFormTask = company.created_onboarding_tasks.find(
@@ -377,8 +379,8 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     expect(technicalSupportFormResponse.status()).toBe(404);
     const vestiItems = onboarding.checklist_items.filter((item) => item.title.startsWith("Vesti: "));
     const upZeroItems = onboarding.checklist_items.filter((item) => item.title.startsWith("UP Zero: "));
-    expect(vestiItems).toHaveLength(10);
-    expect(upZeroItems).toHaveLength(9);
+    expect(vestiItems).toHaveLength(11);
+    expect(upZeroItems).toHaveLength(10);
     expect([...vestiItems, ...upZeroItems].every((item) => Boolean(item.task?.id))).toBe(true);
 
     const vestiMeeting = onboarding.meetings.find((meeting) => meeting.service === "Vesti");
@@ -560,7 +562,7 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     const laterVestiTasks = laterCompany.created_onboarding_tasks.filter((task) =>
       task.title.startsWith("Vesti: "),
     );
-    expect(laterVestiTasks).toHaveLength(10);
+    expect(laterVestiTasks).toHaveLength(11);
     expect(laterVestiTasks.every((task) => task.project_id === laterB2BProjectId)).toBe(true);
 
     const directOnboardingResponse = await api.get(`/api/onboarding/${laterCompany.onboarding_id}`);
@@ -584,7 +586,7 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     const directVestiItems = directOnboarding.checklist_items.filter((item) =>
       item.title.startsWith("Vesti: "),
     );
-    expect(directVestiItems).toHaveLength(10);
+    expect(directVestiItems).toHaveLength(11);
     expect(directVestiItems.every((item) => item.task?.project_id === laterB2BProjectId)).toBe(true);
 
     const directFormResponse = await api.get(
@@ -597,6 +599,76 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     };
     expect(directForm.can_edit).toBe(true);
     expect(directForm.up_zero_dependency).toMatchObject({ uses_up_zero: false, blocked: false });
+
+    const vestiCampaignTask = laterCompany.created_onboarding_tasks.find(
+      (task) => task.title === "Vesti: Iniciar Campanha",
+    );
+    expect(vestiCampaignTask?.id).toBeTruthy();
+    if (!vestiCampaignTask) throw new Error("Vesti campaign-start task was not created");
+
+    const completeCampaignResponse = await api.patch(`/api/tasks/${vestiCampaignTask.id}`, {
+      data: { status: "done" },
+    });
+    expect(
+      completeCampaignResponse.ok(),
+      `completing Vesti campaign start failed: ${completeCampaignResponse.status()} ${await completeCampaignResponse.text()}`,
+    ).toBeTruthy();
+
+    const financeHandoff = await prisma.onboardingChecklistItem.findFirst({
+      where: {
+        onboarding_id: laterCompany.onboarding_id,
+        automation_key: "finance_campaign_started:vesti",
+      },
+      select: {
+        required: true,
+        task: {
+          select: { id: true, title: true, description: true, assignee_id: true },
+        },
+      },
+    });
+    expect(financeHandoff?.required).toBe(false);
+    expect(financeHandoff?.task?.title).toContain(laterCompany.name);
+    expect(financeHandoff?.task?.title).toContain("Vesti");
+    expect(financeHandoff?.task?.title).toMatch(/\(\d{2}\/\d{2}\/\d{4}\)$/);
+    expect(financeHandoff?.task?.description).toContain("Data de início:");
+    expect(financeHandoff?.task?.assignee_id).toBeTruthy();
+    if (!financeHandoff?.task?.id || !financeHandoff.task.assignee_id) {
+      throw new Error("Finance campaign-start handoff was not assigned");
+    }
+    expect(
+      await prisma.notification.count({
+        where: {
+          task_id: financeHandoff.task.id,
+          user_id: financeHandoff.task.assignee_id,
+        },
+      }),
+    ).toBe(1);
+
+    // A retried completion must reconcile a previously interrupted handoff
+    // without adding a duplicate Finance task or notification.
+    const retryCampaignResponse = await api.patch(`/api/tasks/${vestiCampaignTask.id}`, {
+      data: { status: "done" },
+    });
+    expect(
+      retryCampaignResponse.ok(),
+      `retrying Vesti campaign start failed: ${retryCampaignResponse.status()} ${await retryCampaignResponse.text()}`,
+    ).toBeTruthy();
+    expect(
+      await prisma.onboardingChecklistItem.count({
+        where: {
+          onboarding_id: laterCompany.onboarding_id,
+          automation_key: "finance_campaign_started:vesti",
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.notification.count({
+        where: {
+          task_id: financeHandoff.task.id,
+          user_id: financeHandoff.task.assignee_id,
+        },
+      }),
+    ).toBe(1);
 
     const repeatSyncResponse = await api.patch(`/api/companies/${laterCompany.id}`, {
       data: { included_services: ["Meta Ads", "Vesti"] },

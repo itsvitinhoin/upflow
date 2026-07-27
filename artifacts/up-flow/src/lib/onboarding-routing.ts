@@ -7,6 +7,16 @@ export type OnboardingTaskRoute =
   | "creative_design"
   | "general_admin";
 
+// Finance receives these as informational campaign-start handoffs rather than
+// as finance-form work. Keeping the key in the routing module lets task UI
+// consumers recognize the distinction without importing the full onboarding
+// workflow implementation.
+export const FINANCE_CAMPAIGN_STARTED_AUTOMATION_KEY_PREFIX = "finance_campaign_started:";
+
+export function isFinanceCampaignStartedAutomationKey(value: string | null | undefined) {
+  return value?.startsWith(FINANCE_CAMPAIGN_STARTED_AUTOMATION_KEY_PREFIX) ?? false;
+}
+
 export function normalizeOnboardingRouteValue(value: string) {
   return value
     .normalize("NFD")

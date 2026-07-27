@@ -64,6 +64,9 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
     /marketingFormRouteForOnboarding\([\s\S]*company\.service_type,[\s\S]*responsibleDepartmentName/,
   );
   assert.match(helper, /marketingFormRoute === "marketing_b2c"/);
+  assert.match(helper, /async function persistedMarketingFormRoute/);
+  assert.match(helper, /if \(b2cForm\) return "marketing_b2c"/);
+  assert.match(helper, /await persistedMarketingFormRoute\(tx, input\.onboardingId\)/);
   assert.match(routing, /key\.includes\("content calendar"\)/);
   assert.match(routing, /key\.includes\("campanhas"\)/);
   assert.match(helper, /key === "tiktok ads"/);

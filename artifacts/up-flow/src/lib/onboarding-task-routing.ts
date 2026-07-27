@@ -1,5 +1,8 @@
 import type { Task, TaskOnboardingFormKind } from "@/lib/types";
-import { routeForOnboardingChecklistItem } from "@/lib/onboarding-routing";
+import {
+  isFinanceCampaignStartedAutomationKey,
+  routeForOnboardingChecklistItem,
+} from "@/lib/onboarding-routing";
 
 const UP_ZERO_CONFIGURATION_AUTOMATION_KEY = "up_zero_website_configuration";
 const UP_ZERO_CONFIGURATION_TASK_TITLE = "configure up zero website";
@@ -24,6 +27,10 @@ function taskSearchText(task: Task) {
 }
 
 function isFinanceOnboardingTask(task: Task) {
+  if (isFinanceCampaignStartedAutomationKey(task.onboarding_link?.automation_key)) {
+    return false;
+  }
+
   if (task.onboarding_link) {
     return routeForOnboardingChecklistItem({
       department: task.onboarding_link.department,

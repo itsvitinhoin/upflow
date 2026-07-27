@@ -366,7 +366,10 @@ async function PUT_handler(
     publishedAt = mutation.publishedAt;
   }
 
-  const onboardingSync = taskStatusChanged
+  // Repeat completed-status syncs so an interrupted onboarding side effect can
+  // recover on retry. Its keyed handoffs make this idempotent.
+  const shouldSyncOnboarding = taskStatusChanged || body.task_status === "done";
+  const onboardingSync = shouldSyncOnboarding
     ? await syncOnboardingChecklistFromTaskStatus(prisma, {
         taskId: task.id,
         status: body.task_status!,
