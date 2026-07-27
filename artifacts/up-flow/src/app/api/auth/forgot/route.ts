@@ -5,15 +5,17 @@ import { sendEmail } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
+import { createPasswordRecoveryConfirmationUrl } from "@/lib/supabase/recovery-link";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 /**
  * Kick off a password reset.
  *
- * We always respond 202 to avoid leaking which addresses have accounts.
- * Custom Resend email is used when fully configured. If that send path is
- * unavailable, we fall back to Supabase Auth's native recovery email so the
- * request does not silently succeed without sending anything.
+ * We respond 202 for accepted reset requests so we never reveal whether an
+ * address has an account. Custom Resend email is used when fully configured.
+ * If that path cannot deliver a usable link, we fall back to Supabase Auth's
+ * native recovery email. Infrastructure failures use a generic 503 instead
+ * of pretending that a link was sent.
  */
 async function POST_handler(req: NextRequest) {
   const rl = await checkRateLimit(req, {
@@ -37,22 +39,31 @@ async function POST_handler(req: NextRequest) {
   try {
     redirectTo = `${getEmailOrigin(req)}/auth/reset`;
   } catch (err) {
-    // In production with no APP_URL we refuse to build a recovery link
-    // from request headers. Log and return the standard neutral 202 so
-    // we never leak this misconfiguration to clients.
+    // In production with no trusted APP_URL we refuse to build a recovery
+    // link from request headers. This is a global configuration failure, not
+    // an account-specific response, so tell the UI to retry instead of
+    // claiming that an email was sent.
     if (err instanceof EmailOriginError) {
       logError("auth:forgot:origin", err);
-      return NEUTRAL;
+      return unavailableResponse();
     }
     throw err;
   }
 
   const sentCustomEmail = await sendCustomResetEmail(email, redirectTo);
-  if (!sentCustomEmail) {
-    await sendSupabaseRecoveryEmail(email, redirectTo);
-  }
+  const sentRecoveryEmail =
+    sentCustomEmail || (await sendSupabaseRecoveryEmail(email, redirectTo));
+
+  if (!sentRecoveryEmail) return unavailableResponse();
 
   return NEUTRAL;
+}
+
+function unavailableResponse() {
+  return NextResponse.json(
+    { error: "Password reset is temporarily unavailable. Please try again shortly." },
+    { status: 503 },
+  );
 }
 
 async function sendCustomResetEmail(email: string, redirectTo: string): Promise<boolean> {
@@ -78,14 +89,24 @@ async function sendCustomResetEmail(email: string, redirectTo: string): Promise<
     });
 
     if (error || !data?.properties?.action_link) {
-      // Likely "User not found" - treat as success per the neutral-response
-      // contract above. Log so an on-call can spot real provider outages.
+      // This can mean an unknown user, but it can also mean that Supabase
+      // rejected `redirectTo` or the service key is invalid. Let the native
+      // recovery endpoint make the account-enumeration-safe decision instead
+      // of falsely reporting a successful email.
       logError("auth:forgot:link", error ?? new Error("no action_link"), { email });
-      return true;
+      return false;
     }
 
+    // Do not put Supabase's one-time action link directly in email. Mail
+    // scanners can prefetch and consume it before the recipient clicks. The
+    // interstitial keeps it in a fragment and follows it only after an
+    // explicit user action.
+    const resetUrl = createPasswordRecoveryConfirmationUrl({
+      appOrigin: new URL(redirectTo).origin,
+      actionLink: data.properties.action_link,
+    });
     const rendered = passwordResetEmail({
-      resetUrl: data.properties.action_link,
+      resetUrl,
       recipientEmail: email,
     });
     const result = await sendEmail({

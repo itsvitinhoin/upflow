@@ -22,6 +22,7 @@ export async function middleware(req: NextRequest) {
     isLoginPage ||
     pathname === "/auth/forgot" ||
     pathname === "/auth/reset" ||
+    pathname === "/auth/reset/confirm" ||
     pathname.startsWith("/invite/");
 
   let response = NextResponse.next({ request: { headers: req.headers } });

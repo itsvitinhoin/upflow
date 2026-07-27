@@ -21,12 +21,14 @@ export default function ForgotPasswordPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (res.status === 429) {
+      if (res.status === 202) {
+        // The server intentionally uses a neutral accepted response for both
+        // known and unknown addresses, so this cannot reveal account status.
+        setSent(true);
+      } else if (res.status === 429) {
         toast.error(t("auth.forgot.rateLimited"));
       } else {
-        // We always return 202 server-side regardless of whether the address
-        // is registered, so the UI confirms unconditionally.
-        setSent(true);
+        toast.error(t("auth.forgot.requestFailed"));
       }
     } catch {
       toast.error(t("auth.forgot.requestFailed"));

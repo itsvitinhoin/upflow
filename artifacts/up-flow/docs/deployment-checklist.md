@@ -26,7 +26,18 @@ For production rate limiting, configure either `REDIS_URL` or both `UPSTASH_REDI
 
 Create a private Supabase Storage bucket named `task-assets` unless `TASK_ASSETS_BUCKET` points to a different private bucket. Task cover image uploads store an internal object reference in Postgres and are served by a short-lived, authorized URL.
 
-## 2. Supabase Security Gate
+## 2. Supabase Auth URL Configuration
+
+In **Supabase Dashboard → Authentication → URL Configuration**:
+
+1. Set **Site URL** to the same canonical HTTPS origin as `APP_URL`.
+2. Add the exact password-reset callback to **Redirect URLs**: `https://your-production-domain/auth/reset`.
+3. Keep preview and localhost URLs separate from the canonical production URL. Do not point `APP_URL` at a preview deployment.
+4. Leave click tracking disabled for password-reset emails. Up Flow's custom Resend email opens `/auth/reset/confirm` first to prevent ordinary mail prefetchers from consuming the one-time Supabase link. If relying on Supabase's native recovery-email fallback, test that template with your mail-security scanner or use an OTP/manual-entry template.
+
+Password-reset links use this allow list. If the callback is missing, Supabase can reject the reset request or redirect users to an incorrect URL.
+
+## 3. Supabase Security Gate
 
 Before the first production deployment of this release:
 
@@ -42,7 +53,7 @@ Before the first production deployment of this release:
 
 5. Verify an admin and a member can load an assigned task cover, while an unauthenticated request and a user in another workspace cannot.
 
-## 3. Secret Rotation
+## 4. Secret Rotation
 
 Rotate and update Vercel if any secret was pasted into chat, logs, screenshots, or shared documents:
 
@@ -53,7 +64,7 @@ Rotate and update Vercel if any secret was pasted into chat, logs, screenshots, 
 
 After rotation, redeploy and confirm `/admin/health` is green.
 
-## 4. Rehearse and Run Migrations Before Redeploy
+## 5. Rehearse and Run Migrations Before Redeploy
 
 Run in this order:
 
@@ -91,7 +102,7 @@ Run in this order:
 
 Do not reverse this order when the commit contains Prisma schema changes.
 
-## 5. Post-Deploy Smoke Test
+## 6. Post-Deploy Smoke Test
 
 After Vercel is ready, validate:
 
@@ -102,6 +113,7 @@ After Vercel is ready, validate:
 - Create a temporary Space, folder, list, and task.
 - Upload a task cover image and confirm it appears on the board card after reload.
 - Confirm an expired or resent invite cannot be accepted, and a valid invite works only for its intended email.
+- Request a password reset for a test user, open a fresh link, set a new password, and sign in with it.
 - Confirm `/api/health` reports Redis plus both server and browser error tracking as ready.
 - Assign a task and confirm notification creation.
 - Create and delete a Calendar event.
@@ -110,7 +122,7 @@ After Vercel is ready, validate:
 
 Clean up temporary records after the smoke test.
 
-## 6. Go / No-Go
+## 7. Go / No-Go
 
 Go only when:
 
