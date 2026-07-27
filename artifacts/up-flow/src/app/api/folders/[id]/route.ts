@@ -56,6 +56,7 @@ async function GET_handler(
     : {
         OR: [
           { sidebar_hidden: false },
+          { company_id: null },
           { kind: "onboarding" },
           {
             AND: [

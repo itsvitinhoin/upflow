@@ -38,15 +38,16 @@ async function GET_handler(req: NextRequest) {
   const projectsCursor = searchParams.get("projects_cursor");
   const foldersCursor = searchParams.get("folders_cursor");
   const readableProjectsWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
-  // Department onboarding work used to be hidden from the sidebar. Keep the
-  // semantic onboarding records discoverable while a workspace is catching up
-  // with the visibility migration, without exposing unrelated hidden work.
+  // Shared department queues must remain visible even if a legacy visibility
+  // migration left an incorrect flag behind. Client-specific work still
+  // follows the onboarding visibility rules below.
   const visibleProjectWhere: Prisma.ProjectWhereInput = {
     AND: [
       readableProjectsWhere,
       {
         OR: [
           { sidebar_hidden: false },
+          { company_id: null },
           { kind: "onboarding" },
           {
             AND: [

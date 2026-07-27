@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   canAccessWorkspace,
@@ -18,6 +19,19 @@ async function GET_handler(
   const auth = _r.auth;
   void req;
   const { id } = await params;
+  const visibleProjectWhere: Prisma.ProjectWhereInput = {
+    OR: [
+      { sidebar_hidden: false },
+      { company_id: null },
+      { kind: "onboarding" },
+      {
+        AND: [
+          { onboarding_enabled: true },
+          { company_id: { not: null } },
+        ],
+      },
+    ],
+  };
 
   // Scope to the caller's active workspace — Space must belong to it.
   // Returning a flat 404 (rather than 403) keeps Spaces from other
@@ -27,7 +41,7 @@ async function GET_handler(
     include: {
       workspace: { select: { id: true, name: true } },
       owner: { select: { id: true, name: true, email: true } },
-      _count: { select: { projects: { where: { sidebar_hidden: false } } } },
+      _count: { select: { projects: { where: visibleProjectWhere } } },
     },
   });
   if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -46,7 +60,7 @@ async function GET_handler(
       orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
     }),
     prisma.project.findMany({
-      where: { space_id: space.id, folder_id: null, sidebar_hidden: false },
+      where: { space_id: space.id, folder_id: null, ...visibleProjectWhere },
       orderBy: [{ created_at: "desc" }, { id: "asc" }],
       select: {
         id: true,
