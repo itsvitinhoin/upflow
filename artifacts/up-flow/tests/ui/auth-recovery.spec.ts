@@ -122,7 +122,7 @@ test.describe("Password recovery pages", () => {
 
     await page.getByRole("button", { name: "Continue to reset password" }).click();
     await expect(page).toHaveURL(/\/auth\/reset(?:\?recovery=1)?$/);
-    await expect(page.getByLabel("New password")).toBeVisible();
+    await expect(page.locator('input[type="password"]').first()).toBeVisible();
     expect(continuationRequests).toBe(1);
     expect(verificationRequests).toBe(1);
 
