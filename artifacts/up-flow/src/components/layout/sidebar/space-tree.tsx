@@ -11,6 +11,7 @@ import {
   UserPlus,
   Trash2,
   Copy,
+  EyeOff,
 } from "lucide-react";
 import type { Project, Space, Folder as FolderT } from "@/lib/types";
 import { ProjectRow } from "@/components/layout/sidebar/project-row";
@@ -38,6 +39,7 @@ export interface NodeHandlers {
     v: { kind: "space"; space: Space } | { kind: "folder"; folder: FolderT },
   ) => void;
   setShareTarget: (s: Space) => void;
+  handleHideSpace: (s: Space) => void;
   handleDeleteSpace: (s: Space) => void;
   handleDeleteFolder: (f: FolderT) => void;
   handleDuplicateFolder: (f: FolderT) => void;
@@ -73,6 +75,7 @@ export function SpaceNode({
   setRenameFolderTarget,
   setCreateListFor,
   setShareTarget,
+  handleHideSpace,
   handleDeleteSpace,
   handleDeleteFolder,
   handleDuplicateFolder,
@@ -152,7 +155,6 @@ export function SpaceNode({
         >
           {pendingTodoCount}
         </span>
-        {canManageWorkspace && (
         <div
           className="relative z-20 flex flex-shrink-0 items-center"
           onMouseDown={(e) => e.stopPropagation()}
@@ -183,9 +185,21 @@ export function SpaceNode({
                 role="menuitem"
                 onClick={() => {
                   setMenuOpenId(() => null);
-                  setCreateListFor({ kind: "space", space: sp });
+                  handleHideSpace(sp);
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent dark:hover:bg-white/5"
+              >
+                <EyeOff className="w-3 h-3" /> {t("sidebar.hideSpace")}
+              </button>
+              {canManageWorkspace && (
+                <>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpenId(() => null);
+                  setCreateListFor({ kind: "space", space: sp });
+                }}
+                className="w-full flex items-center gap-2 border-t border-border px-3 py-2 text-left hover:bg-accent dark:border-white/5 dark:hover:bg-white/5"
               >
                 <Plus className="w-3 h-3" /> {t("sidebar.newProject")}
               </button>
@@ -229,10 +243,11 @@ export function SpaceNode({
               >
                 <Trash2 className="w-3 h-3" /> {t("common.delete")}
               </button>
+                </>
+              )}
             </div>
           )}
         </div>
-        )}
       </div>
 
       {!isCollapsed && (

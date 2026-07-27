@@ -28,6 +28,7 @@ async function GET_handler(req: NextRequest) {
       projects: { items: [], nextCursor: null },
       folders: { items: [], nextCursor: null },
       pinned_clients: [],
+      hidden_spaces: [],
       search_results: [],
     });
   }
@@ -38,6 +39,33 @@ async function GET_handler(req: NextRequest) {
   const spacesCursor = searchParams.get("spaces_cursor");
   const projectsCursor = searchParams.get("projects_cursor");
   const foldersCursor = searchParams.get("folders_cursor");
+  const hiddenSpaceRows = await prisma.sidebarSpaceHide.findMany({
+    where: {
+      workspace_id: auth.currentWorkspaceId,
+      user_id: auth.prismaUser.id,
+    },
+    orderBy: [{ created_at: "asc" }, { id: "asc" }],
+    select: {
+      space: { select: { id: true, name: true, icon: true } },
+    },
+  });
+  const hiddenSpaces = hiddenSpaceRows.map((item) => item.space);
+  const hiddenSpaceIds = hiddenSpaces.map((space) => space.id);
+  // Keep unassigned projects visible while preventing hidden Spaces from
+  // reappearing through a folder or project search result.
+  const personalSpaceVisibilityWhere: Prisma.ProjectWhereInput =
+    hiddenSpaceIds.length > 0
+      ? {
+          OR: [
+            { space_id: { notIn: hiddenSpaceIds } },
+            { space_id: null, folder_id: null },
+            {
+              space_id: null,
+              folder: { is: { space_id: { notIn: hiddenSpaceIds } } },
+            },
+          ],
+        }
+      : {};
   const readableProjectsWhere = readableProjectWhere(auth, auth.currentWorkspaceId);
   // Shared department queues must remain visible even if a legacy visibility
   // migration left an incorrect flag behind. Client-specific work still
@@ -58,6 +86,7 @@ async function GET_handler(req: NextRequest) {
           },
         ],
       },
+      personalSpaceVisibilityWhere,
     ],
   };
   // Select the navigation fields explicitly so a release can still read
@@ -136,6 +165,9 @@ async function GET_handler(req: NextRequest) {
       prisma.space.findMany({
         where: {
           workspace_id: auth.currentWorkspaceId,
+          ...(hiddenSpaceIds.length > 0
+            ? { id: { notIn: hiddenSpaceIds } }
+            : {}),
           name: { contains: q, mode: "insensitive" as const },
         },
         take: limit,
@@ -161,6 +193,9 @@ async function GET_handler(req: NextRequest) {
       prisma.folder.findMany({
         where: {
           workspace_id: auth.currentWorkspaceId,
+          ...(hiddenSpaceIds.length > 0
+            ? { space_id: { notIn: hiddenSpaceIds } }
+            : {}),
           name: { contains: q, mode: "insensitive" as const },
         },
         take: limit,
@@ -200,6 +235,9 @@ async function GET_handler(req: NextRequest) {
           where: {
             id: { in: folderIds },
             workspace_id: auth.currentWorkspaceId,
+            ...(hiddenSpaceIds.length > 0
+              ? { space_id: { notIn: hiddenSpaceIds } }
+              : {}),
           },
           include: folderInclude,
         }),
@@ -220,6 +258,9 @@ async function GET_handler(req: NextRequest) {
             where: {
               id: { in: missingSpaceIds },
               workspace_id: auth.currentWorkspaceId,
+              ...(hiddenSpaceIds.length > 0
+                ? { id: { notIn: hiddenSpaceIds } }
+                : {}),
             },
             orderBy: [{ position: "asc" }, { created_at: "asc" }, { id: "asc" }],
             select: spaceSelect,
@@ -293,6 +334,7 @@ async function GET_handler(req: NextRequest) {
       projects: { items: sidebarProjects, nextCursor: null },
       folders: { items: folders, nextCursor: null },
       pinned_clients: pinnedClients,
+      hidden_spaces: hiddenSpaces,
       search_results: searchResults,
     });
   }
@@ -301,6 +343,9 @@ async function GET_handler(req: NextRequest) {
     prisma.space.findMany({
       where: {
         workspace_id: auth.currentWorkspaceId,
+        ...(hiddenSpaceIds.length > 0
+          ? { id: { notIn: hiddenSpaceIds } }
+          : {}),
         ...(q && { name: { contains: q, mode: "insensitive" as const } }),
       },
       take: limit + 1,
@@ -322,6 +367,9 @@ async function GET_handler(req: NextRequest) {
       where: {
         workspace_id: auth.currentWorkspaceId,
         sidebar_hidden: false,
+        ...(hiddenSpaceIds.length > 0
+          ? { space_id: { notIn: hiddenSpaceIds } }
+          : {}),
         ...(q && { name: { contains: q, mode: "insensitive" as const } }),
       },
       take: limit + 1,
@@ -363,6 +411,9 @@ async function GET_handler(req: NextRequest) {
         where: {
           id: { in: folderIds },
           workspace_id: auth.currentWorkspaceId,
+          ...(hiddenSpaceIds.length > 0
+            ? { space_id: { notIn: hiddenSpaceIds } }
+            : {}),
         },
         include: folderInclude,
       }),
@@ -378,6 +429,7 @@ async function GET_handler(req: NextRequest) {
     projects: projectPage,
     folders: { items: sidebarFolders, nextCursor: folderPage.nextCursor },
     pinned_clients: pinnedClients,
+    hidden_spaces: hiddenSpaces,
     search_results: [],
   });
 }

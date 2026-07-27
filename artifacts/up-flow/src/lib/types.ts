@@ -530,6 +530,12 @@ export interface Company {
   client_onboardings?: ClientOnboarding[];
 }
 
+export interface SidebarHiddenSpace {
+  id: string;
+  name: string;
+  icon: string | null;
+}
+
 export interface SidebarPinnedClient {
   id: string;
   company_id: string;

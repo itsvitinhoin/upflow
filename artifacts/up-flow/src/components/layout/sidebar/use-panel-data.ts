@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { logError } from "@/lib/log-error";
-import type { Project, Space, Folder as FolderT, SidebarPinnedClient } from "@/lib/types";
+import type { Project, Space, Folder as FolderT, SidebarHiddenSpace, SidebarPinnedClient } from "@/lib/types";
 import {
   getSidebarStorageKeys,
   type SidebarSearchResult,
@@ -19,6 +19,7 @@ interface PanelPayload {
   spaces: { items: Space[] };
   projects: { items: Project[] };
   folders: { items: FolderT[] };
+  hidden_spaces?: SidebarHiddenSpace[];
   pinned_clients?: SidebarPinnedClient[];
   search_results?: SidebarSearchResult[];
 }
@@ -82,6 +83,7 @@ export function usePanelData(
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [folders, setFolders] = useState<FolderT[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [hiddenSpaces, setHiddenSpaces] = useState<SidebarHiddenSpace[]>([]);
   const [pinnedClients, setPinnedClients] = useState<SidebarPinnedClient[]>([]);
   const [searchResults, setSearchResults] = useState<SidebarSearchResult[]>([]);
   const [loadingPanel, setLoadingPanel] = useState(true);
@@ -116,6 +118,7 @@ export function usePanelData(
     setSpaces([]);
     setFolders([]);
     setProjects([]);
+    setHiddenSpaces([]);
     setPinnedClients([]);
     setSearchResults([]);
     setPanelLoadFailed(false);
@@ -141,6 +144,7 @@ export function usePanelData(
             setSpaces(snapshot.spaces.items);
             setFolders(snapshot.folders.items);
             setProjects(snapshot.projects.items);
+            setHiddenSpaces(snapshot.hidden_spaces ?? []);
             setPinnedClients(snapshot.pinned_clients ?? []);
             setLoadingPanel(false);
           }
@@ -180,6 +184,7 @@ export function usePanelData(
           setSpaces(nextSpaces);
           setProjects(nextProjects);
           setFolders(nextFolders);
+          setHiddenSpaces(data.hidden_spaces ?? []);
           setPinnedClients(data.pinned_clients ?? []);
           setSearchResults(data.search_results ?? []);
           setPanelLoadFailed(false);
@@ -356,6 +361,7 @@ export function usePanelData(
     spaces,
     folders,
     projects,
+    hiddenSpaces,
     pinnedClients,
     searchResults,
     loadingPanel,

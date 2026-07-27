@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { LogOut, PanelLeftClose, Pin, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, LogOut, PanelLeftClose, Pin, Plus, Search, Settings2, Sparkles, X } from "lucide-react";
 import { logError } from "@/lib/log-error";
-import type { Project, Space, Folder as FolderT, SidebarPinnedClient } from "@/lib/types";
+import type { Project, Space, Folder as FolderT, SidebarHiddenSpace, SidebarPinnedClient } from "@/lib/types";
 import InviteDialog from "@/components/dashboard/invite-dialog";
 import WorkspaceSwitcher from "@/components/layout/workspace-switcher";
 import { useLanguage } from "@/components/language-provider";
@@ -66,6 +66,7 @@ export default function Panel({
     spaces,
     folders,
     projects,
+    hiddenSpaces,
     pinnedClients,
     searchResults,
     loadingPanel,
@@ -95,6 +96,7 @@ export default function Panel({
     | null
   >(null);
   const [sidebarQuery, setSidebarQuery] = useState("");
+  const [spaceVisibilityChangeId, setSpaceVisibilityChangeId] = useState<string | null>(null);
   const [unpinningClientId, setUnpinningClientId] = useState<string | null>(null);
   const restoredDesignQueueFor = useRef<string | null>(null);
   const normalizedQuery = sidebarQuery.trim().toLowerCase();
@@ -168,6 +170,46 @@ export default function Panel({
     projects.filter((p) => (p.folder_id ?? null) === folderId);
   const projectsInSpaceLoose = (spaceId: string) =>
     projects.filter((p) => (p.space_id ?? null) === spaceId && !p.folder_id);
+
+  const handleHideSpace = async (sp: Space) => {
+    if (spaceVisibilityChangeId) return;
+    setSpaceVisibilityChangeId(sp.id);
+    try {
+      const res = await fetch(`/api/my-space-hides/${sp.id}`, { method: "POST" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("sidebar.couldNotHideSpace"));
+      }
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      toast.success(t("sidebar.spaceHidden"));
+      loadPanel({ force: true, query: sidebarQuery.trim() });
+    } catch (err) {
+      logError("sidebar:hide-space", err, { id: sp.id });
+      toast.error(err instanceof Error ? err.message : t("sidebar.couldNotHideSpace"));
+    } finally {
+      setSpaceVisibilityChangeId(null);
+    }
+  };
+
+  const handleShowSpace = async (space: SidebarHiddenSpace) => {
+    if (spaceVisibilityChangeId) return;
+    setSpaceVisibilityChangeId(space.id);
+    try {
+      const res = await fetch(`/api/my-space-hides/${space.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("sidebar.couldNotShowSpace"));
+      }
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+      toast.success(t("sidebar.spaceShown"));
+      loadPanel({ force: true, query: sidebarQuery.trim() });
+    } catch (err) {
+      logError("sidebar:show-space", err, { id: space.id });
+      toast.error(err instanceof Error ? err.message : t("sidebar.couldNotShowSpace"));
+    } finally {
+      setSpaceVisibilityChangeId(null);
+    }
+  };
 
   const handleDeleteSpace = async (sp: Space) => {
     if (!confirm(t("sidebar.deleteSpaceConfirm", { name: sp.name }))) return;
@@ -251,6 +293,7 @@ export default function Panel({
     setCreateFolderTarget,
     setRenameFolderTarget,
     setCreateListFor,
+    handleHideSpace,
     handleDeleteSpace,
     handleDeleteFolder,
     handleDuplicateFolder,
@@ -406,6 +449,14 @@ export default function Panel({
                     />
                   ))}
 
+                  {!isSearching && hiddenSpaces.length > 0 && (
+                    <HiddenSpacesSection
+                      items={hiddenSpaces}
+                      changingSpaceId={spaceVisibilityChangeId}
+                      onShow={handleShowSpace}
+                    />
+                  )}
+
                   {!isSearching && !(unassignedItems.length === 0 && spaces.length > 0) && (
                     <UnassignedNode
                       items={unassignedItems}
@@ -420,7 +471,7 @@ export default function Panel({
                     />
                   )}
 
-                  {!isSearching && spaces.length === 0 && unassignedItems.length === 0 && (
+                  {!isSearching && spaces.length === 0 && unassignedItems.length === 0 && hiddenSpaces.length === 0 && (
                     <div className="px-3 py-6 text-center text-xs text-muted-foreground">
                       <p className="font-semibold text-foreground">{t("sidebar.noSpaces")}</p>
                       <p className="mt-2 leading-5">{t("sidebar.noSpacesHint")}</p>
@@ -440,7 +491,7 @@ export default function Panel({
                     </div>
                   )}
 
-                  {!isSearching && canManageWorkspace && (spaces.length > 0 || unassignedItems.length > 0) && (
+                  {!isSearching && canManageWorkspace && (spaces.length > 0 || unassignedItems.length > 0 || hiddenSpaces.length > 0) && (
                     <button
                       type="button"
                       onClick={() => setShowCreate(true)}
@@ -560,6 +611,68 @@ export default function Panel({
         />
       )}
     </>
+  );
+}
+
+function HiddenSpacesSection({
+  items,
+  changingSpaceId,
+  onShow,
+}: {
+  items: SidebarHiddenSpace[];
+  changingSpaceId: string | null;
+  onShow: (space: SidebarHiddenSpace) => void;
+}) {
+  const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-muted/25 p-1.5 dark:border-white/10 dark:bg-white/[0.04]">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition hover:bg-accent hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 dark:hover:bg-white/[0.06]"
+      >
+        <EyeOff className="h-3.5 w-3.5" />
+        <span className="min-w-0 flex-1 truncate">
+          {t("sidebar.hiddenSpaces", { count: items.length })}
+        </span>
+        {expanded ? (
+          <ChevronDown className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" />
+        )}
+      </button>
+      {expanded && (
+        <div className="mt-1 space-y-0.5 border-t border-border/70 pt-1 dark:border-white/10">
+          {items.map((space) => (
+            <div
+              key={space.id}
+              className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-accent dark:hover:bg-white/[0.06]"
+            >
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] leading-none dark:bg-white/[0.12]">
+                {space.icon || "UP"}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground/85">
+                {space.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => onShow(space)}
+                disabled={changingSpaceId === space.id}
+                aria-label={t("sidebar.showSpace", { name: space.name })}
+                title={t("sidebar.showSpace", { name: space.name })}
+                className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md border border-border bg-background/70 px-1.5 text-[10px] font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:cursor-wait disabled:opacity-50 dark:border-white/10 dark:bg-white/[0.06]"
+              >
+                <Eye className="h-3 w-3" />
+                {t("sidebar.restoreSpace")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
