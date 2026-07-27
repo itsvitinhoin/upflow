@@ -163,9 +163,11 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     // List → Board toggle: kanban renders three columns. Header text is
     // "To Do" / "In Progress" / "Done" (uppercase is CSS only).
     await page.getByRole("button", { name: /^Board$/ }).click();
-    await expect(page.getByText("To Do", { exact: true })).toBeVisible();
-    await expect(page.getByText("In Progress", { exact: true })).toBeVisible();
-    await expect(page.getByText("Done", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-kanban-column='todo']")).toBeVisible();
+    await expect(
+      page.locator("[data-kanban-column='in_progress']"),
+    ).toBeVisible();
+    await expect(page.locator("[data-kanban-column='done']")).toBeVisible();
 
     // Back to list and use the toolbar's inline search to filter.
     await page.getByRole("button", { name: /^List$/ }).click();

@@ -37,6 +37,17 @@ test.describe("Password recovery pages", () => {
   }) => {
     const ctx = await browser.newContext({ baseURL });
     const page = await ctx.newPage();
+    await page.route("**/api/auth/forgot", async (route) => {
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postDataJSON()).toEqual({
+        email: "nobody@example.com",
+      });
+      await route.fulfill({
+        status: 202,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "accepted" }),
+      });
+    });
     await page.goto("/auth/forgot");
 
     await page.getByPlaceholder("you@company.com").fill("nobody@example.com");
