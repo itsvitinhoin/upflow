@@ -64,6 +64,9 @@ test("rejects confirmation links that are not this app's recovery callback", () 
 test("confirmation page scrubs the token and waits for a click", () => {
   const page = readFileSync("src/app/auth/reset/confirm/confirm-page.tsx", "utf8");
   const middleware = readFileSync("src/middleware.ts", "utf8");
+  assert.match(page, /const recoveryHash = useRef<string \| null>\(null\)/);
+  assert.match(page, /const hash = recoveryHash\.current \?\? window\.location\.hash;/);
+  assert.match(page, /hash,\s*supabaseUrl:/);
   assert.match(page, /window\.history\.replaceState\(null, "", window\.location\.pathname\)/);
   assert.match(page, /window\.location\.replace\(actionLink\)/);
   assert.match(page, /type="button"/);

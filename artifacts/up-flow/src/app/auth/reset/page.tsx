@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, Zap, ArrowLeft } from "lucide-react";
@@ -21,24 +21,33 @@ export default function ResetPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [invalidLink, setInvalidLink] = useState(false);
+  // A recovery code is single-use. Language hydration can re-render this
+  // page while the exchange is still in flight, so never consume it twice.
+  const recoveryAttempted = useRef(false);
 
   useEffect(() => {
+    if (recoveryAttempted.current) return;
+    recoveryAttempted.current = true;
+
     let active = true;
+    // Capture the callback before any asynchronous work (or a later render)
+    // can clear its one-time query code or token fragment.
+    const recoveryLocation = {
+      search: window.location.search,
+      hash: window.location.hash,
+    };
     // Handle the recovery callback ourselves so we support both Supabase's
     // PKCE `?code=` callbacks and legacy `#access_token=` callbacks.
     const supabase = createSupabaseBrowserClient({ detectSessionInUrl: false });
 
     void (async () => {
       try {
-        const result = await establishPasswordRecoverySession(supabase, {
-          search: window.location.search,
-          hash: window.location.hash,
-        });
+        const result = await establishPasswordRecoverySession(supabase, recoveryLocation);
         if (!active) return;
 
         if (result !== "ready") {
-          setError(t("auth.reset.invalidLink"));
+          setInvalidLink(true);
           return;
         }
 
@@ -46,14 +55,14 @@ export default function ResetPasswordPage() {
         window.history.replaceState(null, "", window.location.pathname);
         setReady(true);
       } catch {
-        if (active) setError(t("auth.reset.invalidLink"));
+        if (active) setInvalidLink(true);
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [t]);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,9 +113,9 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="bg-card border border-border rounded-2xl p-8 shadow-2xl">
-          {error ? (
+          {invalidLink ? (
             <div className="space-y-4 text-center">
-              <p className="text-sm text-foreground">{error}</p>
+              <p className="text-sm text-foreground">{t("auth.reset.invalidLink")}</p>
               <Link
                 href="/auth/forgot"
                 className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-2.5 px-4 rounded-lg transition-colors"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, Zap } from "lucide-react";
 import { getPasswordRecoveryActionLink } from "@/lib/supabase/recovery-link";
@@ -15,10 +15,16 @@ export default function ResetConfirmationPage() {
   const { t } = useLanguage();
   const [actionLink, setActionLink] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
+  // Keep the fragment available if React replays this effect while developing.
+  // The fragment is intentionally scrubbed from history after the first read.
+  const recoveryHash = useRef<string | null>(null);
 
   useEffect(() => {
+    const hash = recoveryHash.current ?? window.location.hash;
+    recoveryHash.current = hash;
+
     const recoveryActionLink = getPasswordRecoveryActionLink({
-      hash: window.location.hash,
+      hash,
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
       expectedRedirectTo: `${window.location.origin}/auth/reset`,
     });
