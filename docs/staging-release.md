@@ -9,6 +9,18 @@ feature/* -> staging -> main -> controlled production release
 Only GitHub Actions deploys the application. `vercel.json` disables all Vercel
 Git-triggered deployments so a normal push cannot change the live app.
 
+## Bootstrap order
+
+1. Complete the isolated Supabase and Vercel setup below. Do not create a
+   `staging` branch from the current `main` while it can still inherit
+   production preview settings.
+2. Merge the release-safeguards pull request into `main` as a one-time
+   administrative change. This disables automatic Git deployments before the
+   new staging branch exists.
+3. Create `staging` from the updated `main`, then apply the `main` and
+   `staging` GitHub rulesets.
+4. Push only through pull requests from this point onward.
+
 ## One-time external setup
 
 ### 1. Create an isolated staging database
