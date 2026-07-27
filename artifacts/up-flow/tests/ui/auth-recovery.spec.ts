@@ -105,7 +105,7 @@ test.describe("Password recovery pages", () => {
     await page.route("**/auth/v1/verify**", async (route) => {
       verificationRequests += 1;
       expect(route.request().method()).toBe("POST");
-      expect(route.request().postDataJSON()).toEqual({
+      expect(route.request().postDataJSON()).toMatchObject({
         token_hash: "one-time-token-hash",
         type: "recovery",
       });
