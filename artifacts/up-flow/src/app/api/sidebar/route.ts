@@ -6,6 +6,7 @@ import { buildPage, parsePagination } from "@/lib/pagination";
 import { readableProjectWhere } from "@/lib/project-access";
 import {
   buildFolderBreadcrumb,
+  loadSidebarFolderContext,
   type SidebarSearchResult,
 } from "@/lib/sidebar-discovery";
 import {
@@ -191,32 +192,18 @@ async function GET_handler(req: NextRequest) {
 
     const sidebarProjects = await withProjectPendingTodoCounts(matchingProjects);
 
-    const folderById = new Map(matchingFolders.map((folder) => [folder.id, folder]));
-    const pendingFolderIds = new Set<string>();
-    const addFolderContext = (folderId: string | null | undefined) => {
-      if (folderId && !folderById.has(folderId)) pendingFolderIds.add(folderId);
-    };
-
-    for (const folder of matchingFolders) addFolderContext(folder.parent_id);
-    for (const project of matchingProjects) addFolderContext(project.folder_id);
-
-    while (pendingFolderIds.size > 0) {
-      const batchIds = Array.from(pendingFolderIds);
-      pendingFolderIds.clear();
-      const parentFolders = await prisma.folder.findMany({
-        where: {
-          id: { in: batchIds },
-          workspace_id: auth.currentWorkspaceId,
-        },
-        include: folderInclude,
-      });
-      for (const folder of parentFolders) {
-        if (!folderById.has(folder.id)) {
-          folderById.set(folder.id, folder);
-          addFolderContext(folder.parent_id);
-        }
-      }
-    }
+    const folderById = await loadSidebarFolderContext(
+      matchingFolders,
+      matchingProjects.map((project) => project.folder_id),
+      (folderIds) =>
+        prisma.folder.findMany({
+          where: {
+            id: { in: folderIds },
+            workspace_id: auth.currentWorkspaceId,
+          },
+          include: folderInclude,
+        }),
+    );
 
     const spaceIds = new Set(matchingSpaces.map((space) => space.id));
     for (const folder of folderById.values()) spaceIds.add(folder.space_id);
@@ -366,11 +353,30 @@ async function GET_handler(req: NextRequest) {
   ]);
 
   const sidebarProjects = await withProjectPendingTodoCounts(projects);
+  const projectPage = buildPage(sidebarProjects, limit);
+  const folderPage = buildPage(folders, limit);
+  const folderById = await loadSidebarFolderContext(
+    folderPage.items,
+    projectPage.items.map((project) => project.folder_id),
+    (folderIds) =>
+      prisma.folder.findMany({
+        where: {
+          id: { in: folderIds },
+          workspace_id: auth.currentWorkspaceId,
+        },
+        include: folderInclude,
+      }),
+  );
+  const sidebarFolders = Array.from(folderById.values()).sort((a, b) => {
+    const positionDelta = (a.position ?? 0) - (b.position ?? 0);
+    if (positionDelta !== 0) return positionDelta;
+    return a.name.localeCompare(b.name);
+  });
 
   return NextResponse.json({
     spaces: buildPage(spaces.map(withPendingTodoCount), limit),
-    projects: buildPage(sidebarProjects, limit),
-    folders: buildPage(folders, limit),
+    projects: projectPage,
+    folders: { items: sidebarFolders, nextCursor: folderPage.nextCursor },
     pinned_clients: pinnedClients,
     search_results: [],
   });

@@ -32,7 +32,7 @@ export function getSidebarStorageKeys(input: {
   };
 }
 
-interface FolderBreadcrumbItem {
+export interface SidebarFolderContextItem {
   id: string;
   name: string;
   parent_id?: string | null;
@@ -40,7 +40,7 @@ interface FolderBreadcrumbItem {
 
 export function buildFolderBreadcrumb(
   folderId: string | null | undefined,
-  folders: ReadonlyMap<string, FolderBreadcrumbItem>,
+  folders: ReadonlyMap<string, SidebarFolderContextItem>,
 ) {
   const path: string[] = [];
   const visited = new Set<string>();
@@ -53,4 +53,38 @@ export function buildFolderBreadcrumb(
   }
 
   return path.reverse();
+}
+
+/**
+ * Adds the folder chain required to render already-visible projects without
+ * exposing unrelated hidden folders. A project nested in a hidden legacy
+ * folder still needs every ancestor in the navigation payload.
+ */
+export async function loadSidebarFolderContext<T extends SidebarFolderContextItem>(
+  initialFolders: readonly T[],
+  projectFolderIds: Iterable<string | null | undefined>,
+  findFolders: (folderIds: string[]) => Promise<readonly T[]>,
+) {
+  const folderById = new Map(initialFolders.map((folder) => [folder.id, folder]));
+  const pendingFolderIds = new Set<string>();
+  const addFolderContext = (folderId: string | null | undefined) => {
+    if (folderId && !folderById.has(folderId)) pendingFolderIds.add(folderId);
+  };
+
+  for (const folder of initialFolders) addFolderContext(folder.parent_id);
+  for (const folderId of projectFolderIds) addFolderContext(folderId);
+
+  while (pendingFolderIds.size > 0) {
+    const batchIds = Array.from(pendingFolderIds);
+    pendingFolderIds.clear();
+
+    const parentFolders = await findFolders(batchIds);
+    for (const folder of parentFolders) {
+      if (folderById.has(folder.id)) continue;
+      folderById.set(folder.id, folder);
+      addFolderContext(folder.parent_id);
+    }
+  }
+
+  return folderById;
 }

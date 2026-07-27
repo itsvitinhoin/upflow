@@ -605,9 +605,11 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
     const projectsByFolder = new Map<string, typeof existingProjects[number]>();
     for (const project of existingProjects) {
       if (!project.space_id) continue;
-      const names = projectNamesBySpace.get(project.space_id) ?? new Set<string>();
-      names.add(normalizeDepartmentSpaceName(project.name));
-      projectNamesBySpace.set(project.space_id, names);
+      if (project.company_id === null) {
+        const names = projectNamesBySpace.get(project.space_id) ?? new Set<string>();
+        names.add(normalizeDepartmentSpaceName(project.name));
+        projectNamesBySpace.set(project.space_id, names);
+      }
       if (project.folder_id && project.company_id === null) {
         projectsByFolder.set(containerKey(project.folder_id, null, project.name), project);
       }
@@ -734,5 +736,6 @@ export async function ensureDepartmentSpaces(workspaceId: string, fallbackOwnerI
     }
   } catch (err) {
     logError("department-spaces:ensure", err, { workspaceId });
+    throw err;
   }
 }

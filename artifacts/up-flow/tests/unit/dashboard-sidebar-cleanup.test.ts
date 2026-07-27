@@ -86,6 +86,7 @@ test("sidebar search queries the server and includes parent context for folder m
   const panel = read("src/components/layout/sidebar/panel.tsx");
   const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
   const sidebarRoute = read("src/app/api/sidebar/route.ts");
+  const sidebarDiscovery = read("src/lib/sidebar-discovery.ts");
   const workspaceTreeRoute = read("src/app/api/workspace-tree/route.ts");
 
   assert.match(panel, /loadPanel\(\{ force: isSearching, query: sidebarQuery\.trim\(\) \}\)/);
@@ -95,9 +96,10 @@ test("sidebar search queries the server and includes parent context for folder m
   assert.match(workspaceTreeRoute, /export \{ GET \} from "@\/app\/api\/sidebar\/route"/);
   assert.match(panelData, /panelLoadFailed/);
   assert.match(panel, /sidebar\.navigationUnavailable/);
-  assert.match(sidebarRoute, /const folderById = new Map\(matchingFolders\.map/);
-  assert.match(sidebarRoute, /addFolderContext\(project\.folder_id\)/);
-  assert.match(sidebarRoute, /pendingFolderIds\.size > 0/);
+  assert.match(sidebarRoute, /loadSidebarFolderContext\(/);
+  assert.match(sidebarRoute, /matchingProjects\.map\(\(project\) => project\.folder_id\)/);
+  assert.match(sidebarRoute, /projectPage\.items\.map\(\(project\) => project\.folder_id\)/);
+  assert.match(sidebarDiscovery, /pendingFolderIds\.size > 0/);
   assert.match(sidebarRoute, /for \(const folder of folderById\.values\(\)\) spaceIds\.add\(folder\.space_id\)/);
 });
 
