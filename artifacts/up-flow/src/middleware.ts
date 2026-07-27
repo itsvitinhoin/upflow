@@ -15,17 +15,24 @@ export async function middleware(req: NextRequest) {
   }
 
   const isLoginPage = pathname === "/login";
+  const isPasswordRecoveryPage =
+    pathname === "/auth/reset" || pathname === "/auth/reset/confirm";
   // Public, unauthenticated pages: login + the password-recovery flow +
   // the invite landing page (lets a logged-out invitee click the email
   // link and sign up before joining).
   const isPublicAuthPage =
     isLoginPage ||
     pathname === "/auth/forgot" ||
-    pathname === "/auth/reset" ||
-    pathname === "/auth/reset/confirm" ||
+    isPasswordRecoveryPage ||
     pathname.startsWith("/invite/");
 
   let response = NextResponse.next({ request: { headers: req.headers } });
+  if (isPasswordRecoveryPage) {
+    // The confirmation state and the legacy callback can be bearer values.
+    // Never cache or send either one in a later navigation's Referer header.
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+  }
   const cookieMutations: Array<{ name: string; value: string; options?: CookieOptions }> = [];
 
   // Test-auth controls when this CI-only bypass is available. Middleware only

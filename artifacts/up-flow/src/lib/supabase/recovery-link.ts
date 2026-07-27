@@ -11,6 +11,12 @@ export type PasswordRecoveryActionLinkOptions = {
   expectedRedirectTo: string;
 };
 
+export type PasswordRecoveryActionLinkValidationOptions = {
+  actionLink: string;
+  supabaseUrl: string | undefined;
+  expectedRedirectTo: string;
+};
+
 /**
  * Wrap Supabase's single-use action link in an app-controlled confirmation
  * screen. The action link stays in the URL fragment, which browsers do not
@@ -37,7 +43,26 @@ export function getPasswordRecoveryActionLink({
   expectedRedirectTo,
 }: PasswordRecoveryActionLinkOptions): string | null {
   const actionLink = new URLSearchParams(hash.replace(/^#/, "")).get("action");
-  if (!actionLink || !supabaseUrl) return null;
+  if (!actionLink) return null;
+
+  return validatePasswordRecoveryActionLink({
+    actionLink,
+    supabaseUrl,
+    expectedRedirectTo,
+  });
+}
+
+/**
+ * Validate a recovery action URL supplied by our server-side confirmation
+ * state. Keeping this validation shared with the legacy fragment flow avoids
+ * turning the confirmation endpoint into an open redirect.
+ */
+export function validatePasswordRecoveryActionLink({
+  actionLink,
+  supabaseUrl,
+  expectedRedirectTo,
+}: PasswordRecoveryActionLinkValidationOptions): string | null {
+  if (!supabaseUrl) return null;
 
   try {
     const actionUrl = new URL(actionLink);

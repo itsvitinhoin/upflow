@@ -5,8 +5,10 @@ import { sendEmail } from "@/lib/email/send";
 import { passwordResetEmail } from "@/lib/email/templates";
 import { getEmailOrigin, EmailOriginError } from "@/lib/email/origin";
 import { logError } from "@/lib/log-error";
-import { createPasswordRecoveryConfirmationUrl } from "@/lib/supabase/recovery-link";
+import { createPasswordRecoveryStateConfirmationUrl } from "@/lib/supabase/recovery-state";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+
+export const runtime = "nodejs";
 
 /**
  * Kick off a password reset.
@@ -99,11 +101,13 @@ async function sendCustomResetEmail(email: string, redirectTo: string): Promise<
 
     // Do not put Supabase's one-time action link directly in email. Mail
     // scanners can prefetch and consume it before the recipient clicks. The
-    // interstitial keeps it in a fragment and follows it only after an
-    // explicit user action.
-    const resetUrl = createPasswordRecoveryConfirmationUrl({
+    // encrypted state survives email-link tracking without exposing the
+    // recovery token and is resolved only after an explicit user action.
+    const resetUrl = createPasswordRecoveryStateConfirmationUrl({
       appOrigin: new URL(redirectTo).origin,
       actionLink: data.properties.action_link,
+      redirectTo,
+      secret: serviceKey,
     });
     const rendered = passwordResetEmail({
       resetUrl,

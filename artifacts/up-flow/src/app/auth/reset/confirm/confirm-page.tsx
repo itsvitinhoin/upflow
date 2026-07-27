@@ -14,24 +14,38 @@ import { useLanguage } from "@/components/language-provider";
 export default function ResetConfirmationPage() {
   const { t } = useLanguage();
   const [actionLink, setActionLink] = useState<string | null>(null);
+  const [recoveryState, setRecoveryState] = useState<string | null>(null);
+  const [continuing, setContinuing] = useState(false);
   const [invalid, setInvalid] = useState(false);
-  // Keep the fragment available if React replays this effect while developing.
-  // The fragment is intentionally scrubbed from history after the first read.
+  const [temporaryError, setTemporaryError] = useState(false);
+  // Keep callback inputs available if React replays this effect while
+  // developing. Both inputs are scrubbed from history after the first read.
   const recoveryHash = useRef<string | null>(null);
+  const recoveryStateRef = useRef<string | null>(null);
+  const continuationStarted = useRef(false);
 
   useEffect(() => {
+    const state = recoveryStateRef.current ?? new URLSearchParams(window.location.search).get("state");
+    recoveryStateRef.current = state;
+
     const hash = recoveryHash.current ?? window.location.hash;
     recoveryHash.current = hash;
+    const recoveryActionLink = state
+      ? null
+      : getPasswordRecoveryActionLink({
+          hash,
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          expectedRedirectTo: `${window.location.origin}/auth/reset`,
+        });
 
-    const recoveryActionLink = getPasswordRecoveryActionLink({
-      hash,
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      expectedRedirectTo: `${window.location.origin}/auth/reset`,
-    });
-
-    // The fragment contains a one-time token. Keep it out of browser history
-    // and out of client-side error/telemetry payloads as early as possible.
+    // `state` is encrypted and the legacy fragment can contain a one-time
+    // token. Keep both out of browser history and telemetry payloads early.
     window.history.replaceState(null, "", window.location.pathname);
+
+    if (state) {
+      setRecoveryState(state);
+      return;
+    }
 
     if (!recoveryActionLink) {
       setInvalid(true);
@@ -41,8 +55,49 @@ export default function ResetConfirmationPage() {
     setActionLink(recoveryActionLink);
   }, []);
 
-  function continueToReset() {
-    if (actionLink) window.location.replace(actionLink);
+  async function continueToReset() {
+    if (continuationStarted.current) return;
+    continuationStarted.current = true;
+
+    if (actionLink) {
+      window.location.replace(actionLink);
+      return;
+    }
+    if (!recoveryState) {
+      continuationStarted.current = false;
+      return;
+    }
+
+    setTemporaryError(false);
+    setContinuing(true);
+    let navigating = false;
+    try {
+      const response = await fetch("/api/auth/forgot/continue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: recoveryState }),
+        cache: "no-store",
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+      });
+      const payload = (await response.json().catch(() => null)) as { actionLink?: unknown } | null;
+      if (response.status === 400) {
+        setInvalid(true);
+        return;
+      }
+      if (!response.ok || typeof payload?.actionLink !== "string") {
+        setTemporaryError(true);
+        return;
+      }
+
+      navigating = true;
+      window.location.replace(payload.actionLink);
+    } catch {
+      setTemporaryError(true);
+    } finally {
+      setContinuing(false);
+      if (!navigating) continuationStarted.current = false;
+    }
   }
 
   return (
@@ -74,18 +129,26 @@ export default function ResetConfirmationPage() {
                 {t("auth.reset.requestNewLink")}
               </Link>
             </div>
-          ) : !actionLink ? (
+          ) : !actionLink && !recoveryState ? (
             <div className="flex justify-center py-6 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={continueToReset}
-              className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-colors hover:bg-primary/90"
-            >
-              {t("auth.reset.continue")}
-            </button>
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={continueToReset}
+                disabled={continuing}
+                className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 font-semibold text-primary-foreground shadow-md shadow-primary/20 transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {continuing ? <Loader2 className="h-4 w-4 animate-spin" /> : t("auth.reset.continue")}
+              </button>
+              {temporaryError ? (
+                <p className="text-center text-sm text-muted-foreground" role="alert">
+                  {t("auth.reset.continueFailed")}
+                </p>
+              ) : null}
+            </div>
           )}
 
           <div className="mt-6 border-t border-border pt-6 text-center">

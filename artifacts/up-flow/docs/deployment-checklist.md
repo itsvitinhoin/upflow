@@ -33,7 +33,7 @@ In **Supabase Dashboard → Authentication → URL Configuration**:
 1. Set **Site URL** to the same canonical HTTPS origin as `APP_URL`.
 2. Add the exact password-reset callback to **Redirect URLs**: `https://your-production-domain/auth/reset`.
 3. Keep preview and localhost URLs separate from the canonical production URL. Do not point `APP_URL` at a preview deployment.
-4. Leave click tracking disabled for password-reset emails. Up Flow's custom Resend email opens `/auth/reset/confirm` first to prevent ordinary mail prefetchers from consuming the one-time Supabase link. If relying on Supabase's native recovery-email fallback, test that template with your mail-security scanner or use an OTP/manual-entry template.
+4. Up Flow's custom Resend email opens `/auth/reset/confirm` with an opaque, encrypted confirmation state, so it does not depend on preserving a URL fragment through click tracking. The native Supabase recovery-email fallback still uses a direct Auth link; test that fallback with your mail-security scanner or configure the custom Resend path for production.
 
 Password-reset links use this allow list. If the callback is missing, Supabase can reject the reset request or redirect users to an incorrect URL.
 

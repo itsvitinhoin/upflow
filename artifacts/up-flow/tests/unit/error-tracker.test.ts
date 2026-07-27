@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 /**
  * Tests for `src/lib/error-tracker.ts` and `src/lib/with-error-reporting.ts`.
@@ -242,4 +243,13 @@ test("captureError redacts secret-shaped extras", async () => {
   } finally {
     console.error = origErr;
   }
+});
+
+test("Sentry configuration redacts password recovery callback values", () => {
+  const client = readFileSync("src/instrumentation-client.ts", "utf8");
+  const server = readFileSync("src/instrumentation.ts", "utf8");
+
+  assert.match(client, /token_hash\|access_token\|refresh_token\|code\|state\|action/);
+  assert.match(server, /token_hash\|access_token\|refresh_token\|code\|state\|action/);
+  assert.match(server, /\^referer\$/i);
 });

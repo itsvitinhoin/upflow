@@ -20,7 +20,7 @@ if (dsn) {
     beforeSend(event) {
       if (event.request?.url) {
         event.request.url = event.request.url.replace(
-          /([?&](?:token|code)=)[^&]+/gi,
+          /([?#&](?:token|token_hash|access_token|refresh_token|code|state|action)=)[^&#]+/gi,
           "$1[redacted]",
         );
       }

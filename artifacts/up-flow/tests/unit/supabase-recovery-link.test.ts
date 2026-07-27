@@ -61,14 +61,23 @@ test("rejects confirmation links that are not this app's recovery callback", () 
   }
 });
 
-test("confirmation page scrubs the token and waits for a click", () => {
+test("confirmation page supports opaque state, scrubs callbacks, and waits for a click", () => {
   const page = readFileSync("src/app/auth/reset/confirm/confirm-page.tsx", "utf8");
   const middleware = readFileSync("src/middleware.ts", "utf8");
   assert.match(page, /const recoveryHash = useRef<string \| null>\(null\)/);
   assert.match(page, /const hash = recoveryHash\.current \?\? window\.location\.hash;/);
+  assert.match(page, /new URLSearchParams\(window\.location\.search\)\.get\("state"\)/);
   assert.match(page, /hash,\s*supabaseUrl:/);
   assert.match(page, /window\.history\.replaceState\(null, "", window\.location\.pathname\)/);
+  assert.match(page, /fetch\("\/api\/auth\/forgot\/continue"/);
+  assert.match(page, /credentials: "omit"/);
+  assert.match(page, /referrerPolicy: "no-referrer"/);
+  assert.match(page, /continuationStarted\.current/);
+  assert.match(page, /response\.status === 400/);
+  assert.match(page, /setTemporaryError\(true\)/);
   assert.match(page, /window\.location\.replace\(actionLink\)/);
   assert.match(page, /type="button"/);
   assert.match(middleware, /pathname === "\/auth\/reset\/confirm"/);
+  assert.match(middleware, /response\.headers\.set\("Referrer-Policy", "no-referrer"\)/);
+  assert.match(middleware, /response\.headers\.set\("Cache-Control", "private, no-store"\)/);
 });

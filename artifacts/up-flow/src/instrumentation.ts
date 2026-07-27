@@ -57,6 +57,7 @@ export async function onRequestError(
 function redactSensitive<
   T extends {
     request?: {
+      url?: string;
       headers?: Record<string, string>;
       cookies?: Record<string, string>;
     };
@@ -64,10 +65,15 @@ function redactSensitive<
   },
 >(event: T): T {
   if (event.request) {
+    if (event.request.url) {
+      event.request.url = redactRecoveryParameters(event.request.url);
+    }
     if (event.request.headers) {
       for (const k of Object.keys(event.request.headers)) {
         if (/^(authorization|cookie|x-.*-token)$/i.test(k)) {
           event.request.headers[k] = "[redacted]";
+        } else if (/^referer$/i.test(k)) {
+          event.request.headers[k] = redactRecoveryParameters(event.request.headers[k] ?? "");
         }
       }
     }
@@ -80,4 +86,11 @@ function redactSensitive<
     event.user.ip_address = null;
   }
   return event;
+}
+
+function redactRecoveryParameters(value: string): string {
+  return value.replace(
+    /([?#&](?:token|token_hash|access_token|refresh_token|code|state|action)=)[^&#]+/gi,
+    "$1[redacted]",
+  );
 }

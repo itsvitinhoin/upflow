@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { NextRequest } from "next/server";
+import { readPasswordRecoveryState } from "../../src/lib/supabase/recovery-state";
 
 const authEnvNames = [
   "NODE_ENV",
@@ -103,7 +104,7 @@ test("falls back to Supabase recovery email when custom link generation fails", 
   }
 });
 
-test("custom recovery email uses the confirmation screen instead of a direct action link", async () => {
+test("custom recovery email uses an opaque confirmation state instead of a direct action link", async () => {
   const env = snapshotEnv();
   const originalFetch = globalThis.fetch;
   configureRecoveryEnv();
@@ -142,10 +143,18 @@ test("custom recovery email uses the confirmation screen instead of a direct act
     const response = await POST(makeRequest("203.0.113.203"));
 
     assert.equal(response.status, 202);
-    assert.ok(email?.html?.includes("https://app.example/auth/reset/confirm#action="));
-    assert.ok(email?.text?.includes("https://app.example/auth/reset/confirm#action="));
+    const confirmationUrl = (email?.text ?? "").match(
+      /https:\/\/app\.example\/auth\/reset\/confirm\?state=[A-Za-z0-9_-]+/,
+    )?.[0];
+    assert.ok(confirmationUrl, "email should contain an opaque confirmation URL");
     assert.ok(!email?.html?.includes(actionLink), "email must not expose a direct action link");
     assert.ok(!email?.text?.includes(actionLink), "plaintext fallback must not expose a direct action link");
+    const state = new URL(confirmationUrl!).searchParams.get("state");
+    const payload = readPasswordRecoveryState({ state: state ?? "", secret: "service-role-key" });
+    assert.equal(payload?.version, 1);
+    assert.equal(payload?.actionLink, actionLink);
+    assert.equal(payload?.redirectTo, "https://app.example/auth/reset");
+    assert.ok((payload?.expiresAt ?? 0) > Math.floor(Date.now() / 1000));
   } finally {
     restoreEnv(env);
     globalThis.fetch = originalFetch;

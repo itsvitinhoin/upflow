@@ -78,4 +78,75 @@ test.describe("Password recovery pages", () => {
 
     await ctx.close();
   });
+
+  test("opaque confirmation state is scrubbed and resolved only after Continue", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await browser.newContext({ baseURL });
+    const page = await ctx.newPage();
+    const state = "opaque-recovery-state";
+    let continuationRequests = 0;
+
+    await page.route("**/api/auth/forgot/continue", async (route) => {
+      continuationRequests += 1;
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postDataJSON()).toEqual({ state });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ actionLink: "https://recovery.example.test/verified" }),
+      });
+    });
+    await page.route("https://recovery.example.test/verified", async (route) => {
+      await route.fulfill({ status: 200, body: "verified" });
+    });
+
+    await page.goto(`/auth/reset/confirm?state=${state}`);
+    await expect(page).toHaveURL(/\/auth\/reset\/confirm$/);
+    await expect(
+      page.getByRole("button", { name: "Continue to reset password" }),
+    ).toBeVisible();
+    expect(continuationRequests).toBe(0);
+
+    await page.getByRole("button", { name: "Continue to reset password" }).click();
+    await expect(page).toHaveURL("https://recovery.example.test/verified");
+    expect(continuationRequests).toBe(1);
+
+    await ctx.close();
+  });
+
+  test("temporary confirmation failures keep the reset link retryable", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await browser.newContext({ baseURL });
+    const page = await ctx.newPage();
+    let continuationRequests = 0;
+
+    await page.route("**/api/auth/forgot/continue", async (route) => {
+      continuationRequests += 1;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "temporarily unavailable" }),
+      });
+    });
+
+    await page.goto("/auth/reset/confirm?state=retryable-state");
+    const continueButton = page.getByRole("button", { name: "Continue to reset password" });
+    await continueButton.click();
+
+    await expect(
+      page.getByRole("alert", { name: "We couldn't open the reset form. Please try again." }),
+    ).toBeVisible();
+    await expect(continueButton).toBeEnabled();
+    await expect(page).toHaveURL(/\/auth\/reset\/confirm$/);
+    await expect(page.getByText(/reset link is invalid or has expired/i)).not.toBeVisible();
+
+    await continueButton.click();
+    await expect.poll(() => continuationRequests).toBe(2);
+
+    await ctx.close();
+  });
 });
