@@ -6,13 +6,21 @@ import Link from "next/link";
 import { AlertCircle, Building2, Calendar, CheckSquare, DollarSign, FileText, FolderKanban, PackageCheck, Pencil, Plus, RefreshCcw, Save, Timer, Trash2, TrendingUp, Users, X } from "lucide-react";
 import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
-import type { Company, CompanyContact, CompanyNote, TimeEntry } from "@/lib/types";
+import { useAppUser } from "@/components/user-provider";
+import type { Company, CompanyContact, CompanyNote, SalesChannel, TeamMember, TimeEntry } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 
 type ClientPayload = Company & { time_entries?: TimeEntry[] };
 
+const SALES_CHANNEL_OPTIONS: Array<{ value: SalesChannel; labelKey: string }> = [
+  { value: "WHOLESALE", labelKey: "clients.salesChannel.wholesale" },
+  { value: "RETAIL", labelKey: "clients.salesChannel.retail" },
+  { value: "BOTH", labelKey: "clients.salesChannel.both" },
+];
+
 export default function ClientDetailPage() {
+  const user = useAppUser();
   const { language, t } = useLanguage();
   const locale = language === "pt-BR" ? "pt-BR" : "en-US";
   const params = useParams();
@@ -38,13 +46,24 @@ export default function ClientDetailPage() {
   const [editingPlan, setEditingPlan] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [editingManager, setEditingManager] = useState(false);
+  const [managerMembers, setManagerMembers] = useState<TeamMember[]>([]);
+  const [managerId, setManagerId] = useState("");
+  const [loadingManagers, setLoadingManagers] = useState(false);
+  const [savingManager, setSavingManager] = useState(false);
+  const [managerError, setManagerError] = useState<string | null>(null);
   const [planForm, setPlanForm] = useState({
+    sales_channel: "" as SalesChannel | "",
     service_type: "",
     plan_name: "",
     billing_cycle: "",
     included_services: "",
     plan_notes: "",
   });
+
+  const canChangeManager = Boolean(
+    user?.isSuperAdmin || user?.currentRole === "owner" || user?.currentRole === "admin",
+  );
 
   const loadCompany = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -78,6 +97,70 @@ export default function ClientDetailPage() {
       return payload.error || fallback;
     } catch {
       return fallback;
+    }
+  };
+
+  const openManagerEditor = async () => {
+    if (!company || !canChangeManager) return;
+
+    setManagerId(company.owner_id);
+    setManagerError(null);
+    setEditingManager(true);
+
+    if (managerMembers.length > 0) {
+      if (!managerMembers.some((member) => member.id === company.owner_id)) {
+        setManagerId("");
+      }
+      return;
+    }
+
+    setLoadingManagers(true);
+    try {
+      const res = await fetch(
+        `/api/users?workspace_id=${encodeURIComponent(company.workspace_id)}&status=active&limit=500`,
+      );
+      if (!res.ok) throw new Error("Unable to load managers");
+      const data = (await res.json()) as { items?: TeamMember[] };
+      const eligibleManagers = (data.items ?? []).filter(
+        (member) => member.workspace_status === "active" && member.workspace_role !== "guest",
+      );
+      setManagerMembers(eligibleManagers);
+      if (!eligibleManagers.some((member) => member.id === company.owner_id)) {
+        setManagerId("");
+      }
+    } catch {
+      setManagerError(t("clientDetail.couldNotLoadManagers"));
+    } finally {
+      setLoadingManagers(false);
+    }
+  };
+
+  const saveManager = async () => {
+    if (!managerId) {
+      setManagerError(t("clientDetail.selectManager"));
+      return;
+    }
+
+    setSavingManager(true);
+    setManagerError(null);
+    try {
+      const res = await fetch(`/api/companies/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ owner_id: managerId }),
+      });
+      if (!res.ok) {
+        setManagerError(await parseErrorMessage(res, t("clientDetail.couldNotUpdateManager")));
+        return;
+      }
+
+      await loadCompany({ silent: true });
+      setEditingManager(false);
+      showClientMutationSuccess(t("clientDetail.managerUpdated"));
+    } catch {
+      setManagerError(t("clientDetail.couldNotUpdateManager"));
+    } finally {
+      setSavingManager(false);
     }
   };
 
@@ -222,6 +305,7 @@ export default function ClientDetailPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        sales_channel: planForm.sales_channel || null,
         service_type: cleanNullable(planForm.service_type),
         plan_name: cleanNullable(planForm.plan_name),
         billing_cycle: cleanNullable(planForm.billing_cycle),
@@ -332,7 +416,75 @@ export default function ClientDetailPage() {
                 value={summary?.next_deadline ? formatDate(summary.next_deadline, locale) : t("clientDetail.notScheduled")}
                 hint={t("clientDetail.deadlineHint")}
               />
-              <PlanFact label={t("clientDetail.clientOwner")} value={company.owner?.name ?? t("clientHealth.notAssigned")} hint={company.owner?.email ?? t("clientDetail.assignOwnerHint")} />
+              <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">{t("clientDetail.clientOwner")}</p>
+                {editingManager ? (
+                  <div className="mt-3 space-y-3">
+                    <select
+                      value={managerId}
+                      onChange={(event) => setManagerId(event.target.value)}
+                      disabled={loadingManagers || savingManager}
+                      aria-label={t("clientDetail.selectManager")}
+                      className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-foreground disabled:cursor-wait disabled:opacity-60"
+                    >
+                      <option value="">
+                        {loadingManagers ? t("clientDetail.loadingManagers") : t("clientDetail.selectManager")}
+                      </option>
+                      {managerMembers.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.name} - {member.email}
+                        </option>
+                      ))}
+                    </select>
+                    {!loadingManagers && managerMembers.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t("clientDetail.noManagersAvailable")}</p>
+                    ) : null}
+                    {managerError ? <p className="text-xs text-upflow-danger">{managerError}</p> : null}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManagerId(company.owner_id);
+                          setManagerError(null);
+                          setEditingManager(false);
+                        }}
+                        disabled={savingManager}
+                        className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void saveManager()}
+                        disabled={loadingManagers || savingManager || !managerId || managerId === company.owner_id || managerMembers.length === 0}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingManager ? <RefreshCcw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        {t("clientDetail.saveManager")}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-3 break-words text-lg font-semibold text-foreground">
+                      {company.owner?.name ?? t("clientHealth.notAssigned")}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {company.owner?.email ?? t("clientDetail.assignOwnerHint")}
+                    </p>
+                    {canChangeManager ? (
+                      <button
+                        type="button"
+                        onClick={() => void openManagerEditor()}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        {t("clientDetail.changeManager")}
+                      </button>
+                    ) : null}
+                  </>
+                )}
+              </div>
               <PlanFact
                 label={t("clientDetail.deliveryLoad")}
                 value={t("clientDetail.openCount", { count: summary?.open_task_count ?? 0 })}
@@ -466,7 +618,20 @@ export default function ClientDetailPage() {
           </div>
 
           {editingPlan ? (
-            <form id="client-plan-form" onSubmit={savePlan} className="mt-5 grid gap-4 lg:grid-cols-3">
+            <form id="client-plan-form" onSubmit={savePlan} className="mt-5 grid gap-4 lg:grid-cols-4">
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
+                {t("clients.salesChannel.label")}
+                <select
+                  value={planForm.sales_channel}
+                  onChange={(e) => setPlanForm((form) => ({ ...form, sales_channel: e.target.value as SalesChannel | "" }))}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
+                >
+                  <option value="">{t("clients.salesChannel.unclassified")}</option>
+                  {SALES_CHANNEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                  ))}
+                </select>
+              </label>
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
                 {t("clientDetail.serviceType")}
                 <input
@@ -499,7 +664,7 @@ export default function ClientDetailPage() {
                   <option value="project">{t("clientDetail.perProject")}</option>
                 </select>
               </label>
-              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground lg:col-span-2">
+              <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground lg:col-span-3">
                 {t("clientDetail.includedServices")}
                 <textarea
                   value={planForm.included_services}
@@ -519,10 +684,11 @@ export default function ClientDetailPage() {
                   className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm normal-case text-foreground"
                 />
               </label>
-              {planError ? <p className="text-sm text-upflow-danger lg:col-span-3">{planError}</p> : null}
+              {planError ? <p className="text-sm text-upflow-danger lg:col-span-4">{planError}</p> : null}
             </form>
           ) : (
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_2fr]">
+            <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_2fr]">
+              <PlanFact label={t("clients.salesChannel.label")} value={formatSalesChannel(company.sales_channel, t)} />
               <PlanFact label={t("clientDetail.serviceType")} value={company.service_type || t("clientHealth.notSet")} />
               <PlanFact label={t("clientDetail.plan")} value={company.plan_name || t("clientHealth.notSet")} hint={formatBillingCycle(company.billing_cycle, t)} />
               <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
@@ -861,14 +1027,28 @@ function ClientMutationFeedback({ error, success }: { error: string | null; succ
   );
 }
 
-function toPlanForm(company: Pick<Company, "service_type" | "plan_name" | "billing_cycle" | "included_services" | "plan_notes">) {
+function toPlanForm(company: Pick<Company, "sales_channel" | "service_type" | "plan_name" | "billing_cycle" | "included_services" | "plan_notes">) {
   return {
+    sales_channel: company.sales_channel ?? "",
     service_type: company.service_type ?? "",
     plan_name: company.plan_name ?? "",
     billing_cycle: company.billing_cycle ?? "",
     included_services: Array.isArray(company.included_services) ? company.included_services.join("\n") : "",
     plan_notes: company.plan_notes ?? "",
   };
+}
+
+function formatSalesChannel(
+  value: SalesChannel | null,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+) {
+  if (!value) return t("clients.salesChannel.unclassified");
+  const labels: Record<SalesChannel, string> = {
+    WHOLESALE: "clients.salesChannel.wholesale",
+    RETAIL: "clients.salesChannel.retail",
+    BOTH: "clients.salesChannel.both",
+  };
+  return t(labels[value]);
 }
 
 function cleanNullable(value: string) {

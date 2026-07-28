@@ -7,11 +7,14 @@ import { resolveCompanyCreationAccess } from "@/lib/company-creation-access";
 import { createClientOnboardingFromWizard } from "@/lib/onboarding";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
+const ClientSalesChannelSchema = z.enum(["WHOLESALE", "RETAIL", "BOTH"]);
+
 const WizardSchema = z.object({
   company_id: z.string().trim().nullable().optional(),
   name: z.string().trim().min(1),
   website: z.string().trim().url().nullable().optional(),
   industry: z.string().trim().nullable().optional(),
+  sales_channel: ClientSalesChannelSchema.nullable().optional(),
   service_type: z.string().trim().nullable().optional(),
   plan_name: z.string().trim().nullable().optional(),
   billing_cycle: z.string().trim().nullable().optional(),
@@ -136,6 +139,7 @@ async function POST_handler(req: NextRequest) {
       name: parsed.data.name,
       website: parsed.data.website ?? null,
       industry: parsed.data.industry ?? null,
+      salesChannel: parsed.data.sales_channel,
       serviceType: parsed.data.service_type ?? null,
       planName: parsed.data.plan_name ?? null,
       billingCycle: parsed.data.billing_cycle ?? null,

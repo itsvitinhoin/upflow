@@ -6,7 +6,7 @@ import { Building2, ClipboardCheck, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import BrazilianDateInput from "@/components/ui/brazilian-date-input";
 import { useLanguage } from "@/components/language-provider";
-import type { Company } from "@/lib/types";
+import type { Company, SalesChannel } from "@/lib/types";
 
 type Props = {
   open: boolean;
@@ -21,6 +21,11 @@ type ClientWizardResponse = {
 };
 
 const BRAND_TYPES = ["B2B", "B2C"];
+const SALES_CHANNEL_OPTIONS: Array<{ value: SalesChannel; labelKey: string }> = [
+  { value: "WHOLESALE", labelKey: "clients.salesChannel.wholesale" },
+  { value: "RETAIL", labelKey: "clients.salesChannel.retail" },
+  { value: "BOTH", labelKey: "clients.salesChannel.both" },
+];
 
 function todayInputDate() {
   const date = new Date();
@@ -80,6 +85,7 @@ export default function StartClientOnboardingDialog({
   const [name, setName] = useState("");
   const [website, setWebsite] = useState("");
   const [industry, setIndustry] = useState("");
+  const [salesChannel, setSalesChannel] = useState<SalesChannel | "">("");
   const [serviceType, setServiceType] = useState("");
   const [planName, setPlanName] = useState("");
   const [billingCycle, setBillingCycle] = useState("");
@@ -95,6 +101,7 @@ export default function StartClientOnboardingDialog({
     setName(company?.name ?? "");
     setWebsite(company?.website ?? "");
     setIndustry(company?.industry ?? "");
+    setSalesChannel(company?.sales_channel ?? "");
     setServiceType(company?.service_type ?? "");
     setPlanName(company?.plan_name ?? "");
     setBillingCycle(company?.billing_cycle ?? "");
@@ -188,6 +195,7 @@ export default function StartClientOnboardingDialog({
           name: name.trim(),
           website: normalizedWebsite,
           industry: cleanNullable(industry),
+          sales_channel: salesChannel || null,
           service_type: serviceType.trim(),
           plan_name: cleanNullable(planName),
           billing_cycle: cleanNullable(billingCycle),
@@ -283,6 +291,20 @@ export default function StartClientOnboardingDialog({
               {selectedBrandTypeIsCustom ? <option value={serviceType}>{serviceType}</option> : null}
               <option value="B2B">{t("companyDialog.brandType.b2b")}</option>
               <option value="B2C">{t("companyDialog.brandType.b2c")}</option>
+            </select>
+          </label>
+
+          <label>
+            <span className={labelClass}>{t("clients.salesChannel.label")}</span>
+            <select
+              value={salesChannel}
+              onChange={(event) => setSalesChannel(event.target.value as SalesChannel | "")}
+              className={inputClass}
+            >
+              <option value="">{t("clients.salesChannel.unclassified")}</option>
+              {SALES_CHANNEL_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+              ))}
             </select>
           </label>
 
