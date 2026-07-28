@@ -46,8 +46,9 @@ jobs:
     timeout-minutes: 15
     environment: staging
     env:
-      DATABASE_URL: ${{ secrets.UPFLOW_STAGING_DIRECT_URL }}
-      DIRECT_URL: ${{ secrets.UPFLOW_STAGING_DIRECT_URL }}
+      DATABASE_URL: ${{ secrets.UPFLOW_STAGING_MIGRATION_URL }}
+      DIRECT_URL: ${{ secrets.UPFLOW_STAGING_MIGRATION_URL }}
+      UPFLOW_RELEASE_TARGET: staging
 
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +58,7 @@ jobs:
       - name: Require the direct staging database URL
         run: |
           if [ -z "${DIRECT_URL}" ]; then
-            echo "::error::Set UPFLOW_STAGING_DIRECT_URL in the GitHub staging environment."
+            echo "::error::Set UPFLOW_STAGING_MIGRATION_URL in the GitHub staging environment."
             exit 1
           fi
 
@@ -76,6 +77,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter @workspace/up-flow run db:generate
 
+      - name: Require the completed cloned-schema baseline
+        run: pnpm --filter @workspace/up-flow run db:migrate:assert-staging-baseline
+
       - name: Verify migration readiness before staging release
         run: pnpm --filter @workspace/up-flow run db:migrate:preflight
 
@@ -92,9 +96,10 @@ jobs:
     timeout-minutes: 20
     environment: staging
     env:
-      VERCEL_ORG_ID: ${{ vars.UPFLOW_STAGING_VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ vars.UPFLOW_STAGING_VERCEL_PROJECT_ID }}
+      STAGING_VERCEL_ORG_ID: ${{ vars.UPFLOW_STAGING_VERCEL_ORG_ID }}
+      STAGING_VERCEL_PROJECT_ID: ${{ vars.UPFLOW_STAGING_VERCEL_PROJECT_ID }}
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      KNOWN_PRODUCTION_VERCEL_PROJECT_ID: prj_5u1i9AP68L2OIKDQhCX0zzG4uCQq
 
     steps:
       - uses: actions/checkout@v4
@@ -103,8 +108,18 @@ jobs:
 
       - name: Require isolated staging Vercel credentials
         run: |
-          if [ -z "${VERCEL_ORG_ID}" ] || [ -z "${VERCEL_PROJECT_ID}" ] || [ -z "${VERCEL_TOKEN}" ]; then
+          if [ -z "${STAGING_VERCEL_ORG_ID}" ] || [ -z "${STAGING_VERCEL_PROJECT_ID}" ] || [ -z "${VERCEL_TOKEN}" ]; then
             echo "::error::Set UPFLOW_STAGING_VERCEL_ORG_ID and UPFLOW_STAGING_VERCEL_PROJECT_ID as staging variables, plus VERCEL_TOKEN as a staging secret."
+            exit 1
+          fi
+
+          if [ "${STAGING_VERCEL_PROJECT_ID}" = "${KNOWN_PRODUCTION_VERCEL_PROJECT_ID}" ]; then
+            echo "::error::UPFLOW_STAGING_VERCEL_PROJECT_ID points at the known production Vercel project. Refusing to deploy staging."
+            exit 1
+          fi
+
+          if [[ ! "${STAGING_VERCEL_ORG_ID}" =~ ^team_[A-Za-z0-9]+$ ]] || [[ ! "${STAGING_VERCEL_PROJECT_ID}" =~ ^prj_[A-Za-z0-9]+$ ]]; then
+            echo "::error::The staging Vercel IDs are malformed. Use the IDs of the separate upflow-staging project."
             exit 1
           fi
 
@@ -113,11 +128,34 @@ jobs:
           node-version: "22"
 
       - name: Deploy the Test-verified staging commit
-        run: >-
-          npx --yes vercel@56.2.1 deploy --prod --yes
-          --token "${VERCEL_TOKEN}"
+        id: deploy
+        run: |
+          deployment_output="$(npx --yes vercel@56.2.1 deploy --prod --yes \
+            --token "${VERCEL_TOKEN}" \
+            --scope "${STAGING_VERCEL_ORG_ID}" \
+            --project "${STAGING_VERCEL_PROJECT_ID}")"
+          deployment_url="$(printf '%s\n' "${deployment_output}" | tail -n 1)"
+
+          if [[ ! "${deployment_url}" =~ ^https:// ]]; then
+            echo "::error::Vercel did not return a deployment URL for the isolated staging project."
+            printf '%s\n' "${deployment_output}"
+            exit 1
+          fi
+
+          echo "url=${deployment_url}" >> "${GITHUB_OUTPUT}"
+          echo "Staging deployment: ${deployment_url}"
 
       - name: Probe the deployed staging health endpoint
-        run: >-
-          npx --yes vercel@56.2.1 curl /api/health
-          --yes --fail --silent --show-error
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 \
+            "${{ steps.deploy.outputs.url }}/api/health"
+
+      - name: Publish staging deployment summary
+        run: |
+          {
+            echo "### Staging deployment complete"
+            echo ""
+            echo "- Commit: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "- URL: ${{ steps.deploy.outputs.url }}"
+            echo "- Vercel project: \`${STAGING_VERCEL_PROJECT_ID}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
