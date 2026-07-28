@@ -1,0 +1,116 @@
+name: Baseline cloned staging Prisma history
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type BASELINE-STAGING-PRISMA-HISTORY to record the reviewed history for the empty staging clone.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upflow-staging-release
+  # The bootstrap and normal staging release must never run against the same
+  # database at the same time.
+  cancel-in-progress: false
+
+jobs:
+  baseline-staging:
+    name: Validate and baseline the isolated staging clone
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging-bootstrap
+    env:
+      DATABASE_URL: ${{ secrets.UPFLOW_STAGING_BASELINE_MIGRATION_URL }}
+      DIRECT_URL: ${{ secrets.UPFLOW_STAGING_BASELINE_MIGRATION_URL }}
+      STAGING_PRISMA_BASELINE_CONFIRMATION: ${{ inputs.confirmation }}
+
+    steps:
+      - name: Require the staging ref, isolated target, and explicit confirmation
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/staging" ]; then
+            echo "::error::The staging history baseline can be dispatched only from the staging branch."
+            exit 1
+          fi
+
+          if [ "${STAGING_PRISMA_BASELINE_CONFIRMATION}" != "BASELINE-STAGING-PRISMA-HISTORY" ]; then
+            echo "::error::Type BASELINE-STAGING-PRISMA-HISTORY to authorize the history-only staging baseline."
+            exit 1
+          fi
+
+          if [ -z "${DIRECT_URL}" ]; then
+            echo "::error::Set UPFLOW_STAGING_BASELINE_MIGRATION_URL in the staging-bootstrap environment."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Read the frozen schema source commit
+        id: frozen-source
+        run: |
+          source_commit="$(node -p 'require("./artifacts/up-flow/prisma/staging-clone-baseline.json").source_commit')"
+          if ! [[ "${source_commit}" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::The staging baseline manifest must contain a full frozen source commit SHA."
+            exit 1
+          fi
+
+          echo "commit=${source_commit}" >> "${GITHUB_OUTPUT}"
+
+      - name: Require the frozen source to precede staging
+        env:
+          SOURCE_COMMIT: ${{ steps.frozen-source.outputs.commit }}
+        run: |
+          if ! git merge-base --is-ancestor "${SOURCE_COMMIT}" "${GITHUB_SHA}"; then
+            echo "::error::The frozen schema source must be an ancestor of the selected staging commit."
+            exit 1
+          fi
+
+      - name: Checkout the frozen source schema
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.frozen-source.outputs.commit }}
+          path: .staging-prisma-baseline-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify the frozen source checkout
+        working-directory: .staging-prisma-baseline-source
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ steps.frozen-source.outputs.commit }}
+        run: |
+          actual_commit="$(git rev-parse HEAD)"
+          if [ "${actual_commit}" != "${EXPECTED_SOURCE_COMMIT}" ]; then
+            echo "::error::The frozen staging schema checkout does not match the reviewed source commit."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @workspace/up-flow run db:generate
+
+      - name: Validate then record the reviewed staging history
+        env:
+          STAGING_PRISMA_BASELINE_SCHEMA_PATH: ${{ github.workspace }}/.staging-prisma-baseline-source/artifacts/up-flow/prisma/schema.prisma
+          STAGING_PRISMA_BASELINE_MIGRATIONS_DIRECTORY: ${{ github.workspace }}/.staging-prisma-baseline-source/artifacts/up-flow/prisma/migrations
+        run: pnpm --filter @workspace/up-flow run db:migrate:baseline-staging
+
+      - name: Verify staging baseline completion
+        run: pnpm --filter @workspace/up-flow run db:migrate:assert-staging-baseline
