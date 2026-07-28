@@ -46,8 +46,9 @@ jobs:
     timeout-minutes: 15
     environment: staging
     env:
-      DATABASE_URL: ${{ secrets.UPFLOW_STAGING_DIRECT_URL }}
-      DIRECT_URL: ${{ secrets.UPFLOW_STAGING_DIRECT_URL }}
+      DATABASE_URL: ${{ secrets.UPFLOW_STAGING_MIGRATION_URL }}
+      DIRECT_URL: ${{ secrets.UPFLOW_STAGING_MIGRATION_URL }}
+      UPFLOW_RELEASE_TARGET: staging
 
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +58,7 @@ jobs:
       - name: Require the direct staging database URL
         run: |
           if [ -z "${DIRECT_URL}" ]; then
-            echo "::error::Set UPFLOW_STAGING_DIRECT_URL in the GitHub staging environment."
+            echo "::error::Set UPFLOW_STAGING_MIGRATION_URL in the GitHub staging environment."
             exit 1
           fi
 
@@ -75,6 +76,9 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @workspace/up-flow run db:generate
+
+      - name: Require the completed cloned-schema baseline
+        run: pnpm --filter @workspace/up-flow run db:migrate:assert-staging-baseline
 
       - name: Verify migration readiness before staging release
         run: pnpm --filter @workspace/up-flow run db:migrate:preflight
