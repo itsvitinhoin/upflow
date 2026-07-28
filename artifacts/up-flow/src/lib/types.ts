@@ -469,6 +469,8 @@ export interface CompanyNote {
   author?: { id: string; name: string; email: string } | null;
 }
 
+export type SalesChannel = "WHOLESALE" | "RETAIL" | "BOTH";
+
 export interface Company {
   id: string;
   workspace_id: string;
@@ -480,6 +482,7 @@ export interface Company {
   contract_value: number | null;
   commission: number | null;
   industry: string | null;
+  sales_channel: SalesChannel | null;
   service_type: string | null;
   plan_name: string | null;
   billing_cycle: string | null;

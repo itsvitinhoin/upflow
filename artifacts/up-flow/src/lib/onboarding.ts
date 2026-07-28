@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type ClientSalesChannel } from "@prisma/client";
 import type { OnboardingCapabilities } from "@/lib/types";
 import { canAccessWorkspace, isWorkspaceAdminFor, type AuthUser } from "@/lib/auth-helpers";
 import { recordActivity } from "@/lib/activity";
@@ -300,6 +300,7 @@ export type ClientOnboardingWizardInput = {
   name: string;
   website?: string | null;
   industry?: string | null;
+  salesChannel?: ClientSalesChannel | null;
   serviceType?: string | null;
   planName?: string | null;
   billingCycle?: string | null;
@@ -3198,6 +3199,7 @@ export async function createClientOnboardingFromWizard(
             name: input.name.trim(),
             website: cleanNullable(input.website),
             industry: cleanNullable(input.industry),
+            ...(input.salesChannel !== undefined ? { sales_channel: input.salesChannel } : {}),
             service_type: cleanNullable(input.serviceType),
             plan_name: cleanNullable(input.planName),
             billing_cycle: cleanNullable(input.billingCycle),
@@ -3223,6 +3225,7 @@ export async function createClientOnboardingFromWizard(
             name: input.name.trim(),
             website: cleanNullable(input.website),
             industry: cleanNullable(input.industry),
+            sales_channel: input.salesChannel ?? null,
             service_type: cleanNullable(input.serviceType),
             plan_name: cleanNullable(input.planName),
             billing_cycle: cleanNullable(input.billingCycle),

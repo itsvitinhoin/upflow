@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
@@ -9,6 +10,15 @@ import { recordActivity } from "@/lib/activity";
 import { startClientOnboardingForCompany } from "@/lib/onboarding";
 import { buildPage, parsePagination } from "@/lib/pagination";
 
+const ClientSalesChannelSchema = z.enum(["WHOLESALE", "RETAIL", "BOTH"]);
+const CompanySalesChannelFilterSchema = z.enum([
+  "all",
+  "wholesale",
+  "retail",
+  "both",
+  "unclassified",
+]);
+
 const CompanySchema = z.object({
   name: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
@@ -18,6 +28,7 @@ const CompanySchema = z.object({
   contract_value: z.number().optional().nullable(),
   commission: z.number().optional().nullable(),
   industry: z.string().trim().optional().nullable(),
+  sales_channel: ClientSalesChannelSchema.optional().nullable(),
   service_type: z.string().trim().optional().nullable(),
   plan_name: z.string().trim().optional().nullable(),
   billing_cycle: z.string().trim().optional().nullable(),
@@ -53,13 +64,38 @@ async function GET_handler(req: NextRequest) {
   }
 
   const { limit, cursor } = parsePagination(req, { defaultLimit: 50, maxLimit: 100 });
-  const q = (new URL(req.url).searchParams.get("q") || "").trim();
+  const url = new URL(req.url);
+  const q = (url.searchParams.get("q") || "").trim();
   if (q.length > 200) {
     return NextResponse.json({ error: "Query too long" }, { status: 400 });
   }
+  const parsedSalesChannel = CompanySalesChannelFilterSchema.safeParse(
+    (url.searchParams.get("sales_channel") || "all").trim().toLowerCase(),
+  );
+  if (!parsedSalesChannel.success) {
+    return NextResponse.json(
+      { error: "Invalid sales_channel. Use all, wholesale, retail, both, or unclassified." },
+      { status: 400 },
+    );
+  }
+  const salesChannelWhere: Prisma.CompanyWhereInput = (() => {
+    switch (parsedSalesChannel.data) {
+      case "wholesale":
+        return { sales_channel: { in: ["WHOLESALE", "BOTH"] } };
+      case "retail":
+        return { sales_channel: { in: ["RETAIL", "BOTH"] } };
+      case "both":
+        return { sales_channel: "BOTH" };
+      case "unclassified":
+        return { sales_channel: null };
+      case "all":
+        return {};
+    }
+  })();
   const rows = await prisma.company.findMany({
     where: {
       workspace_id: auth.currentWorkspaceId,
+      ...salesChannelWhere,
       ...(q
         ? {
             OR: [
@@ -225,6 +261,7 @@ async function POST_handler(req: NextRequest) {
       contract_value: parsed.data.contract_value ?? null,
       commission: parsed.data.commission ?? null,
       industry: parsed.data.industry || null,
+      sales_channel: parsed.data.sales_channel ?? null,
       service_type: parsed.data.service_type || null,
       plan_name: parsed.data.plan_name || null,
       billing_cycle: parsed.data.billing_cycle || null,

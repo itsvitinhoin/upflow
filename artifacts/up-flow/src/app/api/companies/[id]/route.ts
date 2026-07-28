@@ -9,6 +9,8 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { parseContractedServices, syncClientOnboardingServices } from "@/lib/onboarding";
 import { normalizeOnboardingRouteValue } from "@/lib/onboarding-routing";
 
+const ClientSalesChannelSchema = z.enum(["WHOLESALE", "RETAIL", "BOTH"]);
+
 const UpdateCompanySchema = z.object({
   name: z.string().trim().min(1).optional(),
   description: z.string().trim().nullable().optional(),
@@ -18,6 +20,7 @@ const UpdateCompanySchema = z.object({
   contract_value: z.number().nullable().optional(),
   commission: z.number().nullable().optional(),
   industry: z.string().trim().nullable().optional(),
+  sales_channel: ClientSalesChannelSchema.nullable().optional(),
   service_type: z.string().trim().nullable().optional(),
   plan_name: z.string().trim().nullable().optional(),
   billing_cycle: z.string().trim().nullable().optional(),
@@ -34,6 +37,7 @@ const UpdateCompanySchema = z.object({
   billing_notes: z.string().trim().nullable().optional(),
   payment_terms: z.string().trim().nullable().optional(),
   contract_start_date: z.string().nullable().optional(),
+  owner_id: z.string().uuid().optional(),
 });
 
 function sameServiceSet(left: unknown, right: unknown) {
@@ -44,6 +48,19 @@ function sameServiceSet(left: unknown, right: unknown) {
   const leftSet = toSet(left);
   const rightSet = toSet(right);
   return leftSet.length === rightSet.length && leftSet.every((service, index) => service === rightSet[index]);
+}
+
+async function validateCompanyOwner(ownerId: string, workspaceId: string) {
+  const member = await prisma.workspaceMember.findFirst({
+    where: {
+      workspace_id: workspaceId,
+      user_id: ownerId,
+      status: "active",
+      role: { not: "guest" },
+    },
+    select: { user_id: true },
+  });
+  return member?.user_id ?? null;
 }
 
 async function getCompany(id: string, workspaceId: string) {
@@ -255,6 +272,16 @@ async function PATCH_handler(
     return NextResponse.json({ error: "Invalid company", issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  if (parsed.data.owner_id !== undefined) {
+    const ownerId = await validateCompanyOwner(parsed.data.owner_id, company.workspace_id);
+    if (!ownerId) {
+      return NextResponse.json(
+        { error: "Responsible manager must be an active non-guest member of this workspace" },
+        { status: 400 },
+      );
+    }
+  }
+
   const includedServicesChanged = "included_services" in parsed.data &&
     !sameServiceSet(company.included_services, parsed.data.included_services ?? []);
   if (includedServicesChanged) {
@@ -299,7 +326,12 @@ async function PATCH_handler(
     entity_type: "company",
     entity_id: company.id,
     company_id: company.id,
-    metadata: { name: updated.name },
+    metadata: {
+      name: updated.name,
+      ...(parsed.data.owner_id !== undefined
+        ? { previous_owner_id: company.owner_id, owner_id: updated.owner_id }
+        : {}),
+    },
   });
 
   const onboardingSync = includedServicesChanged
