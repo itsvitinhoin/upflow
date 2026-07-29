@@ -1027,7 +1027,16 @@ function ClientMutationFeedback({ error, success }: { error: string | null; succ
   );
 }
 
-function toPlanForm(company: Pick<Company, "sales_channel" | "service_type" | "plan_name" | "billing_cycle" | "included_services" | "plan_notes">) {
+function toPlanForm(
+  company: Pick<Company, "sales_channel" | "service_type" | "plan_name" | "billing_cycle" | "included_services" | "plan_notes">,
+): {
+  sales_channel: SalesChannel | "";
+  service_type: string;
+  plan_name: string;
+  billing_cycle: string;
+  included_services: string;
+  plan_notes: string;
+} {
   return {
     sales_channel: company.sales_channel ?? "",
     service_type: company.service_type ?? "",
