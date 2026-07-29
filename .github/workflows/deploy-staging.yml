@@ -134,11 +134,11 @@ jobs:
             --token "${VERCEL_TOKEN}" \
             --scope "${STAGING_VERCEL_ORG_ID}" \
             --project "${STAGING_VERCEL_PROJECT_ID}")"
-          deployment_url="$(printf '%s\\n' "${deployment_output}" | tail -n 1)"
+          deployment_url="$(printf '%s\n' "${deployment_output}" | tail -n 1)"
 
           if [[ ! "${deployment_url}" =~ ^https:// ]]; then
             echo "::error::Vercel did not return a deployment URL for the isolated staging project."
-            printf '%s\\n' "${deployment_output}"
+            printf '%s\n' "${deployment_output}"
             exit 1
           fi
 

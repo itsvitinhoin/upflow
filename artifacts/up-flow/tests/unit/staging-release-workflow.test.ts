@@ -44,6 +44,8 @@ test("staging migration and deployment credentials are isolated and fail closed"
   assert.match(stagingWorkflow, /vercel@56\.2\.1 deploy --prod --yes/);
   assert.match(stagingWorkflow, /--scope "\$\{STAGING_VERCEL_ORG_ID\}"/);
   assert.match(stagingWorkflow, /--project "\$\{STAGING_VERCEL_PROJECT_ID\}"/);
+  assert.match(stagingWorkflow, /printf '%s\\n'/);
+  assert.doesNotMatch(stagingWorkflow, /printf '%s\\\\n'/);
   assert.match(stagingWorkflow, /steps\.deploy\.outputs\.url.*\/api\/health/s);
 });
 
