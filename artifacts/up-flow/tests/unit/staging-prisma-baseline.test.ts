@@ -10,8 +10,10 @@ const {
   assertManifestMatchesCurrentMigrations,
   assertStagingDatabaseTarget,
   classifyMigrationHistory,
+  getFrozenMarketingB2BForeignKeyErrors,
   getExpectedAppTableNames,
   getLocalMigrations,
+  getPostBaselineSalesChannelObjects,
   readBaselineManifest,
 } = require("../../scripts/staging-prisma-baseline.cjs") as {
   BASELINE_CONFIRMATION: string;
@@ -30,8 +32,14 @@ const {
     expectedMigrations: Array<string | { name: string; sha256?: string }>,
     options?: { allowLaterMigrations?: boolean },
   ) => { errors: string[]; isValid: boolean; isComplete: boolean; missingMigrationNames: string[] };
+  getFrozenMarketingB2BForeignKeyErrors: (
+    rows: Array<Record<string, unknown>>,
+  ) => string[];
   getExpectedAppTableNames: () => string[];
   getLocalMigrations: () => Array<{ name: string; sha256: string }>;
+  getPostBaselineSalesChannelObjects: (
+    row: Record<string, unknown> | undefined,
+  ) => string[];
   readBaselineManifest: () => {
     source_commit: string;
     staging_project_ref: string;
@@ -62,6 +70,67 @@ function completeRow(migration_name: string, checksum = "a".repeat(64)) {
     finished_at: new Date("2026-07-27T00:00:00.000Z"),
     rolled_back_at: null,
   };
+}
+
+function frozenMarketingB2BForeignKeys() {
+  return [
+    {
+      constraint_name: "MarketingB2BOnboardingForm_workspace_id_fkey",
+      columns: ["workspace_id"],
+      referenced_table_name: "Workspace",
+      referenced_columns: ["id"],
+      on_delete: "CASCADE",
+      on_update: "CASCADE",
+    },
+    {
+      constraint_name: "MarketingB2BOnboardingForm_onboarding_id_fkey",
+      columns: ["onboarding_id"],
+      referenced_table_name: "ClientOnboarding",
+      referenced_columns: ["id"],
+      on_delete: "CASCADE",
+      on_update: "CASCADE",
+    },
+    {
+      constraint_name: "MarketingB2BOnboardingForm_checklist_item_id_fkey",
+      columns: ["checklist_item_id"],
+      referenced_table_name: "OnboardingChecklistItem",
+      referenced_columns: ["id"],
+      on_delete: "CASCADE",
+      on_update: "CASCADE",
+    },
+    {
+      constraint_name: "MarketingB2BOnboardingForm_task_id_fkey",
+      columns: ["task_id"],
+      referenced_table_name: "Task",
+      referenced_columns: ["id"],
+      on_delete: "CASCADE",
+      on_update: "CASCADE",
+    },
+    {
+      constraint_name: "MarketingB2BOnboardingForm_company_id_fkey",
+      columns: ["company_id"],
+      referenced_table_name: "Company",
+      referenced_columns: ["id"],
+      on_delete: "CASCADE",
+      on_update: "CASCADE",
+    },
+    {
+      constraint_name: "MarketingB2BOnboardingForm_project_id_fkey",
+      columns: ["project_id"],
+      referenced_table_name: "Project",
+      referenced_columns: ["id"],
+      on_delete: "CASCADE",
+      on_update: "CASCADE",
+    },
+    {
+      constraint_name: "MarketingB2BOnboardingForm_completed_by_fkey",
+      columns: ["completed_by"],
+      referenced_table_name: "User",
+      referenced_columns: ["id"],
+      on_delete: "SET NULL",
+      on_update: "CASCADE",
+    },
+  ];
 }
 
 function stagingEnvironment(overrides: Record<string, string | undefined> = {}) {
@@ -196,6 +265,74 @@ test("only a clean ordered baseline prefix may be resumed", () => {
   );
 });
 
+test("the migration-aware catalog gate requires the seven frozen Marketing B2B foreign keys", () => {
+  const foreignKeys = frozenMarketingB2BForeignKeys();
+
+  assert.equal(foreignKeys.length, 7);
+  assert.deepEqual(getFrozenMarketingB2BForeignKeyErrors(foreignKeys), []);
+
+  const missing = foreignKeys.slice(1);
+  assert.match(
+    getFrozenMarketingB2BForeignKeyErrors(missing).join("\n"),
+    /missing frozen foreign key MarketingB2BOnboardingForm_workspace_id_fkey/,
+  );
+
+  const wrongDeleteAction = foreignKeys.map((foreignKey) =>
+    foreignKey.constraint_name === "MarketingB2BOnboardingForm_completed_by_fkey"
+      ? { ...foreignKey, on_delete: "CASCADE" }
+      : foreignKey,
+  );
+  assert.match(
+    getFrozenMarketingB2BForeignKeyErrors(wrongDeleteAction).join("\n"),
+    /expected completed_by -> User\(id\), ON DELETE SET NULL, ON UPDATE CASCADE/,
+  );
+
+  const wrongReference = foreignKeys.map((foreignKey) =>
+    foreignKey.constraint_name === "MarketingB2BOnboardingForm_project_id_fkey"
+      ? { ...foreignKey, referenced_table_name: "Company" }
+      : foreignKey,
+  );
+  assert.match(
+    getFrozenMarketingB2BForeignKeyErrors(wrongReference).join("\n"),
+    /expected project_id -> Project\(id\), ON DELETE CASCADE, ON UPDATE CASCADE/,
+  );
+
+  assert.match(
+    getFrozenMarketingB2BForeignKeyErrors([
+      ...foreignKeys,
+      {
+        ...foreignKeys[0],
+        constraint_name: "MarketingB2BOnboardingForm_unreviewed_fkey",
+      },
+    ]).join("\n"),
+    /unexpected foreign key MarketingB2BOnboardingForm_unreviewed_fkey/,
+  );
+});
+
+test("the frozen 48-migration baseline refuses post-baseline sales-channel objects", () => {
+  assert.deepEqual(
+    getPostBaselineSalesChannelObjects({
+      has_company_sales_channel: false,
+      has_client_sales_channel_enum: false,
+    }),
+    [],
+  );
+  assert.deepEqual(
+    getPostBaselineSalesChannelObjects({
+      has_company_sales_channel: true,
+      has_client_sales_channel_enum: false,
+    }),
+    ["Company.sales_channel"],
+  );
+  assert.deepEqual(
+    getPostBaselineSalesChannelObjects({
+      has_company_sales_channel: true,
+      has_client_sales_channel_enum: true,
+    }),
+    ["Company.sales_channel", "ClientSalesChannel enum"],
+  );
+});
+
 test("the one-time workflow is manual, staging-only, and cannot deploy", () => {
   assert.match(baselineWorkflow, /workflow_dispatch:/);
   assert.match(baselineWorkflow, /refs\/heads\/staging/);
@@ -220,6 +357,9 @@ test("the one-time workflow is manual, staging-only, and cannot deploy", () => {
 
 test("the history-only script never applies a migration or resets a database", () => {
   assert.match(baselineScript, /getFrozenBaselineSourcePaths/);
+  assert.match(baselineScript, /assertFrozenMarketingB2BForeignKeys/);
+  assert.match(baselineScript, /assertNoPostBaselineSalesChannelObjects/);
+  assert.doesNotMatch(baselineScript, /--from-schema-datamodel/);
   assert.match(baselineScript, /migrate", "resolve", "--schema", frozenSource\.schemaPath, "--applied"/);
   assert.match(baselineScript, /migrate", "status", "--schema", frozenSource\.schemaPath/);
   assert.doesNotMatch(baselineScript, /migrate", "deploy/);
