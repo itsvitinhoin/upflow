@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
-import type { Department, TeamMember } from "@/lib/types";
+import type { Department, SalesChannel, TeamMember } from "@/lib/types";
 
 export type Company = {
   id: string;
@@ -39,6 +39,7 @@ export type Company = {
   website?: string | null;
   description?: string | null;
   status?: string;
+  sales_channel?: SalesChannel | null;
   service_type?: string | null;
   plan_name?: string | null;
   billing_cycle?: string | null;
@@ -99,6 +100,11 @@ const BILLING_OPTIONS = [
   { value: "quarterly", labelKey: "companyDialog.billing.quarterly" },
   { value: "annual", labelKey: "companyDialog.billing.annual" },
   { value: "project", labelKey: "companyDialog.billing.perProject" },
+];
+const SALES_CHANNEL_OPTIONS: Array<{ value: SalesChannel; labelKey: string }> = [
+  { value: "WHOLESALE", labelKey: "clients.salesChannel.wholesale" },
+  { value: "RETAIL", labelKey: "clients.salesChannel.retail" },
+  { value: "BOTH", labelKey: "clients.salesChannel.both" },
 ];
 const SERVICE_OPTIONS: SelectOption[] = [
   { value: "Meta Ads", labelKey: "companyDialog.service.metaAds" },
@@ -217,6 +223,7 @@ export default function CreateCompanyDialog({
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState("");
+  const [salesChannel, setSalesChannel] = useState<SalesChannel | "">("");
   const [serviceType, setServiceType] = useState("");
   const [planName, setPlanName] = useState("");
   const [customIndustry, setCustomIndustry] = useState(false);
@@ -326,6 +333,7 @@ export default function CreateCompanyDialog({
     setName("");
     setDomain("");
     setIndustry("");
+    setSalesChannel("");
     setServiceType("");
     setPlanName("");
     setCustomIndustry(false);
@@ -380,6 +388,7 @@ export default function CreateCompanyDialog({
         name: name.trim(),
         website,
         industry: industry.trim() || null,
+        sales_channel: salesChannel || null,
         service_type: serviceType.trim() || null,
         plan_name: planName.trim() || null,
         billing_cycle: billingCycle.trim() || null,
@@ -425,6 +434,7 @@ export default function CreateCompanyDialog({
           id: payload.company_id,
           name: name.trim(),
           website,
+          sales_channel: salesChannel || null,
           service_type: serviceType.trim() || null,
           plan_name: planName.trim() || null,
           billing_cycle: billingCycle.trim() || null,
@@ -472,6 +482,7 @@ export default function CreateCompanyDialog({
           name: name.trim(),
           website,
           industry: industry.trim() || null,
+          sales_channel: salesChannel || null,
           service_type: serviceType.trim() || null,
           plan_name: planName.trim() || null,
           billing_cycle: billingCycle.trim() || null,
@@ -590,6 +601,23 @@ export default function CreateCompanyDialog({
                       >
                         <option value="">{t("companyDialog.brandTypePlaceholder")}</option>
                         {BRAND_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                        ))}
+                      </select>
+                      <SelectIcon />
+                    </div>
+                  </OnboardingField>
+
+                  <OnboardingField label={t("clients.salesChannel.label")}>
+                    <div className="relative">
+                      <FieldIcon icon={<Store className="h-5 w-5" />} />
+                      <select
+                        value={salesChannel}
+                        onChange={(e) => setSalesChannel(e.target.value as SalesChannel | "")}
+                        className={onboardingSelectClass}
+                      >
+                        <option value="">{t("clients.salesChannel.unclassified")}</option>
+                        {SALES_CHANNEL_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
                         ))}
                       </select>
@@ -872,21 +900,40 @@ export default function CreateCompanyDialog({
             </Field>
           </div>
 
-          <Field label={t("companyDialog.billingCycle")}>
-            <div className="relative">
-              <FieldIcon icon={<RefreshCcw className="h-5 w-5" />} />
-              <select
-                value={billingCycle}
-                onChange={(e) => setBillingCycle(e.target.value)}
-                className={cn(fieldClass, "appearance-none")}
-              >
-                {BILLING_OPTIONS.map((option) => (
-                  <option key={option.value || "not-set"} value={option.value}>{t(option.labelKey)}</option>
-                ))}
-              </select>
-              <SelectIcon />
-            </div>
-          </Field>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Field label={t("clients.salesChannel.label")}>
+              <div className="relative">
+                <FieldIcon icon={<Store className="h-5 w-5" />} />
+                <select
+                  value={salesChannel}
+                  onChange={(e) => setSalesChannel(e.target.value as SalesChannel | "")}
+                  className={cn(fieldClass, "appearance-none")}
+                >
+                  <option value="">{t("clients.salesChannel.unclassified")}</option>
+                  {SALES_CHANNEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{t(option.labelKey)}</option>
+                  ))}
+                </select>
+                <SelectIcon />
+              </div>
+            </Field>
+
+            <Field label={t("companyDialog.billingCycle")}>
+              <div className="relative">
+                <FieldIcon icon={<RefreshCcw className="h-5 w-5" />} />
+                <select
+                  value={billingCycle}
+                  onChange={(e) => setBillingCycle(e.target.value)}
+                  className={cn(fieldClass, "appearance-none")}
+                >
+                  {BILLING_OPTIONS.map((option) => (
+                    <option key={option.value || "not-set"} value={option.value}>{t(option.labelKey)}</option>
+                  ))}
+                </select>
+                <SelectIcon />
+              </div>
+            </Field>
+          </div>
 
           {onboardingMode && (
             <div className="grid gap-6 lg:grid-cols-2">

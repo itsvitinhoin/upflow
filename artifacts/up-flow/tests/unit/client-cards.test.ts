@@ -28,7 +28,9 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(clientsPage, /brandTypeValue/);
   assert.match(clientsPage, /managerName/);
   assert.match(clientsPage, /assigned_members/);
-  assert.match(clientsPage, /lg:grid-cols-2 2xl:grid-cols-3/);
+  assert.match(clientsPage, /md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4/);
+  assert.match(clientsPage, /services\.slice\(0, 2\)/);
+  assert.doesNotMatch(clientsPage, /MoreHorizontal/);
   assert.doesNotMatch(clientsPage, /deadlineLabel/);
   assert.doesNotMatch(clientsPage, /MetricTile/);
   assert.match(clientDetail, /t\("clientDetail\.valuePerHour"\)/);

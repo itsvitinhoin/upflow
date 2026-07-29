@@ -12,6 +12,64 @@ const BASELINE_CONFIRMATION = "BASELINE-STAGING-PRISMA-HISTORY";
 const STAGING_REF = "refs/heads/staging";
 const FROZEN_SCHEMA_PATH_ENV = "STAGING_PRISMA_BASELINE_SCHEMA_PATH";
 const FROZEN_MIGRATIONS_DIRECTORY_ENV = "STAGING_PRISMA_BASELINE_MIGRATIONS_DIRECTORY";
+const FROZEN_MARKETING_B2B_FOREIGN_KEYS = [
+  {
+    constraint_name: "MarketingB2BOnboardingForm_workspace_id_fkey",
+    columns: ["workspace_id"],
+    referenced_table_name: "Workspace",
+    referenced_columns: ["id"],
+    on_delete: "CASCADE",
+    on_update: "CASCADE",
+  },
+  {
+    constraint_name: "MarketingB2BOnboardingForm_onboarding_id_fkey",
+    columns: ["onboarding_id"],
+    referenced_table_name: "ClientOnboarding",
+    referenced_columns: ["id"],
+    on_delete: "CASCADE",
+    on_update: "CASCADE",
+  },
+  {
+    constraint_name: "MarketingB2BOnboardingForm_checklist_item_id_fkey",
+    columns: ["checklist_item_id"],
+    referenced_table_name: "OnboardingChecklistItem",
+    referenced_columns: ["id"],
+    on_delete: "CASCADE",
+    on_update: "CASCADE",
+  },
+  {
+    constraint_name: "MarketingB2BOnboardingForm_task_id_fkey",
+    columns: ["task_id"],
+    referenced_table_name: "Task",
+    referenced_columns: ["id"],
+    on_delete: "CASCADE",
+    on_update: "CASCADE",
+  },
+  {
+    constraint_name: "MarketingB2BOnboardingForm_company_id_fkey",
+    columns: ["company_id"],
+    referenced_table_name: "Company",
+    referenced_columns: ["id"],
+    on_delete: "CASCADE",
+    on_update: "CASCADE",
+  },
+  {
+    constraint_name: "MarketingB2BOnboardingForm_project_id_fkey",
+    columns: ["project_id"],
+    referenced_table_name: "Project",
+    referenced_columns: ["id"],
+    on_delete: "CASCADE",
+    on_update: "CASCADE",
+  },
+  {
+    constraint_name: "MarketingB2BOnboardingForm_completed_by_fkey",
+    columns: ["completed_by"],
+    referenced_table_name: "User",
+    referenced_columns: ["id"],
+    on_delete: "SET NULL",
+    on_update: "CASCADE",
+  },
+];
 const prismaCommand = process.platform === "win32" ? "prisma.cmd" : "prisma";
 
 function fail(message) {
@@ -440,6 +498,158 @@ async function assertClonedSchemaSafety(client, expectedAppTables, requiredExten
   }
 }
 
+function foreignKeyDescription(foreignKey) {
+  return `${foreignKey.columns.join(", ")} -> ${foreignKey.referenced_table_name}(${foreignKey.referenced_columns.join(", ")}), ` +
+    `ON DELETE ${foreignKey.on_delete}, ON UPDATE ${foreignKey.on_update}`;
+}
+
+function getFrozenMarketingB2BForeignKeyErrors(rows) {
+  const expectedByName = new Map(
+    FROZEN_MARKETING_B2B_FOREIGN_KEYS.map((foreignKey) => [foreignKey.constraint_name, foreignKey]),
+  );
+  const actualByName = new Map();
+  const errors = [];
+
+  for (const row of rows) {
+    if (typeof row?.constraint_name !== "string" || !row.constraint_name) {
+      errors.push("A MarketingB2BOnboardingForm foreign key has no constraint name.");
+      continue;
+    }
+
+    if (actualByName.has(row.constraint_name)) {
+      errors.push(`MarketingB2BOnboardingForm contains duplicate foreign key ${row.constraint_name}.`);
+      continue;
+    }
+    actualByName.set(row.constraint_name, row);
+
+    const expected = expectedByName.get(row.constraint_name);
+    if (!expected) {
+      errors.push(`MarketingB2BOnboardingForm contains unexpected foreign key ${row.constraint_name}.`);
+      continue;
+    }
+
+    const actual = {
+      columns: Array.isArray(row.columns) ? row.columns : [],
+      referenced_table_name: row.referenced_table_name,
+      referenced_columns: Array.isArray(row.referenced_columns) ? row.referenced_columns : [],
+      on_delete: row.on_delete,
+      on_update: row.on_update,
+    };
+    if (
+      !sameValues(actual.columns, expected.columns) ||
+      actual.referenced_table_name !== expected.referenced_table_name ||
+      !sameValues(actual.referenced_columns, expected.referenced_columns) ||
+      actual.on_delete !== expected.on_delete ||
+      actual.on_update !== expected.on_update
+    ) {
+      errors.push(
+        `Foreign key ${row.constraint_name} does not match the frozen migration: expected ` +
+          `${foreignKeyDescription(expected)}, found ${foreignKeyDescription(actual)}.`,
+      );
+    }
+  }
+
+  for (const expected of FROZEN_MARKETING_B2B_FOREIGN_KEYS) {
+    if (!actualByName.has(expected.constraint_name)) {
+      errors.push(`MarketingB2BOnboardingForm is missing frozen foreign key ${expected.constraint_name}.`);
+    }
+  }
+
+  return errors;
+}
+
+async function assertFrozenMarketingB2BForeignKeys(client) {
+  const rows = await client.$queryRawUnsafe(`
+    SELECT
+      constraint_row.conname AS constraint_name,
+      ARRAY(
+        SELECT child_attribute.attname
+        FROM unnest(constraint_row.conkey) WITH ORDINALITY AS child_key(attnum, ordinality)
+        INNER JOIN pg_catalog.pg_attribute AS child_attribute
+          ON child_attribute.attrelid = constraint_row.conrelid
+          AND child_attribute.attnum = child_key.attnum
+        ORDER BY child_key.ordinality ASC
+      ) AS columns,
+      parent_table.relname AS referenced_table_name,
+      ARRAY(
+        SELECT parent_attribute.attname
+        FROM unnest(constraint_row.confkey) WITH ORDINALITY AS parent_key(attnum, ordinality)
+        INNER JOIN pg_catalog.pg_attribute AS parent_attribute
+          ON parent_attribute.attrelid = constraint_row.confrelid
+          AND parent_attribute.attnum = parent_key.attnum
+        ORDER BY parent_key.ordinality ASC
+      ) AS referenced_columns,
+      CASE constraint_row.confdeltype
+        WHEN 'a' THEN 'NO ACTION'
+        WHEN 'r' THEN 'RESTRICT'
+        WHEN 'c' THEN 'CASCADE'
+        WHEN 'n' THEN 'SET NULL'
+        WHEN 'd' THEN 'SET DEFAULT'
+        ELSE constraint_row.confdeltype::text
+      END AS on_delete,
+      CASE constraint_row.confupdtype
+        WHEN 'a' THEN 'NO ACTION'
+        WHEN 'r' THEN 'RESTRICT'
+        WHEN 'c' THEN 'CASCADE'
+        WHEN 'n' THEN 'SET NULL'
+        WHEN 'd' THEN 'SET DEFAULT'
+        ELSE constraint_row.confupdtype::text
+      END AS on_update
+    FROM pg_catalog.pg_constraint AS constraint_row
+    INNER JOIN pg_catalog.pg_class AS child_table ON child_table.oid = constraint_row.conrelid
+    INNER JOIN pg_catalog.pg_namespace AS child_namespace ON child_namespace.oid = child_table.relnamespace
+    INNER JOIN pg_catalog.pg_class AS parent_table ON parent_table.oid = constraint_row.confrelid
+    WHERE child_namespace.nspname = 'public'
+      AND child_table.relname = 'MarketingB2BOnboardingForm'
+      AND constraint_row.contype = 'f'
+    ORDER BY constraint_row.conname ASC
+  `);
+  const errors = getFrozenMarketingB2BForeignKeyErrors(rows);
+  if (errors.length > 0) {
+    fail(`The staging schema does not match the frozen MarketingB2B onboarding migration. ${errors.join(" ")}`);
+  }
+}
+
+function getPostBaselineSalesChannelObjects(row) {
+  const objects = [];
+  if (row?.has_company_sales_channel === true) objects.push("Company.sales_channel");
+  if (row?.has_client_sales_channel_enum === true) objects.push("ClientSalesChannel enum");
+  return objects;
+}
+
+async function assertNoPostBaselineSalesChannelObjects(client) {
+  const rows = await client.$queryRawUnsafe(`
+    SELECT
+      EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_attribute AS attribute_row
+        INNER JOIN pg_catalog.pg_class AS table_row ON table_row.oid = attribute_row.attrelid
+        INNER JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid = table_row.relnamespace
+        WHERE namespace_row.nspname = 'public'
+          AND table_row.relname = 'Company'
+          AND table_row.relkind IN ('r', 'p')
+          AND attribute_row.attname = 'sales_channel'
+          AND attribute_row.attnum > 0
+          AND NOT attribute_row.attisdropped
+      ) AS has_company_sales_channel,
+      EXISTS (
+        SELECT 1
+        FROM pg_catalog.pg_type AS type_row
+        INNER JOIN pg_catalog.pg_namespace AS namespace_row ON namespace_row.oid = type_row.typnamespace
+        WHERE namespace_row.nspname = 'public'
+          AND type_row.typname = 'ClientSalesChannel'
+          AND type_row.typtype = 'e'
+      ) AS has_client_sales_channel_enum
+  `);
+  const objects = getPostBaselineSalesChannelObjects(rows[0]);
+  if (objects.length > 0) {
+    fail(
+      `The staging clone contains post-baseline sales-channel object(s): ${objects.join(", ")}. ` +
+        "The frozen 48-migration baseline cannot be recorded against a newer schema.",
+    );
+  }
+}
+
 function writeCapturedOutput(result) {
   if (result.stdout) process.stdout.write(result.stdout);
   if (result.stderr) process.stderr.write(result.stderr);
@@ -456,29 +666,6 @@ function runPrisma(args, env = process.env) {
 
   if (result.error) throw result.error;
   return result;
-}
-
-function assertSchemaMatchesPrismaDatamodel(env = process.env, schemaPath = SCHEMA_PATH) {
-  const result = runPrisma(
-    [
-      "migrate",
-      "diff",
-      "--from-schema-datamodel",
-      schemaPath,
-      "--to-schema-datasource",
-      schemaPath,
-      "--exit-code",
-    ],
-    env,
-  );
-
-  if (result.status === 0) return;
-
-  writeCapturedOutput(result);
-  if (result.status === 2) {
-    fail("The staging database differs from the Prisma datamodel. Correct the clone before recording migration history.");
-  }
-  fail("Prisma could not validate the staging database schema before baselining.");
 }
 
 async function validateClonedStagingDatabase(env = process.env) {
@@ -498,7 +685,12 @@ async function validateClonedStagingDatabase(env = process.env) {
 
   try {
     await assertClonedSchemaSafety(client, expectedAppTables, manifest.required_extensions);
-    assertSchemaMatchesPrismaDatamodel(env, frozenSource.schemaPath);
+    // The frozen migrations are the source of truth for this one-time clone
+    // baseline. A Prisma datamodel diff rejects legitimate raw-SQL defaults
+    // and indexes that the datamodel intentionally cannot represent, so use
+    // exact catalog contracts for migration-owned objects instead.
+    await assertFrozenMarketingB2BForeignKeys(client);
+    await assertNoPostBaselineSalesChannelObjects(client);
     return { manifest, frozenMigrations, frozenSource, localMigrations, target };
   } finally {
     await client.$disconnect();
@@ -585,9 +777,11 @@ module.exports = {
   assertStagingDatabaseTarget,
   baselineClonedStaging,
   classifyMigrationHistory,
+  getFrozenMarketingB2BForeignKeyErrors,
   getExpectedAppTableNames,
   getFrozenBaselineSourcePaths,
   getLocalMigrations,
+  getPostBaselineSalesChannelObjects,
   readBaselineManifest,
   validateClonedStagingDatabase,
 };

@@ -43,6 +43,12 @@ enum ProjectKind {
   onboarding
 }
 
+enum ClientSalesChannel {
+  WHOLESALE
+  RETAIL
+  BOTH
+}
+
 enum TaskStatus {
   todo
   in_progress
@@ -647,6 +653,7 @@ model Company {
   contract_value    Float?
   commission        Float?
   industry          String?
+  sales_channel     ClientSalesChannel?
   service_type      String?
   plan_name         String?
   billing_cycle     String?
@@ -685,6 +692,7 @@ model Company {
 
   @@index([workspace_id])
   @@index([workspace_id, status, updated_at])
+  @@index([workspace_id, sales_channel, created_at(sort: Desc), id])
   @@index([workspace_id, contract_value])
   @@index([owner_id])
 }
