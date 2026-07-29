@@ -33,6 +33,8 @@ test("staging migration and deployment credentials are isolated and fail closed"
   assert.doesNotMatch(stagingWorkflow, /UPFLOW_STAGING_PROJECT_REF/);
   assert.match(stagingWorkflow, /UPFLOW_STAGING_VERCEL_ORG_ID/);
   assert.match(stagingWorkflow, /UPFLOW_STAGING_VERCEL_PROJECT_ID/);
+  assert.match(stagingWorkflow, /KNOWN_PRODUCTION_VERCEL_PROJECT_ID/);
+  assert.match(stagingWorkflow, /points at the known production Vercel project/);
   assert.match(stagingWorkflow, /Require the direct staging database URL/);
   assert.match(stagingWorkflow, /Require isolated staging Vercel credentials/);
   assert.match(stagingWorkflow, /db:migrate:preflight/);
@@ -40,6 +42,9 @@ test("staging migration and deployment credentials are isolated and fail closed"
   assert.match(stagingWorkflow, /db:migrate:deploy/);
   assert.match(stagingWorkflow, /db:migrate:status/);
   assert.match(stagingWorkflow, /vercel@56\.2\.1 deploy --prod --yes/);
+  assert.match(stagingWorkflow, /--scope "\$\{STAGING_VERCEL_ORG_ID\}"/);
+  assert.match(stagingWorkflow, /--project "\$\{STAGING_VERCEL_PROJECT_ID\}"/);
+  assert.match(stagingWorkflow, /steps\.deploy\.outputs\.url.*\/api\/health/s);
 });
 
 test("staging refuses to migrate an unbaselined schema clone", () => {

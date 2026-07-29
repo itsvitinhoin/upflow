@@ -33,6 +33,7 @@ const {
   getExpectedAppTableNames: () => string[];
   getLocalMigrations: () => Array<{ name: string; sha256: string }>;
   readBaselineManifest: () => {
+    source_commit: string;
     staging_project_ref: string;
     production_project_ref: string;
     migrations: Array<{ name: string; sha256: string }>;
@@ -74,9 +75,16 @@ function stagingEnvironment(overrides: Record<string, string | undefined> = {}) 
 
 test("the frozen baseline prefix matches the reviewed migration tree", () => {
   const localMigrations = getLocalMigrations();
+  const laterMigration = { name: "20269999999999_later_feature", sha256: "f".repeat(64) };
 
   assert.equal(manifest.migrations.length, 48);
   assertManifestMatchesCurrentMigrations(manifest, localMigrations, { exact: false });
+  assert.doesNotThrow(() =>
+    assertManifestMatchesCurrentMigrations(manifest, [...localMigrations, laterMigration], { exact: false }),
+  );
+  assert.throws(() =>
+    assertManifestMatchesCurrentMigrations(manifest, [...localMigrations, laterMigration], { exact: true }),
+  );
   assert.throws(() => assertManifestMatchesCurrentMigrations(manifest, localMigrations.slice(1), { exact: true }));
   assert.throws(() =>
     assertManifestMatchesCurrentMigrations(
@@ -89,6 +97,7 @@ test("the frozen baseline prefix matches the reviewed migration tree", () => {
   );
   assert.equal(manifest.staging_project_ref, "rkfwtfwbhpydmhpqghlq");
   assert.equal(manifest.production_project_ref, "axppobjuaddsgzrmolge");
+  assert.equal(manifest.source_commit, "3e0987b16e2a4490fae20400a7722728168a5701");
   assert.deepEqual(manifest.required_extensions, ["pgcrypto", "pg_trgm"]);
 });
 
@@ -177,6 +186,14 @@ test("only a clean ordered baseline prefix may be resumed", () => {
     ).isValid,
     false,
   );
+
+  const fullHistory = expected.map((migration) => completeRow(migration.name, migration.sha256));
+  const laterHistory = [...fullHistory, completeRow("20260000000003_later", "d".repeat(64))];
+  assert.equal(classifyMigrationHistory(laterHistory, expected).isValid, false);
+  assert.equal(
+    classifyMigrationHistory(laterHistory, expected, { allowLaterMigrations: true }).isValid,
+    true,
+  );
 });
 
 test("the one-time workflow is manual, staging-only, and cannot deploy", () => {
@@ -185,6 +202,12 @@ test("the one-time workflow is manual, staging-only, and cannot deploy", () => {
   assert.match(baselineWorkflow, new RegExp(BASELINE_CONFIRMATION));
   assert.match(baselineWorkflow, /environment: staging-bootstrap/);
   assert.match(baselineWorkflow, /UPFLOW_STAGING_BASELINE_MIGRATION_URL/);
+  assert.match(baselineWorkflow, /Read the frozen schema source commit/);
+  assert.match(baselineWorkflow, /fetch-depth: 0/);
+  assert.match(baselineWorkflow, /git merge-base --is-ancestor/);
+  assert.match(baselineWorkflow, /steps\.frozen-source\.outputs\.commit/);
+  assert.match(baselineWorkflow, /STAGING_PRISMA_BASELINE_SCHEMA_PATH/);
+  assert.match(baselineWorkflow, /STAGING_PRISMA_BASELINE_MIGRATIONS_DIRECTORY/);
   assert.doesNotMatch(baselineWorkflow, /UPFLOW_STAGING_MIGRATION_URL/);
   assert.doesNotMatch(baselineWorkflow, /UPFLOW_STAGING_PROJECT_REF/);
   assert.doesNotMatch(baselineWorkflow, /UPFLOW_PRODUCTION_PROJECT_REF/);
@@ -196,8 +219,9 @@ test("the one-time workflow is manual, staging-only, and cannot deploy", () => {
 });
 
 test("the history-only script never applies a migration or resets a database", () => {
-  assert.match(baselineScript, /migrate", "resolve", "--applied"/);
-  assert.match(baselineScript, /migrate", "status"/);
+  assert.match(baselineScript, /getFrozenBaselineSourcePaths/);
+  assert.match(baselineScript, /migrate", "resolve", "--schema", frozenSource\.schemaPath, "--applied"/);
+  assert.match(baselineScript, /migrate", "status", "--schema", frozenSource\.schemaPath/);
   assert.doesNotMatch(baselineScript, /migrate", "deploy/);
   assert.doesNotMatch(baselineScript, /db push/);
   assert.doesNotMatch(baselineScript, /migrate reset/);

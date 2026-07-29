@@ -49,6 +49,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -59,6 +61,45 @@ jobs:
           node-version: "22"
           cache: "pnpm"
 
+      - name: Read the frozen schema source commit
+        id: frozen-source
+        run: |
+          source_commit="$(node -p 'require("./artifacts/up-flow/prisma/staging-clone-baseline.json").source_commit')"
+          if ! [[ "${source_commit}" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::The staging baseline manifest must contain a full frozen source commit SHA."
+            exit 1
+          fi
+
+          echo "commit=${source_commit}" >> "${GITHUB_OUTPUT}"
+
+      - name: Require the frozen source to precede staging
+        env:
+          SOURCE_COMMIT: ${{ steps.frozen-source.outputs.commit }}
+        run: |
+          if ! git merge-base --is-ancestor "${SOURCE_COMMIT}" "${GITHUB_SHA}"; then
+            echo "::error::The frozen schema source must be an ancestor of the selected staging commit."
+            exit 1
+          fi
+
+      - name: Checkout the frozen source schema
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.frozen-source.outputs.commit }}
+          path: .staging-prisma-baseline-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify the frozen source checkout
+        working-directory: .staging-prisma-baseline-source
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ steps.frozen-source.outputs.commit }}
+        run: |
+          actual_commit="$(git rev-parse HEAD)"
+          if [ "${actual_commit}" != "${EXPECTED_SOURCE_COMMIT}" ]; then
+            echo "::error::The frozen staging schema checkout does not match the reviewed source commit."
+            exit 1
+          fi
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -66,6 +107,9 @@ jobs:
         run: pnpm --filter @workspace/up-flow run db:generate
 
       - name: Validate then record the reviewed staging history
+        env:
+          STAGING_PRISMA_BASELINE_SCHEMA_PATH: ${{ github.workspace }}/.staging-prisma-baseline-source/artifacts/up-flow/prisma/schema.prisma
+          STAGING_PRISMA_BASELINE_MIGRATIONS_DIRECTORY: ${{ github.workspace }}/.staging-prisma-baseline-source/artifacts/up-flow/prisma/migrations
         run: pnpm --filter @workspace/up-flow run db:migrate:baseline-staging
 
       - name: Verify staging baseline completion

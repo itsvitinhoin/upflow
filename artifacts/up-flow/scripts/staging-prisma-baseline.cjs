@@ -1,6 +1,6 @@
 const { createHash } = require("node:crypto");
 const { existsSync, readdirSync, readFileSync } = require("node:fs");
-const { join, resolve } = require("node:path");
+const { dirname, join, resolve } = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const APP_ROOT = resolve(__dirname, "..");
@@ -10,6 +10,8 @@ const SCHEMA_PATH = join(PRISMA_ROOT, "schema.prisma");
 const MANIFEST_PATH = join(PRISMA_ROOT, "staging-clone-baseline.json");
 const BASELINE_CONFIRMATION = "BASELINE-STAGING-PRISMA-HISTORY";
 const STAGING_REF = "refs/heads/staging";
+const FROZEN_SCHEMA_PATH_ENV = "STAGING_PRISMA_BASELINE_SCHEMA_PATH";
+const FROZEN_MIGRATIONS_DIRECTORY_ENV = "STAGING_PRISMA_BASELINE_MIGRATIONS_DIRECTORY";
 const prismaCommand = process.platform === "win32" ? "prisma.cmd" : "prisma";
 
 function fail(message) {
@@ -95,6 +97,30 @@ function getLocalMigrations(migrationsDirectory = MIGRATIONS_DIRECTORY) {
       return { name: entry.name, sha256: sha256(migrationPath) };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function getFrozenBaselineSourcePaths(env = process.env) {
+  const rawSchemaPath = env[FROZEN_SCHEMA_PATH_ENV];
+  const rawMigrationsDirectory = env[FROZEN_MIGRATIONS_DIRECTORY_ENV];
+
+  if (!rawSchemaPath || !rawMigrationsDirectory) {
+    fail(
+      `The one-time staging baseline requires both ${FROZEN_SCHEMA_PATH_ENV} and ${FROZEN_MIGRATIONS_DIRECTORY_ENV}. ` +
+        "Use the frozen source checkout from the reviewed baseline workflow.",
+    );
+  }
+
+  const schemaPath = resolve(rawSchemaPath);
+  const migrationsDirectory = resolve(rawMigrationsDirectory);
+  if (!existsSync(schemaPath) || !existsSync(migrationsDirectory)) {
+    fail("The frozen staging baseline source checkout is missing its Prisma schema or migrations directory.");
+  }
+
+  if (migrationsDirectory !== join(dirname(schemaPath), "migrations")) {
+    fail("The frozen staging baseline migrations directory must be adjacent to its frozen schema.prisma file.");
+  }
+
+  return { schemaPath, migrationsDirectory };
 }
 
 function assertManifestMatchesCurrentMigrations(manifest, localMigrations, { exact } = { exact: true }) {
@@ -432,15 +458,15 @@ function runPrisma(args, env = process.env) {
   return result;
 }
 
-function assertSchemaMatchesPrismaDatamodel(env = process.env) {
+function assertSchemaMatchesPrismaDatamodel(env = process.env, schemaPath = SCHEMA_PATH) {
   const result = runPrisma(
     [
       "migrate",
       "diff",
       "--from-schema-datamodel",
-      "prisma/schema.prisma",
+      schemaPath,
       "--to-schema-datasource",
-      "prisma/schema.prisma",
+      schemaPath,
       "--exit-code",
     ],
     env,
@@ -458,15 +484,22 @@ function assertSchemaMatchesPrismaDatamodel(env = process.env) {
 async function validateClonedStagingDatabase(env = process.env) {
   const manifest = readBaselineManifest();
   const localMigrations = getLocalMigrations();
-  assertManifestMatchesCurrentMigrations(manifest, localMigrations, { exact: true });
+  const frozenSource = getFrozenBaselineSourcePaths(env);
+  const frozenMigrations = getLocalMigrations(frozenSource.migrationsDirectory);
+
+  // A newer staging checkout may contain feature migrations that the clone
+  // does not have yet. Validate the clone only against the immutable source
+  // snapshot, while still rejecting a modified historical migration locally.
+  assertManifestMatchesCurrentMigrations(manifest, localMigrations, { exact: false });
+  assertManifestMatchesCurrentMigrations(manifest, frozenMigrations, { exact: true });
   const target = assertStagingDatabaseTarget(env, manifest);
-  const expectedAppTables = getExpectedAppTableNames();
+  const expectedAppTables = getExpectedAppTableNames(frozenSource.schemaPath);
   const client = getPrismaClient();
 
   try {
     await assertClonedSchemaSafety(client, expectedAppTables, manifest.required_extensions);
-    assertSchemaMatchesPrismaDatamodel(env);
-    return { manifest, localMigrations, target };
+    assertSchemaMatchesPrismaDatamodel(env, frozenSource.schemaPath);
+    return { manifest, frozenMigrations, frozenSource, localMigrations, target };
   } finally {
     await client.$disconnect();
   }
@@ -502,7 +535,7 @@ async function baselineClonedStaging(env = process.env) {
     fail(`Set STAGING_PRISMA_BASELINE_CONFIRMATION to ${BASELINE_CONFIRMATION} to authorize this history-only operation.`);
   }
 
-  const { manifest } = await validateClonedStagingDatabase(env);
+  const { frozenSource, manifest } = await validateClonedStagingDatabase(env);
   const expectedMigrationNames = manifest.migrations.map((migration) => migration.name);
   const client = getPrismaClient();
 
@@ -514,14 +547,17 @@ async function baselineClonedStaging(env = process.env) {
     }
 
     for (const migrationName of before.missingMigrationNames) {
-      const result = runPrisma(["migrate", "resolve", "--applied", migrationName], env);
+      const result = runPrisma(
+        ["migrate", "resolve", "--schema", frozenSource.schemaPath, "--applied", migrationName],
+        env,
+      );
       writeCapturedOutput(result);
       if (result.status !== 0) {
         fail(`Prisma could not record ${migrationName} as applied. No further migration history was changed.`);
       }
     }
 
-    const status = runPrisma(["migrate", "status"], env);
+    const status = runPrisma(["migrate", "status", "--schema", frozenSource.schemaPath], env);
     writeCapturedOutput(status);
     if (status.status !== 0) {
       fail("Prisma migration status is not current after the staging baseline.");
@@ -550,6 +586,7 @@ module.exports = {
   baselineClonedStaging,
   classifyMigrationHistory,
   getExpectedAppTableNames,
+  getFrozenBaselineSourcePaths,
   getLocalMigrations,
   readBaselineManifest,
   validateClonedStagingDatabase,

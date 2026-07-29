@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source_commit": "3e0987b",
+  "source_commit": "3e0987b16e2a4490fae20400a7722728168a5701",
   "staging_project_ref": "rkfwtfwbhpydmhpqghlq",
   "production_project_ref": "axppobjuaddsgzrmolge",
   "required_extensions": ["pgcrypto", "pg_trgm"],
