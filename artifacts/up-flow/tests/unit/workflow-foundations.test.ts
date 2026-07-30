@@ -124,7 +124,7 @@ test("client report endpoint uses real records and returns a markdown report", (
 test("critical readiness e2e coverage documents permission, health, reporting, and audit flows", () => {
   const spec = read("tests/critical-readiness.spec.ts");
 
-  assert.match(spec, /permissions are enforced for member and guest roles/);
+  assert.match(spec, /guest permissions are enforced/);
   assert.match(spec, /client health center ranks clients needing attention/);
   assert.match(spec, /client report workflow can be previewed and archived/);
   assert.match(spec, /audit center exposes permission and report history/);

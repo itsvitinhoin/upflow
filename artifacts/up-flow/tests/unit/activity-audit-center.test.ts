@@ -41,10 +41,10 @@ test("readiness docs reflect the current permission model", () => {
   const finalAcceptance = read("docs/final-acceptance-test.md");
   const rollout = read("docs/internal-rollout-plan.md");
 
-  assert.match(crudChecklist, /members and guests are view-only under the current policy/);
+  assert.match(crudChecklist, /members and guests are view-only/);
   assert.match(crudChecklist, /Try to start or stop time tracking/);
   assert.match(crudChecklist, /only the owner can delete it/i);
-  assert.match(finalAcceptance, /members and guests cannot delete or mutate tasks/);
+  assert.match(finalAcceptance, /active members can create and update tasks; guests cannot mutate tasks/);
   assert.match(finalAcceptance, /workspace deletion is owner-only/i);
-  assert.match(rollout, /Members and guests can view workspace records without mutating them/);
+  assert.match(rollout, /Active members can create and update projects and tasks; guests remain view-only/);
 });

@@ -261,6 +261,17 @@ export default function ProjectPage() {
     );
   }, [currentWorkflowKind, isDesignQueue, viewParam, workflowFormTaskId, workflowView]);
 
+
+  const canCreateTasks = useMemo(() => {
+    if (!me) return false;
+    return Boolean(
+      me.isSuperAdmin ||
+        me.currentRole === "owner" ||
+        me.currentRole === "admin" ||
+        me.currentRole === "member",
+    );
+  }, [me]);
+
   if (loading) {
     return (
       <>
@@ -419,12 +430,15 @@ export default function ProjectPage() {
               >
                 <FileText className="w-4 h-4" /> {t("projects.docs")}
               </Link>
-              <button
-                onClick={() => setCreateOpen({ status: "todo" })}
-                className="upflow-gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
-              >
-                <Plus className="w-4 h-4" /> {t("projects.addTask")}
-              </button>
+              {canCreateTasks && (
+                <button
+                  onClick={() => setCreateOpen({ status: "todo" })}
+                  className="upflow-gradient-button flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-all hover:-translate-y-0.5"
+                >
+                  <Plus className="w-4 h-4" /> {t("projects.addTask")}
+                </button>
+              )}
+
             </div>
           </div>
         </div>
@@ -582,6 +596,7 @@ export default function ProjectPage() {
                 toolbar={toolbar}
                 onUpdate={loadData}
                 onAddTask={(status, fieldValues) => setCreateOpen({ status, fieldValues })}
+                canCreate={canCreateTasks}
                 onOpenTask={handleOpenTask}
                 selectedTaskIds={selectedTaskIdSet}
                 onToggleTaskSelection={toggleTaskSelection}
@@ -597,6 +612,7 @@ export default function ProjectPage() {
                 toolbar={toolbar}
                 onTaskClick={handleOpenTask}
                 onAddTask={handleAddTask}
+                canCreate={canCreateTasks}
                 onUpdate={loadData}
                 selectedTaskIds={selectedTaskIdSet}
                 onToggleTaskSelection={toggleTaskSelection}
