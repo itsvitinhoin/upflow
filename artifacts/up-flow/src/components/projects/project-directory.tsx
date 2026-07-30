@@ -32,7 +32,7 @@ import { useLanguage } from "@/components/language-provider";
 import { useAppUser } from "@/components/user-provider";
 import { cn, formatDate } from "@/lib/utils";
 import type { Folder as FolderType, ProjectKind, Space } from "@/lib/types";
-import { isCommercialDepartmentName } from "@/lib/project-creation-access";
+
 
 type DirectoryTab = "clients" | "internal" | "operations" | "archived";
 type DirectorySort = "name" | "newest" | "due";
@@ -264,14 +264,14 @@ export default function ProjectDirectory() {
     void loadDirectory();
   }, [loadDirectory, refreshKey]);
 
-  const canCreateProject = Boolean(
-    data?.capabilities?.canCreateProject ||
-      user?.isSuperAdmin ||
-      user?.currentRole === "owner" ||
-      user?.currentRole === "admin" ||
-      (user?.currentRole !== "guest" &&
-        isCommercialDepartmentName(user?.currentDepartmentName)),
-  );
+  const canCreateProject = data?.capabilities
+    ? Boolean(data.capabilities.canCreateProject)
+    : Boolean(
+        user?.isSuperAdmin ||
+          user?.currentRole === "owner" ||
+          user?.currentRole === "admin" ||
+          user?.currentRole === "member",
+      );
   const canManageProjects = Boolean(
     data?.capabilities?.canManageProjects ||
       user?.isSuperAdmin ||

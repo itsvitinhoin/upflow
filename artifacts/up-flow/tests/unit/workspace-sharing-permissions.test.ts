@@ -24,7 +24,7 @@ test("workspace sharing supports guest invites and team role management", () => 
   assert.match(inviteDialog, /<option value="guest">/);
   assert.match(teamPage, /<option value="guest">/);
   assert.match(permissionMatrix, /export type PermissionRole = "owner" \| "admin" \| "member" \| "guest"/);
-  assert.match(permissionMatrix, /levels:\s*\{\s*owner:\s*"manage",\s*admin:\s*"manage",\s*member:\s*"view",\s*guest:\s*"view"\s*\}/);
+  assert.match(permissionMatrix, /labelKey: "permissions\.capability\.projectsTasksDocs"[\s\S]*member:\s*"manage",\s*guest:\s*"view"/);
   assert.match(permissionPage, /permissionMatrixSections/);
   assert.match(settingsPage, /\/settings\/permissions/);
 });
@@ -46,6 +46,9 @@ test("members can contribute to project tasks while guests remain view-only else
   const spacesRoute = read("src/app/api/spaces/route.ts");
   const foldersRoute = read("src/app/api/folders/route.ts");
   const projectsRoute = read("src/app/api/projects/route.ts");
+  const projectDirectoryRoute = read("src/app/api/projects/directory/route.ts");
+  const projectDirectory = read("src/components/projects/project-directory.tsx");
+  const commandPalette = read("src/components/command-palette.tsx");
   const tasksRoute = read("src/app/api/tasks/route.ts");
   const commentsRoute = read("src/app/api/comments/route.ts");
   const docsRoute = read("src/app/api/docs/route.ts");
@@ -83,6 +86,13 @@ test("members can contribute to project tasks while guests remain view-only else
   assert.match(tasksRoute, /canContributeToProject\(auth,\s*project\)/);
   assert.match(commentsRoute, /canContributeToProject\(auth,\s*task\.project\)/);
   assert.doesNotMatch(commentsRoute, /isWorkspaceAdminFor\(auth,/);
+  assert.match(projectsRoute, /member\?\.status === "active" && member\.role !== "guest"/);
+  assert.doesNotMatch(projectsRoute, /isCommercialDepartmentName/);
+  assert.match(projectDirectoryRoute, /member\?\.status === "active" && member\.role !== "guest"/);
+  assert.doesNotMatch(projectDirectoryRoute, /isCommercialDepartmentName/);
+  assert.match(projectDirectory, /currentRole === "member"/);
+  assert.match(commandPalette, /currentRole === "member"/);
+
   assert.match(sidebarPanel, /canManageWorkspace/);
-  assert.match(header, /canCreateProject/);
+  assert.match(header, /currentRole === "member"/);
 });

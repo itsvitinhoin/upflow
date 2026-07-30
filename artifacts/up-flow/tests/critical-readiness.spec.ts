@@ -5,7 +5,7 @@ const runCritical = process.env.UPFLOW_CRITICAL_E2E === "true";
 test.describe("critical internal readiness flows", () => {
   test.skip(!runCritical, "Set UPFLOW_CRITICAL_E2E=true with seeded admin/member/guest data to run these checks.");
 
-  test("permissions are enforced for member and guest roles", async ({ page }) => {
+  test("guest permissions are enforced", async ({ page }) => {
     await page.goto("/projects");
     await expect(page.getByRole("button", { name: /add|new|create/i })).toHaveCount(0);
   });

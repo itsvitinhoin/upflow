@@ -9,7 +9,7 @@ import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
 import { useTheme } from "@/components/theme-provider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { isCommercialDepartmentName } from "@/lib/project-creation-access";
+
 import { getCachedJson } from "@/lib/client-cache";
 import { getNotificationHref } from "@/lib/notification-links";
 import { memberJoinedNotificationLabel } from "@/lib/notification-copy";
@@ -207,8 +207,8 @@ export default function Header({ title }: HeaderProps) {
     user?.isSuperAdmin ||
     user?.currentRole === "owner" ||
     user?.currentRole === "admin" ||
-    (user?.currentRole !== "guest" &&
-      isCommercialDepartmentName(user?.currentDepartmentName));
+    user?.currentRole === "member";
+
 
   const fetchNotifications = useCallback(async (
     force = false,

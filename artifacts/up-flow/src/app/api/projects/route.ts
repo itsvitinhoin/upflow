@@ -11,7 +11,7 @@ import {
   createClientOnboardingRecordsForProject,
   finishClientOnboardingStart,
 } from "@/lib/onboarding";
-import { isCommercialDepartmentName } from "@/lib/project-creation-access";
+
 import { syncSpaceTaskStatusFields } from "@/lib/space-workflow-statuses";
 import { isSpaceWorkflowSchemaUnavailable } from "@/lib/space-workflow-schema";
 import { logError } from "@/lib/log-error";
@@ -20,13 +20,8 @@ async function canCreateProjectInWorkspace(userId: string, workspaceId: string, 
   if (admin) return true;
   const member = await prisma.workspaceMember.findUnique({
     where: { workspace_id_user_id: { workspace_id: workspaceId, user_id: userId } },
-    include: { department: { select: { name: true } } },
   });
-  return Boolean(
-    member?.status === "active" &&
-      member.role !== "guest" &&
-      isCommercialDepartmentName(member.department?.name),
-  );
+  return Boolean(member?.status === "active" && member.role !== "guest");
 }
 
 async function getHandler(req: NextRequest) {

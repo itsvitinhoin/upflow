@@ -33,7 +33,7 @@ For every module, confirm:
 | Tasks | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test title validation, assignee, due date, priority, cover image, comments, custom fields, and task assignment notification. |
 | Clients | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client card fields, plan/service fields, contract value, commission, linked projects/tasks, and risk empty states. |
 | Calendar events | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Create in Manage mode for a future date. Verify Brazilian date display and timezone. Tasks due on calendar remain read-only. |
-| Notes | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client notes. Workspace owners/admins can manage notes; members and guests are view-only under the current policy. |
+| Notes | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client notes. Workspace owners/admins can manage notes; members and guests are view-only. |
 | Contacts | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Test client contacts. Workspace owners/admins can manage contacts; members and guests are view-only, and invalid emails are rejected. |
 | Team members | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Invite current-workspace member, change role/status/department, remove/deactivate, then verify team list after reload. |
 | Departments | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | Create, rename, recolor, delete. Deleting a department should move members to Unassigned. |

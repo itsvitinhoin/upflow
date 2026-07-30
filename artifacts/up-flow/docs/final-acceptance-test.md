@@ -64,7 +64,7 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
 
 14. Admin deletes task.
     - Expected: destructive confirmation appears.
-    - Expected: members and guests cannot delete or mutate tasks under the current policy.
+    - Expected: active members can create and update tasks; guests cannot mutate tasks.
 
 15. Admin creates a client.
     - Expected: client card shows real available data and safe empty states for missing plan/service fields.
@@ -95,7 +95,7 @@ Run this in production before marking UP Flow ready for internal rollout. Use re
 22. User views Space dashboard.
     - Expected: records are scoped to the selected Space.
     - Expected: department-specific copy appears when applicable.
-    - Expected: members and guests can view workspace and space records without create/edit/delete controls.
+    - Expected: active members can create projects and tasks; guests only see read-only workspace and space records.
 
 23. Owner opens workspace options and sees the delete workspace action.
     - Expected: workspace deletion is owner-only and protects the user's only workspace.
