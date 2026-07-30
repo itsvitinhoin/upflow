@@ -20,6 +20,7 @@ export const permissionRoles: Array<{
     id: "member",
     labelKey: "permissions.role.member",
     descriptionKey: "permissions.role.memberDescription",
+
   },
   {
     id: "guest",
@@ -77,7 +78,8 @@ export const permissionMatrixSections: Array<{
       {
         labelKey: "permissions.capability.projectsTasksDocs",
         detailKey: "permissions.capability.projectsTasksDocsDescription",
-        levels: { owner: "manage", admin: "manage", member: "view", guest: "view" },
+        levels: { owner: "manage", admin: "manage", member: "manage", guest: "view" },
+
       },
       {
         labelKey: "permissions.capability.clientsContactsNotes",

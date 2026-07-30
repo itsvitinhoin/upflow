@@ -48,6 +48,7 @@ interface KanbanBoardProps {
   toolbar?: ToolbarState;
   onUpdate: () => void;
   onAddTask: (status: ColumnKey, customFieldValues?: Record<string, unknown>) => void;
+  canCreate: boolean;
   onOpenTask?: (task: Task) => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string) => void;
@@ -119,6 +120,7 @@ export default function KanbanBoard({
   toolbar,
   onUpdate,
   onAddTask,
+  canCreate,
   onOpenTask,
   selectedTaskIds,
   onToggleTaskSelection,
@@ -455,13 +457,16 @@ export default function KanbanBoard({
                         {columnTasks.length}
                       </span>
                     </button>
-                    <button
-                      onClick={() => addTaskToColumn(key)}
-                      className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground"
-                      title={t("projects.addTask")}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
+                    {canCreate && (
+                      <button
+                        onClick={() => addTaskToColumn(key)}
+                        className="ml-auto rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground"
+                        title={t("projects.addTask")}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
                   </div>
 
                   <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
@@ -688,12 +693,15 @@ export default function KanbanBoard({
                       );
                     })}
                     {provided.placeholder}
-                    <button
-                      onClick={() => addTaskToColumn(key)}
-                      className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Plus className="w-3 h-3" /> {t("projects.addTask")}
-                    </button>
+                    {canCreate && (
+                      <button
+                        onClick={() => addTaskToColumn(key)}
+                        className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Plus className="w-3 h-3" /> {t("projects.addTask")}
+                      </button>
+                    )}
+
                   </div>
                 </div>
               );

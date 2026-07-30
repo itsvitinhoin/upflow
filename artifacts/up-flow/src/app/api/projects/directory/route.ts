@@ -10,7 +10,7 @@ import {
   type ProjectDirectoryQuery,
 } from "@/lib/project-directory";
 import { readableProjectWhere } from "@/lib/project-access";
-import { isCommercialDepartmentName } from "@/lib/project-creation-access";
+
 import { prisma } from "@/lib/prisma";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -98,14 +98,9 @@ async function canCreateProject(userId: string, workspaceId: string, admin: bool
 
   const member = await prisma.workspaceMember.findUnique({
     where: { workspace_id_user_id: { workspace_id: workspaceId, user_id: userId } },
-    include: { department: { select: { name: true } } },
   });
 
-  return Boolean(
-    member?.status === "active" &&
-      member.role !== "guest" &&
-      isCommercialDepartmentName(member.department?.name),
-  );
+  return Boolean(member?.status === "active" && member.role !== "guest");
 }
 
 async function clientItems(

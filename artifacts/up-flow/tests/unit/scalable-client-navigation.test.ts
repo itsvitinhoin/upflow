@@ -112,7 +112,7 @@ test("onboarding and client discovery support lifecycle filtering, search, and d
   assert.match(onboardingPage, /QueueLifecycle/);
   assert.match(onboardingPage, /onboardingQueue\.searchPlaceholder/);
   assert.match(onboardingPage, /ClientPinButton/);
-  assert.match(companiesRoute, /const q = \(new URL\(req\.url\)\.searchParams\.get\("q"\)/);
+  assert.match(companiesRoute, /const url = new URL\(req\.url\);\s*const q = \(url\.searchParams\.get\("q"\)/);
   assert.match(clientsPage, /nextCursor/);
   assert.match(clientsPage, /clients\.loadMore/);
   assert.match(searchRoute, /companies/);

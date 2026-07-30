@@ -29,6 +29,7 @@ interface Props {
   toolbar: ToolbarState;
   onTaskClick: (task: Task) => void;
   onAddTask: (groupKey?: string) => void;
+  canCreate: boolean;
   onUpdate: () => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string) => void;
@@ -54,6 +55,7 @@ export default function ListView({
   toolbar,
   onTaskClick,
   onAddTask,
+  canCreate,
   onUpdate,
   selectedTaskIds,
   onToggleTaskSelection,
@@ -145,12 +147,14 @@ export default function ListView({
                 {g.label}
               </span>
               <span className="text-xs text-muted-foreground">{g.tasks.length}</span>
-              <button
-                onClick={() => onAddTask(g.key)}
-                className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted"
-              >
-                <Plus className="w-3 h-3" /> {t("projects.addTask")}
-              </button>
+              {canCreate && (
+                <button
+                  onClick={() => onAddTask(g.key)}
+                  className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted"
+                >
+                  <Plus className="w-3 h-3" /> {t("projects.addTask")}
+                </button>
+              )}
             </div>
 
             {!isCollapsed && (
@@ -248,12 +252,14 @@ export default function ListView({
                     </div>
                   );
                 })}
-                <button
-                  onClick={() => onAddTask(g.key)}
-                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-5 py-2 w-full text-left border-t border-border/60"
-                >
-                  <Plus className="w-3 h-3" /> {t("projects.addTask")}
-                </button>
+                {canCreate && (
+                  <button
+                    onClick={() => onAddTask(g.key)}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-5 py-2 w-full text-left border-t border-border/60"
+                  >
+                    <Plus className="w-3 h-3" /> {t("projects.addTask")}
+                  </button>
+                )}
               </div>
             )}
           </div>

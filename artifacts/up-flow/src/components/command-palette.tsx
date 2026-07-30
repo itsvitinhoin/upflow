@@ -29,7 +29,7 @@ import NewProjectDialog from "@/components/projects/new-project-dialog";
 import CreateCompanyDialog from "@/components/dashboard/create-company-dialog";
 import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
-import { isCommercialDepartmentName } from "@/lib/project-creation-access";
+
 
 type ProjectKind = "client" | "internal" | "operational_queue" | "onboarding";
 
@@ -103,8 +103,7 @@ export default function CommandPalette() {
     user?.isSuperAdmin ||
     user?.currentRole === "owner" ||
     user?.currentRole === "admin" ||
-    (user?.currentRole !== "guest" &&
-      isCommercialDepartmentName(user?.currentDepartmentName));
+    user?.currentRole === "member";
   const copy = {
     input: t("command.placeholder"),
     empty: t("command.noResults"),
