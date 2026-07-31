@@ -8,6 +8,7 @@ import { recordActivity } from "@/lib/activity";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { parseContractedServices, syncClientOnboardingServices } from "@/lib/onboarding";
 import { normalizeOnboardingRouteValue } from "@/lib/onboarding-routing";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 
 const ClientSalesChannelSchema = z.enum(["WHOLESALE", "RETAIL", "BOTH"]);
 
@@ -137,6 +138,7 @@ async function getCompany(id: string, workspaceId: string) {
       select: {
         id: true,
         started_at: true,
+        active_started_at: true,
         stopped_at: true,
         duration_seconds: true,
         status: true,
@@ -170,12 +172,10 @@ async function getCompany(id: string, workspaceId: string) {
   if (overdueTasks.length > 0) riskReasons.push(`${overdueTasks.length} overdue task${overdueTasks.length === 1 ? "" : "s"}`);
   if (!lastActivityAt || lastActivityAt < sevenDaysAgo) riskReasons.push("No activity in 7 days");
   if (company.contract_value == null) riskReasons.push("No contract value");
-  const trackedSeconds = timeEntries.reduce((sum, entry) => {
-    if (entry.status === "running") {
-      return sum + Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000));
-    }
-    return sum + entry.duration_seconds;
-  }, 0);
+  const trackedSeconds = timeEntries.reduce(
+    (sum, entry) => sum + timeEntryDurationSeconds(entry),
+    0,
+  );
   const trackedHours = trackedSeconds / 3600;
   const assignedMembers = new Map<string, { id: string; name: string; email: string }>();
   assignedMembers.set(company.owner.id, company.owner);

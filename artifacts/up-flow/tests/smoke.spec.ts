@@ -183,6 +183,22 @@ test.describe("Up Flow smoke (API)", () => {
     );
     const running = await (await api.get("/api/time/running")).json();
     expect(running.id, "running timer is recoverable").toBeTruthy();
+    const pauseTimer = await api.post("/api/time/pause", {
+      data: { id: running.id },
+    });
+    expect(pauseTimer.ok(), `pause timer: ${pauseTimer.status()}`).toBeTruthy();
+    const paused = await (await api.get("/api/time/running")).json();
+    expect(paused.id, "paused timer is recoverable").toBe(running.id);
+    expect(paused.status, "timer is persisted as paused").toBe("paused");
+    const duplicateStart = await api.post("/api/time/start", {
+      data: { project_id: project.id },
+    });
+    expect(duplicateStart.status(), "paused timer blocks a duplicate start").toBe(200);
+    expect((await duplicateStart.json()).id).toBe(running.id);
+    const resumeTimer = await api.post("/api/time/resume", {
+      data: { id: running.id },
+    });
+    expect(resumeTimer.ok(), `resume timer: ${resumeTimer.status()}`).toBeTruthy();
     const stopTimer = await api.post("/api/time/stop", {
       data: { id: running.id },
     });

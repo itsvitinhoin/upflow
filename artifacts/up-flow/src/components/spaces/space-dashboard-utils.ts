@@ -1,5 +1,6 @@
 import type { DepartmentSpacePreset } from "@/lib/department-spaces";
 import type { Task, TimeEntry } from "@/lib/types";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 import { formatDateTime as formatBrazilianDateTime } from "@/lib/utils";
 
 export type TaskStatus = "todo" | "in_progress" | "done";
@@ -206,13 +207,7 @@ export function formatSecondsShort(seconds: number) {
 }
 
 export function entrySeconds(entry: TimeEntry) {
-  if (entry.status === "running") {
-    return Math.max(
-      0,
-      Math.floor((Date.now() - new Date(entry.started_at).getTime()) / 1000),
-    );
-  }
-  return entry.duration_seconds;
+  return timeEntryDurationSeconds(entry);
 }
 
 export function formatDateTime(value: string) {

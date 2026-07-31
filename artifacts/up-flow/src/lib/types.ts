@@ -422,9 +422,11 @@ export interface TimeEntry {
   company_id?: string | null;
   description: string | null;
   started_at: string;
+  active_started_at: string | null;
+  paused_at: string | null;
   stopped_at: string | null;
   duration_seconds: number;
-  status: "running" | "stopped";
+  status: "running" | "paused" | "stopped";
   created_at: string;
   updated_at: string;
   project?: { id: string; name: string } | null;
