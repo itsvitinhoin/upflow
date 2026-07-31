@@ -120,7 +120,10 @@ test.describe("Mobile responsive layout", () => {
     await expect(navigationDialog).toBeVisible();
     await Promise.all([
       page.waitForURL(/\/calendar(?:\?|$)/),
-      navigationDialog.getByRole("link", { name: "Calendar", exact: true }).click(),
+      navigationDialog
+        .getByTestId("sidebar-rail-navigation")
+        .getByRole("link", { name: "Calendar", exact: true })
+        .click(),
     ]);
     const navigationToggle = page.getByRole("button", {
       name: "Open navigation",
