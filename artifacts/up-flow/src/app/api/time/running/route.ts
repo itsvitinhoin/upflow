@@ -15,7 +15,7 @@ async function GET_handler() {
     where: {
       workspace_id: auth.currentWorkspaceId,
       user_id: auth.prismaUser.id,
-      status: "running",
+      status: { not: "stopped" },
     },
     orderBy: { started_at: "desc" },
     include: {

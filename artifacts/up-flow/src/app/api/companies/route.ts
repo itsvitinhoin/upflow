@@ -9,6 +9,7 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { startClientOnboardingForCompany } from "@/lib/onboarding";
 import { buildPage, parsePagination } from "@/lib/pagination";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 
 const ClientSalesChannelSchema = z.enum(["WHOLESALE", "RETAIL", "BOTH"]);
 const CompanySalesChannelFilterSchema = z.enum([
@@ -145,6 +146,7 @@ async function GET_handler(req: NextRequest) {
             select: {
               id: true,
               started_at: true,
+              active_started_at: true,
               duration_seconds: true,
               status: true,
             },
@@ -370,8 +372,9 @@ function withCompanySummary<T extends {
     time_entries?: Array<{
       id: string;
       started_at: Date;
+      active_started_at: Date | null;
       duration_seconds: number;
-      status: string;
+      status: "running" | "paused" | "stopped";
     }>;
     tasks: Array<{
       id: string;
@@ -412,12 +415,10 @@ function withCompanySummary<T extends {
   if (overdueTasks.length > 0) riskReasons.push(`${overdueTasks.length} overdue task${overdueTasks.length === 1 ? "" : "s"}`);
   if (!lastActivityAt || lastActivityAt < sevenDaysAgo) riskReasons.push("No activity in 7 days");
   if (company.contract_value == null) riskReasons.push("No contract value");
-  const trackedSeconds = timeEntries.reduce((sum, entry) => {
-    if (entry.status === "running") {
-      return sum + Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000));
-    }
-    return sum + entry.duration_seconds;
-  }, 0);
+  const trackedSeconds = timeEntries.reduce(
+    (sum, entry) => sum + timeEntryDurationSeconds(entry),
+    0,
+  );
   const trackedHours = trackedSeconds / 3600;
   const assignedMembers = new Map<string, { id: string; name: string; email: string }>();
   if (company.owner) assignedMembers.set(company.owner.id, company.owner);

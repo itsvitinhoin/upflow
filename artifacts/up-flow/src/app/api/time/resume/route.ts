@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
-import { secondsBetween } from "@/lib/time-range";
 import { recordActivity } from "@/lib/activity";
 
-const StopSchema = z.object({
+const ResumeSchema = z.object({
   id: z.string().uuid().optional(),
 });
 
 const timeEntryInclude = {
   project: { select: { id: true, name: true } },
   task: { select: { id: true, title: true } },
-};
+} satisfies Prisma.TimeEntryInclude;
 
 async function POST_handler(req: NextRequest) {
   const _r = await requireAuth();
@@ -27,7 +27,7 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
   }
 
-  const parsed = StopSchema.safeParse(await req.json().catch(() => ({})));
+  const parsed = ResumeSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid timer", issues: parsed.error.flatten() }, { status: 400 });
   }
@@ -42,26 +42,22 @@ async function POST_handler(req: NextRequest) {
     include: timeEntryInclude,
   });
 
-  if (!entry) return NextResponse.json({ error: "No open timer" }, { status: 404 });
-  if (entry.status === "stopped") return NextResponse.json(entry);
+  if (!entry || entry.status === "stopped") {
+    return NextResponse.json({ error: "No open timer" }, { status: 404 });
+  }
+  if (entry.status === "running") return NextResponse.json(entry);
 
-  const stoppedAt = new Date();
-  const durationSeconds =
-    entry.status === "running"
-      ? entry.duration_seconds + secondsBetween(entry.active_started_at ?? entry.started_at, stoppedAt)
-      : entry.duration_seconds;
   const transitioned = await prisma.timeEntry.updateMany({
     where: {
       id: entry.id,
       workspace_id: auth.currentWorkspaceId,
       user_id: auth.prismaUser.id,
-      status: entry.status,
+      status: "paused",
     },
     data: {
-      stopped_at: stoppedAt,
+      active_started_at: new Date(),
       paused_at: null,
-      duration_seconds: durationSeconds,
-      status: "stopped",
+      status: "running",
     },
   });
   if (transitioned.count !== 1) {
@@ -76,7 +72,7 @@ async function POST_handler(req: NextRequest) {
   await recordActivity({
     workspace_id: entry.workspace_id,
     actor_id: auth.prismaUser.id,
-    type: "time_entry_stopped",
+    type: "time_entry_resumed",
     entity_type: "time_entry",
     entity_id: entry.id,
     project_id: entry.project_id,
@@ -87,4 +83,4 @@ async function POST_handler(req: NextRequest) {
   return NextResponse.json(updated);
 }
 
-export const POST = withErrorReporting("api:time/stop:POST", POST_handler);
+export const POST = withErrorReporting("api:time/resume:POST", POST_handler);

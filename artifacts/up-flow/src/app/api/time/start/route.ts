@@ -19,12 +19,12 @@ const runningEntryInclude = {
   task: { select: { id: true, title: true } },
 } satisfies Prisma.TimeEntryInclude;
 
-function findRunningEntry(workspaceId: string, userId: string) {
+function findOpenEntry(workspaceId: string, userId: string) {
   return prisma.timeEntry.findFirst({
     where: {
       workspace_id: workspaceId,
       user_id: userId,
-      status: "running",
+      status: { not: "stopped" },
     },
     orderBy: { started_at: "desc" },
     include: runningEntryInclude,
@@ -55,13 +55,14 @@ async function POST_handler(req: NextRequest) {
   });
   if (invalid) return NextResponse.json({ error: invalid }, { status: 400 });
 
-  const existing = await findRunningEntry(auth.currentWorkspaceId, auth.prismaUser.id);
+  const existing = await findOpenEntry(auth.currentWorkspaceId, auth.prismaUser.id);
   if (existing) {
     return NextResponse.json(existing, { status: 200 });
   }
 
   let entry;
   try {
+    const startedAt = new Date();
     entry = await prisma.timeEntry.create({
       data: {
         workspace_id: auth.currentWorkspaceId,
@@ -69,15 +70,16 @@ async function POST_handler(req: NextRequest) {
         project_id: body.project_id || null,
         task_id: body.task_id || null,
         description: body.description || null,
-        started_at: new Date(),
+        started_at: startedAt,
+        active_started_at: startedAt,
         status: "running",
       },
       include: runningEntryInclude,
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      const running = await findRunningEntry(auth.currentWorkspaceId, auth.prismaUser.id);
-      if (running) return NextResponse.json(running, { status: 200 });
+      const openEntry = await findOpenEntry(auth.currentWorkspaceId, auth.prismaUser.id);
+      if (openEntry) return NextResponse.json(openEntry, { status: 200 });
     }
     throw err;
   }

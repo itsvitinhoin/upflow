@@ -1187,7 +1187,11 @@ function CommandCenterDrawer({
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {formatSecondsShort(entrySeconds(entry))}{" "}
-                      {entry.status === "running" ? t("dashboard.running") : t("dashboard.logged")}
+                      {entry.status === "running"
+                        ? t("dashboard.running")
+                        : entry.status === "paused"
+                          ? t("dashboard.paused")
+                          : t("dashboard.logged")}
                     </p>
                   </div>
                 ))}
@@ -1852,8 +1856,8 @@ function RightPanel({
       setSeconds(0);
       return;
     }
-    setTimerState("running");
-    setSeconds(Math.max(0, Math.round((Date.now() - new Date(runningEntry.started_at).getTime()) / 1000)));
+    setTimerState(runningEntry.status === "paused" ? "paused" : "running");
+    setSeconds(entrySeconds(runningEntry));
   }, [runningEntry]);
 
   const fmt = (n: number) => String(n).padStart(2, "0");
@@ -1940,7 +1944,42 @@ function RightPanel({
       toast.error(t("dashboard.couldNotStartTimer"));
     }
   };
-  const handlePause = () => toast(t("dashboard.pauseUnavailable"));
+  const handlePause = async () => {
+    if (!runningEntry) return;
+    try {
+      const res = await fetch("/api/time/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: runningEntry.id }),
+      });
+      if (!res.ok) throw new Error(t("dashboard.couldNotPauseTimer"));
+      const entry = (await res.json()) as TimeEntry;
+      setSeconds(entrySeconds(entry));
+      setTimerState("paused");
+      toast.success(t("dashboard.timerPaused"));
+      onTimerChanged();
+    } catch {
+      toast.error(t("dashboard.couldNotPauseTimer"));
+    }
+  };
+  const handleResume = async () => {
+    if (!runningEntry) return;
+    try {
+      const res = await fetch("/api/time/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: runningEntry.id }),
+      });
+      if (!res.ok) throw new Error(t("dashboard.couldNotResumeTimer"));
+      const entry = (await res.json()) as TimeEntry;
+      setSeconds(entrySeconds(entry));
+      setTimerState("running");
+      toast.success(t("dashboard.timerResumed"));
+      onTimerChanged();
+    } catch {
+      toast.error(t("dashboard.couldNotResumeTimer"));
+    }
+  };
   const handleStop = async () => {
     if (!runningEntry) return;
     try {
@@ -2025,13 +2064,13 @@ function RightPanel({
         <p className="text-xs text-muted-foreground mt-1 truncate">{activeProject}</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
           <button
-            onClick={handleStart}
+            onClick={timerState === "paused" ? handleResume : handleStart}
             disabled={timerState === "running"}
-            aria-label={t("dashboard.startTimer")}
+            aria-label={timerState === "paused" ? t("dashboard.resumeTimer") : t("dashboard.startTimer")}
             className="flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Play className="w-3.5 h-3.5" />
-            {t("dashboard.start")}
+            {timerState === "paused" ? t("dashboard.resume") : t("dashboard.start")}
           </button>
           <button
             onClick={handleStop}
@@ -2351,12 +2390,12 @@ function RightPanel({
             ))
           )}
         </div>
-        <button
-          onClick={() => toast(t("dashboard.allActivityComingSoon"))}
+        <Link
+          href="/activity"
           className="text-xs text-primary hover:text-primary/80 mt-3"
         >
           {t("dashboard.viewAll")} →
-        </button>
+        </Link>
       </div>
     </aside>
   );

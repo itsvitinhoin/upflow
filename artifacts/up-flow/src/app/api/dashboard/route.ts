@@ -6,6 +6,7 @@ import { isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { startOfToday, startOfWeekMonday } from "@/lib/time-range";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 import { buildPage, parsePagination } from "@/lib/pagination";
 
 export const dynamic = "force-dynamic";
@@ -143,7 +144,7 @@ async function GET_handler(req: NextRequest) {
       where: {
         workspace_id: auth.currentWorkspaceId,
         user_id: auth.prismaUser.id,
-        status: "running",
+        status: { not: "stopped" },
       },
       orderBy: { started_at: "desc" },
       include: {
@@ -268,10 +269,7 @@ async function GET_handler(req: NextRequest) {
 
   const todayTimeByUser = new Map<string, number>();
   for (const entry of todayTimeEntries) {
-    const duration =
-      entry.status === "running"
-        ? Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000))
-        : entry.duration_seconds;
+    const duration = timeEntryDurationSeconds(entry);
     todayTimeByUser.set(entry.user_id, (todayTimeByUser.get(entry.user_id) ?? 0) + duration);
   }
 
@@ -379,10 +377,7 @@ async function GET_handler(req: NextRequest) {
 
   const todayEntriesForMe = todayTimeEntries.filter((entry) => entry.user_id === auth.prismaUser.id);
   const totalSecondsToday = todayEntriesForMe.reduce((sum, entry) => {
-    if (entry.status === "running") {
-      return sum + Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000));
-    }
-    return sum + entry.duration_seconds;
+    return sum + timeEntryDurationSeconds(entry);
   }, 0);
 
   return NextResponse.json({

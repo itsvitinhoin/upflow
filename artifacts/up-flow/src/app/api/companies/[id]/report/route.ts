@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { parseDateParam, startOfWeekMonday } from "@/lib/time-range";
 import { withErrorReporting } from "@/lib/with-error-reporting";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 
 export const dynamic = "force-dynamic";
 
@@ -121,12 +122,10 @@ async function GET_handler(
   const openTasks = tasks.filter((task) => task.status !== "done");
   const completedTasks = tasks.filter((task) => task.status === "done");
   const overdueTasks = openTasks.filter((task) => task.due_date && task.due_date < new Date());
-  const trackedSeconds = timeEntries.reduce((sum, entry) => {
-    if (entry.status === "running") {
-      return sum + Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000));
-    }
-    return sum + entry.duration_seconds;
-  }, 0);
+  const trackedSeconds = timeEntries.reduce(
+    (sum, entry) => sum + timeEntryDurationSeconds(entry),
+    0,
+  );
   const nextDeadline =
     openTasks
       .map((task) => task.due_date)

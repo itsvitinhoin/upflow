@@ -25,6 +25,7 @@ test("activity API supports audit filters and cursor pagination", () => {
 test("activity audit center is available from navigation", () => {
   const page = read("src/app/(dashboard)/activity/page.tsx");
   const rail = read("src/components/layout/sidebar/rail.tsx");
+  const dashboard = read("src/app/(dashboard)/page.tsx");
   const translations = read("src/lib/i18n/translations.ts");
 
   assert.match(page, /\/api\/activity/);
@@ -32,6 +33,8 @@ test("activity audit center is available from navigation", () => {
   assert.match(page, /metadata/);
   assert.match(page, /entity_type/);
   assert.match(rail, /href:\s*"\/activity"/);
+  assert.match(dashboard, /href="\/activity"/);
+  assert.doesNotMatch(dashboard, /dashboard\.allActivityComingSoon/);
   assert.match(translations, /"nav\.activity":\s*"Activity"/);
   assert.match(translations, /"nav\.activity":\s*"Atividade"/);
 });
