@@ -92,14 +92,41 @@ test.describe("Mobile responsive layout", () => {
 
     await expectNoPageOverflow(page);
     await page.getByRole("button", { name: "Open navigation" }).click();
-    await expect(
-      page.getByRole("button", { name: "Close navigation" }),
-    ).toBeVisible();
+    const navigationDialog = page.getByRole("dialog", { name: "Navigation" });
+    await expect(navigationDialog).toBeVisible();
+    const closeNavigation = navigationDialog.getByRole("button", {
+      name: "Close navigation",
+    });
+    await expect(closeNavigation).toBeVisible();
+    await expect(closeNavigation).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.activeElement?.closest('[role="dialog"]')?.id ?? null,
+        ),
+      )
+      .toBe("mobile-sidebar-dialog");
+    await page.keyboard.press("Tab");
+    await expect(closeNavigation).toBeFocused();
     await expectFitsViewport(page, "aside.fixed:visible");
-    await page.getByRole("button", { name: "Close navigation" }).click();
+    await page.keyboard.press("Escape");
+    await expect(navigationDialog).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "Open navigation" }),
-    ).toBeVisible();
+    ).toBeFocused();
+
+    await page.getByRole("button", { name: "Open navigation" }).click();
+    await expect(navigationDialog).toBeVisible();
+    await Promise.all([
+      page.waitForURL(/\/calendar(?:\?|$)/),
+      navigationDialog.getByRole("link", { name: "Calendar", exact: true }).click(),
+    ]);
+    const navigationToggle = page.getByRole("button", {
+      name: "Open navigation",
+    });
+    await expect(navigationToggle).toBeVisible();
+    await expect(navigationToggle).not.toBeFocused();
     await ctx.close();
   });
 

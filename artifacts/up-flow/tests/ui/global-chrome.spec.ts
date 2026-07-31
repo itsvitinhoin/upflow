@@ -42,6 +42,9 @@ test.describe("Global chrome", () => {
     await expect(page).toHaveURL(/\/$/, { timeout: 30_000 });
     await expect(dash).toHaveAttribute("aria-current", "page");
 
+    await rail.getByRole("link", { name: "Help", exact: true }).click();
+    await expect(page).toHaveURL(/\/docs$/, { timeout: 30_000 });
+
     const railToggle = page.getByRole("button", {
       name: /^(Hide|Show) sidebar$/,
     }).first();

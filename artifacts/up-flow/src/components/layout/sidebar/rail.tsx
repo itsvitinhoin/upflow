@@ -207,13 +207,15 @@ export function Rail({
         >
           <LogOut className="w-[18px] h-[18px]" />
         </button>
-        <button
+        <Link
+          href="/docs"
+          onClick={onNavigate}
           aria-label={t("sidebar.help")}
           title={t("sidebar.help")}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15]"
         >
           <HelpCircle className="w-[18px] h-[18px]" />
-        </button>
+        </Link>
         <Link
           href="/settings"
           onClick={onNavigate}
