@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "@/components/layout/header";
-import { Calendar as CalendarIcon, Clock, FolderKanban, Loader2, Play, Square, TrendingUp } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, FolderKanban, Loader2, Pause, Play, Square, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
 import { logError } from "@/lib/log-error";
 import type { TimeEntry } from "@/lib/types";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 import { appDateKey, appDateTimeToUtc, cn } from "@/lib/utils";
 
 const DAY_LABEL_KEYS = [
@@ -69,10 +70,7 @@ function dayIndex(value: string | Date) {
 }
 
 function entrySeconds(entry: TimeEntry, now: Date) {
-  if (entry.status === "running" && !entry.stopped_at) {
-    return Math.max(0, Math.round((now.getTime() - new Date(entry.started_at).getTime()) / 1000));
-  }
-  return entry.duration_seconds;
+  return timeEntryDurationSeconds(entry, now);
 }
 
 export default function TimePage() {
@@ -115,15 +113,16 @@ export default function TimePage() {
   }, [loadEntries, t]);
 
   const todayIdx = dayIndex(now);
-  const runningEntry = useMemo(
-    () => entries.find((entry) => entry.status === "running" && !entry.stopped_at) ?? null,
+  const activeEntry = useMemo(
+    () => entries.find((entry) => entry.status !== "stopped") ?? null,
     [entries],
   );
-  const runningSeconds = runningEntry ? entrySeconds(runningEntry, now) : 0;
+  const isPaused = activeEntry?.status === "paused";
+  const runningSeconds = activeEntry ? entrySeconds(activeEntry, now) : 0;
   const activeTimerLabel =
-    runningEntry?.description ||
-    runningEntry?.task?.title ||
-    runningEntry?.project?.name ||
+    activeEntry?.description ||
+    activeEntry?.task?.title ||
+    activeEntry?.project?.name ||
     t("time.unspecifiedWork");
 
   const totals = useMemo(() => {
@@ -167,15 +166,17 @@ export default function TimePage() {
   const handleStartTimer = async () => {
     setTimerBusy(true);
     try {
-      const res = await fetch("/api/time/start", {
+      const res = await fetch(isPaused ? "/api/time/resume" : "/api/time/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: t("time.quickTimerDescription") }),
+        body: JSON.stringify(
+          isPaused ? { id: activeEntry?.id } : { description: t("time.quickTimerDescription") },
+        ),
       });
       if (!res.ok) throw new Error(await readError(res, t("time.couldNotStart")));
       const entry = (await res.json()) as TimeEntry;
-      setEntries((current) => [entry, ...current.filter((item) => item.id !== entry.id && item.status !== "running")]);
-      toast.success(t("time.timerStarted"));
+      setEntries((current) => [entry, ...current.filter((item) => item.id !== entry.id && item.status === "stopped")]);
+      toast.success(t(isPaused ? "time.timerResumed" : "time.timerStarted"));
       await loadEntries();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("time.couldNotStart"));
@@ -185,13 +186,13 @@ export default function TimePage() {
   };
 
   const handleStopTimer = async () => {
-    if (!runningEntry) return;
+    if (!activeEntry) return;
     setTimerBusy(true);
     try {
       const res = await fetch("/api/time/stop", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: runningEntry.id }),
+        body: JSON.stringify({ id: activeEntry.id }),
       });
       if (!res.ok) throw new Error(await readError(res, t("time.couldNotStop")));
       const entry = (await res.json()) as TimeEntry;
@@ -205,6 +206,27 @@ export default function TimePage() {
     }
   };
 
+  const handlePauseTimer = async () => {
+    if (!activeEntry || activeEntry.status !== "running") return;
+    setTimerBusy(true);
+    try {
+      const res = await fetch("/api/time/pause", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: activeEntry.id }),
+      });
+      if (!res.ok) throw new Error(await readError(res, t("time.couldNotPause")));
+      const entry = (await res.json()) as TimeEntry;
+      setEntries((current) => current.map((item) => (item.id === entry.id ? entry : item)));
+      toast.success(t("time.timerPaused"));
+      await loadEntries();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("time.couldNotPause"));
+    } finally {
+      setTimerBusy(false);
+    }
+  };
+
   return (
     <>
       <Header title={t("time.title")} />
@@ -213,14 +235,16 @@ export default function TimePage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {runningEntry ? t("time.timerRunning") : t("time.readyToTrack")}
+                {activeEntry ? (isPaused ? t("time.timerPaused") : t("time.timerRunning")) : t("time.readyToTrack")}
               </p>
               <h2 className="mt-2 font-mono text-4xl font-bold tabular-nums text-foreground">
                 {fmtElapsed(runningSeconds)}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                {runningEntry
-                  ? t("time.trackingNow", { item: activeTimerLabel })
+                {activeEntry
+                  ? isPaused
+                    ? t("time.timerPausedFor", { item: activeTimerLabel })
+                    : t("time.trackingNow", { item: activeTimerLabel })
                   : t("time.startHint")}
               </p>
             </div>
@@ -228,28 +252,41 @@ export default function TimePage() {
               <button
                 type="button"
                 onClick={handleStartTimer}
-                disabled={Boolean(runningEntry) || timerBusy}
+                disabled={activeEntry?.status === "running" || timerBusy}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {timerBusy && !runningEntry ? (
+                {timerBusy && activeEntry?.status !== "running" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Play className="h-4 w-4" />
                 )}
-                {t("time.startTimer")}
+                {isPaused ? t("time.resumeTimer") : t("time.startTimer")}
               </button>
               <button
                 type="button"
                 onClick={handleStopTimer}
-                disabled={!runningEntry || timerBusy}
+                disabled={!activeEntry || timerBusy}
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-upflow-danger px-5 text-sm font-semibold text-white shadow-sm shadow-upflow-danger/25 transition hover:bg-upflow-danger/90 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {timerBusy && runningEntry ? (
+                {timerBusy && activeEntry ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Square className="h-4 w-4" />
                 )}
                 {t("time.stopTimer")}
+              </button>
+              <button
+                type="button"
+                onClick={handlePauseTimer}
+                disabled={activeEntry?.status !== "running" || timerBusy}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {timerBusy && activeEntry?.status === "running" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Pause className="h-4 w-4" />
+                )}
+                {t("time.pauseTimer")}
               </button>
             </div>
           </div>

@@ -9,6 +9,7 @@ import { appTimeInputValue, cn, formatLongDate, formatTime, getInitials } from "
 import type { Language } from "@/lib/i18n/translations";
 import { sameLocalDate } from "@/components/dashboard/dashboard-utils";
 import { useLanguage } from "@/components/language-provider";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 
 type TimelineBlock = {
   start: number;
@@ -29,6 +30,19 @@ function timelineHourLabel(hour: number, language: Language) {
 function decimalHour(value: string) {
   const [hours, minutes] = appTimeInputValue(value).split(":").map(Number);
   return hours + minutes / 60;
+}
+
+function timelineRangeForTimeEntry(entry: TimeEntry, now = new Date()) {
+  const start = new Date(entry.active_started_at ?? entry.started_at);
+  if (entry.stopped_at) return { start, end: new Date(entry.stopped_at) };
+  if (entry.status === "paused") {
+    if (entry.paused_at) return { start, end: new Date(entry.paused_at) };
+    return {
+      start,
+      end: new Date(start.getTime() + timeEntryDurationSeconds(entry, now) * 1000),
+    };
+  }
+  return { start, end: now };
 }
 
 function clampTimelineBlock(start: number, end: number): TimelineBlock | null {
@@ -70,17 +84,16 @@ function buildTimelineRowsFromData(
           sameLocalDate(new Date(entry.started_at), today),
       )
       .forEach((entry) => {
-        const start = decimalHour(entry.started_at);
-        const end = entry.stopped_at
-          ? decimalHour(entry.stopped_at)
-          : decimalHour(new Date().toISOString());
+        const range = timelineRangeForTimeEntry(entry);
+        const start = decimalHour(range.start.toISOString());
+        const end = decimalHour(range.end.toISOString());
         const block = clampTimelineBlock(start, end);
         if (block) {
           blocks.push({
             ...block,
             label: entry.project?.name ?? t("timeline.trackedTime"),
-            startLabel: formatTime(entry.started_at, locale),
-            endLabel: entry.stopped_at ? formatTime(entry.stopped_at, locale) : formatTime(new Date(), locale),
+            startLabel: formatTime(range.start, locale),
+            endLabel: formatTime(range.end, locale),
             kind: "tracked_time",
           });
         }

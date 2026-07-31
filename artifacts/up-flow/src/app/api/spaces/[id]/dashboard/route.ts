@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth-response";
 import { getDepartmentSpacePreset } from "@/lib/department-spaces";
 import { buildPage, parsePagination } from "@/lib/pagination";
 import { startOfToday, startOfWeekMonday } from "@/lib/time-range";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -252,7 +253,7 @@ async function GET_handler(
           where: {
             workspace_id: space.workspace_id,
             user_id: auth.prismaUser.id,
-            status: "running",
+            status: { not: "stopped" },
             ...scopedCalendarOrTimeWhere,
           },
           orderBy: { started_at: "desc" },
@@ -338,10 +339,7 @@ async function GET_handler(
 
   const todayTimeByUser = new Map<string, number>();
   for (const entry of todayTimeEntries) {
-    const duration =
-      entry.status === "running"
-        ? Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000))
-        : entry.duration_seconds;
+    const duration = timeEntryDurationSeconds(entry);
     todayTimeByUser.set(entry.user_id, (todayTimeByUser.get(entry.user_id) ?? 0) + duration);
   }
 
@@ -391,10 +389,7 @@ async function GET_handler(
 
   const todayEntriesForMe = todayTimeEntries.filter((entry) => entry.user_id === auth.prismaUser.id);
   const totalSecondsToday = todayEntriesForMe.reduce((sum, entry) => {
-    if (entry.status === "running") {
-      return sum + Math.max(0, Math.floor((Date.now() - entry.started_at.getTime()) / 1000));
-    }
-    return sum + entry.duration_seconds;
+    return sum + timeEntryDurationSeconds(entry);
   }, 0);
 
   return NextResponse.json({

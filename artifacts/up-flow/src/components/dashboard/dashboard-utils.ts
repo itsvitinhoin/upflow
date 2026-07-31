@@ -1,4 +1,5 @@
 import type { ActivityEvent, Task, TimeEntry } from "@/lib/types";
+import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
 
 export type DashboardRecent = {
   who: string;
@@ -58,13 +59,7 @@ export function moneyCompact(value: number | null | undefined) {
 }
 
 export function entrySeconds(entry: TimeEntry) {
-  if (entry.status === "running") {
-    return Math.max(
-      0,
-      Math.floor((Date.now() - new Date(entry.started_at).getTime()) / 1000),
-    );
-  }
-  return entry.duration_seconds;
+  return timeEntryDurationSeconds(entry);
 }
 
 export function sameLocalDate(a: Date, b: Date) {
