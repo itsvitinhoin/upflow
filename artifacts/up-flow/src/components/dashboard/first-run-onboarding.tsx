@@ -28,6 +28,7 @@ type SetupStep = {
   body: string;
   href?: string;
   action?: () => void;
+  requiresWorkspaceAdmin?: boolean;
   complete: boolean;
   icon: ReactNode;
 };
@@ -60,7 +61,10 @@ export function FirstRunOnboarding({
     {
       key: "space",
       title: t("onboarding.stepSpace"),
-      body: t("onboarding.stepSpaceBody"),
+      body: canManageWorkspace
+        ? t("onboarding.stepSpaceBody")
+        : t("onboarding.stepSpaceBodyViewOnly"),
+      requiresWorkspaceAdmin: true,
       complete: spaces > 0,
       icon: <FolderKanban className="h-4 w-4" />,
     },
@@ -69,6 +73,7 @@ export function FirstRunOnboarding({
       title: t("onboarding.stepProject"),
       body: t("onboarding.stepProjectBody"),
       action: onCreateProject,
+      requiresWorkspaceAdmin: true,
       complete: projects > 0,
       icon: <ListChecks className="h-4 w-4" />,
     },
@@ -77,6 +82,7 @@ export function FirstRunOnboarding({
       title: t("onboarding.stepInvite"),
       body: t("onboarding.stepInviteBody"),
       action: onInviteTeam,
+      requiresWorkspaceAdmin: true,
       complete: members > 1,
       icon: <Users className="h-4 w-4" />,
     },
@@ -85,6 +91,7 @@ export function FirstRunOnboarding({
       title: t("onboarding.stepClient"),
       body: t("onboarding.stepClientBody"),
       action: onCreateClient,
+      requiresWorkspaceAdmin: true,
       complete: clients > 0,
       icon: <Building2 className="h-4 w-4" />,
     },
@@ -127,19 +134,22 @@ export function FirstRunOnboarding({
           </div>
 
           <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {steps.map((step) => (
-              <SetupStepItem
-                key={step.key}
-                step={step}
-                disabled={!canManageWorkspace && Boolean(step.action)}
-                actionLabel={
-                  step.key === "space"
-                    ? t("onboarding.stepSpaceAction")
-                    : t("onboarding.openStep")
-                }
-                completeLabel={t("onboarding.complete")}
-              />
-            ))}
+            {steps.map((step) => {
+              const disabled = !canManageWorkspace && Boolean(step.requiresWorkspaceAdmin);
+              return (
+                <SetupStepItem
+                  key={step.key}
+                  step={step}
+                  disabled={disabled}
+                  actionLabel={
+                    !disabled && (step.action || step.href)
+                      ? t("onboarding.openStep")
+                      : undefined
+                  }
+                  completeLabel={t("onboarding.complete")}
+                />
+              );
+            })}
           </div>
         </div>
 
@@ -167,9 +177,10 @@ function SetupStepItem({
 }: {
   step: SetupStep;
   disabled: boolean;
-  actionLabel: string;
+  actionLabel?: string;
   completeLabel: string;
 }) {
+  const isInteractive = !disabled && !step.complete && Boolean(step.action || step.href);
   const content = (
     <>
       <span
@@ -194,7 +205,7 @@ function SetupStepItem({
         <span className="mt-1 block text-xs leading-5 text-muted-foreground">
           {step.body}
         </span>
-        {!step.complete ? (
+        {!step.complete && actionLabel ? (
           <span className="mt-2 block text-[11px] font-semibold text-primary">
             {actionLabel}
           </span>
@@ -205,7 +216,7 @@ function SetupStepItem({
 
   const className = cn(
     "flex min-h-[104px] w-full gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left transition-all",
-    !disabled && !step.complete
+    isInteractive
       ? "hover:border-primary/35 hover:bg-primary/10 hover:shadow-[0_0_24px_rgba(59,130,246,0.14)]"
       : "",
     disabled ? "cursor-not-allowed opacity-70" : "",

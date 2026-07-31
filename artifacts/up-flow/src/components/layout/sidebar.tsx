@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +31,19 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
+  const mobileToggleRef = useRef<HTMLButtonElement>(null);
+  const mobileDialogRef = useRef<HTMLElement>(null);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const closeMobileNavigation = useCallback((restoreFocus = true) => {
+    setMobileOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => mobileToggleRef.current?.focus());
+    }
+  }, []);
+  const closeMobileNavigationAfterNavigate = useCallback(
+    () => closeMobileNavigation(false),
+    [closeMobileNavigation],
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -59,6 +72,41 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
       // localStorage unavailable — panel state simply won't persist.
     }
   }, [mounted, panelOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    mobileCloseRef.current?.focus();
+
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        closeMobileNavigation();
+        return;
+      }
+
+      if (event.key !== "Tab" || !mobileDialogRef.current) return;
+      const focusables = mobileDialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [closeMobileNavigation, mobileOpen]);
 
   const handleSignOut = async () => {
     if (signingOut) return;
@@ -124,24 +172,47 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
         </div>
       </aside>
 
-      <div className="fixed left-3 top-3 z-[60] md:hidden">
-        <button
-          onClick={() => setMobileOpen((v) => !v)}
-          aria-label={mobileOpen ? t("sidebar.closeNavigation") : t("sidebar.openNavigation")}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg"
-        >
-          {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
-      </div>
+      {!mobileOpen && (
+        <div className="fixed left-3 top-3 z-[60] md:hidden">
+          <button
+            ref={mobileToggleRef}
+            onClick={() => setMobileOpen(true)}
+            aria-label={t("sidebar.openNavigation")}
+            aria-expanded={false}
+            aria-controls="mobile-sidebar-dialog"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       {mobileOpen && (
         <>
           <div
             className="md:hidden fixed inset-0 bg-black/60 z-40"
-            onClick={() => setMobileOpen(false)}
+            onClick={() => closeMobileNavigation()}
           />
-          <aside className="fixed left-0 top-0 z-50 flex h-dvh min-h-0 w-[min(100vw,328px)] overflow-hidden border-r border-sidebar-border shadow-2xl md:hidden">
-            <div className="flex min-h-0 w-[56px]">{renderRail(() => setMobileOpen(false))}</div>
+          <aside
+            ref={mobileDialogRef}
+            id="mobile-sidebar-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("sidebar.navigation")}
+            className="fixed left-0 top-0 z-50 flex h-dvh min-h-0 w-[min(100vw,328px)] overflow-hidden border-r border-sidebar-border shadow-2xl md:hidden"
+          >
+            <button
+              ref={mobileCloseRef}
+              type="button"
+              onClick={() => closeMobileNavigation()}
+              aria-label={t("sidebar.closeNavigation")}
+              className="absolute left-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/70"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex min-h-0 w-[56px]">
+              {renderRail(closeMobileNavigationAfterNavigate)}
+            </div>
             <div className="min-h-0 min-w-0 flex-1">
               <Panel
                 pathname={pathname}
@@ -151,7 +222,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
                 currentRole={user.currentRole ?? null}
                 userName={user.name || user.email}
                 isSuperAdmin={user.isSuperAdmin === true}
-                onNavigate={() => setMobileOpen(false)}
+                onNavigate={closeMobileNavigationAfterNavigate}
                 onSignOut={handleSignOut}
                 signingOut={signingOut}
               />

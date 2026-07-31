@@ -5,6 +5,8 @@ import Header from "@/components/layout/header";
 import { Calendar as CalendarIcon, Clock, FolderKanban, Loader2, Pause, Play, Square, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
+import { hasWorkspaceAdminAccess } from "@/lib/client-role-access";
 import { logError } from "@/lib/log-error";
 import type { TimeEntry } from "@/lib/types";
 import { timeEntryDurationSeconds } from "@/lib/time-entry-duration";
@@ -74,11 +76,13 @@ function entrySeconds(entry: TimeEntry, now: Date) {
 }
 
 export default function TimePage() {
+  const user = useAppUser();
   const { t } = useLanguage();
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [timerBusy, setTimerBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const canManageTime = hasWorkspaceAdminAccess(user);
 
   const loadEntries = useCallback(async () => {
     const weekStart = startOfWeekMonday();
@@ -248,47 +252,56 @@ export default function TimePage() {
                   : t("time.startHint")}
               </p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row lg:flex-shrink-0">
-              <button
-                type="button"
-                onClick={handleStartTimer}
-                disabled={activeEntry?.status === "running" || timerBusy}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            {canManageTime ? (
+              <div className="flex flex-col gap-2 sm:flex-row lg:flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={handleStartTimer}
+                  disabled={activeEntry?.status === "running" || timerBusy}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {timerBusy && activeEntry?.status !== "running" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                  {isPaused ? t("time.resumeTimer") : t("time.startTimer")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleStopTimer}
+                  disabled={!activeEntry || timerBusy}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-upflow-danger px-5 text-sm font-semibold text-white shadow-sm shadow-upflow-danger/25 transition hover:bg-upflow-danger/90 disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {timerBusy && activeEntry ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Square className="h-4 w-4" />
+                  )}
+                  {t("time.stopTimer")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePauseTimer}
+                  disabled={activeEntry?.status !== "running" || timerBusy}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  {timerBusy && activeEntry?.status === "running" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Pause className="h-4 w-4" />
+                  )}
+                  {t("time.pauseTimer")}
+                </button>
+              </div>
+            ) : (
+              <p
+                data-testid="time-tracking-read-only"
+                className="max-w-sm rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
               >
-                {timerBusy && activeEntry?.status !== "running" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                {isPaused ? t("time.resumeTimer") : t("time.startTimer")}
-              </button>
-              <button
-                type="button"
-                onClick={handleStopTimer}
-                disabled={!activeEntry || timerBusy}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-upflow-danger px-5 text-sm font-semibold text-white shadow-sm shadow-upflow-danger/25 transition hover:bg-upflow-danger/90 disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {timerBusy && activeEntry ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Square className="h-4 w-4" />
-                )}
-                {t("time.stopTimer")}
-              </button>
-              <button
-                type="button"
-                onClick={handlePauseTimer}
-                disabled={activeEntry?.status !== "running" || timerBusy}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                {timerBusy && activeEntry?.status === "running" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Pause className="h-4 w-4" />
-                )}
-                {t("time.pauseTimer")}
-              </button>
-            </div>
+                {t("time.manageRestricted")}
+              </p>
+            )}
           </div>
         </section>
 

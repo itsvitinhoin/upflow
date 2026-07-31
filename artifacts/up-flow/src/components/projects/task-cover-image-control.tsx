@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Link2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
+import { useAppUser } from "@/components/user-provider";
+import { hasWorkspaceAdminAccess } from "@/lib/client-role-access";
 import { getTaskAssetPath, getTaskCoverDisplayUrl } from "@/lib/task-images";
 
 interface TaskCoverImageControlProps {
@@ -31,6 +33,8 @@ export default function TaskCoverImageControl({
   compact = false,
 }: TaskCoverImageControlProps) {
   const { t } = useLanguage();
+  const user = useAppUser();
+  const canUploadTaskCover = hasWorkspaceAdminAccess(user);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [url, setUrl] = useState(
     value?.startsWith("data:") || getTaskAssetPath(value) ? "" : value ?? "",
@@ -138,22 +142,33 @@ export default function TaskCoverImageControl({
             className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
           />
         </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          className="hidden"
-          onChange={(e) => void handleFile(e.target.files?.[0])}
-        />
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled || saving}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-          {t("taskCover.upload")}
-        </button>
+        {canUploadTaskCover ? (
+          <>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => void handleFile(e.target.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={disabled || saving}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+              {t("taskCover.upload")}
+            </button>
+          </>
+        ) : (
+          <p
+            data-testid="task-cover-upload-restricted"
+            className="self-center text-xs text-muted-foreground"
+          >
+            {t("taskCover.uploadRestricted")}
+          </p>
+        )}
         {value && (
           <button
             type="button"

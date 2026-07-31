@@ -11,6 +11,7 @@ import {
   Edit3,
   Filter,
   HeartPulse,
+  Eye,
   PackageCheck,
   Plus,
   RefreshCcw,
@@ -26,6 +27,7 @@ import { useLanguage } from "@/components/language-provider";
 import { useAppUser } from "@/components/user-provider";
 import ClientPinButton from "@/components/clients/client-pin-button";
 import { resolveCompanyCreationAccess } from "@/lib/company-creation-access";
+import { hasWorkspaceAdminAccess } from "@/lib/client-role-access";
 import type { Company } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -52,9 +54,7 @@ export default function ClientsPage() {
   const [pinnedCompanyIds, setPinnedCompanyIds] = useState<Set<string>>(new Set());
 
 
-  const isWorkspaceAdmin = Boolean(
-    user?.isSuperAdmin || user?.currentRole === "owner" || user?.currentRole === "admin",
-  );
+  const isWorkspaceAdmin = hasWorkspaceAdminAccess(user);
   const contextCreationAccess = resolveCompanyCreationAccess({
     isWorkspaceAdmin,
     membership: user?.currentRole
@@ -316,22 +316,35 @@ export default function ClientsPage() {
                           onPinnedChange={handlePinnedChange}
                           className="h-8 w-8"
                         />
-                        <Link
-                          href={`/clients/${company.id}`}
-                          aria-label={t("clients.editClient")}
-                          className="upflow-client-action flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-blue-700 dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/80 dark:hover:text-white"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => deleteCompany(company)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300/20 bg-rose-500/10 text-rose-700 transition hover:border-rose-300/50 hover:bg-rose-500/20 dark:text-rose-300"
-                          title={t("clients.deleteClient")}
-                          aria-label={t("clients.deleteClient")}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {isWorkspaceAdmin ? (
+                          <>
+                            <Link
+                              href={`/clients/${company.id}`}
+                              aria-label={t("clients.editClient")}
+                              className="upflow-client-action flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-blue-700 dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/80 dark:hover:text-white"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => deleteCompany(company)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-300/20 bg-rose-500/10 text-rose-700 transition hover:border-rose-300/50 hover:bg-rose-500/20 dark:text-rose-300"
+                              title={t("clients.deleteClient")}
+                              aria-label={t("clients.deleteClient")}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <span
+                            data-testid="client-read-only"
+                            title={t("clients.manageRestrictedHint")}
+                            className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-muted/40 px-2 text-[11px] font-medium text-muted-foreground dark:border-blue-200/20 dark:bg-white/5 dark:text-blue-100/70"
+                          >
+                            <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t("clients.readOnly")}
+                          </span>
+                        )}
                       </div>
                     </div>
 

@@ -55,7 +55,10 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(sidebar, /onRequestClose=\{\(\) => setPanelOpen\(false\)\}/);
   assert.match(rail, /sidebar\.show/);
   assert.match(rail, /sidebar\.hide/);
+  assert.match(rail, /href="\/docs"/);
   assert.match(rail, /aria-pressed=\{panelOpen\}/);
+  assert.match(sidebar, /window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/);
+  assert.match(sidebar, /closeMobileNavigation\(false\)/);
   assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
 });
@@ -74,7 +77,11 @@ test("empty workspaces teach setup steps and permission boundaries", () => {
   assert.match(summaryRoute, /prisma\.workspaceMember\.count/);
   assert.match(onboarding, /onboarding\.modelWorkspace/);
   assert.match(onboarding, /onboarding\.roleHintViewer/);
-  assert.match(onboarding, /onboarding\.stepSpaceAction/);
+  assert.doesNotMatch(onboarding, /onboarding\.stepSpaceAction/);
+  assert.match(onboarding, /onboarding\.stepSpaceBodyViewOnly/);
+  assert.match(onboarding, /requiresWorkspaceAdmin: true/);
+  assert.match(onboarding, /!canManageWorkspace && Boolean\(step\.requiresWorkspaceAdmin\)/);
+  assert.match(onboarding, /const isInteractive = !disabled && !step\.complete/);
   assert.match(panel, /sidebar\.noSpacesHint/);
   assert.match(panel, /sidebar\.noSpacesViewOnly/);
   assert.match(panel, /canManageWorkspace \? \(/);
