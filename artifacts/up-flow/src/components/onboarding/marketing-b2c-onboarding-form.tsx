@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType } from "react";
 import { toast } from "sonner";
 import {
+  AlertCircle,
   BarChart3,
   Building2,
   CalendarDays,
@@ -21,6 +22,7 @@ import {
   Megaphone,
   PackageCheck,
   Phone,
+  RefreshCcw,
   Save,
   Send,
   ShieldCheck,
@@ -203,6 +205,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
   const [form, setForm] = useState<B2CFormResponse | null>(null);
   const [values, setValues] = useState<Record<FieldKey, string>>(() => cleanValues(undefined));
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [savingField, setSavingField] = useState<FieldKey | "all" | null>(null);
   const [savedField, setSavedField] = useState<FieldKey | null>(null);
   const [finalizing, setFinalizing] = useState(false);
@@ -218,6 +221,7 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/onboarding/marketing-b2c-form/${taskId}`);
       if (!res.ok) {
@@ -230,12 +234,13 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
       valuesRef.current = normalizedValues;
       setValues(normalizedValues);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : t("marketingB2CForm.loadFailed"));
-      onClose?.();
+      const message = err instanceof Error ? err.message : t("marketingB2CForm.loadFailed");
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, [onClose, t, taskId]);
+  }, [t, taskId]);
 
   useEffect(() => {
     void load();
@@ -328,6 +333,38 @@ export default function MarketingB2COnboardingForm({ taskId, onClose, onUpdate, 
 
   const fieldLabel = (key: FieldKey) => t(`marketingB2CForm.field.${key}`);
   const fieldPlaceholder = (key: FieldKey) => t(`marketingB2CForm.placeholder.${key}`);
+
+  if (!loading && !form) {
+    return (
+      <div className={cn(
+        "rounded-2xl border border-rose-300/30 bg-card p-6 text-card-foreground shadow-sm",
+        !embedded && "fixed inset-4 z-[80] overflow-y-auto",
+      )}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-rose-300/30 bg-rose-500/10 text-rose-500">
+              <AlertCircle className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-base font-bold">{t("marketingB2CForm.loadFailed")}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{loadError ?? t("marketingB2CForm.loadFailed")}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {onClose ? (
+              <button type="button" onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm font-semibold hover:bg-muted">
+                {t("common.close")}
+              </button>
+            ) : null}
+            <button type="button" onClick={() => void load()} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-bold text-white hover:bg-blue-500">
+              <RefreshCcw className="h-4 w-4" />
+              {t("common.retry")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn(

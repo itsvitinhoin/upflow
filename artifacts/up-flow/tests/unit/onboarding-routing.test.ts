@@ -80,6 +80,34 @@ test("Commercial tasks in Contracts & Handoffs never open the Finance form", () 
   assert.equal(getOnboardingTaskAction(task), null);
 });
 
+test("legacy Marketing B2C form tasks remain discoverable before their form row is repaired", () => {
+  const task = {
+    id: "marketing-b2c-form-task",
+    project_id: "marketing-b2c-project",
+    title: "Marketing B2C onboarding form",
+    description: "Complete the Marketing B2C client onboarding form.",
+    project: { id: "marketing-b2c-project", name: "Client onboarding" },
+    onboarding_link: {
+      id: "marketing-b2c-checklist-item",
+      onboarding_id: "onboarding-1",
+      company_id: "company-1",
+      company_name: "Teste",
+      department: "Marketing B2C",
+      title: "Marketing B2C onboarding form completed",
+      status: "pending",
+      progress: 20,
+      href: "/clients/company-1",
+    },
+  } as Task;
+
+  assert.equal(workflowFormKind(task), "marketing_b2c");
+  assert.deepEqual(getOnboardingTaskAction(task), {
+    kind: "form",
+    formKind: "marketing_b2c",
+    href: "/projects/marketing-b2c-project?view=form&task=marketing-b2c-form-task",
+  });
+});
+
 test("Finance forms are valid only for Finance checklist work inside a Finance space", () => {
   assert.equal(isFinanceOnboardingSpace("Finance"), true);
   assert.equal(isFinanceOnboardingSpace("Commercial"), false);
