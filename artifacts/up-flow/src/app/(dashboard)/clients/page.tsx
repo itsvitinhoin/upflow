@@ -362,13 +362,16 @@ export default function ClientsPage() {
                         />
                       </div>
 
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        <span className="flex shrink-0 items-center gap-1.5">
+                      <div
+                        data-testid="client-plan-services"
+                        className="flex min-w-0 flex-col items-start gap-1.5"
+                      >
+                        <span data-testid="client-plan-services-label" className="flex shrink-0 items-center gap-1.5">
                           <PackageCheck className="h-4 w-4 text-blue-400" />
                           <span className="upflow-client-title text-xs font-bold text-foreground dark:text-white">{t("clients.planServices")}</span>
                         </span>
                         {visibleServices.length > 0 ? (
-                          <div className="flex min-w-0 flex-wrap gap-1.5">
+                          <div data-testid="client-plan-services-list" className="flex min-w-0 flex-wrap gap-1.5">
                             {visibleServices.map((service) => (
                               <PlanServiceTile key={service} service={service} />
                             ))}
