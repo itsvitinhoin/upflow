@@ -266,7 +266,7 @@ export default function GoogleCalendarIntegrationCard({
       data-testid="google-calendar-integration-card"
     >
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-300/20 bg-primary/10 text-primary shadow-[0_0_20px_rgba(59,130,246,0.12)]">
             <CalendarCheck2 className="h-5 w-5" />
@@ -278,7 +278,7 @@ export default function GoogleCalendarIntegrationCard({
             <h2 id="google-calendar-integration-title" className="mt-1 text-lg font-semibold text-foreground">
               {t("googleCalendar.title")}
             </h2>
-            <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
+            <p className="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">
               {t("googleCalendar.description")}
             </p>
           </div>
@@ -351,7 +351,7 @@ export default function GoogleCalendarIntegrationCard({
           </div>
         </div>
       ) : status?.ready === false ? (
-        <div className="mt-5 rounded-xl border border-upflow-warning/30 bg-upflow-warning/10 p-4">
+        <div className="mt-5 grid gap-3 rounded-xl border border-upflow-warning/30 bg-upflow-warning/10 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="flex gap-2.5">
             <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-upflow-warning" />
             <div>
@@ -364,7 +364,7 @@ export default function GoogleCalendarIntegrationCard({
           <button
             type="button"
             onClick={() => void load()}
-            className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
+            className="inline-flex min-h-9 shrink-0 items-center justify-center gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-xs font-semibold text-foreground transition hover:bg-accent dark:border-white/10 dark:hover:bg-white/10"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             {t("googleCalendar.retry")}
