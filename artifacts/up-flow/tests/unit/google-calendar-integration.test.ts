@@ -307,7 +307,7 @@ test("Google Calendar recovery UI offers reconnect and disconnect after calendar
   assert.match(errorBranch, /onClick=\{\(\) => void disconnect\(\)\}/);
 });
 
-test("Google Calendar settings use the full Calendar width and show Connect when OAuth is ready", () => {
+test("Google Calendar settings stay visible above the Calendar and show Connect when OAuth is ready", () => {
   const card = read("src/components/calendar/google-calendar-integration-card.tsx");
   const page = read("src/app/(dashboard)/calendar/page.tsx");
   const unavailableBranch = card.slice(
@@ -320,6 +320,11 @@ test("Google Calendar settings use the full Calendar width and show Connect when
   );
 
   assert.match(page, /<GoogleCalendarIntegrationCard className="lg:col-span-2" \/>/);
+  assert.ok(
+    page.indexOf('<GoogleCalendarIntegrationCard className="lg:col-span-2" />') <
+      page.indexOf('<section className="min-w-0 rounded-2xl p-4 glass sm:p-5">'),
+    "Google Calendar settings should appear before the tall month grid",
+  );
   assert.match(card, /lg:flex-row lg:items-start lg:justify-between/);
   assert.match(unavailableBranch, /googleCalendar\.configurationTitle/);
   assert.doesNotMatch(unavailableBranch, /onClick=\{connect\}/);
