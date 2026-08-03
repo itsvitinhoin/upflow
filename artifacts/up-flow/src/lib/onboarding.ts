@@ -984,13 +984,17 @@ export async function resolveMarketingB2COnboardingProjectId(
       company_id: input.companyId,
       name: projectName,
     },
-    select: { id: true, sidebar_hidden: true, kind: true },
+    select: { id: true, onboarding_enabled: true, sidebar_hidden: true, kind: true },
   });
   if (existingProject) {
-    if (existingProject.sidebar_hidden || existingProject.kind !== "onboarding") {
+    if (
+      !existingProject.onboarding_enabled ||
+      existingProject.sidebar_hidden ||
+      existingProject.kind !== "onboarding"
+    ) {
       await db.project.update({
         where: { id: existingProject.id },
-        data: { sidebar_hidden: false, kind: "onboarding" },
+        data: { onboarding_enabled: true, sidebar_hidden: false, kind: "onboarding" },
         select: { id: true },
       });
     }
@@ -1011,7 +1015,12 @@ export async function resolveMarketingB2COnboardingProjectId(
     if (legacyProject) {
       const renamedProject = await db.project.update({
         where: { id: legacyProject.id },
-        data: { name: projectName, sidebar_hidden: false, kind: "onboarding" },
+        data: {
+          name: projectName,
+          onboarding_enabled: true,
+          sidebar_hidden: false,
+          kind: "onboarding",
+        },
         select: { id: true },
       });
       return renamedProject.id;
@@ -1026,6 +1035,7 @@ export async function resolveMarketingB2COnboardingProjectId(
       folder_id: clientFolder.id,
       company_id: input.companyId,
       name: projectName,
+      onboarding_enabled: true,
       sidebar_hidden: false,
       kind: "onboarding",
       description:
@@ -2009,6 +2019,211 @@ type DedicatedWorkflowSyncResult = {
   movedTasks: number;
 };
 
+type MarketingB2CFormRepairResult = {
+  createdTask: CreatedOnboardingTask | null;
+  notificationTarget: OnboardingAssignmentNotificationTarget | null;
+  missingMapping: string | null;
+};
+
+function isMarketingB2CFormChecklistItem(item: {
+  department: string;
+  title: string;
+  task?: { title: string; description: string | null } | null;
+}) {
+  const text = [item.department, item.title, item.task?.title, item.task?.description]
+    .filter(Boolean)
+    .map((value) => normalizedName(value!))
+    .join(" ");
+  const hasFormSignal = text.includes("form") || text.includes("onboarding marketing b2c") || text.includes("marketing b2c onboarding");
+  const hasSchedulingSignal = text.includes("meeting") || text.includes("reuni") || text.includes("schedule") || text.includes("kickoff") || text.includes("agenda");
+  return text.includes("marketing b2c") && hasFormSignal && !hasSchedulingSignal;
+}
+
+async function ensureMarketingB2COnboardingForm(
+  tx: Tx,
+  input: {
+    onboardingId: string;
+    company: CompanySnapshot;
+    actorId: string;
+    services: string[];
+    marketingFormRoute: "marketing_b2b" | "marketing_b2c";
+  },
+): Promise<MarketingB2CFormRepairResult> {
+  const [existingForm, checklistItems, mappingRows, adminFallback] = await Promise.all([
+    tx.marketingB2COnboardingForm.findFirst({
+      where: { onboarding_id: input.onboardingId },
+      select: { id: true },
+    }),
+    tx.onboardingChecklistItem.findMany({
+      where: { onboarding_id: input.onboardingId },
+      select: {
+        id: true,
+        workspace_id: true,
+        task_id: true,
+        department: true,
+        title: true,
+        status: true,
+        owner_id: true,
+        completed_at: true,
+        completed_by: true,
+        notes: true,
+        sort_order: true,
+        task: { select: { id: true, title: true, description: true, project_id: true } },
+      },
+    }),
+    tx.serviceLeaderMapping.findMany({
+      where: { workspace_id: input.company.workspace_id, active: true },
+      include: {
+        department: { select: { id: true, name: true } },
+        leader: { select: { id: true, name: true, email: true } },
+      },
+    }),
+    findAdminFallback(tx, input.company.workspace_id),
+  ]);
+  const existingItem = checklistItems.find(isMarketingB2CFormChecklistItem) ?? null;
+  const b2cOnlyService = input.services.some(
+    (service) => isMarketingB2CFormService(service) && !isMarketingB2BFormService(service),
+  );
+  const shouldEnsure = Boolean(
+    existingForm ||
+      existingItem ||
+      input.marketingFormRoute === "marketing_b2c" ||
+      b2cOnlyService,
+  );
+  if (!shouldEnsure || existingForm) {
+    return { createdTask: null, notificationTarget: null, missingMapping: null };
+  }
+
+  const marketingMapping = mappingRows.find(
+    (mapping) => ownerKeyForDepartmentLabel(mapping.service) === "marketing_b2c",
+  );
+  const fallbackLeader =
+    marketingMapping?.leader ??
+    (await ownerForRoute(tx, input.company.workspace_id, "marketing_b2c", adminFallback));
+  const formOwnerId = existingItem?.owner_id ?? marketingMapping?.leader_id ?? fallbackLeader?.id ?? input.company.owner_id;
+  const missingMapping = marketingMapping?.leader_id ? null : "Marketing B2C";
+  const formNotes = missingMapping
+    ? "Marketing B2C department responsible is missing; fallback owner assigned until mapping is completed."
+    : null;
+
+  if (existingItem?.task_id && existingItem.task) {
+    await tx.marketingB2COnboardingForm.upsert({
+      where: { checklist_item_id: existingItem.id },
+      create: {
+        workspace_id: existingItem.workspace_id,
+        onboarding_id: input.onboardingId,
+        checklist_item_id: existingItem.id,
+        task_id: existingItem.task_id,
+        company_id: input.company.id,
+        project_id: existingItem.task.project_id,
+        values: {},
+        status:
+          existingItem.status === "complete"
+            ? "complete"
+            : existingItem.status === "in_progress"
+              ? "in_progress"
+              : "draft",
+        completed_at: existingItem.completed_at,
+        completed_by: existingItem.completed_by,
+      },
+      update: {
+        workspace_id: existingItem.workspace_id,
+        onboarding_id: input.onboardingId,
+        task_id: existingItem.task_id,
+        company_id: input.company.id,
+        project_id: existingItem.task.project_id,
+      },
+    });
+    return { createdTask: null, notificationTarget: null, missingMapping };
+  }
+
+  const projectId = await resolveMarketingB2COnboardingProjectId(tx, {
+    workspaceId: input.company.workspace_id,
+    companyId: input.company.id,
+    companyName: input.company.name,
+    ownerId: input.actorId,
+  });
+  const taskPosition = await tx.task.aggregate({ where: { project_id: projectId }, _max: { position: true } });
+  const sortOrder = Math.max(-1, ...checklistItems.map((item) => item.sort_order)) + 1;
+  const b2cFormServices = input.services.filter(isMarketingB2CFormService);
+  const task = await tx.task.create({
+    data: {
+      project_id: projectId,
+      company_id: input.company.id,
+      title: "Marketing B2C onboarding form",
+      description: `Marketing B2C queue action: complete the client onboarding form for ${b2cFormServices.join(", ") || "the contracted services"}. Fields are optional and autosaved. Click Finalize onboarding B2C to update the central onboarding progress.`,
+      status: "todo",
+      priority: "high",
+      assignee_id: formOwnerId,
+      position: (taskPosition._max.position ?? -1) + 1,
+    },
+  });
+  const checklistItem = existingItem
+    ? await tx.onboardingChecklistItem.update({
+        where: { id: existingItem.id },
+        data: {
+          task_id: task.id,
+          department: "Marketing B2C",
+          title: "Marketing B2C onboarding form completed",
+          owner_id: formOwnerId,
+          notes: formNotes,
+        },
+        select: { id: true },
+      })
+    : await tx.onboardingChecklistItem.create({
+        data: {
+          onboarding_id: input.onboardingId,
+          workspace_id: input.company.workspace_id,
+          task_id: task.id,
+          department: "Marketing B2C",
+          title: "Marketing B2C onboarding form completed",
+          owner_id: formOwnerId,
+          notes: formNotes,
+          sort_order: sortOrder,
+        },
+        select: { id: true },
+      });
+  await tx.marketingB2COnboardingForm.upsert({
+    where: { checklist_item_id: checklistItem.id },
+    create: {
+      workspace_id: input.company.workspace_id,
+      onboarding_id: input.onboardingId,
+      checklist_item_id: checklistItem.id,
+      task_id: task.id,
+      company_id: input.company.id,
+      project_id: projectId,
+      values: {},
+    },
+    update: {
+      workspace_id: input.company.workspace_id,
+      onboarding_id: input.onboardingId,
+      task_id: task.id,
+      company_id: input.company.id,
+      project_id: projectId,
+    },
+  });
+
+  return {
+    createdTask: {
+      id: task.id,
+      title: task.title,
+      route: "marketing_b2c",
+      project_id: task.project_id,
+      assignee_id: task.assignee_id,
+    },
+    notificationTarget: {
+      userId: formOwnerId,
+      taskId: task.id,
+      workspaceId: input.company.workspace_id,
+      onboardingId: input.onboardingId,
+      actorId: input.actorId,
+      label: `Complete Marketing B2C onboarding form for ${input.company.name}`,
+      companyId: input.company.id,
+    },
+    missingMapping,
+  };
+}
+
 async function syncDedicatedServiceWorkflows(
   tx: Tx,
   input: {
@@ -2019,10 +2234,13 @@ async function syncDedicatedServiceWorkflows(
     currentServices?: Prisma.JsonValue | null;
   },
 ): Promise<DedicatedWorkflowSyncResult> {
+  const servicesRevealB2C = input.services.some(
+    (service) => isMarketingB2CFormService(service) && !isMarketingB2BFormService(service),
+  );
   const marketingFormRoute =
     (await persistedMarketingFormRoute(tx, input.onboardingId)) ??
     marketingFormRouteForOnboarding(input.company.service_type, null) ??
-    "marketing_b2b";
+    (servicesRevealB2C ? "marketing_b2c" : "marketing_b2b");
   const workflows = new Map<string, { serviceName: string; steps: readonly ServiceWorkflowStep[] }>();
   for (const service of input.services) {
     const workflow = serviceWorkflowFor(service, marketingFormRoute);
@@ -2047,7 +2265,20 @@ async function syncDedicatedServiceWorkflows(
     missingMappings: [],
     movedTasks: 0,
   };
-  if (workflows.size === 0) return result;
+  const b2cFormRepair = await ensureMarketingB2COnboardingForm(tx, {
+    onboardingId: input.onboardingId,
+    company: input.company,
+    actorId: input.actorId,
+    services: input.services,
+    marketingFormRoute,
+  });
+  if (b2cFormRepair.createdTask) result.createdTasks.push(b2cFormRepair.createdTask);
+  if (b2cFormRepair.notificationTarget) result.notificationTargets.push(b2cFormRepair.notificationTarget);
+  if (b2cFormRepair.missingMapping) result.missingMappings.push(b2cFormRepair.missingMapping);
+  if (workflows.size === 0) {
+    await recomputeOnboardingProgress(tx, input.onboardingId);
+    return result;
+  }
 
   const marketingDepartmentLabel = marketingFormRoute === "marketing_b2c" ? "Marketing B2C" : "Marketing B2B";
   const projectId = await resolveOnboardingRouteProjectId(tx, {
