@@ -14,6 +14,7 @@ import {
   Eye,
   PackageCheck,
   Plus,
+  Power,
   RefreshCcw,
   Sparkles,
   Trash2,
@@ -33,6 +34,7 @@ import { cn } from "@/lib/utils";
 
 type ClientCreationMode = "company" | "onboarding";
 type ClientSalesChannelFilter = "all" | "wholesale" | "retail" | "both" | "unclassified";
+type ClientStatusFilter = "all" | "active" | "inactive";
 
 type ClientCreationAccess = {
   canCreateStandalone: boolean;
@@ -50,6 +52,7 @@ export default function ClientsPage() {
   const [creationAccess, setCreationAccess] = useState<ClientCreationAccess | null>(null);
   const [query, setQuery] = useState("");
   const [salesChannel, setSalesChannel] = useState<ClientSalesChannelFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<ClientStatusFilter>("active");
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [pinnedCompanyIds, setPinnedCompanyIds] = useState<Set<string>>(new Set());
 
@@ -114,6 +117,7 @@ export default function ClientsPage() {
       const params = new URLSearchParams({ limit: "24" });
       const term = query.trim();
       if (term) params.set("q", term);
+      params.set("status", statusFilter);
       if (salesChannel !== "all") params.set("sales_channel", salesChannel);
       if (cursor) params.set("cursor", cursor);
       const [res, pinsRes] = await Promise.all([
@@ -134,14 +138,14 @@ export default function ClientsPage() {
       if (append) setLoadingMore(false);
       else setLoading(false);
     }
-  }, [query, salesChannel, t]);
+  }, [query, salesChannel, statusFilter, t]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       void loadCompanies();
     }, query.trim() ? 250 : 0);
     return () => window.clearTimeout(timeout);
-  }, [loadCompanies, query, salesChannel]);
+  }, [loadCompanies, query, salesChannel, statusFilter]);
 
   const handlePinnedChange = (companyId: string, pinned: boolean) => {
     setPinnedCompanyIds((current) => {
@@ -168,6 +172,34 @@ export default function ClientsPage() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("clients.couldNotDelete"));
+    }
+  };
+
+  const updateCompanyStatus = async (
+    company: Company,
+    nextStatus: Extract<ClientStatusFilter, "active" | "inactive">,
+  ) => {
+    const isReactivating = nextStatus === "active";
+    const confirmationKey = isReactivating
+      ? "clients.reactivateConfirm"
+      : "clients.deactivateConfirm";
+    if (!window.confirm(t(confirmationKey, { name: company.name }))) return;
+
+    try {
+      const res = await fetch("/api/companies/" + company.id, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? t("clients.couldNotUpdateStatus"));
+      }
+      toast.success(t(isReactivating ? "clients.reactivated" : "clients.deactivated"));
+      await loadCompanies();
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t("clients.couldNotUpdateStatus"));
     }
   };
 
@@ -203,6 +235,30 @@ export default function ClientsPage() {
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
+          <div
+            role="tablist"
+            aria-label={t("clients.statusFilter")}
+            className="flex h-10 items-center rounded-lg border border-border bg-background p-1 dark:border-blue-200/20 dark:bg-white/5"
+          >
+            {(["active", "inactive", "all"] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === status}
+                data-testid={"client-status-filter-" + status}
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  "h-full rounded-md px-3 text-xs font-semibold transition-colors",
+                  statusFilter === status
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {t("clients.status." + status)}
+              </button>
+            ))}
+          </div>
           <label className="relative block min-w-0 max-w-xl flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -257,11 +313,21 @@ export default function ClientsPage() {
         ) : companies.length === 0 ? (
           <section className="glass rounded-xl p-10 text-center">
             <Building2 className="mx-auto h-10 w-10 text-muted-foreground" />
-            <h3 className="mt-4 text-base font-semibold text-foreground">{query.trim() ? t("clients.noSearchResults") : t("clients.noClients")}</h3>
+            <h3 className="mt-4 text-base font-semibold text-foreground">
+              {query.trim()
+                ? t("clients.noSearchResults")
+                : statusFilter === "inactive"
+                  ? t("clients.noInactiveClients")
+                  : t("clients.noClients")}
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {query.trim() ? t("clients.searchPlaceholder") : t("clients.noClientsHint")}
+              {query.trim()
+                ? t("clients.searchPlaceholder")
+                : statusFilter === "inactive"
+                  ? t("clients.noInactiveClientsHint")
+                  : t("clients.noClientsHint")}
             </p>
-            {!query.trim() ? (
+            {!query.trim() && statusFilter !== "inactive" ? (
               <ClientCreationActions
                 className="mt-5 justify-center"
                 canCreateStandalone={canCreateStandalone}
@@ -281,6 +347,7 @@ export default function ClientsPage() {
               const visibleServices = services.slice(0, 2);
               const remainingServices = Math.max(0, services.length - visibleServices.length);
               const manager = managerName(company, t);
+              const isInactive = company.status !== "active";
 
               return (
                 <article
@@ -301,9 +368,16 @@ export default function ClientsPage() {
                           <h3 className="upflow-client-title mt-0.5 truncate text-lg font-bold leading-tight text-foreground dark:text-white">
                             {company.name}
                           </h3>
-                          <span className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-300/25 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-200">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                            {company.commercial_status || company.status}
+                          <span
+                            className={cn(
+                              "mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+                              isInactive
+                                ? "border-amber-300/25 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+                                : "border-emerald-300/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200",
+                            )}
+                          >
+                            <span className={cn("h-1.5 w-1.5 rounded-full", isInactive ? "bg-amber-400" : "bg-emerald-400")} />
+                            {isInactive ? t("clients.status.inactive") : t("clients.status.active")}
                           </span>
                         </div>
                       </Link>
@@ -318,6 +392,21 @@ export default function ClientsPage() {
                         />
                         {isWorkspaceAdmin ? (
                           <>
+                            <button
+                              type="button"
+                              onClick={() => void updateCompanyStatus(company, isInactive ? "active" : "inactive")}
+                              className={cn(
+                                "flex h-8 w-8 items-center justify-center rounded-lg border transition",
+                                isInactive
+                                  ? "border-emerald-300/20 bg-emerald-500/10 text-emerald-700 hover:border-emerald-300/50 hover:bg-emerald-500/20 dark:text-emerald-300"
+                                  : "border-amber-300/20 bg-amber-500/10 text-amber-700 hover:border-amber-300/50 hover:bg-amber-500/20 dark:text-amber-300",
+                              )}
+                              title={t(isInactive ? "clients.reactivateClient" : "clients.deactivateClient")}
+                              aria-label={t(isInactive ? "clients.reactivateClient" : "clients.deactivateClient")}
+                              data-testid="client-status-toggle"
+                            >
+                              <Power className="h-4 w-4" />
+                            </button>
                             <Link
                               href={`/clients/${company.id}`}
                               aria-label={t("clients.editClient")}

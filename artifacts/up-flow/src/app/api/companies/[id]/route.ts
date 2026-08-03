@@ -328,6 +328,9 @@ async function PATCH_handler(
     company_id: company.id,
     metadata: {
       name: updated.name,
+      ...(parsed.data.status !== undefined
+        ? { previous_status: company.status, status: updated.status }
+        : {}),
       ...(parsed.data.owner_id !== undefined
         ? { previous_owner_id: company.owner_id, owner_id: updated.owner_id }
         : {}),
