@@ -19,6 +19,7 @@ const CompanySalesChannelFilterSchema = z.enum([
   "both",
   "unclassified",
 ]);
+const CompanyStatusFilterSchema = z.enum(["all", "active", "inactive"]);
 
 const CompanySchema = z.object({
   name: z.string().trim().min(1),
@@ -79,6 +80,25 @@ async function GET_handler(req: NextRequest) {
       { status: 400 },
     );
   }
+  const parsedStatus = CompanyStatusFilterSchema.safeParse(
+    (url.searchParams.get("status") || "active").trim().toLowerCase(),
+  );
+  if (!parsedStatus.success) {
+    return NextResponse.json(
+      { error: "Invalid status. Use all, active, or inactive." },
+      { status: 400 },
+    );
+  }
+  const statusWhere: Prisma.CompanyWhereInput = (() => {
+    switch (parsedStatus.data) {
+      case "active":
+        return { status: "active" };
+      case "inactive":
+        return { status: { in: ["inactive", "archived"] } };
+      case "all":
+        return {};
+    }
+  })();
   const salesChannelWhere: Prisma.CompanyWhereInput = (() => {
     switch (parsedSalesChannel.data) {
       case "wholesale":
@@ -96,6 +116,7 @@ async function GET_handler(req: NextRequest) {
   const rows = await prisma.company.findMany({
     where: {
       workspace_id: auth.currentWorkspaceId,
+      ...statusWhere,
       ...salesChannelWhere,
       ...(q
         ? {
