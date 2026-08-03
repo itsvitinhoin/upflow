@@ -898,8 +898,6 @@ export default function CalendarPage() {
             </div>
           </div>
 
-          <GoogleCalendarIntegrationCard />
-
           <div className="rounded-2xl p-4 glass sm:p-5">
             <div className="flex items-center gap-2 mb-2">
               <CalendarIcon className="w-4 h-4 text-muted-foreground" />
@@ -931,6 +929,8 @@ export default function CalendarPage() {
             </ul>
           </div>
         </aside>
+
+        <GoogleCalendarIntegrationCard className="lg:col-span-2" />
       </div>
 
       <ScheduleMeetingDialog

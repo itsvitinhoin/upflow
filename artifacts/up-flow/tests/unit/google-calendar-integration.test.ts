@@ -307,6 +307,26 @@ test("Google Calendar recovery UI offers reconnect and disconnect after calendar
   assert.match(errorBranch, /onClick=\{\(\) => void disconnect\(\)\}/);
 });
 
+test("Google Calendar settings use the full Calendar width and show Connect when OAuth is ready", () => {
+  const card = read("src/components/calendar/google-calendar-integration-card.tsx");
+  const page = read("src/app/(dashboard)/calendar/page.tsx");
+  const unavailableBranch = card.slice(
+    card.indexOf(") : status?.ready === false ? ("),
+    card.indexOf(") : !connected && connection?.last_error ? ("),
+  );
+  const connectBranch = card.slice(
+    card.indexOf(") : !connected ? ("),
+    card.indexOf(") : (", card.indexOf(") : !connected ? (")),
+  );
+
+  assert.match(page, /<GoogleCalendarIntegrationCard className="lg:col-span-2" \/>/);
+  assert.match(card, /lg:flex-row lg:items-start lg:justify-between/);
+  assert.match(unavailableBranch, /googleCalendar\.configurationTitle/);
+  assert.doesNotMatch(unavailableBranch, /onClick=\{connect\}/);
+  assert.match(connectBranch, /onClick=\{connect\}/);
+  assert.match(connectBranch, /googleCalendar\.connect/);
+});
+
 test("ordinary local calendar writes atomically persist upsert jobs and process them after the response", () => {
   const create = read("src/app/api/calendar/events/route.ts");
   const item = read("src/app/api/calendar/events/[id]/route.ts");
