@@ -475,6 +475,8 @@ export default function CalendarPage() {
     <>
       <Header title={t("calendar.title")} />
       <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <GoogleCalendarIntegrationCard className="lg:col-span-2" />
+
         <section className="min-w-0 rounded-2xl p-4 glass sm:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-semibold text-foreground">
@@ -930,7 +932,6 @@ export default function CalendarPage() {
           </div>
         </aside>
 
-        <GoogleCalendarIntegrationCard className="lg:col-span-2" />
       </div>
 
       <ScheduleMeetingDialog
