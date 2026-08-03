@@ -67,5 +67,8 @@ test("UP Zero onboarding is an idempotent Commercial to Technical Support to Mar
   assert.match(onboardingRoute, /overrideUpZeroMarketingB2BGate/);
   assert.match(form, /data-testid="up-zero-dependency-warning"/);
   assert.match(form, /t\("marketingB2B\.adminOverrideReason"\)/);
-  assert.match(queue, /t\("onboardingBoard\.currentOwner", \{ department: currentDepartment \}\)/);
+  assert.match(queue, /function OnboardingClientCard/);
+  assert.match(queue, /const owner =/);
+  assert.match(queue, /onboardingQueue\.cardOwner/);
+  assert.match(queue, /upZeroTechnicalItem\(item\)/);
 });

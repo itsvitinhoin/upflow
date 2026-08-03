@@ -38,13 +38,13 @@ test("onboarding workflow hardening keeps actions, access, and integrity aligned
   assert.match(onboardingDetail, /companyId=\{companyId\}/);
   assert.match(board, /const workflowHref = `\/onboarding\/\$\{item\.company_id\}`/);
   assert.match(board, /function isMarketingB2COnboarding/);
-  assert.match(board, /meetings\.length > 0 && meetings\.every/);
-  assert.match(board, /function WorkflowRow\([\s\S]*href: string/);
-  assert.match(board, /<Link href=\{href\}/);
-  assert.doesNotMatch(board, /<button type="button"[^>]*>\{action\}<\/button>/);
-  assert.match(board, /meetingStageState/);
+  assert.match(board, /function OnboardingClientCard/);
+  assert.match(board, /const itemBlockers = blockers\(item, t\)/);
+  assert.match(board, /className="upflow-client-card/);
+  assert.match(board, /<Link href=\{workflowHref\}/);
+  assert.match(board, /ClientPinButton/);
   assert.match(board, /aria-label=\{t\("onboardingQueue\.searchPlaceholder"\)\}/);
-  assert.match(board, /action=\{t\("onboardingBoard\.openWorkflow"\)\}/);
+  assert.match(board, /t\("onboardingBoard\.openWorkflow"\)/);
   assert.match(startDialog, /event\.key === "Escape"/);
 
   assert.match(onboarding, /canAccessWorkspace\(auth, onboarding\.workspace_id\)/);
