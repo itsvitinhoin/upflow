@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { canAccessWorkspace } from "@/lib/auth-helpers";
@@ -6,6 +6,12 @@ import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
+import {
+  deleteCalendarEventWithGoogleTombstones,
+  processGoogleCalendarSyncJob,
+  queueGoogleCalendarEventSyncInTransaction,
+} from "@/lib/google-calendar";
+import { logError } from "@/lib/log-error";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import {
   calendarEventDetailInclude,
@@ -123,39 +129,44 @@ async function PATCH_handler(req: NextRequest, { params }: RouteContext) {
   const previousAttendeeIds = new Set(existing.attendees.map((attendee) => attendee.user_id));
   const replaceAttendees = body.attendee_ids !== undefined || body.responsible_user_id !== undefined;
   const newlyAddedAttendees = attendeeIds.filter((userId) => !previousAttendeeIds.has(userId));
-  const updated = await prisma.calendarEvent.update({
-    where: { id },
-    data: {
-      ...(body.title !== undefined && { title: body.title }),
-      ...(body.description !== undefined && { description: body.description || null }),
-      ...(body.type !== undefined && { type: body.type }),
-      ...(body.starts_at !== undefined && { starts_at: startsAt }),
-      ...(body.ends_at !== undefined && { ends_at: endsAt }),
-      ...(body.timezone !== undefined && { timezone: body.timezone || null }),
-      project_id: projectId,
-      task_id: taskId,
-      company_id: companyId,
-      space_id: spaceId,
-      responsible_user_id: responsibleUserId,
-      ...(body.priority !== undefined && { priority: body.priority }),
-      ...(body.location !== undefined && { location: body.location || null }),
-      ...(body.meeting_url !== undefined && { meeting_url: body.meeting_url || null }),
-      ...(body.color !== undefined && { color: body.color || null }),
-      ...(replaceAttendees && {
-        attendees: { deleteMany: {}, create: attendeeIds.map((user_id) => ({ user_id })) },
-      }),
-      ...(reminderMinutes !== undefined && {
-        reminders: {
-          deleteMany: {},
-          create: reminderMinutes.map((minutes_before) => ({
-            minutes_before,
-            enabled: existing.status !== "cancelled",
-          })),
-        },
-      }),
-    },
-    include: calendarEventDetailInclude,
+  const mutation = await prisma.$transaction(async (tx) => {
+    const event = await tx.calendarEvent.update({
+      where: { id },
+      data: {
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description || null }),
+        ...(body.type !== undefined && { type: body.type }),
+        ...(body.starts_at !== undefined && { starts_at: startsAt }),
+        ...(body.ends_at !== undefined && { ends_at: endsAt }),
+        ...(body.timezone !== undefined && { timezone: body.timezone || null }),
+        project_id: projectId,
+        task_id: taskId,
+        company_id: companyId,
+        space_id: spaceId,
+        responsible_user_id: responsibleUserId,
+        ...(body.priority !== undefined && { priority: body.priority }),
+        ...(body.location !== undefined && { location: body.location || null }),
+        ...(body.meeting_url !== undefined && { meeting_url: body.meeting_url || null }),
+        ...(body.color !== undefined && { color: body.color || null }),
+        ...(replaceAttendees && {
+          attendees: { deleteMany: {}, create: attendeeIds.map((user_id) => ({ user_id })) },
+        }),
+        ...(reminderMinutes !== undefined && {
+          reminders: {
+            deleteMany: {},
+            create: reminderMinutes.map((minutes_before) => ({
+              minutes_before,
+              enabled: existing.status !== "cancelled",
+            })),
+          },
+        }),
+      },
+      include: calendarEventDetailInclude,
+    });
+    const googleCalendarJobId = await queueGoogleCalendarEventSyncInTransaction(tx, event.id);
+    return { event, googleCalendarJobId };
   });
+  const { event: updated, googleCalendarJobId } = mutation;
 
   await recordActivity({
     workspace_id: existing.workspace_id,
@@ -174,6 +185,16 @@ async function PATCH_handler(req: NextRequest, { params }: RouteContext) {
       attendeeIds: newlyAddedAttendees,
       actor: auth.prismaUser,
     });
+  }
+
+  // The update and its durable sync job were committed together. Provider work
+  // remains asynchronous and is retried by the scheduled maintenance route.
+  if (googleCalendarJobId) {
+    after(() =>
+      processGoogleCalendarSyncJob(googleCalendarJobId).catch((error) =>
+        logError("api:calendar/events/id:PATCH:google-calendar-sync", error, { event_id: updated.id }),
+      ),
+    );
   }
 
   return NextResponse.json(serializeCalendarEvent(updated));
@@ -213,7 +234,26 @@ async function DELETE_handler(req: NextRequest, { params }: RouteContext) {
     }
   }
 
-  await prisma.calendarEvent.delete({ where: { id } });
+  // Persist all Google deletion tombstones and remove the local event in one
+  // transaction. A failure leaves the event in place rather than risking an
+  // orphaned Google Calendar event after a retry.
+  let googleCalendarDeletionJobIds: string[] = [];
+  try {
+    googleCalendarDeletionJobIds = await deleteCalendarEventWithGoogleTombstones(existing.id);
+  } catch (error) {
+    logError("api:calendar/events/id:DELETE:google-calendar-tombstone", error, { event_id: existing.id });
+    return NextResponse.json(
+      { error: "Could not safely remove the calendar event. Please retry." },
+      { status: 503 },
+    );
+  }
+  for (const googleCalendarJobId of googleCalendarDeletionJobIds) {
+    after(() =>
+      processGoogleCalendarSyncJob(googleCalendarJobId).catch((error) =>
+        logError("api:calendar/events/id:DELETE:google-calendar-sync", error, { event_id: existing.id }),
+      ),
+    );
+  }
   await recordActivity({
     workspace_id: existing.workspace_id,
     actor_id: auth.prismaUser.id,

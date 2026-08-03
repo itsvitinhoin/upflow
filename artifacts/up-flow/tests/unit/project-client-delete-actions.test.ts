@@ -43,7 +43,7 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(taskDelete, /taskDependency\.deleteMany/);
   assert.match(taskDelete, /notification\.deleteMany/);
   assert.match(taskDelete, /timeEntry\.deleteMany/);
-  assert.match(taskDelete, /calendarEvent\.deleteMany/);
+  assert.match(taskDelete, /deleteCalendarEventsWithGoogleTombstones/);
   assert.match(projectDelete, /approvalRequest\.deleteMany/);
   assert.match(projectDelete, /activityEvent\.deleteMany/);
   assert.match(taskDelete, /onboardingChecklistItem\.updateMany/);

@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { deleteCalendarEventsWithGoogleTombstones } from "@/lib/calendar-event-delete";
 import { deleteTasksByIds } from "@/lib/task-delete";
 
 type Tx = Prisma.TransactionClient;
@@ -130,6 +131,9 @@ export async function deleteProjectsByIds(
     deleteApprovalRequests: false,
     workspaceIds,
   });
+  const deletedProjectCalendarEvents = await deleteCalendarEventsWithGoogleTombstones(tx, {
+    project_id: { in: projectIds },
+  });
 
   return {
     approval_events: approvalIds.length
@@ -150,9 +154,7 @@ export async function deleteProjectsByIds(
       })).count,
     calendar_events:
       taskDeleted.calendar_events +
-      (await tx.calendarEvent.deleteMany({
-        where: { project_id: { in: projectIds } },
-      })).count,
+      deletedProjectCalendarEvents.count,
     recurring_rules:
       taskDeleted.recurring_rules +
       (await tx.recurringTaskRule.deleteMany({

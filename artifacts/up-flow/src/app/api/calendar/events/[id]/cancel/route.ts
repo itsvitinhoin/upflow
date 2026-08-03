@@ -1,7 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
+import {
+  processGoogleCalendarSyncJob,
+  queueGoogleCalendarEventDeletionInTransaction,
+} from "@/lib/google-calendar";
+import { logError } from "@/lib/log-error";
 import { prisma } from "@/lib/prisma";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import {
@@ -29,16 +34,35 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
   }
   if (event.status === "cancelled") return NextResponse.json(serializeCalendarEvent(event));
 
-  const cancelled = await prisma.calendarEvent.update({
-    where: { id: event.id },
-    data: {
-      status: "cancelled",
-      cancelled_at: new Date(),
-      cancelled_by: auth.prismaUser.id,
-      reminders: { updateMany: { where: {}, data: { enabled: false } } },
-    },
-    include: calendarEventDetailInclude,
-  });
+  let cancelled: NonNullable<Awaited<ReturnType<typeof loadCalendarEventDetail>>>;
+  let googleCalendarDeletionJobIds: string[];
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // Lock Google delivery before changing the local event. This establishes
+      // a single ordering with an in-flight provider upsert and records a
+      // durable delete tombstone if Google is temporarily unavailable.
+      const jobIds = await queueGoogleCalendarEventDeletionInTransaction(tx, event.id);
+      const updated = await tx.calendarEvent.update({
+        where: { id: event.id },
+        data: {
+          status: "cancelled",
+          cancelled_at: new Date(),
+          cancelled_by: auth.prismaUser.id,
+          reminders: { updateMany: { where: {}, data: { enabled: false } } },
+        },
+        include: calendarEventDetailInclude,
+      });
+      return { updated, jobIds };
+    });
+    cancelled = result.updated;
+    googleCalendarDeletionJobIds = result.jobIds;
+  } catch (error) {
+    logError("api:calendar/events/cancel:google-calendar-tombstone", error, { event_id: event.id });
+    return NextResponse.json(
+      { error: "Could not safely cancel the calendar event. Please retry." },
+      { status: 503 },
+    );
+  }
   await recordActivity({
     workspace_id: event.workspace_id,
     actor_id: auth.prismaUser.id,
@@ -50,6 +74,13 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
     company_id: event.company_id,
     metadata: { title: event.title },
   });
+  for (const googleCalendarJobId of googleCalendarDeletionJobIds) {
+    after(() =>
+      processGoogleCalendarSyncJob(googleCalendarJobId).catch((error) =>
+        logError("api:calendar/events/cancel:google-calendar-sync", error, { event_id: cancelled.id }),
+      ),
+    );
+  }
   return NextResponse.json(serializeCalendarEvent(cancelled));
 }
 

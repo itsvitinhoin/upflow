@@ -12,6 +12,7 @@ import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import EventEditorSheet from "@/components/calendar/event-editor-sheet";
+import GoogleCalendarIntegrationCard from "@/components/calendar/google-calendar-integration-card";
 import { useLanguage } from "@/components/language-provider";
 import { useAppUser } from "@/components/user-provider";
 
@@ -183,6 +184,22 @@ export default function CalendarPage() {
   const [scheduleDefaults, setScheduleDefaults] = useState<ScheduleDefaults | null>(null);
   const calendarRequestIdRef = useRef(0);
   const calendarRequestControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const result = searchParams?.get("google_calendar");
+    if (result !== "connected" && result !== "error") return;
+
+    if (result === "connected") {
+      toast.success(t("googleCalendar.connectedNotice"));
+    } else {
+      toast.error(t("googleCalendar.connectFailed"));
+    }
+
+    const nextParams = new URLSearchParams(searchParams?.toString());
+    nextParams.delete("google_calendar");
+    const query = nextParams.toString();
+    router.replace(query ? `/calendar?${query}` : "/calendar", { scroll: false });
+  }, [router, searchParams, t]);
 
   useEffect(() => {
     const linkedDate = dateFromQueryParam(searchParams?.get("date") ?? null);
@@ -880,6 +897,8 @@ export default function CalendarPage() {
               )}
             </div>
           </div>
+
+          <GoogleCalendarIntegrationCard />
 
           <div className="rounded-2xl p-4 glass sm:p-5">
             <div className="flex items-center gap-2 mb-2">
