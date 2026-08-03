@@ -32,6 +32,13 @@ const OPTIONAL = [
   "REDIS_URL",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
+  // Google Calendar is an opt-in, per-user integration. Keeping these
+  // optional means the rest of the application can stay available while an
+  // administrator finishes the OAuth setup in Google Cloud.
+  "GOOGLE_CALENDAR_CLIENT_ID",
+  "GOOGLE_CALENDAR_CLIENT_SECRET",
+  "GOOGLE_CALENDAR_REDIRECT_URI",
+  "GOOGLE_CALENDAR_TOKEN_ENCRYPTION_KEY",
   // Error tracking. When unset, error-tracker.ts is a no-op so local dev
   // works without an external service. NEXT_PUBLIC_SENTRY_DSN enables the
   // browser SDK; SENTRY_DSN enables the server SDK.

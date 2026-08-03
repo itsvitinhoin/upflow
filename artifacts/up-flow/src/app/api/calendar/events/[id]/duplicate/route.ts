@@ -1,7 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
+import {
+  processGoogleCalendarSyncJob,
+  queueGoogleCalendarEventSyncInTransaction,
+} from "@/lib/google-calendar";
+import { logError } from "@/lib/log-error";
 import { prisma } from "@/lib/prisma";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import {
@@ -28,54 +33,59 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const duplicate = await prisma.calendarEvent.create({
-    data: {
-      workspace_id: source.workspace_id,
-      title: `${source.title} (copy)`,
-      description: source.description,
-      type: source.type,
-      starts_at: source.starts_at,
-      ends_at: source.ends_at,
-      timezone: source.timezone,
-      created_by: auth.prismaUser.id,
-      project_id: source.project_id,
-      task_id: source.task_id,
-      company_id: source.company_id,
-      space_id: source.space_id,
-      responsible_user_id: source.responsible_user_id,
-      priority: source.priority,
-      location: source.location,
-      meeting_url: source.meeting_url,
-      color: source.color,
-      attendees: { create: source.attendees.map((attendee) => ({ user_id: attendee.user_id })) },
-      reminders: {
-        create: source.reminders.map((reminder) => ({
-          minutes_before: reminder.minutes_before,
-          enabled: true,
-        })),
+  const created = await prisma.$transaction(async (tx) => {
+    const event = await tx.calendarEvent.create({
+      data: {
+        workspace_id: source.workspace_id,
+        title: `${source.title} (copy)`,
+        description: source.description,
+        type: source.type,
+        starts_at: source.starts_at,
+        ends_at: source.ends_at,
+        timezone: source.timezone,
+        created_by: auth.prismaUser.id,
+        project_id: source.project_id,
+        task_id: source.task_id,
+        company_id: source.company_id,
+        space_id: source.space_id,
+        responsible_user_id: source.responsible_user_id,
+        priority: source.priority,
+        location: source.location,
+        meeting_url: source.meeting_url,
+        color: source.color,
+        attendees: { create: source.attendees.map((attendee) => ({ user_id: attendee.user_id })) },
+        reminders: {
+          create: source.reminders.map((reminder) => ({
+            minutes_before: reminder.minutes_before,
+            enabled: true,
+          })),
+        },
+        attachments: {
+          create: source.attachments
+            .filter((attachment) => attachment.kind === "link" || attachment.kind === "document")
+            .map((attachment) =>
+              attachment.kind === "link"
+                ? {
+                    kind: "link" as const,
+                    name: attachment.name,
+                    url: attachment.url!,
+                    created_by: auth.prismaUser.id,
+                  }
+                : {
+                    kind: "document" as const,
+                    name: attachment.name,
+                    document_id: attachment.document_id!,
+                    created_by: auth.prismaUser.id,
+                  },
+            ),
+        },
       },
-      attachments: {
-        create: source.attachments
-          .filter((attachment) => attachment.kind === "link" || attachment.kind === "document")
-          .map((attachment) =>
-            attachment.kind === "link"
-              ? {
-                  kind: "link" as const,
-                  name: attachment.name,
-                  url: attachment.url!,
-                  created_by: auth.prismaUser.id,
-                }
-              : {
-                  kind: "document" as const,
-                  name: attachment.name,
-                  document_id: attachment.document_id!,
-                  created_by: auth.prismaUser.id,
-                },
-          ),
-      },
-    },
-    include: calendarEventDetailInclude,
+      include: calendarEventDetailInclude,
+    });
+    const googleCalendarJobId = await queueGoogleCalendarEventSyncInTransaction(tx, event.id);
+    return { event, googleCalendarJobId };
   });
+  const { event: duplicate, googleCalendarJobId } = created;
 
   await recordActivity({
     workspace_id: source.workspace_id,
@@ -88,6 +98,13 @@ async function POST_handler(req: NextRequest, { params }: RouteContext) {
     company_id: duplicate.company_id,
     metadata: { source_event_id: source.id, title: duplicate.title },
   });
+  if (googleCalendarJobId) {
+    after(() =>
+      processGoogleCalendarSyncJob(googleCalendarJobId).catch((error) =>
+        logError("api:calendar/events/duplicate:google-calendar-sync", error, { event_id: duplicate.id }),
+      ),
+    );
+  }
   return NextResponse.json(serializeCalendarEvent(duplicate), { status: 201 });
 }
 

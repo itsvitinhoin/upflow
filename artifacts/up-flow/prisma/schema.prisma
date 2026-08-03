@@ -93,6 +93,25 @@ enum CalendarEventStatus {
   cancelled
 }
 
+enum GoogleCalendarSyncStatus {
+  pending
+  synced
+  failed
+}
+
+enum GoogleCalendarSyncOperation {
+  upsert
+  delete
+}
+
+enum GoogleCalendarSyncJobStatus {
+  pending
+  processing
+  completed
+  failed
+  cancelled
+}
+
 enum CalendarEventAttachmentKind {
   file
   link
@@ -128,6 +147,9 @@ model User {
   calendar_events_cancelled CalendarEvent[] @relation("CalendarEventsCancelled")
   calendar_event_attendees CalendarEventAttendee[] @relation("CalendarEventAttendees")
   calendar_event_attachments_created CalendarEventAttachment[] @relation("CalendarEventAttachmentCreator")
+  google_calendar_connections GoogleCalendarConnection[]
+  google_calendar_oauth_states GoogleCalendarOAuthState[]
+  google_calendar_sync_jobs  GoogleCalendarSyncJob[]
   time_entries             TimeEntry[]
   activity_events          ActivityEvent[]         @relation("ActivityActor")
   companies_owned          Company[]               @relation("CompanyOwner")
@@ -179,6 +201,9 @@ model Workspace {
   notifications        Notification[]
   departments          Department[]
   calendar_events      CalendarEvent[]
+  google_calendar_connections GoogleCalendarConnection[]
+  google_calendar_oauth_states GoogleCalendarOAuthState[]
+  google_calendar_sync_jobs  GoogleCalendarSyncJob[]
   time_entries         TimeEntry[]
   activity_events      ActivityEvent[]
   companies            Company[]
@@ -536,6 +561,8 @@ model CalendarEvent {
   attendees    CalendarEventAttendee[]
   reminders    CalendarEventReminder[]
   attachments  CalendarEventAttachment[]
+  google_calendar_links GoogleCalendarEventLink[]
+  google_calendar_sync_jobs GoogleCalendarSyncJob[]
 
   @@index([workspace_id, starts_at])
   @@index([created_by])
@@ -591,6 +618,112 @@ model CalendarEventAttachment {
   @@index([event_id, created_at])
   @@index([document_id])
   @@index([created_by])
+}
+
+model GoogleCalendarConnection {
+  id                       String   @id @default(uuid())
+  workspace_id             String
+  user_id                  String
+  google_subject           String?
+  google_email             String?
+  google_name              String?
+  calendar_id              String   @default("primary")
+  calendar_name            String?
+  access_token_ciphertext  String?  @db.Text
+  refresh_token_ciphertext String?  @db.Text
+  token_expires_at         DateTime?
+  scope                    String?  @db.Text
+  sync_enabled             Boolean  @default(true)
+  disconnected_at          DateTime?
+  last_synced_at           DateTime?
+  last_error               String?  @db.Text
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+  workspace                Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user                     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  event_links              GoogleCalendarEventLink[]
+  sync_jobs                GoogleCalendarSyncJob[]
+
+  @@unique([workspace_id, user_id])
+  @@index([user_id])
+  @@index([workspace_id, sync_enabled])
+}
+
+model GoogleCalendarOAuthState {
+  id                       String   @id @default(uuid())
+  state_hash               String   @unique @db.Text
+  code_verifier_ciphertext String   @db.Text
+  redirect_uri             String   @db.Text
+  workspace_id             String
+  user_id                  String
+  expires_at               DateTime
+  created_at               DateTime @default(now())
+  workspace                Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user                     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([workspace_id, user_id])
+  @@index([expires_at])
+}
+
+model GoogleCalendarEventLink {
+  id                 String                    @id @default(uuid())
+  event_id           String
+  connection_id      String
+  google_calendar_id String
+  google_event_id    String?
+  google_event_etag  String?
+  google_event_url   String?                   @db.Text
+  sync_status        GoogleCalendarSyncStatus  @default(pending)
+  last_synced_at     DateTime?
+  last_error         String?                   @db.Text
+  created_at         DateTime                  @default(now())
+  updated_at         DateTime                  @updatedAt
+  event              CalendarEvent             @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  connection         GoogleCalendarConnection  @relation(fields: [connection_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, connection_id])
+  @@unique([connection_id, google_calendar_id, google_event_id])
+  @@index([event_id])
+  @@index([connection_id, sync_status])
+}
+
+// A database-backed outbox makes provider delivery retriable. It also keeps a
+// remote-event snapshot after an UpFlow event is deleted, so a temporary
+// Google outage cannot silently leave an orphaned calendar event behind.
+model GoogleCalendarSyncJob {
+  id                 String                       @id @default(uuid())
+  workspace_id       String
+  user_id            String
+  connection_id      String
+  event_id           String?
+  operation          GoogleCalendarSyncOperation
+  // Manual syncs are queued too. This flag lets a user explicitly sync once
+  // even while automatic event updates are paused, and preserves that intent
+  // if Google is temporarily unavailable.
+  force              Boolean                      @default(false)
+  google_calendar_id String?
+  google_event_id    String?
+  status             GoogleCalendarSyncJobStatus @default(pending)
+  attempt_count      Int                          @default(0)
+  next_attempt_at    DateTime                     @default(now())
+  // A worker-specific lease prevents a stale in-flight worker from
+  // overwriting a newer queued operation after it has been cancelled or
+  // re-queued.
+  lease_token        String?
+  locked_until       DateTime?
+  last_error         String?                      @db.Text
+  completed_at       DateTime?
+  created_at         DateTime                     @default(now())
+  updated_at         DateTime                     @updatedAt
+  workspace          Workspace                    @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user               User                         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  connection         GoogleCalendarConnection     @relation(fields: [connection_id], references: [id], onDelete: Cascade)
+  event              CalendarEvent?              @relation(fields: [event_id], references: [id], onDelete: SetNull)
+
+  @@unique([event_id, connection_id, operation])
+  @@index([status, next_attempt_at])
+  @@index([workspace_id, user_id, status, next_attempt_at])
+  @@index([connection_id, status])
 }
 
 model TimeEntry {

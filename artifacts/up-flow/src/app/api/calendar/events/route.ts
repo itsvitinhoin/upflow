@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { isWorkspaceAdminFor, type AuthUser } from "@/lib/auth-helpers";
@@ -7,6 +7,11 @@ import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseDateParam } from "@/lib/time-range";
 import { notifyCalendarEventAssignees } from "@/lib/calendar-notifications";
+import {
+  processGoogleCalendarSyncJob,
+  queueGoogleCalendarEventSyncInTransaction,
+} from "@/lib/google-calendar";
+import { logError } from "@/lib/log-error";
 import { recomputeOnboardingProgress } from "@/lib/onboarding";
 import {
   calendarEventDetailInclude,
@@ -178,30 +183,35 @@ async function POST_handler(req: NextRequest) {
     return NextResponse.json({ error: relationValidation.error }, { status: 400 });
   }
 
-  const event = await prisma.calendarEvent.create({
-    data: {
-      workspace_id: auth.currentWorkspaceId,
-      title: body.title,
-      description: body.description || null,
-      type: body.type,
-      starts_at: startsAt,
-      ends_at: endsAt,
-      timezone: body.timezone || "America/Sao_Paulo",
-      created_by: auth.prismaUser.id,
-      project_id: eventProjectId,
-      task_id: body.task_id || null,
-      company_id: body.company_id || null,
-      space_id: body.space_id || null,
-      responsible_user_id: body.responsible_user_id || null,
-      priority: body.priority,
-      location: body.location || null,
-      meeting_url: body.meeting_url || null,
-      color: body.color || null,
-      attendees: { create: attendeeIds.map((user_id) => ({ user_id })) },
-      reminders: { create: reminderMinutes.map((minutes_before) => ({ minutes_before })) },
-    },
-    include: calendarEventDetailInclude,
+  const created = await prisma.$transaction(async (tx) => {
+    const event = await tx.calendarEvent.create({
+      data: {
+        workspace_id: auth.currentWorkspaceId,
+        title: body.title,
+        description: body.description || null,
+        type: body.type,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        timezone: body.timezone || "America/Sao_Paulo",
+        created_by: auth.prismaUser.id,
+        project_id: eventProjectId,
+        task_id: body.task_id || null,
+        company_id: body.company_id || null,
+        space_id: body.space_id || null,
+        responsible_user_id: body.responsible_user_id || null,
+        priority: body.priority,
+        location: body.location || null,
+        meeting_url: body.meeting_url || null,
+        color: body.color || null,
+        attendees: { create: attendeeIds.map((user_id) => ({ user_id })) },
+        reminders: { create: reminderMinutes.map((minutes_before) => ({ minutes_before })) },
+      },
+      include: calendarEventDetailInclude,
+    });
+    const googleCalendarJobId = await queueGoogleCalendarEventSyncInTransaction(tx, event.id);
+    return { event, googleCalendarJobId };
   });
+  const { event, googleCalendarJobId } = created;
 
   await recordActivity({
     workspace_id: auth.currentWorkspaceId,
@@ -246,6 +256,16 @@ async function POST_handler(req: NextRequest) {
       });
       await recomputeOnboardingProgress(tx, linkedSchedulingItem.onboarding_id);
     });
+  }
+
+  // The event and its durable sync job were committed together. The job remains
+  // available for the maintenance runner if this immediate attempt is interrupted.
+  if (googleCalendarJobId) {
+    after(() =>
+      processGoogleCalendarSyncJob(googleCalendarJobId).catch((error) =>
+        logError("api:calendar/events:POST:google-calendar-sync", error, { event_id: event.id }),
+      ),
+    );
   }
 
   return NextResponse.json(serializeCalendarEvent(event), { status: 201 });

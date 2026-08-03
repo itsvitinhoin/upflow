@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { prisma } from "@/lib/prisma";
 import { isSuperAdmin } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { deleteCalendarEventsWithGoogleTombstones } from "@/lib/calendar-event-delete";
 import { TESTER_WORKSPACE_SLUG } from "@/lib/tester-workspace";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -142,7 +143,7 @@ async function POST_handler(req: NextRequest) {
     await tx.template.deleteMany({ where: { created_by: userId } });
     await tx.recurringTaskRule.deleteMany({ where: { created_by: userId } });
     await tx.automationRule.deleteMany({ where: { created_by: userId } });
-    await tx.calendarEvent.deleteMany({ where: { created_by: userId } });
+    await deleteCalendarEventsWithGoogleTombstones(tx, { created_by: userId });
 
     await tx.user.delete({ where: { id: userId } });
     return { invites: invites.count, appUserDeleted: true };

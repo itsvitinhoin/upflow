@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessWorkspace, isSuperAdmin, isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
+import { disconnectGoogleCalendar } from "@/lib/google-calendar";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { deleteAppUserPreservingWorkspaceData, deleteSupabaseUsersByEmail } from "@/lib/user-deletion";
 
@@ -89,14 +90,34 @@ async function PATCH_handler(
     }
   }
 
-  const updated = await prisma.workspaceMember.update({
-    where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },
-    data: {
-      ...(parsed.data.role !== undefined && { role: parsed.data.role }),
-      ...(parsed.data.status !== undefined && { status: parsed.data.status }),
-      ...(parsed.data.department_id !== undefined && { department_id: parsed.data.department_id }),
-    },
-    include: { user: { select: { id: true, name: true, email: true } } },
+  // Disconnect through the shared connection fence before removing the
+  // member's active access. This prevents an in-flight calendar upsert from
+  // retaining a usable credential or writing after deactivation.
+  if (parsed.data.status === "inactive" && membership.status !== "inactive") {
+    await disconnectGoogleCalendar({ workspaceId: params.id, userId: params.memberId });
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const nextMembership = await tx.workspaceMember.update({
+      where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },
+      data: {
+        ...(parsed.data.role !== undefined && { role: parsed.data.role }),
+        ...(parsed.data.status !== undefined && { status: parsed.data.status }),
+        ...(parsed.data.department_id !== undefined && { department_id: parsed.data.department_id }),
+      },
+      include: { user: { select: { id: true, name: true, email: true } } },
+    });
+
+    // OAuth handshakes are no longer valid once the member is inactive. The
+    // shared disconnect helper above clears any stored credential under the
+    // same connection lock used by the sync worker.
+    if (nextMembership.status === "inactive") {
+      await tx.googleCalendarOAuthState.deleteMany({
+        where: { workspace_id: params.id, user_id: params.memberId },
+      });
+    }
+
+    return nextMembership;
   });
 
   await recordActivity({
@@ -150,6 +171,10 @@ async function DELETE_handler(
     );
   }
 
+  // Stop calendar delivery before deleting the membership or account. This
+  // serializes against the worker and clears encrypted Google credentials.
+  await disconnectGoogleCalendar({ workspaceId: params.id, userId: params.memberId });
+
   const otherMemberships = await prisma.workspaceMember.count({
     where: {
       user_id: params.memberId,
@@ -158,8 +183,15 @@ async function DELETE_handler(
   });
 
   if (otherMemberships > 0) {
-    await prisma.workspaceMember.delete({
-      where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },
+    await prisma.$transaction(async (tx) => {
+      // The connection was securely disabled above. Remove pending OAuth
+      // state together with this workspace membership.
+      await tx.googleCalendarOAuthState.deleteMany({
+        where: { workspace_id: params.id, user_id: params.memberId },
+      });
+      await tx.workspaceMember.delete({
+        where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },
+      });
     });
 
     await recordActivity({
