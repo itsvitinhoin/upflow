@@ -1,7 +1,10 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { broadcastNotification } from "@/lib/supabase-server";
-import { processPendingGoogleCalendarSyncJobs } from "@/lib/google-calendar";
+import {
+  processPendingGoogleCalendarSyncJobs,
+  syncSharedGoogleCalendarAgendas,
+} from "@/lib/google-calendar";
 import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { isSocialMediaPublicationOverdue, SOCIAL_MEDIA_FIELD_NAMES } from "@/lib/social-media";
@@ -162,7 +165,10 @@ async function handler(req: NextRequest) {
   // Calendar retry pass. We intentionally do not add another Vercel cron,
   // which keeps the deployment compatible with the current hosting plan.
   after(() =>
-    processPendingGoogleCalendarSyncJobs({ limit: 10 }).catch((error) =>
+    Promise.all([
+      processPendingGoogleCalendarSyncJobs({ limit: 10 }),
+      syncSharedGoogleCalendarAgendas({ limit: 25 }),
+    ]).catch((error) =>
       logError("api:cron:due-soon:google-calendar-sync", error),
     ),
   );
