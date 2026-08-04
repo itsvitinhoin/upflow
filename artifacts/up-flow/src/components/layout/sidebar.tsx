@@ -30,7 +30,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
   const [mounted, setMounted] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(false);
   const mobileToggleRef = useRef<HTMLButtonElement>(null);
   const mobileDialogRef = useRef<HTMLElement>(null);
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
@@ -57,7 +57,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
         setPanelOpen(v === "1");
       } else if (v !== null) {
         localStorage.removeItem(PANEL_KEY);
-        setPanelOpen(true);
+        setPanelOpen(false);
       }
     } catch {
       // localStorage unavailable (SSR, privacy modes) — use defaults.
@@ -138,8 +138,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
   if (!mounted) {
     return (
       <aside className="hidden md:flex flex-shrink-0" aria-hidden="true">
-        <div className="w-[56px] flex glass-rail" />
-        <div className="w-[272px] flex glass-rail" />
+        <div className="w-[64px] flex glass-rail" />
       </aside>
     );
   }
@@ -147,7 +146,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
   return (
     <>
       <aside className="hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden md:flex">
-        <div className="flex min-h-0 w-[56px]">{renderRail()}</div>
+        <div className="flex min-h-0 w-[64px]">{renderRail()}</div>
         <div
           className={cn(
             "grid min-h-0 overflow-hidden transition-[width,opacity] duration-200 ease-out",
@@ -199,7 +198,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
             role="dialog"
             aria-modal="true"
             aria-label={t("sidebar.navigation")}
-            className="fixed left-0 top-0 z-50 flex h-dvh min-h-0 w-[min(100vw,328px)] overflow-hidden border-r border-sidebar-border shadow-2xl md:hidden"
+            className="fixed left-0 top-0 z-50 flex h-dvh min-h-0 w-[min(100vw,336px)] overflow-hidden border-r border-sidebar-border shadow-2xl md:hidden"
           >
             <button
               ref={mobileCloseRef}
@@ -210,7 +209,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
             >
               <X className="w-5 h-5" />
             </button>
-            <div className="flex min-h-0 w-[56px]">
+            <div className="flex min-h-0 w-[64px]">
               {renderRail(closeMobileNavigationAfterNavigate)}
             </div>
             <div className="min-h-0 min-w-0 flex-1">
