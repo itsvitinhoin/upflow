@@ -1,39 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Users,
-  Mail,
-  RotateCw,
-  ChevronDown,
-  ChevronRight,
-  Settings2,
-  Trash2,
-  Search,
-  XCircle,
-  UserPlus,
-} from "lucide-react";
+import { Plus, Settings2, UserPlus } from "lucide-react";
 import Header from "@/components/layout/header";
 import InviteDialog from "@/components/dashboard/invite-dialog";
 import { ManageDepartmentsDialog } from "@/components/team/team-management-dialogs";
 import { EmailSetupWarning } from "@/components/team/team-invite-panels";
-import ServiceLeaderMappingPanel from "@/components/team/service-leader-mapping-panel";
+import TeamWorkspace from "@/components/team/team-workspace";
 import { clearCachedJson, getCachedJson } from "@/lib/client-cache";
-import { cn, getInitials } from "@/lib/utils";
 import type { Department, TeamMember } from "@/lib/types";
-import { colorDotClass } from "@/lib/department-colors";
 import { useLanguage } from "@/components/language-provider";
 import {
   COLLAPSE_STORAGE_KEY,
-  UNASSIGNED_KEY,
   type EmailStatus,
   type PendingInvite,
   type TeamOverview,
 } from "@/components/team/team-page-types";
 
 export default function TeamPage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const [users, setUsers] = useState<TeamMember[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -55,9 +41,11 @@ export default function TeamPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
 
   // Mirrors the server's `isWorkspaceAdmin` semantics: workspace owner/admin
-  // OR cross-workspace super-admin can manage departments + assignments.
+  // OR cross-workspace super-admin can manage departments and assignments.
   const isAdmin =
     isSuperAdmin || currentRole === "owner" || currentRole === "admin";
+  const teamMembersTitle = t("team.membersTitle");
+  const isPortuguese = language === "pt-BR";
 
   const loadTeamOverview = useCallback(async (targetWorkspaceId?: string | null) => {
     setLoading(true);
@@ -86,23 +74,24 @@ export default function TeamPage() {
 
   const loadPending = useCallback(async () => {
     try {
-      const r = await fetch("/api/invites");
-      if (!r.ok) return;
-      const data = (await r.json()) as PendingInvite[];
+      const response = await fetch("/api/invites");
+      if (!response.ok) return;
+      const data = (await response.json()) as PendingInvite[];
       setPending(Array.isArray(data) ? data : []);
     } catch {
-      /* noop */
+      // Pending invitations are supplementary information. The management
+      // surface remains available when this read fails.
     }
   }, []);
 
   const loadEmailStatus = useCallback(async () => {
     try {
-      const r = await fetch("/api/email/status");
-      if (!r.ok) {
+      const response = await fetch("/api/email/status");
+      if (!response.ok) {
         setEmailStatus(null);
         return;
       }
-      setEmailStatus((await r.json()) as EmailStatus);
+      setEmailStatus((await response.json()) as EmailStatus);
     } catch {
       setEmailStatus(null);
     }
@@ -110,25 +99,23 @@ export default function TeamPage() {
 
   const loadDepartments = useCallback(async (wsId: string) => {
     try {
-      const r = await fetch(`/api/workspaces/${wsId}/departments`);
-      if (!r.ok) return;
-      const data = (await r.json()) as { items: Department[] };
+      const response = await fetch(`/api/workspaces/${wsId}/departments`);
+      if (!response.ok) return;
+      const data = (await response.json()) as { items: Department[] };
       setDepartments(data.items ?? []);
     } catch {
-      /* noop */
+      // The overview data remains visible when a background refresh fails.
     }
   }, []);
 
-  // Restore collapse state from localStorage on mount.
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(COLLAPSE_STORAGE_KEY);
-      if (raw) {
-        const arr = JSON.parse(raw) as string[];
-        if (Array.isArray(arr)) setCollapsed(new Set(arr));
-      }
+      if (!raw) return;
+      const keys = JSON.parse(raw) as string[];
+      if (Array.isArray(keys)) setCollapsed(new Set(keys));
     } catch {
-      /* noop */
+      // Use the expanded default when local storage cannot be read.
     }
   }, []);
 
@@ -139,12 +126,12 @@ export default function TeamPage() {
         JSON.stringify(Array.from(collapsed)),
       );
     } catch {
-      /* noop */
+      // Collapse preferences are optional.
     }
   }, [collapsed]);
 
   useEffect(() => {
-    loadTeamOverview();
+    void loadTeamOverview();
   }, [loadTeamOverview]);
 
   useEffect(() => {
@@ -157,58 +144,12 @@ export default function TeamPage() {
   }, [isAdmin, workspaceId, loadEmailStatus, loadPending]);
 
   function toggleCollapsed(key: string) {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
+    setCollapsed((previous) => {
+      const next = new Set(previous);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
-  }
-
-  async function setMemberDepartment(
-    userId: string,
-    departmentId: string | null,
-  ) {
-    if (!workspaceId) return;
-    // Remember the previous value so we can roll back on failure.
-    const previous =
-      users.find((u) => u.id === userId)?.department_id ?? null;
-    // Optimistic update.
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId ? { ...u, department_id: departmentId } : u,
-      ),
-    );
-    try {
-      const r = await fetch(
-        `/api/workspaces/${workspaceId}/members/${userId}/department`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ department_id: departmentId }),
-        },
-      );
-      if (!r.ok) {
-        // Roll back so the UI doesn't show an assignment the server rejected.
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === userId ? { ...u, department_id: previous } : u,
-          ),
-        );
-        setToast(t("team.couldNotUpdateDepartment"));
-      } else {
-        clearCachedJson("team:overview");
-        loadDepartments(workspaceId);
-        router.refresh();
-      }
-    } catch {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId ? { ...u, department_id: previous } : u,
-        ),
-      );
-      setToast(t("team.couldNotUpdateDepartment"));
-    }
   }
 
   async function updateMember(
@@ -220,33 +161,33 @@ export default function TeamPage() {
     },
   ) {
     if (!workspaceId) return;
-    const previous = users.find((u) => u.id === userId);
+    const previous = users.find((user) => user.id === userId);
     if (!previous) return;
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === userId
+    setUsers((current) =>
+      current.map((user) =>
+        user.id === userId
           ? {
-              ...u,
+              ...user,
               ...(patch.role && { workspace_role: patch.role }),
               ...(patch.status && { workspace_status: patch.status }),
               ...(patch.department_id !== undefined && { department_id: patch.department_id }),
             }
-          : u,
+          : user,
       ),
     );
     try {
-      const r = await fetch(`/api/workspaces/${workspaceId}/members/${userId}`, {
+      const response = await fetch(`/api/workspaces/${workspaceId}/members/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
-      if (!r.ok) throw new Error("Failed to update member");
+      if (!response.ok) throw new Error("Failed to update member");
       clearCachedJson("team:overview");
       setToast(t("team.memberUpdated"));
-      if (patch.department_id !== undefined) loadDepartments(workspaceId);
+      if (patch.department_id !== undefined) void loadDepartments(workspaceId);
       router.refresh();
     } catch {
-      setUsers((prev) => prev.map((u) => (u.id === userId ? previous : u)));
+      setUsers((current) => current.map((user) => (user.id === userId ? previous : user)));
       setToast(t("team.couldNotUpdateMember"));
     }
   }
@@ -255,47 +196,26 @@ export default function TeamPage() {
     if (!workspaceId) return;
     if (!window.confirm(t("team.removeConfirm", { name: user.name }))) return;
     const previous = users;
-    setUsers((prev) => prev.filter((u) => u.id !== user.id));
+    setUsers((current) => current.filter((member) => member.id !== user.id));
     try {
-      const r = await fetch(`/api/workspaces/${workspaceId}/members/${user.id}`, {
+      const response = await fetch(`/api/workspaces/${workspaceId}/members/${user.id}`, {
         method: "DELETE",
       });
-      if (!r.ok) throw new Error("Failed to remove member");
+      if (!response.ok) throw new Error("Failed to remove member");
       clearCachedJson("team:overview");
       setToast(t("team.memberRemoved"));
-      loadDepartments(workspaceId);
+      void loadDepartments(workspaceId);
     } catch {
       setUsers(previous);
       setToast(t("team.couldNotRemoveMember"));
     }
   }
 
-  // Group users by department.
-  const groups = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const byId = new Map<string, TeamMember[]>();
-    byId.set(UNASSIGNED_KEY, []);
-    departments.forEach((d) => byId.set(d.id, []));
-    for (const u of users) {
-      const matchesQuery =
-        !q ||
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q);
-      if (!matchesQuery) continue;
-      const key = u.department_id ?? UNASSIGNED_KEY;
-      if (!byId.has(key)) byId.set(key, []);
-      byId.get(key)!.push(u);
-    }
-    return byId;
-  }, [users, departments, query]);
-
-  const isSearching = query.trim().length > 0;
-
   async function resendInvite(invite: PendingInvite) {
     setResending(invite.id);
     setToast(null);
     try {
-      const r = await fetch("/api/invites", {
+      const response = await fetch("/api/invites", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -305,19 +225,17 @@ export default function TeamPage() {
           ...(invite.tester_invite ? { tester_invite: true } : {}),
         }),
       });
-      if (!r.ok) {
-        const json = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { error?: string };
         setToast(json.error || t("team.couldNotResend", { email: invite.email }));
       } else {
-        const json = (await r.json()) as {
-          mailed?: number;
-        };
-        if (json.mailed && json.mailed > 0) {
-          setToast(t("team.inviteResent", { email: invite.email }));
-        } else {
-          setToast(t("team.inviteDeliveryNotConfirmed"));
-        }
-        loadPending();
+        const json = (await response.json()) as { mailed?: number };
+        setToast(
+          json.mailed && json.mailed > 0
+            ? t("team.inviteResent", { email: invite.email })
+            : t("team.inviteDeliveryNotConfirmed"),
+        );
+        void loadPending();
       }
     } catch {
       setToast(t("team.couldNotResend", { email: invite.email }));
@@ -331,18 +249,18 @@ export default function TeamPage() {
     setCancelingInvite(invite.id);
     setToast(null);
     try {
-      const r = await fetch("/api/invites", {
+      const response = await fetch("/api/invites", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: invite.id }),
       });
-      const json = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) {
+      const json = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
         setToast(json.error || t("team.couldNotCancelInvite", { email: invite.email }));
         return;
       }
       setToast(t("team.inviteCanceled", { email: invite.email }));
-      loadPending();
+      void loadPending();
     } catch {
       setToast(t("team.couldNotCancelInvite", { email: invite.email }));
     } finally {
@@ -350,420 +268,138 @@ export default function TeamPage() {
     }
   }
 
-  const orderedGroups: Array<{
-    key: string;
-    name: string;
-    color: string;
-    members: TeamMember[];
-  }> = [
-    ...departments.map((d) => ({
-      key: d.id,
-      name: d.name,
-      color: d.color,
-      members: groups.get(d.id) ?? [],
-    })),
-    {
-      key: UNASSIGNED_KEY,
-      name: t("common.unassigned"),
-      color: "slate",
-      members: groups.get(UNASSIGNED_KEY) ?? [],
-    },
-  ];
   return (
     <>
-      <Header title={t("team.title")} />
-      <div className="mx-auto max-w-4xl overflow-x-hidden p-4 sm:p-6">
-        <div className="mb-6 flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">{t("team.membersTitle")}</h2>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              {users.length === 1
-                ? t("team.memberCount", { count: users.length })
-                : t("team.memberCountPlural", { count: users.length })}
-              {workspace?.name && (
-                <>
-                  {" · "}
-                  {t("team.viewingWorkspace", { workspace: workspace.name })}
-                </>
-              )}
-              {departments.length > 0 && (
-                <>
-                  {" · "}
-                  {departments.length === 1
-                    ? t("team.departmentCount", { count: departments.length })
-                    : t("team.departmentCountPlural", { count: departments.length })}
-                </>
-              )}
-            </p>
-          </div>
-          {isAdmin && workspaceId && (
-            <div className="flex flex-wrap items-center gap-2">
+      <Header
+        title={teamMembersTitle}
+        searchValue={query}
+        searchPlaceholder={
+          isPortuguese
+            ? "Buscar membros, equipes ou departamentos..."
+            : "Search members, teams, or departments..."
+        }
+        searchAriaLabel={t("team.searchMembers")}
+        onSearchChange={setQuery}
+        onSearchSubmit={() => undefined}
+        hideUtilityControls
+        hideDefaultPrimaryAction
+        actions={
+          isAdmin && workspaceId ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setInviteOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                aria-label={t("team.inviteUsers")}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-300/15 bg-[#0b1424]/90 px-3 text-xs font-semibold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-300/30 hover:bg-white/[0.06] sm:h-11"
               >
-                <UserPlus className="w-3.5 h-3.5" />
-                {t("team.inviteUsers")}
+                <UserPlus className="h-4 w-4 text-blue-200" />
+                <span className="hidden lg:inline">{t("team.inviteUsers")}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setManageOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors"
+                aria-label={isPortuguese ? "Criar equipe" : "Create team"}
+                className="upflow-gradient-button inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-white transition hover:-translate-y-0.5 sm:h-11"
               >
-                <Settings2 className="w-3.5 h-3.5" />
-                {t("team.manageDepartments")}
+                <Plus className="h-4 w-4" />
+                <span className="hidden lg:inline">{isPortuguese ? "Criar equipe" : "Create team"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setManageOpen(true)}
+                aria-label={t("team.manageDepartments")}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-300/15 bg-[#0b1424]/90 px-3 text-xs font-semibold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-300/30 hover:bg-white/[0.06] sm:h-11"
+              >
+                <Settings2 className="h-4 w-4 text-blue-200" />
+                <span className="hidden 2xl:inline">{t("team.manageDepartments")}</span>
               </button>
             </div>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
 
-        {isAdmin && emailStatus && !emailStatus.ready && (
+      {isAdmin && emailStatus && !emailStatus.ready && (
+        <div className="mx-auto w-full max-w-[1420px] px-4 pt-4 sm:px-6 lg:px-8">
           <EmailSetupWarning status={emailStatus} />
-        )}
-
-        <div className="mb-4 flex items-center gap-3 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder={t("team.searchMembers")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-md border border-border bg-card pl-9 pr-3 py-2 text-sm"
-              aria-label={t("team.searchMembers")}
-            />
-          </div>
-          <label className="inline-flex items-center gap-2 text-xs text-muted-foreground select-none">
-            <input
-              type="checkbox"
-              checked={showEmpty}
-              onChange={(e) => setShowEmpty(e.target.checked)}
-              className="rounded border-border"
-            />
-            {t("team.showEmptyGroups")}
-          </label>
         </div>
+      )}
 
-        {loading ? (
-          <div className="bg-card border border-border rounded-xl overflow-hidden">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 px-6 py-4 border-b border-border last:border-0"
-              >
-                <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-muted rounded w-32 animate-pulse" />
-                  <div className="h-3 bg-muted rounded w-48 animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : users.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">{t("team.noMembers")}</p>
-          </div>
-        ) : isSearching &&
-          orderedGroups.every((g) => g.members.length === 0) ? (
-          <div
-            data-testid="team-search-empty"
-            className="text-center py-16 text-muted-foreground"
-          >
-            <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">{t("team.noSearchMatches", { query })}</p>
-            <p className="text-xs mt-1">{t("team.tryDifferentSearch")}</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orderedGroups.map((g) => {
-              const isUnassigned = g.key === UNASSIGNED_KEY;
-              const memberCount = g.members.length;
-              // When searching, auto-expand groups that have matches and
-              // hide groups with zero matches. Otherwise honor the
-              // user-stored collapse state and the "show empty" toggle.
-              if (isSearching && memberCount === 0) return null;
-              if (!isSearching && memberCount === 0 && !showEmpty && !isUnassigned)
-                return null;
-              if (
-                !isSearching &&
-                isUnassigned &&
-                memberCount === 0 &&
-                !showEmpty
-              )
-                return null;
+      <TeamWorkspace
+        users={users}
+        departments={departments}
+        pending={pending}
+        loading={loading}
+        query={query}
+        showEmpty={showEmpty}
+        isAdmin={isAdmin}
+        language={language}
+        t={t}
+        collapsed={collapsed}
+        resending={resending}
+        cancelingInvite={cancelingInvite}
+        onShowEmptyChange={setShowEmpty}
+        onToggleCollapsed={toggleCollapsed}
+        onUpdateMember={(userId, patch) => {
+          void updateMember(userId, patch);
+        }}
+        onRemoveMember={(user) => {
+          void removeMember(user);
+        }}
+        onResendInvite={(invite) => {
+          void resendInvite(invite);
+        }}
+        onCancelInvite={(invite) => {
+          void cancelInvite(invite);
+        }}
+        onOpenManage={() => setManageOpen(true)}
+        roleOptions={
+          <>
+            <option value="member">{t("common.member")}</option>
+            <option value="guest">{t("common.guest")}</option>
+            <option value="admin">{t("common.admin")}</option>
+            <option value="owner">{t("common.owner")}</option>
+          </>
+        }
+      />
 
-              const isCollapsed =
-                !isSearching && collapsed.has(g.key) && memberCount > 0;
+      {toast && (
+        <p
+          role="status"
+          className="fixed bottom-5 right-5 z-50 max-w-sm rounded-xl border border-blue-300/20 bg-[#101b30]/95 px-4 py-3 text-xs text-slate-100 shadow-2xl backdrop-blur"
+        >
+          {toast}
+        </p>
+      )}
 
-              return (
-                <section
-                  key={g.key}
-                  data-testid="department-group"
-                  data-department-key={g.key}
-                  className="bg-card border border-border rounded-xl overflow-hidden"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapsed(g.key)}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors text-left"
-                    aria-expanded={!isCollapsed}
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <span
-                      className={cn(
-                        "w-2.5 h-2.5 rounded-full flex-shrink-0",
-                        colorDotClass(g.color),
-                      )}
-                      aria-hidden="true"
-                    />
-                    <span className="font-medium text-sm text-foreground">
-                      {g.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {memberCount === 1
-                        ? t("team.memberCount", { count: memberCount })
-                        : t("team.memberCountPlural", { count: memberCount })}
-                    </span>
-                  </button>
-
-                  {!isCollapsed && memberCount > 0 && (
-                    <ul className="divide-y divide-border border-t border-border">
-                      {g.members.map((user) => (
-                        <li
-                          key={user.id}
-                          className="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:px-6"
-                        >
-                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center flex-shrink-0">
-                            {getInitials(user.name)}
-                          </div>
-                          <div className="min-w-0 flex-1 self-stretch sm:self-auto">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {user.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {user.email}
-                            </p>
-                          </div>
-                          <div className="hidden sm:flex flex-col items-end gap-1">
-                            <span
-                              className={cn(
-                                "text-xs px-2.5 py-1 rounded-full font-medium capitalize",
-                                (user.workspace_role ?? user.role) === "admin" ||
-                                  user.workspace_role === "owner"
-                                  ? "bg-primary/15 text-primary"
-                                  : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {user.workspace_role ?? user.role}
-                            </span>
-                            {user.workspace_status === "inactive" && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-upflow-danger/15 text-upflow-danger">
-                                {t("common.inactive")}
-                              </span>
-                            )}
-                          </div>
-                          {isAdmin ? (
-                            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                              <select
-                                aria-label={t("team.roleFor", { name: user.name })}
-                                value={user.workspace_role ?? user.role}
-                                onChange={(e) =>
-                                  updateMember(user.id, {
-                                    role: e.target.value as "owner" | "admin" | "member" | "guest",
-                                  })
-                                }
-                                className="text-xs rounded-md border border-border bg-card px-2 py-1"
-                              >
-                                <option value="member">{t("common.member")}</option>
-                                <option value="guest">{t("common.guest")}</option>
-                                <option value="admin">{t("common.admin")}</option>
-                                <option value="owner">{t("common.owner")}</option>
-                              </select>
-                              <select
-                                aria-label={t("team.statusFor", { name: user.name })}
-                                value={user.workspace_status ?? "active"}
-                                onChange={(e) =>
-                                  updateMember(user.id, {
-                                    status: e.target.value as "active" | "inactive",
-                                  })
-                                }
-                                className="text-xs rounded-md border border-border bg-card px-2 py-1"
-                              >
-                                <option value="active">{t("common.active")}</option>
-                                <option value="inactive">{t("common.inactive")}</option>
-                              </select>
-                              <select
-                                aria-label={t("team.departmentFor", { name: user.name })}
-                                value={user.department_id ?? ""}
-                                onChange={(e) =>
-                                  updateMember(user.id, {
-                                    department_id: e.target.value || null,
-                                  })
-                                }
-                                className="text-xs rounded-md border border-border bg-card px-2 py-1"
-                              >
-                                <option value="">{t("common.unassigned")}</option>
-                                {departments.map((d) => (
-                                  <option key={d.id} value={d.id}>
-                                    {d.name}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => removeMember(user)}
-                                aria-label={t("team.removeMember", { name: user.name })}
-                                className="p-1.5 text-muted-foreground hover:text-upflow-danger rounded-md hover:bg-upflow-danger/10"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span
-                                className={cn(
-                                  "w-2 h-2 rounded-full",
-                                  colorDotClass(g.color),
-                                )}
-                                aria-hidden="true"
-                              />
-                              {g.name}
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-        )}
-
-        {pending.length > 0 && (
-          <div className="mt-8">
-            <div className="mb-3 flex items-end justify-between">
-              <div>
-                <h3 className="text-base font-semibold text-foreground">
-                  {t("team.pendingInvites")}
-                </h3>
-                <p className="text-muted-foreground text-xs mt-0.5">
-                  {pending.length === 1
-                    ? t("team.awaitingAcceptanceOne", { count: pending.length })
-                    : t("team.awaitingAcceptance", { count: pending.length })}
-                </p>
-              </div>
-            </div>
-            <div className="bg-card border border-border rounded-xl overflow-hidden">
-              <ul className="divide-y divide-border">
-                {pending.map((p) => (
-                  <li
-                    key={p.id}
-                    data-testid="pending-invite"
-                    className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">
-                          {p.email}
-                        </p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {p.role}
-                          {p.inviter
-                            ? ` - ${t("team.invitedBy", { name: p.inviter.name || p.inviter.email })}`
-                            : ""}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => resendInvite(p)}
-                      disabled={resending === p.id}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5",
-                        "text-xs font-medium text-foreground hover:bg-muted/60 transition-colors",
-                        "disabled:opacity-60 disabled:cursor-not-allowed",
-                      )}
-                      aria-label={t("team.inviteResent", { email: p.email })}
-                    >
-                      <RotateCw
-                        className={cn(
-                          "w-3.5 h-3.5",
-                          resending === p.id && "animate-spin",
-                        )}
-                      />
-                      {resending === p.id ? t("team.sending") : t("team.resend")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => cancelInvite(p)}
-                      disabled={cancelingInvite === p.id}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-upflow-danger/10 hover:text-upflow-danger disabled:opacity-60"
-                      aria-label={t("team.cancelInviteConfirm", { email: p.email })}
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                      {t("team.cancelInvite")}
-                    </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {toast && (
-              <p className="mt-3 text-xs text-muted-foreground" role="status">
-                {toast}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="mt-8">
-          <ServiceLeaderMappingPanel
-            isAdmin={isAdmin}
-            users={users}
-            departments={departments}
-          />
-        </div>
-
-        {manageOpen && workspaceId && (
-          <ManageDepartmentsDialog
-            workspaceId={workspaceId}
-            departments={departments}
-            onClose={() => setManageOpen(false)}
-            onChanged={() => {
-              clearCachedJson("team:overview");
-              loadDepartments(workspaceId);
-            }}
-          />
-        )}
-        <InviteDialog
-          open={inviteOpen}
-          title={t("invite.realUsersTitle")}
-          description={
-            workspace?.name
-              ? t("invite.realUsersDescription", { workspace: workspace.name })
-              : t("invite.realUsersDescription", { workspace: t("invite.currentWorkspace") })
-          }
-          submitLabel={t("invite.submitDefault")}
-          successLabel={t("invite.successDefault")}
-          defaultRole="member"
-          defaultMode="workspace_access"
-          hideRole
-          onClose={() => {
-            setInviteOpen(false);
-            loadPending();
-            loadEmailStatus();
+      {manageOpen && workspaceId && (
+        <ManageDepartmentsDialog
+          workspaceId={workspaceId}
+          departments={departments}
+          onClose={() => setManageOpen(false)}
+          onChanged={() => {
+            clearCachedJson("team:overview");
+            void loadDepartments(workspaceId);
           }}
         />
-      </div>
+      )}
+      <InviteDialog
+        open={inviteOpen}
+        title={t("invite.realUsersTitle")}
+        description={
+          workspace?.name
+            ? t("invite.realUsersDescription", { workspace: workspace.name })
+            : t("invite.realUsersDescription", { workspace: t("invite.currentWorkspace") })
+        }
+        submitLabel={t("invite.submitDefault")}
+        successLabel={t("invite.successDefault")}
+        defaultRole="member"
+        defaultMode="workspace_access"
+        hideRole
+        onClose={() => {
+          setInviteOpen(false);
+          void Promise.all([loadTeamOverview(), loadPending(), loadEmailStatus()]);
+        }}
+      />
     </>
   );
 }
