@@ -64,6 +64,7 @@ test.describe("Spaces and folders containers", () => {
     await expect(
       main.getByRole("heading", { name: spaceName, exact: true }),
     ).toBeVisible();
+    await page.getByRole("button", { name: "Show sidebar" }).click();
     const sidebar = page.locator("aside").first();
     await expect(
       sidebar.getByRole("link", { name: folderName, exact: true }),
