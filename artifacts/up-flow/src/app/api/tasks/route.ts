@@ -10,6 +10,7 @@ import { notifyTaskAssignee } from "@/lib/task-assignment-notifications";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { recordActivity } from "@/lib/activity";
 import { parseAppDate } from "@/lib/utils";
+import { parseDateParam } from "@/lib/time-range";
 import { parseTaskImageUrl } from "@/lib/task-images";
 import { deleteTasksByIds, findOnboardingTaskLink } from "@/lib/task-delete";
 import {
@@ -38,6 +39,17 @@ async function getHandler(req: NextRequest) {
   const projectId = searchParams.get("project_id");
   const mine = searchParams.get("mine") === "true";
   const parentId = searchParams.get("parent_id");
+  const dueFromParam = searchParams.get("due_from");
+  const dueToParam = searchParams.get("due_to");
+  const dueFrom = parseDateParam(dueFromParam);
+  const dueTo = parseDateParam(dueToParam);
+
+  if ((dueFromParam && !dueFrom) || (dueToParam && !dueTo)) {
+    return NextResponse.json({ error: "Invalid due-date range" }, { status: 400 });
+  }
+  if (dueFrom && dueTo && dueFrom > dueTo) {
+    return NextResponse.json({ error: "Invalid due-date range" }, { status: 400 });
+  }
 
   if (projectId) {
     const project = await prisma.project.findUnique({
@@ -70,6 +82,12 @@ async function getHandler(req: NextRequest) {
   if (projectId) where.project_id = projectId;
   if (mine) where.assignee_id = auth.prismaUser.id;
   if (parentId) where.parent_id = parentId;
+  if (dueFrom || dueTo) {
+    where.due_date = {
+      ...(dueFrom ? { gte: dueFrom } : {}),
+      ...(dueTo ? { lte: dueTo } : {}),
+    };
+  }
 
   // If no projectId filter, scope to the active workspace so the UI stays
   // consistent with the workspace switcher.

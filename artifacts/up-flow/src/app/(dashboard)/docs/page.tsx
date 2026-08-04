@@ -6,18 +6,18 @@ import { toast } from "sonner";
 import { FileText, Plus, Clock } from "lucide-react";
 import Header from "@/components/layout/header";
 import { formatDate } from "@/lib/utils";
-import type { Doc } from "@/lib/types";
+import type { Doc, DocSummary } from "@/lib/types";
 import { useLanguage } from "@/components/language-provider";
 
 export default function DocsPage() {
   const { language, t } = useLanguage();
-  const [docs, setDocs] = useState<Doc[]>([]);
+  const [docs, setDocs] = useState<DocSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/docs")
       .then((r) => r.json())
-      .then((data: { items: Doc[] }) => {
+      .then((data: { items: DocSummary[] }) => {
         setDocs(data.items ?? []);
         setLoading(false);
       })

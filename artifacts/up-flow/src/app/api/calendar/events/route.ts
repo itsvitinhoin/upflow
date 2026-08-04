@@ -15,6 +15,7 @@ import { logError } from "@/lib/log-error";
 import { recomputeOnboardingProgress } from "@/lib/onboarding";
 import {
   calendarEventDetailInclude,
+  calendarEventListSelect,
   serializeCalendarEvent,
   validateCalendarEventRelations,
 } from "./event-detail";
@@ -91,10 +92,10 @@ async function GET_handler(req: NextRequest) {
         : {}),
     },
     orderBy: [{ starts_at: "asc" }, { id: "asc" }],
-    include: calendarEventDetailInclude,
+    select: calendarEventListSelect,
   });
 
-  return NextResponse.json({ items: items.map(serializeCalendarEvent), nextCursor: null });
+  return NextResponse.json({ items, nextCursor: null });
 }
 
 async function POST_handler(req: NextRequest) {

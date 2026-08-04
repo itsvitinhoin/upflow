@@ -21,6 +21,13 @@ const CompanySalesChannelFilterSchema = z.enum([
 ]);
 const CompanyStatusFilterSchema = z.enum(["all", "active", "inactive"]);
 
+// Card and picker views only need the company record and its owner. Keep the
+// richer relationship graph below for health reporting, which still needs it
+// to calculate summaries.
+const companyListInclude = {
+  owner: { select: { id: true, name: true, email: true } },
+} as const satisfies Prisma.CompanyInclude;
+
 const CompanySchema = z.object({
   name: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
@@ -89,6 +96,7 @@ async function GET_handler(req: NextRequest) {
       { status: 400 },
     );
   }
+  const includeSummary = url.searchParams.get("include_summary") !== "false";
   const statusWhere: Prisma.CompanyWhereInput = (() => {
     switch (parsedStatus.data) {
       case "active":
@@ -113,27 +121,43 @@ async function GET_handler(req: NextRequest) {
         return {};
     }
   })();
-  const rows = await prisma.company.findMany({
-    where: {
-      workspace_id: auth.currentWorkspaceId,
-      ...statusWhere,
-      ...salesChannelWhere,
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" as const } },
-              { description: { contains: q, mode: "insensitive" as const } },
-              { plan_name: { contains: q, mode: "insensitive" as const } },
-              { service_type: { contains: q, mode: "insensitive" as const } },
-              { industry: { contains: q, mode: "insensitive" as const } },
-              { owner: { is: { name: { contains: q, mode: "insensitive" as const } } } },
-            ],
-          }
-        : {}),
-    },
+  const where: Prisma.CompanyWhereInput = {
+    workspace_id: auth.currentWorkspaceId,
+    ...statusWhere,
+    ...salesChannelWhere,
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q, mode: "insensitive" as const } },
+            { description: { contains: q, mode: "insensitive" as const } },
+            { plan_name: { contains: q, mode: "insensitive" as const } },
+            { service_type: { contains: q, mode: "insensitive" as const } },
+            { industry: { contains: q, mode: "insensitive" as const } },
+            { owner: { is: { name: { contains: q, mode: "insensitive" as const } } } },
+          ],
+        }
+      : {}),
+  };
+  const pageOptions = {
+    where,
     take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    orderBy: [{ created_at: "desc" }, { id: "asc" }],
+    orderBy: [
+      { created_at: "desc" },
+      { id: "asc" },
+    ] satisfies Prisma.CompanyOrderByWithRelationInput[],
+  };
+
+  if (!includeSummary) {
+    const rows = await prisma.company.findMany({
+      ...pageOptions,
+      include: companyListInclude,
+    });
+    return NextResponse.json(buildPage(rows, limit));
+  }
+
+  const rows = await prisma.company.findMany({
+    ...pageOptions,
     include: {
       owner: { select: { id: true, name: true, email: true } },
       contacts: { select: { id: true } },

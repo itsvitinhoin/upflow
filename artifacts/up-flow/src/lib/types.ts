@@ -253,6 +253,10 @@ export interface Doc {
   author: { id: string; name: string };
 }
 
+// List views never need the potentially large Tiptap document payload. Keep
+// the full Doc type for editors and use this compact shape for indexes.
+export type DocSummary = Omit<Doc, "content">;
+
 export interface NotificationTask {
   id: string;
   title: string;

@@ -115,6 +115,7 @@ export default function ClientsPage() {
     }
     try {
       const params = new URLSearchParams({ limit: "24" });
+      params.set("include_summary", "false");
       const term = query.trim();
       if (term) params.set("q", term);
       params.set("status", statusFilter);

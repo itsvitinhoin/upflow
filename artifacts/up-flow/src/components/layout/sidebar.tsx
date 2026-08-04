@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { toast } from "sonner";
@@ -10,7 +11,14 @@ import { cn } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 import type { AppUser } from "@/lib/types";
 import { Rail } from "@/components/layout/sidebar/rail";
-import Panel from "@/components/layout/sidebar/panel";
+
+// The full navigation panel contains the workspace tree, dialogs, and search.
+// Code-split it from the rail, while still mounting it after hydration so the
+// existing workspace maintenance behavior continues to run.
+const Panel = dynamic(() => import("@/components/layout/sidebar/panel"), {
+  ssr: false,
+  loading: () => <div className="min-h-0 w-[272px]" aria-busy="true" />,
+});
 
 interface SidebarProps {
   user: AppUser;
@@ -134,7 +142,9 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
       panelOpen={panelOpen}
       panelId={options.panelId}
       showPanelToggle={options.showPanelToggle}
-      onTogglePanel={() => setPanelOpen((v) => !v)}
+      onTogglePanel={() => {
+        setPanelOpen((v) => !v);
+      }}
       onSignOut={handleSignOut}
       onNavigate={onNavigate}
     />
@@ -171,6 +181,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
               currentRole={user.currentRole ?? null}
               userName={user.name || user.email}
               isSuperAdmin={user.isSuperAdmin === true}
+              active={panelOpen}
               onRequestClose={() => setPanelOpen(false)}
               onSignOut={handleSignOut}
               signingOut={signingOut}
@@ -231,6 +242,7 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
                 currentRole={user.currentRole ?? null}
                 userName={user.name || user.email}
                 isSuperAdmin={user.isSuperAdmin === true}
+                active
                 onNavigate={closeMobileNavigationAfterNavigate}
                 onSignOut={handleSignOut}
                 signingOut={signingOut}

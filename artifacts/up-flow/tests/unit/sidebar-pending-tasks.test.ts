@@ -56,6 +56,8 @@ test("the sidebar returns and refreshes pending To Do workload counts", () => {
   assert.match(tree, /sidebar\.pendingTodoCount/);
   assert.match(projectRow, /project\.pending_todo_count/);
   assert.match(projectRow, /sidebar\.pendingTodoCount/);
-  assert.match(panelData, /WORKLOAD_REFRESH_INTERVAL_MS = 30_000/);
+  assert.match(panelData, /WORKLOAD_REFRESH_INTERVAL_MS = 60_000/);
+  assert.match(panelData, /if \(!enabled\) return;/);
+  assert.match(panelData, /panelCache\.delete\(storageKeys\.scope\)/);
   assert.match(panelData, /activeQueryRef\.current/);
 });
