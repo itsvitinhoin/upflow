@@ -254,6 +254,7 @@ const brandResponsibleRows = [
   ["finance", "marketingB2B.responsible.finance"],
   ["marketing", "marketingB2B.responsible.marketing"],
   ["manager", "marketingB2B.responsible.manager"],
+  ["crm", "marketingB2B.responsible.crm"],
 ] as const;
 
 const responsibleColumns = [
