@@ -117,7 +117,10 @@ export function Rail({
   return (
     <div className="glass-rail flex h-full w-full flex-col p-1">
       <div className="flex min-h-0 flex-1 flex-col items-center rounded-[10px] bg-[#16132f] px-0 pb-1.5 pt-1.5 text-[#e9e7ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(0,0,0,0.28)]">
-        <div className="flex h-10 w-full shrink-0 items-center justify-center">
+        <div
+          data-testid="sidebar-rail-brand"
+          className="flex h-10 w-full shrink-0 items-center justify-center"
+        >
           <Link
             href="/"
             onClick={onNavigate}
@@ -133,7 +136,9 @@ export function Rail({
               priority
             />
           </Link>
-          {showPanelToggle && (
+        </div>
+        {showPanelToggle && (
+          <div className="mt-1 flex h-8 w-full shrink-0 items-center justify-center">
             <button
               type="button"
               data-testid="sidebar-panel-toggle"
@@ -158,13 +163,13 @@ export function Rail({
                 {panelOpen ? t("sidebar.hide") : t("sidebar.show")}
               </span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-      <nav
-        data-testid="sidebar-rail-navigation"
-        className="mt-1 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain px-0 py-1"
-      >
+        <nav
+          data-testid="sidebar-rail-navigation"
+          className="mt-1 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain px-0 py-1"
+        >
         {primaryNav.map(({ href, label, labelKey, icon: Icon }) => {
           const active = isActiveHref(pathname, href);
           const translatedLabel = t(labelKey) || label;
