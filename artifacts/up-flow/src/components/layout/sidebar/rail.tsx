@@ -88,6 +88,8 @@ interface RailProps {
   user: AppUser;
   pathname: string | null;
   panelOpen: boolean;
+  panelId?: string;
+  showPanelToggle?: boolean;
   onTogglePanel: () => void;
   onSignOut: () => void;
   onNavigate?: () => void;
@@ -102,19 +104,24 @@ export function Rail({
   user,
   pathname,
   panelOpen,
+  panelId,
+  showPanelToggle = true,
   onTogglePanel,
   onSignOut,
   onNavigate,
 }: RailProps) {
   const { t } = useLanguage();
+  const railLabelClass =
+    "block w-full whitespace-normal break-words text-center [overflow-wrap:anywhere]";
+
   return (
-    <div className="glass-rail flex h-full w-full flex-col p-1.5">
-      <div className="flex min-h-0 flex-1 flex-col items-center rounded-[10px] bg-[#16132f] px-1 pb-1.5 pt-2 text-[#e9e7ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(0,0,0,0.28)]">
-        <div className="flex h-11 w-full shrink-0 items-center justify-center">
+    <div className="glass-rail flex h-full w-full flex-col p-1">
+      <div className="flex min-h-0 flex-1 flex-col items-center rounded-[10px] bg-[#16132f] px-0 pb-1.5 pt-1.5 text-[#e9e7ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(0,0,0,0.28)]">
+        <div className="flex h-10 w-full shrink-0 items-center justify-center">
           <Link
             href="/"
             onClick={onNavigate}
-            className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,0.24)] transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,0.24)] transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
             aria-label="Up Flow"
           >
             <Image
@@ -126,11 +133,37 @@ export function Rail({
               priority
             />
           </Link>
+          {showPanelToggle && (
+            <button
+              type="button"
+              data-testid="sidebar-panel-toggle"
+              onClick={onTogglePanel}
+              title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              aria-controls={panelId}
+              aria-expanded={panelOpen}
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[#e9e7ff] shadow-[0_4px_16px_rgba(0,0,0,0.2)] outline-none transition-all focus-visible:ring-2 focus-visible:ring-white/80",
+                panelOpen
+                  ? "border-white/45 bg-white text-[#171331]"
+                  : "border-white/20 bg-white/[0.1] hover:border-white/45 hover:bg-white/[0.18] hover:text-white",
+              )}
+            >
+              {panelOpen ? (
+                <PanelLeftClose className="h-4 w-4 stroke-[2]" />
+              ) : (
+                <PanelLeftOpen className="h-4 w-4 stroke-[2]" />
+              )}
+              <span className="sr-only">
+                {panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              </span>
+            </button>
+          )}
         </div>
 
       <nav
         data-testid="sidebar-rail-navigation"
-        className="mt-2 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain px-0.5 py-1"
+        className="mt-1 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain px-0 py-1"
       >
         {primaryNav.map(({ href, label, labelKey, icon: Icon }) => {
           const active = isActiveHref(pathname, href);
@@ -144,7 +177,7 @@ export function Rail({
               aria-label={translatedLabel}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group relative flex min-h-[48px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[9px] font-semibold leading-[10px] outline-none transition-all focus-visible:ring-2 focus-visible:ring-white/80",
+                "group relative flex min-h-[48px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight outline-none transition-all focus-visible:ring-2 focus-visible:ring-white/80",
                 active
                   ? "bg-white text-[#171331] shadow-[0_6px_20px_rgba(0,0,0,0.22)]"
                   : "text-[#d9d5fb] hover:bg-white/[0.12] hover:text-white",
@@ -158,33 +191,13 @@ export function Rail({
               />
               <span
                 data-testid="sidebar-rail-item-label"
-                className="w-full truncate text-center"
+                className={railLabelClass}
               >
                 {translatedLabel}
               </span>
             </Link>
           );
         })}
-
-        <button
-          onClick={onTogglePanel}
-          title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-          aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-          aria-pressed={panelOpen}
-          className={cn(
-            "group relative mt-1 flex min-h-[48px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[9px] font-semibold leading-[10px] outline-none transition-all focus-visible:ring-2 focus-visible:ring-white/80",
-            panelOpen
-              ? "bg-white/[0.16] text-white"
-              : "text-[#d9d5fb] hover:bg-white/[0.12] hover:text-white",
-          )}
-        >
-          {panelOpen ? (
-            <PanelLeftClose className="h-[17px] w-[17px] stroke-[1.8]" />
-          ) : (
-            <PanelLeftOpen className="h-[17px] w-[17px] stroke-[1.8]" />
-          )}
-          <span>{t("sidebar.more")}</span>
-        </button>
       </nav>
 
       <div className="mt-1 flex w-full shrink-0 flex-col items-center gap-1 border-t border-white/[0.1] pt-1.5">
@@ -194,32 +207,32 @@ export function Rail({
           aria-label={t("sidebar.settings")}
           title={t("sidebar.settings")}
           className={cn(
-            "flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[9px] font-semibold leading-[10px] text-[#d9d5fb] outline-none transition-all hover:bg-white/[0.12] hover:text-white focus-visible:ring-2 focus-visible:ring-white/80",
+            "flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight text-[#d9d5fb] outline-none transition-all hover:bg-white/[0.12] hover:text-white focus-visible:ring-2 focus-visible:ring-white/80",
             isActiveHref(pathname, "/settings") &&
               "bg-white text-[#171331] shadow-[0_6px_20px_rgba(0,0,0,0.22)]",
           )}
         >
           <Settings2 className="h-[17px] w-[17px] stroke-[1.8]" />
-          <span>{t("sidebar.settings")}</span>
+          <span className={railLabelClass}>{t("sidebar.settings")}</span>
         </Link>
         <button
           onClick={onSignOut}
           aria-label={t("sidebar.signOut")}
           title={t("sidebar.signOut")}
-          className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[9px] font-semibold leading-[10px] text-[#d9d5fb] outline-none transition-all hover:bg-rose-500/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/80"
+          className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight text-[#d9d5fb] outline-none transition-all hover:bg-rose-500/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/80"
         >
           <LogOut className="h-[17px] w-[17px] stroke-[1.8]" />
-          <span>{t("sidebar.signOut")}</span>
+          <span className={railLabelClass}>{t("sidebar.signOut")}</span>
         </button>
         <Link
           href="/docs"
           onClick={onNavigate}
           aria-label={t("sidebar.help")}
           title={t("sidebar.help")}
-          className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0.5 py-1 text-center text-[9px] font-semibold leading-[10px] text-[#d9d5fb] outline-none transition-all hover:bg-white/[0.12] hover:text-white focus-visible:ring-2 focus-visible:ring-white/80"
+          className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight text-[#d9d5fb] outline-none transition-all hover:bg-white/[0.12] hover:text-white focus-visible:ring-2 focus-visible:ring-white/80"
         >
           <HelpCircle className="h-[17px] w-[17px] stroke-[1.8]" />
-          <span>{t("sidebar.help")}</span>
+          <span className={railLabelClass}>{t("sidebar.help")}</span>
         </Link>
         <Link
           href="/settings"
