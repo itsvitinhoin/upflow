@@ -121,6 +121,11 @@ export default function TaskCreateSheet({
     () => projectContext ?? projects.find((project) => project.id === selectedProjectId) ?? null,
     [projectContext, projects, selectedProjectId],
   );
+  const contributorAccessDenied = Boolean(
+    selectedProjectId &&
+      projectContext?.capabilities &&
+      !projectContext.capabilities.canContribute,
+  );
   const selectedAssignee = users.find((user) => user.id === assigneeId) ?? null;
   const boardStatus = useMemo(
     () =>
@@ -219,15 +224,17 @@ export default function TaskCreateSheet({
 
     const load = async () => {
       try {
-        let project = projects.find((candidate) => candidate.id === selectedProjectId) ?? null;
-        if (!project?.workspace_id) {
-          const projectResponse = await fetch(`/api/projects/${selectedProjectId}`, {
-            signal: controller.signal,
-          });
-          if (!projectResponse.ok) throw new Error(t("task.contextLoadError"));
-          project = (await projectResponse.json()) as Project;
-        }
+        const projectResponse = await fetch(`/api/projects/${selectedProjectId}`, {
+          signal: controller.signal,
+        });
+        if (!projectResponse.ok) throw new Error(t("task.contextLoadError"));
+        const project = (await projectResponse.json()) as Project;
         setProjectContext(project);
+
+        if (project.capabilities && !project.capabilities.canContribute) {
+          setContextError(t("task.contributorAccessRequired"));
+          return;
+        }
 
         const [usersResponse, fieldsResponse, workflowStatusesResponse] = await Promise.all([
           fetch(`/api/users?workspace_id=${project.workspace_id}&status=active&limit=500`, {
@@ -297,6 +304,11 @@ export default function TaskCreateSheet({
     if (!selectedProjectId) {
       setProjectError(t("task.projectRequired"));
       invalid = true;
+    }
+    if (contributorAccessDenied) {
+      setContextError(t("task.contributorAccessRequired"));
+      setAnnouncement(t("task.contributorAccessRequired"));
+      return;
     }
     if (invalid) {
       setAnnouncement(t("task.fixErrors"));
@@ -491,7 +503,7 @@ export default function TaskCreateSheet({
                     setAssigneeId(value);
                     markDirty();
                   }}
-                  disabled={submitting || !selectedProjectId || contextLoading}
+                  disabled={submitting || !selectedProjectId || contextLoading || contributorAccessDenied}
                   loading={contextLoading}
                   label={t("toolbar.assignee")}
                   emptyLabel={t("common.unassigned")}
@@ -607,7 +619,13 @@ export default function TaskCreateSheet({
                   <ProgressiveSection icon={ImagePlus} title={t("task.detailsCover")}>
                     <TaskCoverImageControl
                       value={coverImageUrl}
-                      disabled={submitting}
+                      projectId={selectedProjectId || undefined}
+                      disabled={
+                        submitting ||
+                        !selectedProjectId ||
+                        contextLoading ||
+                        contributorAccessDenied
+                      }
                       compact
                       onChange={(value) => {
                         setCoverImageUrl(value);
@@ -632,7 +650,7 @@ export default function TaskCreateSheet({
                 </Button>
                 <Button
                   type="submit"
-                  disabled={submitting || projectsLoading || contextLoading}
+                  disabled={submitting || projectsLoading || contextLoading || contributorAccessDenied}
                   className="min-w-32"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

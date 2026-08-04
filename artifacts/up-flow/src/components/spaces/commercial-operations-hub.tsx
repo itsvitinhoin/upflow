@@ -29,7 +29,7 @@ type CommercialOperationsHubProps = {
   data: SpaceDashboardData;
   updatingTask: boolean;
   onOpenDrawer: (kind: DrawerKind) => void;
-  onCreateTask: () => void;
+  onCreateTask?: () => void;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
 };
 
@@ -182,14 +182,16 @@ export function CommercialOperationsHub({
             >
               {t("commercialDashboard.filters")}
             </CommercialToolbarButton>
-            <button
-              type="button"
-              onClick={onCreateTask}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.35)] transition hover:scale-[1.01] hover:shadow-[0_14px_36px_rgba(79,70,229,0.48)]"
-            >
-              <Plus className="h-4 w-4" />
-              {t("commercialDashboard.newTask")}
-            </button>
+            {onCreateTask && (
+              <button
+                type="button"
+                onClick={onCreateTask}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.35)] transition hover:scale-[1.01] hover:shadow-[0_14px_36px_rgba(79,70,229,0.48)]"
+              >
+                <Plus className="h-4 w-4" />
+                {t("commercialDashboard.newTask")}
+              </button>
+            )}
           </div>
         </div>
 

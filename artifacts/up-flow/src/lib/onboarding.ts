@@ -4338,28 +4338,36 @@ export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string)
     },
     include: { department: { select: { name: true } } },
   });
+  // Guests retain read visibility, but a historic assignment or checklist owner
+  // record must never elevate them into a workspace writer.
+  const canWork = admin || Boolean(member && member.role !== "guest");
   const departmentName = member?.department?.name ?? "";
   const departmentOwnerKey = ownerKeyForDepartmentLabel(departmentName);
   const normalizedDepartmentName = normalizedName(departmentName);
   const isFinance =
-    departmentOwnerKey === "finance" || normalizedDepartmentName.includes("finance");
+    canWork && (departmentOwnerKey === "finance" || normalizedDepartmentName.includes("finance"));
   const isSupport =
-    departmentOwnerKey === "technical_support" ||
-    normalizedDepartmentName.includes("support") ||
-    normalizedDepartmentName.includes("suporte");
+    canWork &&
+    (departmentOwnerKey === "technical_support" ||
+      normalizedDepartmentName.includes("support") ||
+      normalizedDepartmentName.includes("suporte"));
   const isCommercial =
-    departmentOwnerKey === "commercial" ||
-    normalizedDepartmentName.includes("commercial") ||
-    normalizedDepartmentName.includes("comercial") ||
-    onboarding.responsible_salesperson_id === auth.prismaUser.id;
-  const serviceNames = onboarding.service_assignments
-    .filter((assignment) => assignment.leader_id === auth.prismaUser.id)
-    .map((assignment) => assignment.service);
+    canWork &&
+    (departmentOwnerKey === "commercial" ||
+      normalizedDepartmentName.includes("commercial") ||
+      normalizedDepartmentName.includes("comercial") ||
+      onboarding.responsible_salesperson_id === auth.prismaUser.id);
+  const serviceNames = canWork
+    ? onboarding.service_assignments
+        .filter((assignment) => assignment.leader_id === auth.prismaUser.id)
+        .map((assignment) => assignment.service)
+    : [];
 
   return {
     onboarding,
     admin,
     role: member?.role ?? null,
+    canWork,
     isFinance,
     isSupport,
     isCommercial,
@@ -4371,9 +4379,11 @@ export async function loadOnboardingAccess(auth: AuthUser, onboardingId: string)
     canUpdateSupport: admin || isSupport,
     canUpdateCommercial: admin || isCommercial,
     canUpdateService(service: string | null | undefined) {
+      if (!canWork) return false;
       return admin || Boolean(service && serviceNames.map(serviceKey).includes(serviceKey(service)));
     },
     canUpdateChecklistItem(item: { department: string; owner_id?: string | null; title?: string | null }) {
+      if (!canWork) return false;
       if (admin || item.owner_id === auth.prismaUser.id) return true;
       const department = normalizedName(item.department);
       const itemDepartmentOwnerKey = ownerKeyForDepartmentLabel(item.department);

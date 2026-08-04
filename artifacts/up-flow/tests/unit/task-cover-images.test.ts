@@ -33,7 +33,8 @@ test("task cover images are persisted, validated, and shown on board cards", () 
   assert.match(privateBucketMigration, /SET public = false/);
   assert.match(tasksRoute, /cover_image_url/);
   assert.match(taskRoute, /Invalid cover_image_url/);
-  assert.match(uploadRoute, /isWorkspaceAdminFor\(auth,\s*auth\.currentWorkspaceId\)/);
+  assert.match(uploadRoute, /canContributeToProject\(auth,\s*project\)/);
+  assert.match(uploadRoute, /isWorkspaceAdminFor\(auth,\s*project\.workspace_id\)/);
   assert.match(uploadRoute, /TASK_STORAGE_NOT_CONFIGURED/);
   assert.match(uploadRoute, /TASK_COVER_UPLOAD_FAILED/);
   assert.match(uploadRoute, /imageTypeFromBytes/);

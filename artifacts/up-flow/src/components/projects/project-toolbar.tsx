@@ -44,6 +44,7 @@ interface Props {
   onManageFields?: () => void;
   onManageSpaceStatuses?: () => void;
   canManage: boolean;
+  canContribute?: boolean;
   users?: { id: string; name: string }[];
   selectionMode: boolean;
   selectedCount: number;
@@ -58,6 +59,7 @@ export default function ProjectToolbar({
   onManageFields,
   onManageSpaceStatuses,
   canManage,
+  canContribute = true,
   users = [],
   selectionMode,
   selectedCount,
@@ -196,22 +198,24 @@ export default function ProjectToolbar({
         }
       />
 
-      <button
-        type="button"
-        onClick={onToggleSelectionMode}
-        aria-pressed={selectionMode}
-        className={cn(
-          "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
-          selectionMode
-            ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
-            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
-        )}
-      >
-        <ListChecks className="h-3.5 w-3.5" />
-        {selectionMode
-          ? t("task.finishSelecting", { count: selectedCount })
-          : t("task.selectTasks")}
-      </button>
+      {canContribute && (
+        <button
+          type="button"
+          onClick={onToggleSelectionMode}
+          aria-pressed={selectionMode}
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
+            selectionMode
+              ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+              : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
+          )}
+        >
+          <ListChecks className="h-3.5 w-3.5" />
+          {selectionMode
+            ? t("task.finishSelecting", { count: selectedCount })
+            : t("task.selectTasks")}
+        </button>
+      )}
 
       {canManage && onManageFields && (
         <button

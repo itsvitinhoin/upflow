@@ -70,7 +70,7 @@ test("projects and clients expose card delete actions backed by DELETE routes", 
   assert.match(projectDetailPage, /deletingSelectedTasks/);
   assert.match(projectDetailPage, /fetch\("\/api\/tasks"/);
   assert.match(kanbanBoard, /onToggleTaskSelection/);
-  assert.match(kanbanBoard, /isDragDisabled=\{selectionMode\}/);
+  assert.match(kanbanBoard, /isDragDisabled=\{!canCreate \|\| selectionMode\}/);
   assert.match(listView, /onToggleTaskSelection/);
   assert.match(projectToolbar, /task\.selectTasks/);
   assert.match(projectToolbar, /onToggleSelectionMode/);

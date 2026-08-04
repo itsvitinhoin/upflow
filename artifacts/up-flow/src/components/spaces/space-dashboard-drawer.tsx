@@ -34,9 +34,9 @@ export function SpaceDashboardDrawer({
   data: SpaceDashboardData;
   updatingTask: boolean;
   onClose: () => void;
-  onCreateTask: () => void;
-  onCreateMeeting: () => void;
-  onCreateProject: () => void;
+  onCreateTask?: () => void;
+  onCreateMeeting?: () => void;
+  onCreateProject?: () => void;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
 }) {
   const { t } = useLanguage();
@@ -236,17 +236,23 @@ export function SpaceDashboardDrawer({
             </RecordList>
           )}
 
-          {kind === "quick_create" && (
+          {kind === "quick_create" && (onCreateTask || onCreateMeeting || onCreateProject) && (
             <div className="grid gap-2">
-              <QuickCreateButton icon={<CheckSquare className="h-4 w-4" />} onClick={onCreateTask}>
-                {t("spaceDashboard.newTask")}
-              </QuickCreateButton>
-              <QuickCreateButton icon={<CalendarIcon className="h-4 w-4" />} onClick={onCreateMeeting}>
-                {t("spaceDashboard.newMeeting")}
-              </QuickCreateButton>
-              <QuickCreateButton icon={<FolderPlus className="h-4 w-4" />} onClick={onCreateProject}>
-                {t("spaceDashboard.newProject")}
-              </QuickCreateButton>
+              {onCreateTask && (
+                <QuickCreateButton icon={<CheckSquare className="h-4 w-4" />} onClick={onCreateTask}>
+                  {t("spaceDashboard.newTask")}
+                </QuickCreateButton>
+              )}
+              {onCreateMeeting && (
+                <QuickCreateButton icon={<CalendarIcon className="h-4 w-4" />} onClick={onCreateMeeting}>
+                  {t("spaceDashboard.newMeeting")}
+                </QuickCreateButton>
+              )}
+              {onCreateProject && (
+                <QuickCreateButton icon={<FolderPlus className="h-4 w-4" />} onClick={onCreateProject}>
+                  {t("spaceDashboard.newProject")}
+                </QuickCreateButton>
+              )}
             </div>
           )}
         </div>

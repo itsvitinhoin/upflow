@@ -150,7 +150,7 @@ async function getAccess(taskId: string) {
     return { ok: false as const, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  const canEdit = Boolean(
+  const canEdit = onboardingAccess.canWork && Boolean(
     (await canContributeToProject(auth, item.task.project)) ||
       onboardingAccess.admin ||
       item.task.assignee_id === auth.prismaUser.id ||

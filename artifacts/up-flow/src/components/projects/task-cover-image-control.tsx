@@ -4,13 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Link2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/language-provider";
-import { useAppUser } from "@/components/user-provider";
-import { hasWorkspaceAdminAccess } from "@/lib/client-role-access";
 import { getTaskAssetPath, getTaskCoverDisplayUrl } from "@/lib/task-images";
 
 interface TaskCoverImageControlProps {
   value: string | null | undefined;
   onChange: (value: string | null) => void | Promise<void>;
+  /** Required for uploads so the server can verify project contributor access. */
+  projectId?: string;
+  /** Present when editing an existing task; the server verifies it matches projectId. */
+  taskId?: string;
   disabled?: boolean;
   compact?: boolean;
 }
@@ -29,12 +31,13 @@ function isImageUrl(value: string) {
 export default function TaskCoverImageControl({
   value,
   onChange,
+  projectId,
+  taskId,
   disabled = false,
   compact = false,
 }: TaskCoverImageControlProps) {
   const { t } = useLanguage();
-  const user = useAppUser();
-  const canUploadTaskCover = hasWorkspaceAdminAccess(user);
+  const canUploadTaskCover = Boolean(projectId);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [url, setUrl] = useState(
     value?.startsWith("data:") || getTaskAssetPath(value) ? "" : value ?? "",
@@ -70,6 +73,10 @@ export default function TaskCoverImageControl({
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
+    if (!projectId) {
+      toast.error(t("taskCover.projectRequired"));
+      return;
+    }
     if (!file.type.startsWith("image/")) {
       toast.error(t("taskCover.chooseImage"));
       return;
@@ -82,6 +89,8 @@ export default function TaskCoverImageControl({
     try {
       const form = new FormData();
       form.append("file", file);
+      form.append("project_id", projectId);
+      if (taskId) form.append("task_id", taskId);
       const res = await fetch("/api/uploads/task-cover", {
         method: "POST",
         body: form,
@@ -163,10 +172,10 @@ export default function TaskCoverImageControl({
           </>
         ) : (
           <p
-            data-testid="task-cover-upload-restricted"
+            data-testid="task-cover-upload-requires-project"
             className="self-center text-xs text-muted-foreground"
           >
-            {t("taskCover.uploadRestricted")}
+            {t("taskCover.projectRequired")}
           </p>
         )}
         {value && (

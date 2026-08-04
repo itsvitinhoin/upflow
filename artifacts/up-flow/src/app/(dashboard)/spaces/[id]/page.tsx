@@ -84,6 +84,12 @@ export default function SpaceContainerPage() {
       user?.currentRole === "owner" ||
       user?.currentRole === "admin",
   );
+  const canCreateWorkspaceWork = Boolean(
+    user?.isSuperAdmin ||
+      user?.currentRole === "owner" ||
+      user?.currentRole === "admin" ||
+      user?.currentRole === "member",
+  );
 
   const loadContainer = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -174,6 +180,7 @@ export default function SpaceContainerPage() {
   const firstProjectId = dashboard?.projects.items[0]?.id ?? null;
 
   const openTaskCreate = () => {
+    if (!canCreateWorkspaceWork) return;
     if (!firstProjectId) {
       toast.error(t("space.createListBeforeTasks"));
       return;
@@ -182,6 +189,7 @@ export default function SpaceContainerPage() {
   };
 
   const openMeetingCreate = () => {
+    if (!canCreateWorkspaceWork) return;
     if (!firstProjectId) {
       toast.error(t("space.createListBeforeMeetings"));
       return;
@@ -315,20 +323,24 @@ export default function SpaceContainerPage() {
                   {t("space.shareSpace")}
                 </button>
               )}
-              <button
-                onClick={() => setShowNewFolder(true)}
-                className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-              >
-                <FolderPlus className="w-4 h-4" />
-                {t("folder.newFolder")}
-              </button>
-              <button
-                onClick={() => setShowNewList(true)}
-                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-              >
-                <ListPlus className="w-4 h-4" />
-                {t("folder.newList")}
-              </button>
+              {canManageWorkspace && (
+                <>
+                  <button
+                    onClick={() => setShowNewFolder(true)}
+                    className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                    {t("folder.newFolder")}
+                  </button>
+                  <button
+                    onClick={() => setShowNewList(true)}
+                    className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <ListPlus className="w-4 h-4" />
+                    {t("folder.newList")}
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -381,9 +393,9 @@ export default function SpaceContainerPage() {
             updatingTask={updatingTask}
             onRetry={loadDashboard}
             onOpenDrawer={setDrawer}
-            onCreateTask={openTaskCreate}
-            onCreateMeeting={openMeetingCreate}
-            onCreateProject={() => setShowNewProject(true)}
+            onCreateTask={canCreateWorkspaceWork ? openTaskCreate : undefined}
+            onCreateMeeting={canCreateWorkspaceWork ? openMeetingCreate : undefined}
+            onCreateProject={canCreateWorkspaceWork ? () => setShowNewProject(true) : undefined}
             onTaskStatusChange={updateTaskStatus}
           />
         ) : (
@@ -392,6 +404,7 @@ export default function SpaceContainerPage() {
             rootFolders={rootFolders}
             projects={projects}
             focusedProjectId={focusedListId}
+            canManageStructure={canManageWorkspace}
             onNewFolder={() => setShowNewFolder(true)}
             onNewList={() => setShowNewList(true)}
           />
@@ -422,7 +435,7 @@ export default function SpaceContainerPage() {
       )}
 
       <NewProjectDialog
-        open={showNewProject}
+        open={canCreateWorkspaceWork && showNewProject}
         defaultSpaceId={space.id}
         onClose={() => setShowNewProject(false)}
         onCreated={() => {
@@ -433,7 +446,7 @@ export default function SpaceContainerPage() {
       />
 
       <TaskCreateSheet
-        open={showNewTask}
+        open={canCreateWorkspaceWork && showNewTask}
         projectId={firstProjectId ?? undefined}
         defaultTemplateId={dashboard?.department_preset?.default_task_template_id}
         onClose={() => setShowNewTask(false)}
@@ -444,7 +457,7 @@ export default function SpaceContainerPage() {
       />
 
       <ScheduleMeetingDialog
-        open={showSchedule}
+        open={canCreateWorkspaceWork && showSchedule}
         defaultProjectId={firstProjectId}
         onClose={() => setShowSchedule(false)}
         onScheduled={() => {
@@ -475,9 +488,9 @@ export default function SpaceContainerPage() {
           data={dashboard}
           updatingTask={updatingTask}
           onClose={() => setDrawer(null)}
-          onCreateTask={openTaskCreate}
-          onCreateMeeting={openMeetingCreate}
-          onCreateProject={() => setShowNewProject(true)}
+          onCreateTask={canCreateWorkspaceWork ? openTaskCreate : undefined}
+          onCreateMeeting={canCreateWorkspaceWork ? openMeetingCreate : undefined}
+          onCreateProject={canCreateWorkspaceWork ? () => setShowNewProject(true) : undefined}
           onTaskStatusChange={updateTaskStatus}
         />
       )}
@@ -503,9 +516,9 @@ function SpaceDashboard({
   updatingTask: boolean;
   onRetry: () => void;
   onOpenDrawer: (kind: DrawerKind) => void;
-  onCreateTask: () => void;
-  onCreateMeeting: () => void;
-  onCreateProject: () => void;
+  onCreateTask?: () => void;
+  onCreateMeeting?: () => void;
+  onCreateProject?: () => void;
   onTaskStatusChange: (task: Task, status: TaskStatus) => void;
 }) {
   const { t } = useLanguage();
@@ -628,13 +641,15 @@ function SpaceDashboard({
                   {t("spaceDashboard.pulseHint")}
                 </p>
               </div>
-              <button
-                onClick={onCreateTask}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4" />
-                {t("spaceDashboard.newTask")}
-              </button>
+              {onCreateTask && (
+                <button
+                  onClick={onCreateTask}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t("spaceDashboard.newTask")}
+                </button>
+              )}
             </div>
             <div className="mt-4 grid gap-2">
               <PulseRow
@@ -768,13 +783,15 @@ function SpaceDashboard({
               })}
             </p>
           </div>
-          <button
-            onClick={onCreateTask}
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
-          >
-            <Plus className="w-4 h-4" />
-            {t("spaceDashboard.newTask")}
-          </button>
+          {onCreateTask && (
+            <button
+              onClick={onCreateTask}
+              className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium px-4 py-2 rounded-lg"
+            >
+              <Plus className="w-4 h-4" />
+              {t("spaceDashboard.newTask")}
+            </button>
+          )}
         </div>
         <div className="mt-4 h-2 rounded-full bg-white/5 overflow-hidden">
           <div
@@ -815,17 +832,25 @@ function SpaceDashboard({
             actionLabel={t("spaceDashboard.open")}
             onAction={() => onOpenDrawer("quick_create")}
           />
-          <div className="p-4 grid gap-2">
-            <QuickCreateButton icon={<CheckSquare className="w-4 h-4" />} onClick={onCreateTask}>
-              {t("spaceDashboard.newTask")}
-            </QuickCreateButton>
-            <QuickCreateButton icon={<CalendarIcon className="w-4 h-4" />} onClick={onCreateMeeting}>
-              {t("spaceDashboard.newMeeting")}
-            </QuickCreateButton>
-            <QuickCreateButton icon={<FolderPlus className="w-4 h-4" />} onClick={onCreateProject}>
-              {t("spaceDashboard.newProject")}
-            </QuickCreateButton>
-          </div>
+          {(onCreateTask || onCreateMeeting || onCreateProject) && (
+            <div className="p-4 grid gap-2">
+              {onCreateTask && (
+                <QuickCreateButton icon={<CheckSquare className="w-4 h-4" />} onClick={onCreateTask}>
+                  {t("spaceDashboard.newTask")}
+                </QuickCreateButton>
+              )}
+              {onCreateMeeting && (
+                <QuickCreateButton icon={<CalendarIcon className="w-4 h-4" />} onClick={onCreateMeeting}>
+                  {t("spaceDashboard.newMeeting")}
+                </QuickCreateButton>
+              )}
+              {onCreateProject && (
+                <QuickCreateButton icon={<FolderPlus className="w-4 h-4" />} onClick={onCreateProject}>
+                  {t("spaceDashboard.newProject")}
+                </QuickCreateButton>
+              )}
+            </div>
+          )}
         </div>
       </section>
     </div>

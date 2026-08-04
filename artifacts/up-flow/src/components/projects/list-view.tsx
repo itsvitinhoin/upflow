@@ -30,6 +30,12 @@ interface Props {
   onTaskClick: (task: Task) => void;
   onAddTask: (groupKey?: string) => void;
   canCreate: boolean;
+  /**
+   * Explicit project contribution capability. `canCreate` is retained for
+   * callers that only know whether task work is available, but an explicit
+   * false value must always make inline controls read-only.
+   */
+  canContribute?: boolean;
   onUpdate: () => void;
   selectedTaskIds?: Set<string>;
   onToggleTaskSelection?: (taskId: string) => void;
@@ -56,6 +62,7 @@ export default function ListView({
   onTaskClick,
   onAddTask,
   canCreate,
+  canContribute,
   onUpdate,
   selectedTaskIds,
   onToggleTaskSelection,
@@ -63,6 +70,7 @@ export default function ListView({
 }: Props) {
   const { t } = useLanguage();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const canMutateTasks = canContribute ?? canCreate;
 
   const cols = useMemo(
     () => buildColumns(customFields, toolbar.visibleColumns, t),
@@ -79,6 +87,7 @@ export default function ListView({
     definitionId: string,
     value: unknown,
   ) => {
+    if (!canMutateTasks) return;
     try {
       const res = await fetch(`/api/tasks/${taskId}/custom-fields`, {
         method: "PUT",
@@ -93,6 +102,7 @@ export default function ListView({
   };
 
   const updateTask = async (taskId: string, patch: Record<string, unknown>) => {
+    if (!canMutateTasks) return;
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: "PATCH",
@@ -147,7 +157,7 @@ export default function ListView({
                 {g.label}
               </span>
               <span className="text-xs text-muted-foreground">{g.tasks.length}</span>
-              {canCreate && (
+              {canMutateTasks && (
                 <button
                   onClick={() => onAddTask(g.key)}
                   className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted"
@@ -179,14 +189,14 @@ export default function ListView({
                           isSelected ? "bg-primary/10" : "bg-card",
                         )}
                         onClick={() => {
-                          if (selectionMode && onToggleTaskSelection) {
+                          if (selectionMode && onToggleTaskSelection && canMutateTasks) {
                             onToggleTaskSelection(task.id);
                             return;
                           }
                           onTaskClick(task);
                         }}
                       >
-                        {selectionMode && onToggleTaskSelection && (
+                        {selectionMode && onToggleTaskSelection && canMutateTasks && (
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -200,15 +210,18 @@ export default function ListView({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
+                              if (!canMutateTasks) return;
                               updateTask(task.id, {
                                 status: task.status === "done" ? "todo" : "done",
                               });
                             }}
+                            disabled={!canMutateTasks}
                             className={cn(
                               "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center",
                               task.status === "done"
                                 ? "bg-upflow-success border-upflow-success"
                                 : "border-border hover:border-primary",
+                              !canMutateTasks && "cursor-not-allowed opacity-60",
                             )}
                             title={t("dashboard.completed")}
                           >
@@ -237,22 +250,38 @@ export default function ListView({
                       {cols.cols.map((c) => (
                         <div key={c.key} className="px-2 min-w-0 text-xs text-muted-foreground">
                           {c.kind === "standard" ? (
-                            renderStandardCell(c.key, task, users, updateTask, t)
+                            renderStandardCell(
+                              c.key,
+                              task,
+                              users,
+                              updateTask,
+                              canMutateTasks,
+                              t,
+                            )
                           ) : (
-                            <CustomFieldInput
-                              definition={c.field!}
-                              value={valueMap.get(c.field!.id)}
-                              users={users}
-                              onChange={(v) => updateField(task.id, c.field!.id, v)}
-                              compact
-                            />
+                            <fieldset
+                              disabled={!canMutateTasks}
+                              aria-readonly={!canMutateTasks}
+                              className={cn(
+                                "min-w-0 border-0 p-0",
+                                !canMutateTasks && "opacity-70",
+                              )}
+                            >
+                              <CustomFieldInput
+                                definition={c.field!}
+                                value={valueMap.get(c.field!.id)}
+                                users={users}
+                                onChange={(v) => updateField(task.id, c.field!.id, v)}
+                                compact
+                              />
+                            </fieldset>
                           )}
                         </div>
                       ))}
                     </div>
                   );
                 })}
-                {canCreate && (
+                {canMutateTasks && (
                   <button
                     onClick={() => onAddTask(g.key)}
                     className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-5 py-2 w-full text-left border-t border-border/60"
@@ -280,6 +309,7 @@ function renderStandardCell(
   t: Task,
   users: TaskAssignee[],
   updateTask: (id: string, patch: Record<string, unknown>) => void,
+  canMutateTasks: boolean,
   translate: (key: string, vars?: Record<string, string | number>) => string,
 ) {
   if (key === "assignee") {
@@ -288,7 +318,11 @@ function renderStandardCell(
         value={t.assignee?.id ?? ""}
         onChange={(e) => updateTask(t.id, { assignee_id: e.target.value || null })}
         onClick={(e) => e.stopPropagation()}
-        className="bg-transparent text-xs text-foreground hover:bg-muted/50 px-1.5 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring max-w-full"
+        disabled={!canMutateTasks}
+        className={cn(
+          "bg-transparent text-xs text-foreground hover:bg-muted/50 px-1.5 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring max-w-full",
+          !canMutateTasks && "cursor-not-allowed opacity-70",
+        )}
       >
         <option value="">—</option>
         {users.map((u) => (
@@ -308,9 +342,11 @@ function renderStandardCell(
           onChange={() => {}}
           onCommit={(value) => updateTask(t.id, { due_date: value || null })}
           onClick={(e) => e.stopPropagation()}
+          disabled={!canMutateTasks}
           className={cn(
             "w-[82px] max-w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-xs hover:border-border focus:outline-none focus:ring-2 focus:ring-ring",
             isOverdue(t.due_date) && t.status !== "done" && "text-upflow-danger",
+            !canMutateTasks && "cursor-not-allowed opacity-70",
           )}
         />
       </div>
@@ -322,10 +358,12 @@ function renderStandardCell(
         value={t.priority}
         onChange={(e) => updateTask(t.id, { priority: e.target.value })}
         onClick={(e) => e.stopPropagation()}
+        disabled={!canMutateTasks}
         title={`${translate("toolbar.priority")}: ${priorityMetaLabel(t.priority, translate)}`}
         className={cn(
           "max-w-full rounded-md border px-2 py-1 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring",
           priorityToneClass(t.priority),
+          !canMutateTasks && "cursor-not-allowed opacity-70",
         )}
       >
         {TASK_PRIORITIES.map((p) => (
@@ -342,7 +380,11 @@ function renderStandardCell(
         value={t.status}
         onChange={(e) => updateTask(t.id, { status: e.target.value })}
         onClick={(e) => e.stopPropagation()}
-        className="bg-transparent text-xs text-foreground hover:bg-muted/50 px-1.5 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring"
+        disabled={!canMutateTasks}
+        className={cn(
+          "bg-transparent text-xs text-foreground hover:bg-muted/50 px-1.5 py-0.5 rounded border border-transparent hover:border-border focus:outline-none focus:ring-2 focus:ring-ring",
+          !canMutateTasks && "cursor-not-allowed opacity-70",
+        )}
       >
         {Object.entries(STATUS_META).map(([k]) => (
           <option key={k} value={k}>

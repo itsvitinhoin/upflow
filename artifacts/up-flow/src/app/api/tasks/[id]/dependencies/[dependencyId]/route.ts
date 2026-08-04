@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
+import { canContributeToProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 async function DELETE_handler(
@@ -22,8 +23,7 @@ async function DELETE_handler(
           id: true,
           title: true,
           project_id: true,
-          assignee_id: true,
-          project: { select: { workspace_id: true, owner_id: true } },
+          project: { select: { id: true, workspace_id: true, owner_id: true } },
         },
       },
       depends_on: { select: { id: true, title: true } },
@@ -36,11 +36,10 @@ async function DELETE_handler(
   if (!canAccessWorkspace(auth, workspaceId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const canManage =
-    dependency.task.assignee_id === auth.prismaUser.id ||
-    dependency.task.project.owner_id === auth.prismaUser.id ||
-    isWorkspaceAdminFor(auth, workspaceId);
-  if (!canManage) {
+  // A dependency mutates the task's project plan. Assignment alone must not
+  // keep granting write access after the user's project or workspace access
+  // has been revoked.
+  if (!(await canContributeToProject(auth, dependency.task.project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
