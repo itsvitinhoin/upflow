@@ -214,6 +214,18 @@ test("invite modes support personal workspaces and current workspace access", ()
   assert.match(acceptPage, /t\("invite\.workspaceAccessExplanation"/);
 });
 
+test("accepted-invite reconciliation preserves later member role and status changes", () => {
+  const memberUpsert = inviteReconciliation.slice(
+    inviteReconciliation.indexOf("await tx.workspaceMember.upsert"),
+    inviteReconciliation.indexOf("if (!invite.accepted_by)"),
+  );
+
+  assert.match(memberUpsert, /create:\s*\{[\s\S]*role:\s*invite\.role,[\s\S]*status:\s*"active"[\s\S]*\}/);
+  assert.match(memberUpsert, /update:\s*\{\s*\}/);
+  assert.doesNotMatch(memberUpsert, /update:\s*\{[^}]*role:\s*invite\.role/);
+  assert.doesNotMatch(memberUpsert, /update:\s*\{[^}]*status:\s*"active"/);
+});
+
 test("admin health exposes actionable production diagnostics without secrets", () => {
   assert.match(adminHealthRoute, /isWorkspaceAdmin/);
   assert.match(adminHealthRoute, /Database unreachable/);
