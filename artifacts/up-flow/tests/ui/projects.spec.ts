@@ -249,6 +249,43 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await ctx.close();
   });
 
+  test("custom fields stays aligned with the toolbar on narrower screens", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("ToolbarAlignmentProj"));
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`/projects/${projectId}`);
+
+    const toolbarScroll = page.getByTestId("project-toolbar-scroll");
+    const customFields = page.getByTestId("project-toolbar-custom-fields");
+    const showClosed = page.getByRole("button", { name: /^Show closed$/ });
+
+    await expect(toolbarScroll).toBeVisible();
+    await expect(customFields).toBeVisible();
+    await expect(showClosed).toBeVisible();
+
+    const [showClosedBox, customFieldsBox] = await Promise.all([
+      showClosed.boundingBox(),
+      customFields.boundingBox(),
+    ]);
+    expect(showClosedBox).not.toBeNull();
+    expect(customFieldsBox).not.toBeNull();
+    expect(
+      Math.abs((showClosedBox?.y ?? 0) - (customFieldsBox?.y ?? 0)),
+    ).toBeLessThanOrEqual(1);
+
+    expect(
+      await toolbarScroll.evaluate(
+        (element) => element.scrollWidth > element.clientWidth,
+      ),
+    ).toBe(true);
+
+    await ctx.close();
+  });
+
   test("toolbar 'Show closed' and sort-direction buttons toggle their state", async ({
     browser,
     baseURL,
