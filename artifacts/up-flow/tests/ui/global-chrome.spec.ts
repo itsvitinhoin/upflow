@@ -78,10 +78,19 @@ test.describe("Global chrome", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
 
     const rail = page.getByTestId("sidebar-rail-navigation");
+    const railBrand = page.getByTestId("sidebar-rail-brand");
     const railToggle = page.getByTestId("sidebar-panel-toggle");
     await expect(railToggle).toBeVisible();
     await expect(railToggle).toBeInViewport();
     await expect(railToggle).toHaveAttribute("aria-expanded", "false");
+
+    const [brandBox, toggleBox] = await Promise.all([
+      railBrand.boundingBox(),
+      railToggle.boundingBox(),
+    ]);
+    expect(brandBox).not.toBeNull();
+    expect(toggleBox).not.toBeNull();
+    expect(toggleBox!.y).toBeGreaterThanOrEqual(brandBox!.y + brandBox!.height);
 
     const labelOverflow = await rail
       .getByTestId("sidebar-rail-item-label")
