@@ -279,4 +279,55 @@ test.describe("Mobile responsive layout", () => {
     await expectFitsViewport(page, "form:has(h2)");
     await ctx.close();
   });
+
+  test("project contributors dialog wraps controls without horizontal overflow", async ({
+    browser,
+    baseURL,
+  }) => {
+    test.setTimeout(120_000);
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    await ctx.addInitScript(() => {
+      localStorage.setItem("upflow.language", "pt-BR");
+    });
+    const projectId = await createProjectViaApi(
+      ctx,
+      uniq("ResponsiveContributorsProject"),
+    );
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1024, height: 640 });
+    await page.goto(`/projects/${projectId}`, {
+      waitUntil: "domcontentloaded",
+      timeout: COLD_ROUTE_TIMEOUT,
+    });
+
+    const manageContributors = page.getByRole("button", {
+      name: "Gerenciar colaboradores",
+    });
+    await expect(manageContributors).toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
+    const membersLoaded = page.waitForResponse(
+      (response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === `/api/projects/${projectId}/members` && response.ok()
+        );
+      },
+      { timeout: COLD_ROUTE_TIMEOUT },
+    );
+    await manageContributors.click();
+    await membersLoaded;
+
+    const dialog = page.getByTestId("project-members-dialog");
+    await expect(dialog).toBeVisible();
+    await expectFitsViewport(page, '[data-testid="project-members-dialog"]');
+    await expect(
+      dialog.getByRole("button", { name: "Adicionar colaborador" }),
+    ).toBeVisible();
+    await expect
+      .poll(() =>
+        dialog.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+      )
+      .toBe(true);
+    await expectNoPageOverflow(page);
+    await ctx.close();
+  });
 });
