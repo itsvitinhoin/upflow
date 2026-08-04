@@ -370,7 +370,7 @@ test("Google Calendar routes are server-only, authenticated, and workspace scope
   assert.doesNotMatch(callback, /access_token_ciphertext|refresh_token_ciphertext/);
 });
 
-test("shared Google agenda is workspace-scoped, sanitized, and visible in the weekly schedule", () => {
+test("shared Google agenda is workspace-scoped, sanitized, and visible in the unified calendar", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260804090000_add_google_calendar_shared_agenda/migration.sql");
   const route = read("src/app/api/calendar/shared-agenda/route.ts");
@@ -386,7 +386,10 @@ test("shared Google agenda is workspace-scoped, sanitized, and visible in the we
   assert.match(route, /connection:\s*\{\s*share_agenda:\s*true/);
   assert.match(route, /select:\s*\{[\s\S]*?is_private:\s*true/);
   assert.doesNotMatch(route, /description|attendees|meeting_url|access_token_ciphertext|refresh_token_ciphertext/);
-  assert.match(calendar, /data-testid="weekly-team-agenda"/);
+  assert.match(calendar, /data-testid="unified-calendar"/);
+  assert.match(calendar, /data-testid="calendar-source-settings"/);
+  assert.match(calendar, /selectedScheduleItems/);
+  assert.doesNotMatch(calendar, /data-testid="weekly-team-agenda"/);
   assert.match(calendar, /\/api\/calendar\/shared-agenda/);
   assert.match(card, /googleCalendar\.shareAgenda/);
   assert.match(card, /share_agenda:\s*shareAgenda/);
@@ -404,7 +407,7 @@ test("Google Calendar recovery UI offers reconnect and disconnect after calendar
   assert.match(errorBranch, /onClick=\{\(\) => void disconnect\(\)\}/);
 });
 
-test("Google Calendar settings stay visible above the Calendar and show Connect when OAuth is ready", () => {
+test("Google Calendar settings are available from the unified calendar source control and show Connect when OAuth is ready", () => {
   const card = read("src/components/calendar/google-calendar-integration-card.tsx");
   const page = read("src/app/(dashboard)/calendar/page.tsx");
   const unavailableBranch = card.slice(
@@ -416,12 +419,14 @@ test("Google Calendar settings stay visible above the Calendar and show Connect 
     card.indexOf(") : (", card.indexOf(") : !connected ? (")),
   );
 
-  assert.match(page, /<GoogleCalendarIntegrationCard className="lg:col-span-2" \/>/);
+  assert.match(page, /data-testid="calendar-source-settings"/);
+  assert.match(page, /<GoogleCalendarIntegrationCard className="mt-3" \/>/);
   assert.ok(
-    page.indexOf('<GoogleCalendarIntegrationCard className="lg:col-span-2" />') <
-      page.indexOf('<section className="min-w-0 rounded-2xl p-4 glass sm:p-5">'),
-    "Google Calendar settings should appear before the tall month grid",
+    page.indexOf('data-testid="calendar-source-settings"') <
+      page.indexOf('data-testid="unified-calendar"'),
+    "Google Calendar source settings should appear before the unified month grid",
   );
+  assert.doesNotMatch(page, /weekly-team-agenda/);
   assert.match(card, /lg:flex-row lg:items-start lg:justify-between/);
   assert.match(unavailableBranch, /googleCalendar\.configurationTitle/);
   assert.doesNotMatch(unavailableBranch, /onClick=\{connect\}/);

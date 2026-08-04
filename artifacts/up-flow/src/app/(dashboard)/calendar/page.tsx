@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
-import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, Cloud, DoorOpen, Pencil, Plus, RefreshCw, Trash2, UsersRound, Video } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, Cloud, DoorOpen, Pencil, Plus, RefreshCw, Trash2, Video } from "lucide-react";
 import { appDateKey, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
@@ -52,15 +52,6 @@ function startOfMonthGrid(year: number, month: number) {
 function eventTime(event: CalendarEvent) {
   return formatTime(event.starts_at);
 }
-
-function startOfWeek(date: Date) {
-  const start = new Date(date);
-  const offset = start.getDay() === 0 ? 6 : start.getDay() - 1;
-  start.setDate(start.getDate() - offset);
-  start.setHours(0, 0, 0, 0);
-  return start;
-}
-
 
 const taskColor: Record<Task["priority"], string> = {
   low: "bg-upflow-success/30 text-upflow-success border-l-upflow-success",
@@ -109,6 +100,12 @@ type SharedAgendaResponse = {
   items: SharedGoogleAgendaEntry[];
   failed: boolean;
 };
+
+type CalendarSource = "all" | "upflow" | "google" | "room";
+
+type SelectedScheduleItem =
+  | { source: "upflow"; startsAt: string; event: CalendarEvent }
+  | { source: "google"; startsAt: string; entry: SharedGoogleAgendaEntry };
 
 function agendaEntryOccursOnDay(entry: SharedGoogleAgendaEntry, day: Date) {
   const startsAt = new Date(entry.starts_at);
@@ -221,6 +218,7 @@ export default function CalendarPage() {
   const [people, setPeople] = useState<SelectableUser[]>([]);
   const [peopleLoading, setPeopleLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<CalendarSource>("all");
   const selectedUserIds = useMemo(() => (selectedUserId ? new Set([selectedUserId]) : new Set<string>()), [selectedUserId]);
   const [scheduleDefaults, setScheduleDefaults] = useState<ScheduleDefaults | null>(null);
   const calendarRequestIdRef = useRef(0);
@@ -398,9 +396,10 @@ export default function CalendarPage() {
 
   const filteredTasks = useMemo(() => {
     const currentRangeTasks = calendarHasLoaded ? tasks : [];
+    if (sourceFilter === "google" || sourceFilter === "room") return [];
     if (selectedUserIds.size === 0) return currentRangeTasks;
     return currentRangeTasks.filter((task) => task.assignee_id && selectedUserIds.has(task.assignee_id));
-  }, [calendarHasLoaded, selectedUserIds, tasks]);
+  }, [calendarHasLoaded, selectedUserIds, sourceFilter, tasks]);
 
   const tasksByDay = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -423,17 +422,24 @@ export default function CalendarPage() {
 
   const filteredEvents = useMemo(() => {
     const currentRangeEvents = calendarHasLoaded ? events : [];
-    if (selectedUserIds.size === 0) return currentRangeEvents;
-    return currentRangeEvents.filter((event) =>
+    const sourceEvents =
+      sourceFilter === "google"
+        ? []
+        : sourceFilter === "room"
+          ? currentRangeEvents.filter(isMeetingRoomEvent)
+          : currentRangeEvents;
+    if (selectedUserIds.size === 0) return sourceEvents;
+    return sourceEvents.filter((event) =>
       eventUserIds(event).some((id) => selectedUserIds.has(id)),
     );
-  }, [calendarHasLoaded, events, selectedUserIds]);
+  }, [calendarHasLoaded, events, selectedUserIds, sourceFilter]);
 
   const filteredSharedAgendaEntries = useMemo(() => {
     const currentRangeEntries = calendarHasLoaded ? sharedAgendaEntries : [];
+    if (sourceFilter === "upflow" || sourceFilter === "room") return [];
     if (selectedUserIds.size === 0) return currentRangeEntries;
     return currentRangeEntries.filter((entry) => selectedUserIds.has(entry.user.id));
-  }, [calendarHasLoaded, selectedUserIds, sharedAgendaEntries]);
+  }, [calendarHasLoaded, selectedUserIds, sharedAgendaEntries, sourceFilter]);
 
   const eventUserTone = (event: CalendarEvent) => {
     const ids = eventUserIds(event);
@@ -474,46 +480,19 @@ export default function CalendarPage() {
     return map;
   }, [filteredSharedAgendaEntries]);
 
-  const agendaPeople = useMemo(() => {
-    const peopleById = new Map(people.map((person) => [person.id, person]));
-    sharedAgendaEntries.forEach((entry) => {
-      if (!peopleById.has(entry.user.id)) peopleById.set(entry.user.id, entry.user);
-    });
-    return Array.from(peopleById.values()).sort((left, right) =>
-      (left.name || left.email).localeCompare(right.name || right.email),
-    );
-  }, [people, sharedAgendaEntries]);
-
-  const weeklyAgendaDays = useMemo(() => {
-    const firstDay = startOfWeek(selected);
-    return Array.from({ length: 7 }, (_, index) => {
-      const day = new Date(firstDay);
-      day.setDate(firstDay.getDate() + index);
-      return day;
-    });
-  }, [selected]);
-
-  const weeklyAgendaPeople = useMemo(
-    () => (selectedUserId ? agendaPeople.filter((person) => person.id === selectedUserId) : agendaPeople),
-    [agendaPeople, selectedUserId],
-  );
-
-  const weeklyAgendaEntriesByCell = useMemo(() => {
-    const map = new Map<string, SharedGoogleAgendaEntry[]>();
-    filteredSharedAgendaEntries.forEach((entry) => {
-      weeklyAgendaDays.forEach((day) => {
-        if (!agendaEntryOccursOnDay(entry, day)) return;
-        const key = `${entry.user.id}:${dateKey(day)}`;
-        map.set(key, [...(map.get(key) ?? []), entry]);
-      });
-    });
-    return map;
-  }, [filteredSharedAgendaEntries, weeklyAgendaDays]);
-
   const selectedKey = dateKey(selected);
   const selectedTasks = tasksByDay.get(selectedKey) ?? [];
-  const selectedEvents = eventsByDay.get(selectedKey) ?? [];
-  const selectedSharedAgendaEntries = sharedAgendaByDay.get(selectedKey) ?? [];
+  const selectedScheduleItems = useMemo<SelectedScheduleItem[]>(
+    () => {
+      const dayEvents = eventsByDay.get(selectedKey) ?? [];
+      const daySharedAgendaEntries = sharedAgendaByDay.get(selectedKey) ?? [];
+      return [
+        ...dayEvents.map((event) => ({ source: "upflow" as const, startsAt: event.starts_at, event })),
+        ...daySharedAgendaEntries.map((entry) => ({ source: "google" as const, startsAt: entry.starts_at, entry })),
+      ].sort((left, right) => new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime());
+    },
+    [eventsByDay, selectedKey, sharedAgendaByDay],
+  );
   const selectedIsToday = isSameDay(selected, today);
   const monthTitle = new Intl.DateTimeFormat(language, {
     month: "long",
@@ -593,110 +572,31 @@ export default function CalendarPage() {
     <>
       <Header title={t("calendar.title")} />
       <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <GoogleCalendarIntegrationCard className="lg:col-span-2" />
-
-        <section
-          className="min-w-0 rounded-2xl p-4 glass sm:p-5 lg:col-span-2"
-          data-testid="weekly-team-agenda"
-        >
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
-                <UsersRound className="h-4 w-4" />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-foreground">{t("calendar.weeklyAgenda")}</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t("calendar.weeklyAgendaDescription")}</p>
-              </div>
-            </div>
-            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-medium text-muted-foreground dark:border-white/10 dark:bg-white/5">
-              <Cloud className="h-3.5 w-3.5 text-primary" />
-              {t("calendar.sharedAgenda")}
+        <details className="group min-w-0 lg:col-span-2" data-testid="calendar-source-settings">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-accent dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/[0.06] [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+                <Cloud className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-foreground">{t("calendar.sources")}</span>
+                <span className="block truncate text-xs text-muted-foreground">{t("calendar.sourcesDescription")}</span>
+              </span>
             </span>
-          </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+          </summary>
+          <GoogleCalendarIntegrationCard className="mt-3" />
+        </details>
 
-          {sharedAgendaUnavailable && !calendarIsLoading && (
-            <p role="alert" className="mt-3 text-xs text-upflow-warning">
-              {t("calendar.sharedAgendaUnavailable")}
-            </p>
-          )}
-
-          <div className="mt-4 overflow-x-auto pb-1">
-            {weeklyAgendaPeople.length > 0 ? (
-              <div
-                className="grid min-w-[900px] overflow-hidden rounded-xl border border-border bg-background/30 dark:border-white/10 dark:bg-white/[0.03]"
-                style={{ gridTemplateColumns: "minmax(168px, 0.9fr) repeat(7, minmax(104px, 1fr))" }}
-              >
-                <div className="border-b border-border bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]">
-                  {t("calendar.peopleFilter")}
-                </div>
-                {weeklyAgendaDays.map((day) => (
-                  <button
-                    key={dateKey(day)}
-                    type="button"
-                    onClick={() => setSelected(day)}
-                    className={cn(
-                      "border-b border-l border-border bg-muted/30 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition hover:bg-accent dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10",
-                      isSameDay(day, selected) && "bg-primary/10 text-primary",
-                    )}
-                  >
-                    {new Intl.DateTimeFormat(language, { weekday: "short", day: "numeric", month: "short" }).format(day)}
-                  </button>
-                ))}
-                {weeklyAgendaPeople.map((person) => (
-                  <div key={person.id} className="contents">
-                    <div className="flex min-h-[92px] items-start gap-2 border-b border-border px-3 py-3 dark:border-white/10">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
-                        {(person.name || person.email).slice(0, 2).toUpperCase()}
-                      </span>
-                      <span className="min-w-0 pt-1 text-xs font-medium text-foreground">
-                        <span className="block truncate">{person.name || person.email}</span>
-                        {person.name && <span className="block truncate text-[10px] font-normal text-muted-foreground">{person.email}</span>}
-                      </span>
-                    </div>
-                    {weeklyAgendaDays.map((day) => {
-                      const entries = weeklyAgendaEntriesByCell.get(`${person.id}:${dateKey(day)}`) ?? [];
-                      const visibleEntries = entries.slice(0, 3);
-                      return (
-                        <div key={dateKey(day)} className="min-h-[92px] border-b border-l border-border p-2 dark:border-white/10">
-                          <div className="space-y-1">
-                            {visibleEntries.map((entry) => (
-                              <div
-                                key={entry.id}
-                                title={`${entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} ${entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}`}
-                                className="truncate rounded-md border border-primary/20 bg-primary/10 px-1.5 py-1 text-[10px] leading-4 text-foreground"
-                              >
-                                <span className="mr-1 font-semibold text-primary">
-                                  {entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)}
-                                </span>
-                                {entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}
-                              </div>
-                            ))}
-                            {entries.length > visibleEntries.length && (
-                              <p className="px-1 text-[10px] text-muted-foreground">
-                                {t("calendar.more", { count: entries.length - visibleEntries.length })}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground dark:border-white/10">
-                {t("calendar.sharedAgendaEmpty")}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="min-w-0 rounded-2xl p-4 glass sm:p-5">
+        <section className="min-w-0 rounded-2xl p-4 glass sm:p-5" data-testid="unified-calendar">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-lg font-semibold text-foreground">
-              {monthTitle}
-            </h3>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+                {t("calendar.unifiedSchedule")}
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-foreground">{monthTitle}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">{t("calendar.unifiedScheduleDescription")}</p>
+            </div>
             <div className="flex flex-wrap items-center gap-1">
               <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5 dark:border-white/10 dark:bg-white/5">
                 <button
@@ -786,9 +686,43 @@ export default function CalendarPage() {
           <div className="mb-4 rounded-xl border border-border bg-muted/30 px-3 py-3 dark:border-white/10 dark:bg-white/[0.15]">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-semibold text-foreground">
-                  {t("calendar.peopleFilter")}
+                <p className="text-xs font-semibold text-foreground">{t("calendar.sourceFilter")}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {t("calendar.sourceFilterDescription")}
                 </p>
+              </div>
+              <div
+                role="group"
+                aria-label={t("calendar.sourceFilter")}
+                className="flex flex-wrap gap-1 rounded-lg border border-border bg-background/70 p-1 dark:border-white/10 dark:bg-[#080d1b]"
+              >
+                {([
+                  { value: "all" as const, label: t("calendar.sourceAll"), Icon: CalendarIcon },
+                  { value: "upflow" as const, label: t("calendar.sourceUpflow"), Icon: CheckSquare },
+                  { value: "google" as const, label: t("calendar.sourceGoogle"), Icon: Cloud },
+                  { value: "room" as const, label: t("calendar.sourceRoom"), Icon: DoorOpen },
+                ] as const).map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSourceFilter(value)}
+                    aria-pressed={sourceFilter === value}
+                    className={cn(
+                      "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition",
+                      sourceFilter === value
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/10",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-3 flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
+              <div>
+                <p className="text-xs font-semibold text-foreground">{t("calendar.peopleFilter")}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {selectedPerson ? selectedPerson.name || selectedPerson.email : t("calendar.peopleFilterAll")}
                 </p>
@@ -814,6 +748,11 @@ export default function CalendarPage() {
             </div>
             {!peopleLoading && people.length === 0 && (
               <p className="mt-2 text-xs text-muted-foreground">{t("calendar.noUsersToFilter")}</p>
+            )}
+            {sharedAgendaUnavailable && sourceFilter !== "upflow" && sourceFilter !== "room" && !calendarIsLoading && (
+              <p role="alert" className="mt-2 text-xs text-upflow-warning">
+                {t("calendar.sharedAgendaUnavailable")}
+              </p>
             )}
           </div>
 
@@ -997,13 +936,13 @@ export default function CalendarPage() {
 
             <div className="mt-4">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-                {t("calendar.events")}
+                {t("calendar.daySchedule")}
               </p>
               {calendarIsLoading ? (
                 <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
-              ) : selectedEvents.length === 0 ? (
+              ) : selectedScheduleItems.length === 0 ? (
                 <div className="rounded-lg border border-border bg-muted/30 px-3 py-4 text-center dark:border-white/5 dark:bg-white/[0.15]">
-                  <p className="text-xs text-muted-foreground">{t("calendar.noEvents")}</p>
+                  <p className="text-xs text-muted-foreground">{t("calendar.noSchedule")}</p>
                   {manageEvents && (
                     <button
                       type="button"
@@ -1017,7 +956,34 @@ export default function CalendarPage() {
                 </div>
               ) : (
                 <ul className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-                  {selectedEvents.map((event) => {
+                  {selectedScheduleItems.map((item) => {
+                    if (item.source === "google") {
+                      const { entry } = item;
+                      return (
+                        <li
+                          key={`google-${entry.id}`}
+                          title={t("calendar.googleReadOnly")}
+                          className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2"
+                        >
+                          <Cloud className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <p className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
+                                {entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} {entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}
+                              </p>
+                              <span className="shrink-0 rounded-full border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
+                                {t("calendar.sourceGoogle")}
+                              </span>
+                            </div>
+                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                              {entry.user.name || entry.user.email}
+                            </p>
+                          </div>
+                        </li>
+                      );
+                    }
+
+                    const { event } = item;
                     const display = eventDisplayState(event, today);
                     const tone = eventUserTone(event);
                     const isRoomBooking = isMeetingRoomEvent(event);
@@ -1053,6 +1019,11 @@ export default function CalendarPage() {
                             {isRoomBooking && (
                               <span className="shrink-0 rounded-full border border-cyan-300/25 bg-cyan-400/10 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-100">
                                 {t("calendar.roomBooking")}
+                              </span>
+                            )}
+                            {!isRoomBooking && (
+                              <span className="shrink-0 rounded-full border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                {t("calendar.sourceUpflow")}
                               </span>
                             )}
                           </div>
@@ -1111,36 +1082,6 @@ export default function CalendarPage() {
 
             <div className="mt-5 border-t border-border/60 pt-4 dark:border-white/5">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-                {t("calendar.sharedAgenda")}
-              </p>
-              {calendarIsLoading ? (
-                <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
-              ) : selectedSharedAgendaEntries.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{t("calendar.sharedAgendaEmpty")}</p>
-              ) : (
-                <ul className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                  {selectedSharedAgendaEntries.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2"
-                    >
-                      <Cloud className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-medium text-foreground">
-                          {entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} {entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}
-                        </p>
-                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                          {entry.user.name || entry.user.email}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="mt-5 border-t border-border/60 pt-4 dark:border-white/5">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
                 {t("calendar.dueTasks")}
               </p>
               {calendarIsLoading ? (
@@ -1178,6 +1119,12 @@ export default function CalendarPage() {
               <li className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-primary/40 border-l-2 border-l-primary" />
                 {t("calendar.legendEvent")}
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex h-3 w-3 items-center justify-center rounded border border-primary/35 bg-primary/10 text-primary">
+                  <Cloud className="h-2 w-2" />
+                </span>
+                {t("calendar.legendGoogle")}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded bg-cyan-400/40 border-l-2 border-l-cyan-400" />
