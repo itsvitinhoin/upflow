@@ -27,6 +27,11 @@ const ACCESS_TOKEN_EXPIRY_SKEW_MS = 60 * 1000;
 const DEFAULT_EVENT_DURATION_MS = 60 * 60 * 1000;
 const MANUAL_SYNC_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const MANUAL_SYNC_LIMIT = 250;
+const GOOGLE_AGENDA_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+const GOOGLE_AGENDA_LOOKAHEAD_MS = 90 * 24 * 60 * 60 * 1000;
+const GOOGLE_AGENDA_PAGE_SIZE = 250;
+const GOOGLE_AGENDA_MAX_PAGES = 10;
+const GOOGLE_AGENDA_MAINTENANCE_LIMIT = 25;
 const GOOGLE_REQUEST_TIMEOUT_MS = 10 * 1000;
 const GOOGLE_SYNC_JOB_LOCK_MS = 2 * 60 * 1000;
 const GOOGLE_SYNC_TRANSACTION_TIMEOUT_MS = 30 * 1000;
@@ -64,9 +69,12 @@ type GoogleCalendarConnectionRecord = {
   token_expires_at: Date | null;
   scope: string | null;
   sync_enabled: boolean;
+  share_agenda: boolean;
   disconnected_at: Date | null;
   last_synced_at: Date | null;
   last_error: string | null;
+  agenda_last_synced_at: Date | null;
+  agenda_last_error: string | null;
 };
 
 type GoogleCalendarEventLinkRecord = {
@@ -131,6 +139,23 @@ type GoogleCalendarApiList = {
   items?: unknown;
 };
 
+type GoogleCalendarApiAgendaEvent = {
+  id?: unknown;
+  status?: unknown;
+  summary?: unknown;
+  transparency?: unknown;
+  visibility?: unknown;
+  start?: unknown;
+  end?: unknown;
+  updated?: unknown;
+  extendedProperties?: unknown;
+};
+
+type GoogleCalendarApiAgendaList = {
+  items?: unknown;
+  nextPageToken?: unknown;
+};
+
 type GoogleCalendarApiCalendar = {
   id?: unknown;
   summary?: unknown;
@@ -143,8 +168,11 @@ export type GoogleCalendarConnectionSummary = {
   calendar_id: string;
   calendar_name?: string;
   sync_enabled: boolean;
+  share_agenda: boolean;
   last_synced_at?: Date;
   last_error?: string;
+  agenda_last_synced_at?: Date;
+  agenda_last_error?: string;
 };
 
 export type GoogleCalendarListItem = {
@@ -605,8 +633,13 @@ function summaryForConnection(connection: GoogleCalendarConnectionRecord): Googl
     calendar_id: connection.calendar_id,
     ...(connection.calendar_name ? { calendar_name: connection.calendar_name } : {}),
     sync_enabled: connection.sync_enabled,
+    share_agenda: connection.share_agenda,
     ...(connection.last_synced_at ? { last_synced_at: connection.last_synced_at } : {}),
     ...(connection.last_error ? { last_error: connection.last_error } : {}),
+    ...(connection.agenda_last_synced_at
+      ? { agenda_last_synced_at: connection.agenda_last_synced_at }
+      : {}),
+    ...(connection.agenda_last_error ? { agenda_last_error: connection.agenda_last_error } : {}),
   };
 }
 
@@ -832,8 +865,10 @@ export async function completeGoogleCalendarConnect(input: {
         token_expires_at: tokenExpiresAt(tokens.expiresInSeconds),
         scope: tokens.scope ?? matchingExisting?.scope ?? GOOGLE_CALENDAR_SCOPES.join(" "),
         sync_enabled: true,
+        share_agenda: matchingExisting?.share_agenda ?? true,
         disconnected_at: null,
         last_error: null,
+        agenda_last_error: null,
       };
 
       const storedConnection = await tx.googleCalendarConnection.upsert({
@@ -882,7 +917,7 @@ export async function completeGoogleCalendarConnect(input: {
       await revokeGoogleCalendarToken(saved.replacedConnection, config).catch(() => undefined);
     }
 
-    return { ok: true as const, config };
+    return { ok: true as const, config, workspaceId: oauthState.workspace_id };
   } catch {
     return { ok: false as const, config };
   }
@@ -947,6 +982,7 @@ export async function updateGoogleCalendarConnection(input: {
   userId: string;
   calendarId?: string;
   syncEnabled?: boolean;
+  shareAgenda?: boolean;
 }) {
   const connection = await findActiveGoogleCalendarConnection(input.workspaceId, input.userId);
   if (!connection) return null;
@@ -978,7 +1014,9 @@ export async function updateGoogleCalendarConnection(input: {
       data: {
         ...(input.calendarId ? { calendar_id: input.calendarId, calendar_name: calendarName } : {}),
         ...(typeof input.syncEnabled === "boolean" ? { sync_enabled: input.syncEnabled } : {}),
+        ...(typeof input.shareAgenda === "boolean" ? { share_agenda: input.shareAgenda } : {}),
         ...(input.syncEnabled === true ? { last_error: null } : {}),
+        ...(input.shareAgenda === true ? { agenda_last_error: null } : {}),
       },
     });
     if (input.syncEnabled === false) {
@@ -997,6 +1035,17 @@ export async function updateGoogleCalendarConnection(input: {
         },
       });
     }
+    if (
+      input.shareAgenda === false ||
+      (input.calendarId !== undefined && input.calendarId !== current.calendar_id)
+    ) {
+      // Remove cached entries immediately when a user withdraws their agenda
+      // or selects another Google Calendar, so stale availability is never
+      // shown to the workspace.
+      await tx.googleCalendarAgendaEntry.deleteMany({
+        where: { connection_id: connection.id },
+      });
+    }
     return saved;
   }, {
     maxWait: GOOGLE_SYNC_TRANSACTION_MAX_WAIT_MS,
@@ -1004,6 +1053,291 @@ export async function updateGoogleCalendarConnection(input: {
   });
 
   return updated ? summaryForConnection(updated as GoogleCalendarConnectionRecord) : null;
+}
+
+type GoogleCalendarAgendaSyncResult = {
+  status: "synced" | "skipped" | "failed";
+  synced: number;
+};
+
+type GoogleCalendarAgendaEntryPayload = {
+  google_event_id: string;
+  title: string;
+  starts_at: Date;
+  ends_at: Date;
+  all_day: boolean;
+  is_private: boolean;
+  source_updated_at: Date | null;
+};
+
+function parseGoogleCalendarAgendaTime(value: unknown) {
+  if (!isRecord(value)) return null;
+
+  const dateTime = getString(value, "dateTime");
+  if (dateTime) {
+    const parsed = new Date(dateTime);
+    if (!Number.isNaN(parsed.getTime())) return { value: parsed, allDay: false };
+  }
+
+  const date = getString(value, "date");
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  // Noon UTC preserves date-only Google events for the weekly schedule in
+  // common workspace time zones without inventing an event time.
+  const parsed = new Date(`${date}T12:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : { value: parsed, allDay: true };
+}
+
+function isUpFlowManagedGoogleEvent(event: Record<string, unknown>, workspaceId: string) {
+  const extendedProperties = event.extendedProperties;
+  if (!isRecord(extendedProperties)) return false;
+  const privateProperties = extendedProperties.private;
+  if (!isRecord(privateProperties)) return false;
+  return (
+    getString(privateProperties, "upflow_source") === "calendar" &&
+    getString(privateProperties, "upflow_workspace_id") === workspaceId
+  );
+}
+
+export function toGoogleCalendarAgendaEntry(
+  value: unknown,
+  workspaceId: string,
+): GoogleCalendarAgendaEntryPayload | null {
+  if (!isRecord(value)) return null;
+  const event = value as GoogleCalendarApiAgendaEvent & Record<string, unknown>;
+  const googleEventId = getString(event, "id");
+  if (!googleEventId || getString(event, "status") === "cancelled") return null;
+  if (getString(event, "transparency") === "transparent") return null;
+  if (isUpFlowManagedGoogleEvent(event, workspaceId)) return null;
+
+  const start = parseGoogleCalendarAgendaTime(event.start);
+  const end = parseGoogleCalendarAgendaTime(event.end);
+  if (!start) return null;
+  const endsAt = end?.value ?? new Date(start.value.getTime() + DEFAULT_EVENT_DURATION_MS);
+  if (endsAt.getTime() <= start.value.getTime()) return null;
+
+  const updated = getString(event, "updated");
+  const sourceUpdatedAt = updated ? new Date(updated) : null;
+  const isPrivate = getString(event, "visibility") === "private";
+  const summary = getString(event, "summary")?.trim().slice(0, 500);
+  return {
+    google_event_id: googleEventId,
+    // Google events explicitly marked private remain useful as a busy block,
+    // but their summary is never shared into the workspace schedule.
+    title: isPrivate || !summary ? "Busy" : summary,
+    starts_at: start.value,
+    ends_at: endsAt,
+    all_day: start.allDay || Boolean(end?.allDay),
+    is_private: isPrivate || !summary,
+    source_updated_at:
+      sourceUpdatedAt && !Number.isNaN(sourceUpdatedAt.getTime()) ? sourceUpdatedAt : null,
+  };
+}
+
+function googleAgendaEventsPath(input: {
+  calendarId: string;
+  from: Date;
+  to: Date;
+  pageToken?: string;
+}) {
+  const search = new URLSearchParams({
+    singleEvents: "true",
+    orderBy: "startTime",
+    showDeleted: "false",
+    maxResults: String(GOOGLE_AGENDA_PAGE_SIZE),
+    timeMin: input.from.toISOString(),
+    timeMax: input.to.toISOString(),
+  });
+  if (input.pageToken) search.set("pageToken", input.pageToken);
+  return `/calendars/${encodeURIComponent(input.calendarId)}/events?${search.toString()}`;
+}
+
+async function fetchGoogleCalendarAgendaEntries(input: {
+  connection: GoogleCalendarConnectionRecord;
+  config: GoogleCalendarConfig;
+  from: Date;
+  to: Date;
+}) {
+  const entries: GoogleCalendarAgendaEntryPayload[] = [];
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < GOOGLE_AGENDA_MAX_PAGES; page += 1) {
+    const response = await requestGoogleCalendarApi<GoogleCalendarApiAgendaList>({
+      connection: input.connection,
+      config: input.config,
+      path: googleAgendaEventsPath({
+        calendarId: input.connection.calendar_id,
+        from: input.from,
+        to: input.to,
+        pageToken,
+      }),
+    });
+    const items = Array.isArray(response?.items) ? response.items : [];
+    entries.push(
+      ...items.flatMap((event) => {
+        const entry = toGoogleCalendarAgendaEntry(event, input.connection.workspace_id);
+        return entry ? [entry] : [];
+      }),
+    );
+    const nextPageToken = response && typeof response.nextPageToken === "string"
+      ? response.nextPageToken
+      : null;
+    if (!nextPageToken) break;
+    pageToken = nextPageToken;
+  }
+
+  return entries;
+}
+
+async function replaceGoogleCalendarAgendaEntries(input: {
+  connection: GoogleCalendarConnectionRecord;
+  entries: GoogleCalendarAgendaEntryPayload[];
+  from: Date;
+  to: Date;
+  now: Date;
+}) {
+  const byGoogleEventId = new Map(input.entries.map((entry) => [entry.google_event_id, entry]));
+  const entries = Array.from(byGoogleEventId.values());
+
+  for (let index = 0; index < entries.length; index += 100) {
+    const batch = entries.slice(index, index + 100);
+    await prisma.$transaction(
+      batch.map((entry) =>
+        prisma.googleCalendarAgendaEntry.upsert({
+          where: {
+            connection_id_google_calendar_id_google_event_id: {
+              connection_id: input.connection.id,
+              google_calendar_id: input.connection.calendar_id,
+              google_event_id: entry.google_event_id,
+            },
+          },
+          create: {
+            workspace_id: input.connection.workspace_id,
+            user_id: input.connection.user_id,
+            connection_id: input.connection.id,
+            google_calendar_id: input.connection.calendar_id,
+            ...entry,
+          },
+          update: {
+            title: entry.title,
+            starts_at: entry.starts_at,
+            ends_at: entry.ends_at,
+            all_day: entry.all_day,
+            is_private: entry.is_private,
+            source_updated_at: entry.source_updated_at,
+          },
+        }),
+      ),
+    );
+  }
+
+  await prisma.googleCalendarAgendaEntry.deleteMany({
+    where: {
+      connection_id: input.connection.id,
+      starts_at: { gte: input.from, lt: input.to },
+      ...(entries.length > 0
+        ? { google_event_id: { notIn: entries.map((entry) => entry.google_event_id) } }
+        : {}),
+    },
+  });
+  await prisma.googleCalendarAgendaEntry.deleteMany({
+    where: {
+      connection_id: input.connection.id,
+      ends_at: { lt: input.now },
+    },
+  });
+}
+
+export async function syncGoogleCalendarAgenda(input: {
+  workspaceId: string;
+  userId: string;
+  now?: Date;
+}): Promise<GoogleCalendarAgendaSyncResult> {
+  const config = getGoogleCalendarConfig();
+  if (!config) return { status: "skipped", synced: 0 };
+
+  const connection = await findActiveGoogleCalendarConnection(input.workspaceId, input.userId);
+  if (!connection || !connection.share_agenda) return { status: "skipped", synced: 0 };
+  if (!(await hasActiveWorkspaceMembership(input.workspaceId, input.userId))) {
+    return { status: "skipped", synced: 0 };
+  }
+
+  const now = input.now ?? new Date();
+  const from = new Date(now.getTime() - GOOGLE_AGENDA_LOOKBACK_MS);
+  const to = new Date(now.getTime() + GOOGLE_AGENDA_LOOKAHEAD_MS);
+  try {
+    const entries = await fetchGoogleCalendarAgendaEntries({ connection, config, from, to });
+    await replaceGoogleCalendarAgendaEntries({ connection, entries, from, to, now });
+    await prisma.googleCalendarConnection.update({
+      where: { id: connection.id },
+      data: { agenda_last_synced_at: now, agenda_last_error: null },
+    });
+    return { status: "synced", synced: entries.length };
+  } catch (error) {
+    await prisma.googleCalendarConnection.update({
+      where: { id: connection.id },
+      data: { agenda_last_error: publicGoogleCalendarError(error) },
+    }).catch(() => undefined);
+    return { status: "failed", synced: 0 };
+  }
+}
+
+export async function syncSharedGoogleCalendarAgendas(input: {
+  now?: Date;
+  limit?: number;
+} = {}) {
+  const limit = Math.max(1, Math.min(input.limit ?? GOOGLE_AGENDA_MAINTENANCE_LIMIT, 100));
+  const eligibleConnectionWhere = {
+    share_agenda: true,
+    disconnected_at: null,
+    access_token_ciphertext: { not: null },
+    refresh_token_ciphertext: { not: null },
+  };
+
+  // PostgreSQL sorts nulls after concrete dates in ascending order. Querying
+  // never-synced connections separately ensures that new or existing members
+  // are not starved by the oldest already-synced calendars.
+  const neverSyncedConnections = await prisma.googleCalendarConnection.findMany({
+    where: {
+      ...eligibleConnectionWhere,
+      agenda_last_synced_at: null,
+    },
+    orderBy: { created_at: "asc" },
+    take: limit,
+    select: { workspace_id: true, user_id: true },
+  });
+
+  const remaining = limit - neverSyncedConnections.length;
+  const staleConnections = remaining > 0
+    ? await prisma.googleCalendarConnection.findMany({
+      where: {
+        ...eligibleConnectionWhere,
+        agenda_last_synced_at: { not: null },
+      },
+      orderBy: { agenda_last_synced_at: "asc" },
+      take: remaining,
+      select: { workspace_id: true, user_id: true },
+    })
+    : [];
+  const connections = [...neverSyncedConnections, ...staleConnections];
+
+  const outcomes = { synced: 0, failed: 0, skipped: 0 };
+  for (let index = 0; index < connections.length; index += 3) {
+    const results = await Promise.all(
+      connections.slice(index, index + 3).map((connection) =>
+        syncGoogleCalendarAgenda({
+          workspaceId: connection.workspace_id,
+          userId: connection.user_id,
+          now: input.now,
+        }),
+      ),
+    );
+    for (const result of results) {
+      if (result.status === "synced") outcomes.synced += result.synced;
+      else if (result.status === "failed") outcomes.failed += 1;
+      else outcomes.skipped += 1;
+    }
+  }
+  return { processed: connections.length, ...outcomes };
 }
 
 async function revokeGoogleCalendarToken(
@@ -1049,6 +1383,9 @@ export async function disconnectGoogleCalendar(input: { workspaceId: string; use
         disconnected_at: new Date(),
         last_error: null,
       },
+    });
+    await tx.googleCalendarAgendaEntry.deleteMany({
+      where: { connection_id: connection.id },
     });
     // A user who disconnects has opted out of future UpFlow-to-Google writes.
     // Preserve deletion jobs: they carry a remote-event tombstone and may be
@@ -2104,5 +2441,17 @@ export async function syncUpcomingGoogleCalendarEvents(input: {
     });
   }
 
-  return { synced, failed, skipped };
+  const agenda = await syncGoogleCalendarAgenda({
+    workspaceId: input.workspaceId,
+    userId: input.userId,
+    now,
+  });
+
+  return {
+    synced,
+    failed,
+    skipped,
+    agenda_synced: agenda.synced,
+    agenda_failed: agenda.status === "failed" ? 1 : 0,
+  };
 }

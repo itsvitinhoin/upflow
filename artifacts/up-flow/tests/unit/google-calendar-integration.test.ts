@@ -10,6 +10,7 @@ import {
   encryptGoogleCalendarSecret,
   getGoogleCalendarConfig,
   getGoogleCalendarAuthorizationUrl,
+  toGoogleCalendarAgendaEntry,
 } from "@/lib/google-calendar";
 
 const ROOT = join(__dirname, "..", "..");
@@ -22,7 +23,7 @@ const GOOGLE_CALENDAR_ENV_KEYS = [
 ] as const;
 
 function read(rel: string) {
-  return readFileSync(join(ROOT, rel), "utf8");
+  return readFileSync(join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
 }
 
 function withGoogleCalendarEnv(
@@ -199,6 +200,79 @@ test("Google event payload maps calendar details without inviting internal atten
   assert.equal("attendees" in payload, false);
 });
 
+test("shared Google agenda entries preserve availability without exposing private details", () => {
+  const publicEntry = toGoogleCalendarAgendaEntry(
+    {
+      id: "google-event-public",
+      summary: "Client planning",
+      start: { dateTime: "2026-08-04T14:00:00.000Z" },
+      end: { dateTime: "2026-08-04T15:00:00.000Z" },
+      description: "This must never be stored in the shared agenda cache.",
+      attendees: [{ email: "private@example.com" }],
+      location: "Private room",
+      htmlLink: "https://calendar.google.com/private-link",
+    },
+    "workspace-1",
+  );
+
+  assert.deepEqual(publicEntry, {
+    google_event_id: "google-event-public",
+    title: "Client planning",
+    starts_at: new Date("2026-08-04T14:00:00.000Z"),
+    ends_at: new Date("2026-08-04T15:00:00.000Z"),
+    all_day: false,
+    is_private: false,
+    source_updated_at: null,
+  });
+  assert.equal("description" in (publicEntry ?? {}), false);
+  assert.equal("attendees" in (publicEntry ?? {}), false);
+  assert.equal("location" in (publicEntry ?? {}), false);
+
+  const privateEntry = toGoogleCalendarAgendaEntry(
+    {
+      id: "google-event-private",
+      summary: "Confidential meeting",
+      visibility: "private",
+      start: { dateTime: "2026-08-04T16:00:00.000Z" },
+      end: { dateTime: "2026-08-04T17:00:00.000Z" },
+    },
+    "workspace-1",
+  );
+  assert.equal(privateEntry?.title, "Busy");
+  assert.equal(privateEntry?.is_private, true);
+
+  assert.equal(
+    toGoogleCalendarAgendaEntry(
+      {
+        id: "transparent-event",
+        transparency: "transparent",
+        start: { dateTime: "2026-08-04T16:00:00.000Z" },
+        end: { dateTime: "2026-08-04T17:00:00.000Z" },
+      },
+      "workspace-1",
+    ),
+    null,
+  );
+  assert.equal(
+    toGoogleCalendarAgendaEntry(
+      {
+        id: "upflow-event",
+        summary: "Already represented by an UpFlow event",
+        start: { dateTime: "2026-08-04T16:00:00.000Z" },
+        end: { dateTime: "2026-08-04T17:00:00.000Z" },
+        extendedProperties: {
+          private: {
+            upflow_source: "calendar",
+            upflow_workspace_id: "workspace-1",
+          },
+        },
+      },
+      "workspace-1",
+    ),
+    null,
+  );
+});
+
 test("Google event payload clears removed text fields and restores Google reminder defaults", () => {
   const payload = buildGoogleCalendarEventPayload({
     id: "event-with-cleared-fields",
@@ -273,6 +347,7 @@ test("Google Calendar routes are server-only, authenticated, and workspace scope
     "src/app/api/integrations/google-calendar/connection/route.ts",
     "src/app/api/integrations/google-calendar/sync/route.ts",
     "src/app/api/integrations/google-calendar/status/route.ts",
+    "src/app/api/calendar/shared-agenda/route.ts",
   ];
 
   for (const route of routes) {
@@ -293,6 +368,28 @@ test("Google Calendar routes are server-only, authenticated, and workspace scope
   // the dashboard workspace during consent does not reject a safe callback.
   assert.doesNotMatch(callback, /requireCurrentWorkspace/);
   assert.doesNotMatch(callback, /access_token_ciphertext|refresh_token_ciphertext/);
+});
+
+test("shared Google agenda is workspace-scoped, sanitized, and visible in the weekly schedule", () => {
+  const schema = read("prisma/schema.prisma");
+  const migration = read("prisma/migrations/20260804090000_add_google_calendar_shared_agenda/migration.sql");
+  const route = read("src/app/api/calendar/shared-agenda/route.ts");
+  const calendar = read("src/app/(dashboard)/calendar/page.tsx");
+  const card = read("src/components/calendar/google-calendar-integration-card.tsx");
+
+  assert.match(schema, /model GoogleCalendarAgendaEntry/);
+  assert.match(schema, /share_agenda\s+Boolean\s+@default\(true\)/);
+  assert.match(schema, /is_private\s+Boolean\s+@default\(false\)/);
+  assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
+  assert.match(migration, /REVOKE ALL ON TABLE "GoogleCalendarAgendaEntry" FROM anon, authenticated/);
+  assert.match(route, /workspace_id:\s*scope\.workspaceId/);
+  assert.match(route, /connection:\s*\{\s*share_agenda:\s*true/);
+  assert.match(route, /select:\s*\{[\s\S]*?is_private:\s*true/);
+  assert.doesNotMatch(route, /description|attendees|meeting_url|access_token_ciphertext|refresh_token_ciphertext/);
+  assert.match(calendar, /data-testid="weekly-team-agenda"/);
+  assert.match(calendar, /\/api\/calendar\/shared-agenda/);
+  assert.match(card, /googleCalendar\.shareAgenda/);
+  assert.match(card, /share_agenda:\s*shareAgenda/);
 });
 
 test("Google Calendar recovery UI offers reconnect and disconnect after calendar loading fails", () => {
@@ -453,5 +550,8 @@ test("the existing daily maintenance route processes a bounded Google Calendar r
   assert.match(cron, /import \{ after, NextRequest, NextResponse \} from "next\/server"/);
   assert.match(cron, /processPendingGoogleCalendarSyncJobs/);
   assert.match(cron, /processPendingGoogleCalendarSyncJobs\(\{ limit: 10 \}\)/);
-  assert.match(cron, /after\(\(\) =>\s*processPendingGoogleCalendarSyncJobs/);
+  assert.match(
+    cron,
+    /after\(\(\) =>\s*Promise\.all\(\[\s*processPendingGoogleCalendarSyncJobs\(\{ limit: 10 \}\),\s*syncSharedGoogleCalendarAgendas\(\{ limit: 25 \}\)/,
+  );
 });

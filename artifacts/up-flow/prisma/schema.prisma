@@ -150,6 +150,7 @@ model User {
   google_calendar_connections GoogleCalendarConnection[]
   google_calendar_oauth_states GoogleCalendarOAuthState[]
   google_calendar_sync_jobs  GoogleCalendarSyncJob[]
+  google_calendar_agenda_entries GoogleCalendarAgendaEntry[]
   time_entries             TimeEntry[]
   activity_events          ActivityEvent[]         @relation("ActivityActor")
   companies_owned          Company[]               @relation("CompanyOwner")
@@ -204,6 +205,7 @@ model Workspace {
   google_calendar_connections GoogleCalendarConnection[]
   google_calendar_oauth_states GoogleCalendarOAuthState[]
   google_calendar_sync_jobs  GoogleCalendarSyncJob[]
+  google_calendar_agenda_entries GoogleCalendarAgendaEntry[]
   time_entries         TimeEntry[]
   activity_events      ActivityEvent[]
   companies            Company[]
@@ -634,19 +636,55 @@ model GoogleCalendarConnection {
   token_expires_at         DateTime?
   scope                    String?  @db.Text
   sync_enabled             Boolean  @default(true)
+  // Active workspace members can view this user's sanitized Google agenda in
+  // UpFlow. The provider credentials and sensitive event metadata stay server-only.
+  share_agenda             Boolean  @default(true)
   disconnected_at          DateTime?
   last_synced_at           DateTime?
   last_error               String?  @db.Text
+  agenda_last_synced_at    DateTime?
+  agenda_last_error        String?  @db.Text
   created_at               DateTime @default(now())
   updated_at               DateTime @updatedAt
   workspace                Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
   user                     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   event_links              GoogleCalendarEventLink[]
   sync_jobs                GoogleCalendarSyncJob[]
+  agenda_entries           GoogleCalendarAgendaEntry[]
 
   @@unique([workspace_id, user_id])
   @@index([user_id])
   @@index([workspace_id, sync_enabled])
+  @@index([workspace_id, share_agenda])
+  @@index([share_agenda, agenda_last_synced_at])
+}
+
+// A sanitized, server-maintained view of a connected user's Google schedule.
+// It is intentionally separate from CalendarEvent so external items cannot be
+// edited, deleted, or synced back to Google through UpFlow's event workflow.
+model GoogleCalendarAgendaEntry {
+  id                 String   @id @default(uuid())
+  workspace_id       String
+  user_id            String
+  connection_id      String
+  google_calendar_id String
+  google_event_id    String
+  title              String
+  starts_at          DateTime
+  ends_at            DateTime
+  all_day            Boolean  @default(false)
+  is_private         Boolean  @default(false)
+  source_updated_at  DateTime?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  workspace          Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user               User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  connection         GoogleCalendarConnection @relation(fields: [connection_id], references: [id], onDelete: Cascade)
+
+  @@unique([connection_id, google_calendar_id, google_event_id])
+  @@index([workspace_id, starts_at])
+  @@index([workspace_id, user_id, starts_at])
+  @@index([connection_id, starts_at])
 }
 
 model GoogleCalendarOAuthState {

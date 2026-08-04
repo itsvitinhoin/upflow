@@ -19,8 +19,11 @@ type GoogleCalendarConnection = {
   calendar_id: string | null;
   calendar_name?: string | null;
   sync_enabled: boolean;
+  share_agenda?: boolean;
   last_synced_at?: string | null;
   last_error?: string | null;
+  agenda_last_synced_at?: string | null;
+  agenda_last_error?: string | null;
 };
 
 type GoogleCalendarStatus = {
@@ -41,6 +44,8 @@ type GoogleCalendarSyncResult = {
   synced?: number;
   failed?: number;
   skipped?: number;
+  agenda_synced?: number;
+  agenda_failed?: number;
 };
 
 type GoogleCalendarIntegrationCardProps = {
@@ -87,6 +92,7 @@ export default function GoogleCalendarIntegrationCard({
   const [calendars, setCalendars] = useState<GoogleCalendarItem[]>([]);
   const [selectedCalendarId, setSelectedCalendarId] = useState("");
   const [syncEnabled, setSyncEnabled] = useState(true);
+  const [shareAgenda, setShareAgenda] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -99,6 +105,7 @@ export default function GoogleCalendarIntegrationCard({
     const connection = nextStatus.connection;
     setSelectedCalendarId(connection?.calendar_id ?? "");
     setSyncEnabled(connection?.sync_enabled ?? true);
+    setShareAgenda(connection?.share_agenda ?? true);
   }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -159,6 +166,7 @@ export default function GoogleCalendarIntegrationCard({
   const connected = Boolean(status?.connected && status.ready);
   const connection = status?.connection ?? null;
   const lastSynced = formatSyncedAt(connection?.last_synced_at, language);
+  const agendaLastSynced = formatSyncedAt(connection?.agenda_last_synced_at, language);
 
   const saveConnection = async () => {
     if (!selectedCalendarId) {
@@ -175,6 +183,7 @@ export default function GoogleCalendarIntegrationCard({
           calendar_id: selectedCalendarId,
           calendar_name: selectedCalendar?.name ?? connection?.calendar_name ?? undefined,
           sync_enabled: syncEnabled,
+          share_agenda: shareAgenda,
         }),
       });
       const payload = await readJson(
@@ -205,7 +214,8 @@ export default function GoogleCalendarIntegrationCard({
 
     const settingsChanged =
       connection?.calendar_id !== selectedCalendarId ||
-      connection?.sync_enabled !== syncEnabled;
+      connection?.sync_enabled !== syncEnabled ||
+      (connection?.share_agenda ?? true) !== shareAgenda;
     if (settingsChanged && !(await saveConnection())) return;
 
     setSyncing(true);
@@ -219,10 +229,16 @@ export default function GoogleCalendarIntegrationCard({
         t("googleCalendar.syncFailed"),
       )) as GoogleCalendarSyncResult;
 
-      if ((result.failed ?? 0) > 0) {
-        toast.error(t("googleCalendar.syncFinishedWithErrors", { count: result.failed ?? 0 }));
+      const failed = (result.failed ?? 0) + (result.agenda_failed ?? 0);
+      if (failed > 0) {
+        toast.error(t("googleCalendar.syncFinishedWithErrors", { count: failed }));
       } else {
-        toast.success(t("googleCalendar.syncComplete", { count: result.synced ?? 0 }));
+        toast.success(
+          t("googleCalendar.syncCompleteWithAgenda", {
+            count: result.synced ?? 0,
+            agenda: result.agenda_synced ?? 0,
+          }),
+        );
       }
       await load();
     } catch (error) {
@@ -245,6 +261,7 @@ export default function GoogleCalendarIntegrationCard({
       setCalendars([]);
       setSelectedCalendarId("");
       setSyncEnabled(true);
+      setShareAgenda(true);
       setLoadError(null);
       toast.success(t("googleCalendar.disconnected"));
     } catch (error) {
@@ -433,6 +450,12 @@ export default function GoogleCalendarIntegrationCard({
                 ? t("googleCalendar.lastSynced", { date: lastSynced })
                 : t("googleCalendar.notSyncedYet")}
             </span>
+            {agendaLastSynced ? (
+              <>
+                <span aria-hidden="true" className="hidden h-3 w-px bg-border sm:block dark:bg-white/10" />
+                <span>{t("googleCalendar.agendaLastSynced", { date: agendaLastSynced })}</span>
+              </>
+            ) : null}
           </div>
 
           {connection?.last_error ? (
@@ -449,6 +472,24 @@ export default function GoogleCalendarIntegrationCard({
               >
                 {redirecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Cloud className="h-3.5 w-3.5" />}
                 {redirecting ? t("googleCalendar.connecting") : t("googleCalendar.reconnect")}
+              </button>
+            </div>
+          ) : null}
+
+          {connection?.agenda_last_error ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-upflow-warning/30 bg-upflow-warning/10 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+              <p>
+                <span className="font-semibold text-foreground">{t("googleCalendar.agendaSyncNeedsAttention")}</span>{" "}
+                {t("googleCalendar.agendaSyncNeedsAttentionDescription")}
+              </p>
+              <button
+                type="button"
+                onClick={() => void syncNow()}
+                disabled={saving || syncing || disconnecting || !selectedCalendarId}
+                className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-lg border border-upflow-warning/30 bg-background/60 px-2.5 py-1.5 text-xs font-semibold text-foreground transition hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:hover:bg-white/10"
+              >
+                {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                {syncing ? t("googleCalendar.syncing") : t("googleCalendar.syncNow")}
               </button>
             </div>
           ) : null}
@@ -487,6 +528,22 @@ export default function GoogleCalendarIntegrationCard({
               <span className="block text-sm font-medium text-foreground">{t("googleCalendar.automaticSync")}</span>
               <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
                 {t("googleCalendar.automaticSyncDescription")}
+              </span>
+            </span>
+          </label>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-primary/20 bg-primary/[0.05] p-3 transition hover:border-primary/40">
+            <input
+              type="checkbox"
+              checked={shareAgenda}
+              onChange={(event) => setShareAgenda(event.target.checked)}
+              disabled={saving || syncing || disconnecting}
+              className="mt-0.5 h-4 w-4 rounded border-border bg-background text-primary focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/20 dark:bg-white/5"
+            />
+            <span>
+              <span className="block text-sm font-medium text-foreground">{t("googleCalendar.shareAgenda")}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">
+                {t("googleCalendar.shareAgendaDescription")}
               </span>
             </span>
           </label>

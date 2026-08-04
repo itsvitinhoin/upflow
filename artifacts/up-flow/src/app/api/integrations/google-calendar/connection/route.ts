@@ -1,12 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireCurrentWorkspace } from "@/lib/api/scope";
 import { requireAuth } from "@/lib/auth-response";
 import {
   disconnectGoogleCalendar,
   getGoogleCalendarConfig,
+  syncGoogleCalendarAgenda,
   updateGoogleCalendarConnection,
 } from "@/lib/google-calendar";
+import { logError } from "@/lib/log-error";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 export const dynamic = "force-dynamic";
@@ -19,10 +21,17 @@ const ConnectionSchema = z
     // obtains the trusted calendar name from Google before persisting it.
     calendar_name: z.string().trim().max(1024).optional(),
     sync_enabled: z.boolean().optional(),
+    share_agenda: z.boolean().optional(),
   })
-  .refine((value) => value.calendar_id !== undefined || value.sync_enabled !== undefined, {
-    message: "At least one connection setting is required",
-  });
+  .refine(
+    (value) =>
+      value.calendar_id !== undefined ||
+      value.sync_enabled !== undefined ||
+      value.share_agenda !== undefined,
+    {
+      message: "At least one connection setting is required",
+    },
+  );
 
 async function PATCH_handler(req: NextRequest) {
   const result = await requireAuth();
@@ -47,9 +56,20 @@ async function PATCH_handler(req: NextRequest) {
       userId: result.auth.prismaUser.id,
       calendarId: parsed.data.calendar_id,
       syncEnabled: parsed.data.sync_enabled,
+      shareAgenda: parsed.data.share_agenda,
     });
     if (!connection) {
       return NextResponse.json({ error: "Google Calendar is not connected" }, { status: 404 });
+    }
+    if (parsed.data.share_agenda === true || parsed.data.calendar_id) {
+      after(() =>
+        syncGoogleCalendarAgenda({
+          workspaceId: scope.workspaceId,
+          userId: result.auth.prismaUser.id,
+        }).catch((error) =>
+          logError("api:integrations/google-calendar:connection:agenda-sync", error),
+        ),
+      );
     }
     return NextResponse.json({ connected: true, connection });
   } catch {

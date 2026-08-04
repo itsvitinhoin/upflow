@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
-import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, RefreshCw, Trash2, Video } from "lucide-react";
+import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, Cloud, DoorOpen, Pencil, Plus, RefreshCw, Trash2, UsersRound, Video } from "lucide-react";
 import { appDateKey, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
@@ -53,6 +53,14 @@ function eventTime(event: CalendarEvent) {
   return formatTime(event.starts_at);
 }
 
+function startOfWeek(date: Date) {
+  const start = new Date(date);
+  const offset = start.getDay() === 0 ? 6 : start.getDay() - 1;
+  start.setDate(start.getDate() - offset);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
 
 const taskColor: Record<Task["priority"], string> = {
   low: "bg-upflow-success/30 text-upflow-success border-l-upflow-success",
@@ -86,6 +94,37 @@ type SelectableUser = {
   name: string | null;
   email: string;
 };
+
+type SharedGoogleAgendaEntry = {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  is_private: boolean;
+  user: SelectableUser & { avatar_url?: string | null };
+};
+
+type SharedAgendaResponse = {
+  items: SharedGoogleAgendaEntry[];
+  failed: boolean;
+};
+
+function agendaEntryOccursOnDay(entry: SharedGoogleAgendaEntry, day: Date) {
+  const startsAt = new Date(entry.starts_at);
+  const endsAt = new Date(entry.ends_at);
+  const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+
+  if (entry.all_day) {
+    const entryStart = new Date(startsAt.getFullYear(), startsAt.getMonth(), startsAt.getDate());
+    const entryEnd = new Date(endsAt.getFullYear(), endsAt.getMonth(), endsAt.getDate());
+    return dayStart >= entryStart && dayStart < entryEnd;
+  }
+
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  return startsAt < dayEnd && endsAt > dayStart;
+}
 
 type ScheduleDefaults = {
   type: "meeting" | "reminder";
@@ -167,6 +206,8 @@ export default function CalendarPage() {
   );
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [sharedAgendaEntries, setSharedAgendaEntries] = useState<SharedGoogleAgendaEntry[]>([]);
+  const [sharedAgendaUnavailable, setSharedAgendaUnavailable] = useState(false);
   const [loadedCalendarRange, setLoadedCalendarRange] = useState<string | null>(null);
   const [failedCalendarRange, setFailedCalendarRange] = useState<string | null>(null);
   const [selected, setSelected] = useState<Date>(today);
@@ -261,6 +302,20 @@ export default function CalendarPage() {
     setFailedCalendarRange((current) => (current === rangeKey ? null : current));
     const from = mergeAppDateAndTime(gridStart, "00:00").toISOString();
     const to = mergeAppDateAndTime(gridEnd, "23:59").toISOString();
+    const sharedAgendaRequest = fetch(
+      `/api/calendar/shared-agenda?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      { signal: controller.signal },
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Unable to load shared Google agenda: ${response.status}`);
+        const payload = (await response.json()) as { items?: SharedGoogleAgendaEntry[] };
+        return { items: payload.items ?? [], failed: false } satisfies SharedAgendaResponse;
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) logError("calendar:shared-agenda:load", error);
+        return { items: [], failed: true } satisfies SharedAgendaResponse;
+      });
+
     Promise.all([
       fetch("/api/tasks", { signal: controller.signal }).then(async (response) => {
         if (!response.ok) throw new Error(`Unable to load tasks: ${response.status}`);
@@ -270,13 +325,16 @@ export default function CalendarPage() {
         if (!response.ok) throw new Error(`Unable to load calendar events: ${response.status}`);
         return response.json();
       }),
+      sharedAgendaRequest,
     ])
-      .then(([taskData, eventData]) => {
+      .then(([taskData, eventData, sharedAgendaData]) => {
         if (requestId !== calendarRequestIdRef.current) return;
         const taskList = (Array.isArray(taskData) ? taskData : taskData.items ?? taskData.tasks ?? []) as Task[];
         const eventList = (eventData.items ?? eventData.events ?? []) as CalendarEvent[];
         setTasks(taskList);
         setEvents(eventList);
+        setSharedAgendaEntries(sharedAgendaData.items);
+        setSharedAgendaUnavailable(sharedAgendaData.failed);
         setLoadedCalendarRange(rangeKey);
         setFailedCalendarRange(null);
       })
@@ -371,6 +429,12 @@ export default function CalendarPage() {
     );
   }, [calendarHasLoaded, events, selectedUserIds]);
 
+  const filteredSharedAgendaEntries = useMemo(() => {
+    const currentRangeEntries = calendarHasLoaded ? sharedAgendaEntries : [];
+    if (selectedUserIds.size === 0) return currentRangeEntries;
+    return currentRangeEntries.filter((entry) => selectedUserIds.has(entry.user.id));
+  }, [calendarHasLoaded, selectedUserIds, sharedAgendaEntries]);
+
   const eventUserTone = (event: CalendarEvent) => {
     const ids = eventUserIds(event);
     const selectedMatch = ids.find((id) => selectedUserIds.has(id));
@@ -393,9 +457,63 @@ export default function CalendarPage() {
     return map;
   }, [filteredEvents]);
 
+  const sharedAgendaByDay = useMemo(() => {
+    const map = new Map<string, SharedGoogleAgendaEntry[]>();
+    filteredSharedAgendaEntries.forEach((entry) => {
+      const startsAt = new Date(entry.starts_at);
+      const endsAt = new Date(entry.ends_at);
+      const firstDay = new Date(startsAt.getFullYear(), startsAt.getMonth(), startsAt.getDate());
+      const lastDay = new Date(endsAt.getFullYear(), endsAt.getMonth(), endsAt.getDate());
+
+      for (let day = firstDay; day <= lastDay; day.setDate(day.getDate() + 1)) {
+        if (!agendaEntryOccursOnDay(entry, day)) continue;
+        const key = dateKey(day);
+        map.set(key, [...(map.get(key) ?? []), entry]);
+      }
+    });
+    return map;
+  }, [filteredSharedAgendaEntries]);
+
+  const agendaPeople = useMemo(() => {
+    const peopleById = new Map(people.map((person) => [person.id, person]));
+    sharedAgendaEntries.forEach((entry) => {
+      if (!peopleById.has(entry.user.id)) peopleById.set(entry.user.id, entry.user);
+    });
+    return Array.from(peopleById.values()).sort((left, right) =>
+      (left.name || left.email).localeCompare(right.name || right.email),
+    );
+  }, [people, sharedAgendaEntries]);
+
+  const weeklyAgendaDays = useMemo(() => {
+    const firstDay = startOfWeek(selected);
+    return Array.from({ length: 7 }, (_, index) => {
+      const day = new Date(firstDay);
+      day.setDate(firstDay.getDate() + index);
+      return day;
+    });
+  }, [selected]);
+
+  const weeklyAgendaPeople = useMemo(
+    () => (selectedUserId ? agendaPeople.filter((person) => person.id === selectedUserId) : agendaPeople),
+    [agendaPeople, selectedUserId],
+  );
+
+  const weeklyAgendaEntriesByCell = useMemo(() => {
+    const map = new Map<string, SharedGoogleAgendaEntry[]>();
+    filteredSharedAgendaEntries.forEach((entry) => {
+      weeklyAgendaDays.forEach((day) => {
+        if (!agendaEntryOccursOnDay(entry, day)) return;
+        const key = `${entry.user.id}:${dateKey(day)}`;
+        map.set(key, [...(map.get(key) ?? []), entry]);
+      });
+    });
+    return map;
+  }, [filteredSharedAgendaEntries, weeklyAgendaDays]);
+
   const selectedKey = dateKey(selected);
   const selectedTasks = tasksByDay.get(selectedKey) ?? [];
   const selectedEvents = eventsByDay.get(selectedKey) ?? [];
+  const selectedSharedAgendaEntries = sharedAgendaByDay.get(selectedKey) ?? [];
   const selectedIsToday = isSameDay(selected, today);
   const monthTitle = new Intl.DateTimeFormat(language, {
     month: "long",
@@ -476,6 +594,103 @@ export default function CalendarPage() {
       <Header title={t("calendar.title")} />
       <div className="grid grid-cols-1 gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <GoogleCalendarIntegrationCard className="lg:col-span-2" />
+
+        <section
+          className="min-w-0 rounded-2xl p-4 glass sm:p-5 lg:col-span-2"
+          data-testid="weekly-team-agenda"
+        >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
+                <UsersRound className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">{t("calendar.weeklyAgenda")}</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t("calendar.weeklyAgendaDescription")}</p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-border bg-muted/30 px-2.5 py-1 text-[11px] font-medium text-muted-foreground dark:border-white/10 dark:bg-white/5">
+              <Cloud className="h-3.5 w-3.5 text-primary" />
+              {t("calendar.sharedAgenda")}
+            </span>
+          </div>
+
+          {sharedAgendaUnavailable && !calendarIsLoading && (
+            <p role="alert" className="mt-3 text-xs text-upflow-warning">
+              {t("calendar.sharedAgendaUnavailable")}
+            </p>
+          )}
+
+          <div className="mt-4 overflow-x-auto pb-1">
+            {weeklyAgendaPeople.length > 0 ? (
+              <div
+                className="grid min-w-[900px] overflow-hidden rounded-xl border border-border bg-background/30 dark:border-white/10 dark:bg-white/[0.03]"
+                style={{ gridTemplateColumns: "minmax(168px, 0.9fr) repeat(7, minmax(104px, 1fr))" }}
+              >
+                <div className="border-b border-border bg-muted/30 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground dark:border-white/10 dark:bg-white/[0.04]">
+                  {t("calendar.peopleFilter")}
+                </div>
+                {weeklyAgendaDays.map((day) => (
+                  <button
+                    key={dateKey(day)}
+                    type="button"
+                    onClick={() => setSelected(day)}
+                    className={cn(
+                      "border-b border-l border-border bg-muted/30 px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition hover:bg-accent dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/10",
+                      isSameDay(day, selected) && "bg-primary/10 text-primary",
+                    )}
+                  >
+                    {new Intl.DateTimeFormat(language, { weekday: "short", day: "numeric", month: "short" }).format(day)}
+                  </button>
+                ))}
+                {weeklyAgendaPeople.map((person) => (
+                  <div key={person.id} className="contents">
+                    <div className="flex min-h-[92px] items-start gap-2 border-b border-border px-3 py-3 dark:border-white/10">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[10px] font-semibold text-primary">
+                        {(person.name || person.email).slice(0, 2).toUpperCase()}
+                      </span>
+                      <span className="min-w-0 pt-1 text-xs font-medium text-foreground">
+                        <span className="block truncate">{person.name || person.email}</span>
+                        {person.name && <span className="block truncate text-[10px] font-normal text-muted-foreground">{person.email}</span>}
+                      </span>
+                    </div>
+                    {weeklyAgendaDays.map((day) => {
+                      const entries = weeklyAgendaEntriesByCell.get(`${person.id}:${dateKey(day)}`) ?? [];
+                      const visibleEntries = entries.slice(0, 3);
+                      return (
+                        <div key={dateKey(day)} className="min-h-[92px] border-b border-l border-border p-2 dark:border-white/10">
+                          <div className="space-y-1">
+                            {visibleEntries.map((entry) => (
+                              <div
+                                key={entry.id}
+                                title={`${entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} ${entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}`}
+                                className="truncate rounded-md border border-primary/20 bg-primary/10 px-1.5 py-1 text-[10px] leading-4 text-foreground"
+                              >
+                                <span className="mr-1 font-semibold text-primary">
+                                  {entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)}
+                                </span>
+                                {entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}
+                              </div>
+                            ))}
+                            {entries.length > visibleEntries.length && (
+                              <p className="px-1 text-[10px] text-muted-foreground">
+                                {t("calendar.more", { count: entries.length - visibleEntries.length })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground dark:border-white/10">
+                {t("calendar.sharedAgendaEmpty")}
+              </div>
+            )}
+          </div>
+        </section>
 
         <section className="min-w-0 rounded-2xl p-4 glass sm:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -620,12 +835,20 @@ export default function CalendarPage() {
               const key = dateKey(day);
               const dayTasks = tasksByDay.get(key) ?? [];
               const dayEvents = eventsByDay.get(key) ?? [];
-              const totalDayItems = dayEvents.length + dayTasks.length;
+              const daySharedAgendaEntries = sharedAgendaByDay.get(key) ?? [];
+              const totalDayItems = dayEvents.length + daySharedAgendaEntries.length + dayTasks.length;
               const needsMoreIndicator = totalDayItems > DAY_CELL_VISIBLE_ITEM_LIMIT;
               const visibleItemSlots = needsMoreIndicator ? DAY_CELL_VISIBLE_ITEM_LIMIT - 1 : DAY_CELL_VISIBLE_ITEM_LIMIT;
               const visibleDayEvents = dayEvents.slice(0, visibleItemSlots);
-              const visibleDayTasks = dayTasks.slice(0, Math.max(visibleItemSlots - visibleDayEvents.length, 0));
-              const hiddenDayItems = totalDayItems - visibleDayEvents.length - visibleDayTasks.length;
+              const visibleDaySharedAgendaEntries = daySharedAgendaEntries.slice(
+                0,
+                Math.max(visibleItemSlots - visibleDayEvents.length, 0),
+              );
+              const visibleDayTasks = dayTasks.slice(
+                0,
+                Math.max(visibleItemSlots - visibleDayEvents.length - visibleDaySharedAgendaEntries.length, 0),
+              );
+              const hiddenDayItems = totalDayItems - visibleDayEvents.length - visibleDaySharedAgendaEntries.length - visibleDayTasks.length;
               return (
                 <button
                   key={key}
@@ -673,6 +896,20 @@ export default function CalendarPage() {
                         </div>
                       );
                     })}
+                    {visibleDaySharedAgendaEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        title={`${entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} ${entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setSelected(day);
+                        }}
+                        className="min-h-[15px] truncate rounded border-l-2 border-l-primary bg-primary/10 px-1 py-0.5 text-[9px] leading-none text-foreground"
+                      >
+                        <Cloud className="mr-0.5 inline h-2.5 w-2.5 text-primary" />
+                        {entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} {entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}
+                      </div>
+                    ))}
                     {visibleDayTasks.map((task) => (
                       <div
                         key={task.id}
@@ -868,6 +1105,36 @@ export default function CalendarPage() {
                       </li>
                     );
                   })}
+                </ul>
+              )}
+            </div>
+
+            <div className="mt-5 border-t border-border/60 pt-4 dark:border-white/5">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+                {t("calendar.sharedAgenda")}
+              </p>
+              {calendarIsLoading ? (
+                <p className="text-xs text-muted-foreground">{t("common.loading")}</p>
+              ) : selectedSharedAgendaEntries.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{t("calendar.sharedAgendaEmpty")}</p>
+              ) : (
+                <ul className="max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                  {selectedSharedAgendaEntries.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="flex items-start gap-2 rounded-lg border border-primary/15 bg-primary/5 px-3 py-2"
+                    >
+                      <Cloud className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium text-foreground">
+                          {entry.all_day ? t("calendar.sharedAgendaAllDay") : formatTime(entry.starts_at)} {entry.is_private ? t("calendar.sharedAgendaBusy") : entry.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                          {entry.user.name || entry.user.email}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
