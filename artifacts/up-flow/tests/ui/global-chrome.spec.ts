@@ -78,6 +78,7 @@ test.describe("Global chrome", () => {
     expect(created.ok()).toBeTruthy();
 
     await page.goto("/");
+    await page.getByRole("button", { name: "Show sidebar" }).click();
     const trigger = page.getByRole("button", { name: "Workspace options" });
     await expect(trigger).toBeVisible();
     await trigger.click();

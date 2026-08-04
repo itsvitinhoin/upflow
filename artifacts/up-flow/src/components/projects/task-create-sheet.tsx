@@ -30,13 +30,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { logError } from "@/lib/log-error";
 import {
@@ -377,16 +370,16 @@ export default function TaskCreateSheet({
 
   return (
     <>
-      <Sheet
+      <Dialog
         open={open}
         onOpenChange={(nextOpen) => {
           if (!nextOpen) requestClose();
         }}
       >
-        <SheetContent
+        <DialogContent
           data-task-create-sheet
-          side="right"
-          className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:w-[620px] sm:max-w-[620px] sm:p-0"
+          data-task-create-dialog
+          className="flex h-[min(760px,calc(100dvh-32px))] w-[calc(100vw-32px)] max-w-[680px] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-background p-0 shadow-2xl sm:max-w-[680px] sm:rounded-2xl sm:p-0"
           onPointerDownOutside={(event) => {
             if (submitting) event.preventDefault();
           }}
@@ -394,14 +387,14 @@ export default function TaskCreateSheet({
             if (submitting) event.preventDefault();
           }}
         >
-          <SheetHeader className="border-b border-border px-5 py-4 pr-12 text-left sm:px-6">
+          <DialogHeader className="border-b border-border px-5 py-4 pr-12 text-left sm:px-6">
             <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <ListTodo className="h-4 w-4" />
               {t("task.newTask")}
             </div>
-            <SheetTitle>{t("task.createTask")}</SheetTitle>
-            <SheetDescription>{t("task.createSheetDescription")}</SheetDescription>
-          </SheetHeader>
+            <DialogTitle>{t("task.createTask")}</DialogTitle>
+            <DialogDescription>{t("task.createSheetDescription")}</DialogDescription>
+          </DialogHeader>
 
           <form onSubmit={submit} noValidate className="flex min-h-0 flex-1 flex-col">
             <div data-task-create-scroll className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
@@ -652,8 +645,8 @@ export default function TaskCreateSheet({
               {announcement}
             </p>
           </form>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
         <DialogContent className="max-w-sm">

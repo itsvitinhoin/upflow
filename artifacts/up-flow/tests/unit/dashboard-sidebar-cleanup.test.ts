@@ -63,6 +63,21 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(panel, /PanelLeftClose/);
 });
 
+test("sidebar rail uses compact labeled navigation while keeping Spaces in an optional drawer", () => {
+  const sidebar = read("src/components/layout/sidebar.tsx");
+  const rail = read("src/components/layout/sidebar/rail.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
+
+  assert.match(sidebar, /useState\(false\)/);
+  assert.match(sidebar, /w-\[64px\]/);
+  assert.match(rail, /bg-\[#16132f\]/);
+  assert.match(rail, /min-h-\[48px\]/);
+  assert.match(rail, /sidebar-rail-item-label/);
+  assert.match(rail, /sidebar\.more/);
+  assert.match(translations, /"sidebar\.more": "More"/);
+  assert.match(translations, /"sidebar\.more": "Mais"/);
+});
+
 test("empty workspaces teach setup steps and permission boundaries", () => {
   const page = read("src/app/(dashboard)/page.tsx");
   const summaryRoute = read("src/app/api/dashboard/summary/route.ts");
