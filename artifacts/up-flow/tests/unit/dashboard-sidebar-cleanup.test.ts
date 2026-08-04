@@ -82,9 +82,15 @@ test("sidebar rail uses compact labeled navigation while keeping Spaces in an op
   assert.match(translations, /"sidebar\.show": "Show sidebar"/);
   assert.match(translations, /"sidebar\.show": "Mostrar sidebar"/);
 
+  const brandIndex = rail.indexOf('data-testid="sidebar-rail-brand"');
   const toggleIndex = rail.indexOf('data-testid="sidebar-panel-toggle"');
   const navigationIndex = rail.indexOf('data-testid="sidebar-rail-navigation"');
-  assert.ok(toggleIndex >= 0 && toggleIndex < navigationIndex);
+  assert.ok(
+    brandIndex >= 0 &&
+      brandIndex < toggleIndex &&
+      toggleIndex < navigationIndex,
+  );
+  assert.match(rail, /mt-1 flex h-8 w-full shrink-0 items-center justify-center/);
 });
 
 test("empty workspaces teach setup steps and permission boundaries", () => {
