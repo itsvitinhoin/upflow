@@ -43,10 +43,10 @@ export async function reconcileAcceptedWorkspaceInvites(workspaceId: string) {
             role: invite.role,
             status: "active",
           },
-          update: {
-            role: invite.role,
-            status: "active",
-          },
+          // An accepted invite can repair a missing membership, but it must
+          // never overwrite a later role or status change made by a workspace
+          // admin. This reconciliation runs whenever Team overview loads.
+          update: {},
         });
 
         if (!invite.accepted_by) {
