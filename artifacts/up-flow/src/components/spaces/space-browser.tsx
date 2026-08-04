@@ -13,6 +13,7 @@ export function BrowseTab({
   rootFolders,
   projects,
   focusedProjectId,
+  canManageStructure,
   onNewFolder,
   onNewList,
 }: {
@@ -20,6 +21,7 @@ export function BrowseTab({
   rootFolders: FolderT[];
   projects: ContainerList[];
   focusedProjectId?: string;
+  canManageStructure: boolean;
   onNewFolder: () => void;
   onNewList: () => void;
 }) {
@@ -35,22 +37,24 @@ export function BrowseTab({
         <p className="mt-2 text-sm text-muted-foreground">
           {t("space.emptyBody")}
         </p>
-        <div className="mt-5 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={onNewFolder}
-            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-foreground hover:bg-white/10"
-          >
-            <FolderPlus className="h-4 w-4" />
-            {t("folder.newFolder")}
-          </button>
-          <button
-            onClick={onNewList}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            <ListPlus className="h-4 w-4" />
-            {t("folder.newList")}
-          </button>
-        </div>
+        {canManageStructure && (
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <button
+              onClick={onNewFolder}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm font-medium text-foreground hover:bg-white/10"
+            >
+              <FolderPlus className="h-4 w-4" />
+              {t("folder.newFolder")}
+            </button>
+            <button
+              onClick={onNewList}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            >
+              <ListPlus className="h-4 w-4" />
+              {t("folder.newList")}
+            </button>
+          </div>
+        )}
       </section>
     );
   }

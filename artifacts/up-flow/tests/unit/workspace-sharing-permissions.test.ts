@@ -53,6 +53,7 @@ test("members can contribute to project tasks while guests remain view-only else
   const commentsRoute = read("src/app/api/comments/route.ts");
   const docsRoute = read("src/app/api/docs/route.ts");
   const calendarRoute = read("src/app/api/calendar/events/route.ts");
+  const calendarEventDetail = read("src/app/api/calendar/events/event-detail.ts");
   const companiesRoute = read("src/app/api/companies/route.ts");
   const companyNotesRoute = read("src/app/api/companies/[id]/notes/route.ts");
   const companyContactsRoute = read("src/app/api/companies/[id]/contacts/route.ts");
@@ -62,6 +63,8 @@ test("members can contribute to project tasks while guests remain view-only else
   const uploadRoute = read("src/app/api/uploads/task-cover/route.ts");
   const sidebarPanel = read("src/components/layout/sidebar/panel.tsx");
   const header = read("src/components/layout/header.tsx");
+  const spacePage = read("src/app/(dashboard)/spaces/[id]/page.tsx");
+  const spaceBrowser = read("src/components/spaces/space-browser.tsx");
 
   assert.match(projectAccess, /return canAccessWorkspace\(auth, project\.workspace_id\)/);
   assert.match(projectAccess, /isWorkspaceAdminFor\(auth, project\.workspace_id\)/);
@@ -86,6 +89,10 @@ test("members can contribute to project tasks while guests remain view-only else
   assert.match(tasksRoute, /canContributeToProject\(auth,\s*project\)/);
   assert.match(commentsRoute, /canContributeToProject\(auth,\s*task\.project\)/);
   assert.doesNotMatch(commentsRoute, /isWorkspaceAdminFor\(auth,/);
+  assert.match(calendarEventDetail, /role:\s*\{\s*not:\s*"guest"\s*\}/);
+  assert.match(calendarEventDetail, /if \(!membership\) return false;/);
+  assert.match(calendarEventDetail, /event\.created_by === auth\.prismaUser\.id[\s\S]*membership\.role === "owner"/);
+  assert.match(calendarRoute, /const canCreateLinkedSchedule = Boolean\(\s*canCreateWorkspaceEvent/s);
   assert.match(projectsRoute, /member\?\.status === "active" && member\.role !== "guest"/);
   assert.doesNotMatch(projectsRoute, /isCommercialDepartmentName/);
   assert.match(projectDirectoryRoute, /member\?\.status === "active" && member\.role !== "guest"/);
@@ -95,4 +102,8 @@ test("members can contribute to project tasks while guests remain view-only else
 
   assert.match(sidebarPanel, /canManageWorkspace/);
   assert.match(header, /currentRole === "member"/);
+  assert.match(spacePage, /\{canManageWorkspace && \(\s*<>\s*<button\s+onClick=\{\(\) => setShowNewFolder\(true\)\}/s);
+  assert.match(spacePage, /canManageStructure=\{canManageWorkspace\}/);
+  assert.match(spaceBrowser, /canManageStructure: boolean;/);
+  assert.match(spaceBrowser, /\{canManageStructure && \(\s*<div className="mt-5 flex flex-wrap justify-center gap-2">/s);
 });

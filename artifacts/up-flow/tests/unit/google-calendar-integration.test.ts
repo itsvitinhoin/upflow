@@ -475,10 +475,14 @@ test("cancellation and deletion persist provider deletion tombstones before loca
     /export async function deleteCalendarEventWithGoogleTombstones\(eventId: string\)[\s\S]*?prisma\.\$transaction\(async \(tx\) => \{[\s\S]*?queueGoogleCalendarEventDeletionInTransaction\(tx, eventId\)[\s\S]*?await tx\.googleCalendarSyncJob\.deleteMany\(\{[\s\S]*?event_id: eventId,[\s\S]*?operation: "upsert",[\s\S]*?\}\);[\s\S]*?await tx\.calendarEvent\.delete\(\{ where: \{ id: eventId \} \}\)/,
   );
 
-  const deletionStart = source.indexOf(
+  const normalizedSource = source.replace(/\r\n/g, "\n");
+  const deletionStart = normalizedSource.indexOf(
     "export async function deleteCalendarEventWithGoogleTombstones",
   );
-  const deletionFunction = source.slice(deletionStart, source.indexOf("\n}\n\n/**", deletionStart));
+  const deletionFunction = normalizedSource.slice(
+    deletionStart,
+    normalizedSource.indexOf("\n}\n\n/**", deletionStart),
+  );
   const tombstoneQueue = "queueGoogleCalendarEventDeletionInTransaction(tx, eventId)";
   const upsertRemoval = "await tx.googleCalendarSyncJob.deleteMany({";
   const localDelete = "await tx.calendarEvent.delete({ where: { id: eventId } })";

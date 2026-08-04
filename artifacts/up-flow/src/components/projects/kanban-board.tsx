@@ -224,6 +224,7 @@ export default function KanbanBoard({
   }, [boardColumns, boardStatusField, tasks, toolbar]);
 
   const deleteTask = async (taskId: string) => {
+    if (!canCreate) return;
     if (!confirm(t("task.deleteConfirm"))) return;
     try {
       const res = await fetch(`/api/tasks/${taskId}`, { method: "DELETE" });
@@ -239,11 +240,12 @@ export default function KanbanBoard({
   };
 
   const handleDragStart = () => {
+    if (!canCreate) return;
     isDraggingRef.current = true;
   };
 
   const openTask = (task: Task) => {
-    if (onOpenTask) {
+    if (canCreate && onOpenTask) {
       onOpenTask(task);
       return;
     }
@@ -258,6 +260,7 @@ export default function KanbanBoard({
     taskStatusForTaskBoardOption(boardStatus, columnKey);
 
   const addTaskToColumn = (columnKey: string) => {
+    if (!canCreate) return;
     if (boardStatusField) {
       onAddTask(
         taskStatusForBoardColumn(columnKey) ?? "todo",
@@ -282,6 +285,7 @@ export default function KanbanBoard({
     setTimeout(() => {
       isDraggingRef.current = false;
     }, 0);
+    if (!canCreate) return;
     const { source, destination, draggableId } = result;
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index)
@@ -409,7 +413,7 @@ export default function KanbanBoard({
           )}
         >
           {boardColumns.map(({ key, label, color, hex }, columnIndex) => (
-            <Droppable key={key} droppableId={key}>
+            <Droppable key={key} droppableId={key} isDropDisabled={!canCreate}>
               {(provided, snapshot) => {
                 const columnTasks = columns[key] ?? [];
                 const displayLabel = isColumnKey(key) ? columnLabel(key, label, t) : label;
@@ -494,7 +498,7 @@ export default function KanbanBoard({
                           key={task.id}
                           draggableId={task.id}
                           index={index}
-                          isDragDisabled={selectionMode}
+                          isDragDisabled={!canCreate || selectionMode}
                         >
                           {(provided, snapshot) => {
                             const { style: draggableStyle, ...draggableProps } =
@@ -533,16 +537,18 @@ export default function KanbanBoard({
                                   >
                                     <MoreHorizontal className="w-3 h-3" />
                                   </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteTask(task.id);
-                                    }}
-                                    className="rounded p-1 text-muted-foreground hover:text-destructive"
-                                    title={t("common.delete")}
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                                  {canCreate && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteTask(task.id);
+                                      }}
+                                      className="rounded p-1 text-muted-foreground hover:text-destructive"
+                                      title={t("common.delete")}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                               {coverImageUrl && (
@@ -711,7 +717,7 @@ export default function KanbanBoard({
         </div>
       </DragDropContext>
 
-      {selectedTask?.marketing_b2b_onboarding_form ? (
+      {canCreate && selectedTask?.marketing_b2b_onboarding_form ? (
         <MarketingB2BOnboardingForm
           taskId={selectedTask.id}
           onClose={() => setSelectedTask(null)}
@@ -724,7 +730,7 @@ export default function KanbanBoard({
             onUpdate();
           }}
         />
-      ) : selectedTask?.marketing_b2c_onboarding_form ? (
+      ) : canCreate && selectedTask?.marketing_b2c_onboarding_form ? (
         <MarketingB2COnboardingForm
           taskId={selectedTask.id}
           onClose={() => setSelectedTask(null)}
@@ -740,6 +746,7 @@ export default function KanbanBoard({
           customFields={customFields}
           workflowStatuses={workflowStatuses}
           spaceId={spaceId}
+          canContribute={canCreate}
           onChanged={onUpdate}
           onClose={() => setSelectedTask(null)}
           onUpdate={() => {

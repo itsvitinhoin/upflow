@@ -12,6 +12,26 @@ type ProjectAccessTarget = {
   owner_id?: string | null;
 };
 
+/**
+ * Project contributor lists are an access-control boundary, so their
+ * management stays with workspace administrators and active, non-guest
+ * project owners. A user may still appear as the persisted owner after
+ * their workspace role changes; that must not let a guest manage access.
+ */
+export function canManageProjectMembers(
+  auth: AuthUser,
+  project: ProjectAccessTarget,
+): boolean {
+  if (isWorkspaceAdminFor(auth, project.workspace_id)) return true;
+  if (project.owner_id !== auth.prismaUser.id) return false;
+
+  return auth.memberships.some(
+    (membership) =>
+      membership.workspace_id === project.workspace_id &&
+      membership.role !== "guest",
+  );
+}
+
 export function readableProjectWhere(
   auth: AuthUser,
   workspaceId: string,

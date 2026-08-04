@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, FileText, Trash2, X, CheckSquare2, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Trash2, X, CheckSquare2, Loader2, UsersRound } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/layout/header";
 import { useLanguage } from "@/components/language-provider";
@@ -12,6 +12,7 @@ import KanbanBoard, { type ColumnKey } from "@/components/projects/kanban-board"
 import ListView from "@/components/projects/list-view";
 import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import CustomFieldsManager from "@/components/projects/custom-fields-manager";
+import ProjectMembersDialog from "@/components/projects/project-members-dialog";
 import ProjectToolbar, { type ToolbarState } from "@/components/projects/project-toolbar";
 import TaskDetailSheet from "@/components/projects/task-detail-sheet";
 import CreativeBriefingForm from "@/components/projects/creative-briefing-form";
@@ -107,12 +108,14 @@ export default function ProjectPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState<CreateTaskDefaults | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [manageMembersOpen, setManageMembersOpen] = useState(false);
   const [manageSpaceStatusesOpen, setManageSpaceStatusesOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [deletingSelectedTasks, setDeletingSelectedTasks] = useState(false);
   const [toolbar, setToolbar] = useState<ToolbarState>(DEFAULT_TOOLBAR);
+  const canCreateTasks = Boolean(project?.capabilities?.canContribute);
 
   const loadData = async () => {
     try {
@@ -163,20 +166,20 @@ export default function ProjectPage() {
     const task = tasks.find((item) => item.id === focusedTaskId);
     if (!task) return;
     const action = getOnboardingTaskAction(task, id);
-    if (action?.kind === "form") {
+    if (action?.kind === "form" && canCreateTasks) {
       setSelectedTask(null);
       if (viewParam !== "form") {
         router.replace(action.href, { scroll: false });
       }
       return;
     }
-    if (action) {
+    if (action && action.kind !== "form") {
       setSelectedTask(null);
       router.replace(action.href, { scroll: false });
       return;
     }
     setSelectedTask(task);
-  }, [focusedTaskId, id, loading, router, tasks, viewParam]);
+  }, [canCreateTasks, focusedTaskId, id, loading, router, tasks, viewParam]);
 
   useEffect(() => {
     const liveTaskIds = new Set(tasks.map((task) => task.id));
@@ -205,7 +208,7 @@ export default function ProjectPage() {
         ? "board"
         : "form";
   const showWorkflowFormFirst = Boolean(
-    workflowFormTask && currentWorkflowKind && workflowView === "form",
+    canCreateTasks && workflowFormTask && currentWorkflowKind && workflowView === "form",
   );
   const isDesignQueue = isDesignQueueProject(project);
   const isSocialMedia = isSocialMediaProject(project);
@@ -242,7 +245,7 @@ export default function ProjectPage() {
   }, [me]);
 
   useEffect(() => {
-    if (workflowFormTaskId && currentWorkflowKind) {
+    if (canCreateTasks && workflowFormTaskId && currentWorkflowKind) {
       setToolbar((current) =>
         current.view === workflowView ? current : { ...current, view: workflowView },
       );
@@ -259,18 +262,7 @@ export default function ProjectPage() {
     setToolbar((current) =>
       current.view === requestedView ? current : { ...current, view: requestedView },
     );
-  }, [currentWorkflowKind, isDesignQueue, viewParam, workflowFormTaskId, workflowView]);
-
-
-  const canCreateTasks = useMemo(() => {
-    if (!me) return false;
-    return Boolean(
-      me.isSuperAdmin ||
-        me.currentRole === "owner" ||
-        me.currentRole === "admin" ||
-        me.currentRole === "member",
-    );
-  }, [me]);
+  }, [canCreateTasks, currentWorkflowKind, isDesignQueue, viewParam, workflowFormTaskId, workflowView]);
 
   if (loading) {
     return (
@@ -290,13 +282,14 @@ export default function ProjectPage() {
   const progress = tasks.length > 0 ? Math.round((doneTasks / tasks.length) * 100) : 0;
 
   const handleAddTask = (status?: string) => {
+    if (!canCreateTasks) return;
     const s = (status === "in_progress" || status === "done" ? status : "todo") as ColumnKey;
     setCreateOpen({ status: s });
   };
 
   const handleOpenTask = (task: Task) => {
     const action = getOnboardingTaskAction(task, id);
-    if (action) {
+    if (action && (action.kind !== "form" || canCreateTasks)) {
       setSelectedTask(null);
       router.replace(action.href, { scroll: false });
       return;
@@ -306,7 +299,7 @@ export default function ProjectPage() {
 
   const handleToolbarChange = (next: ToolbarState) => {
     setToolbar(next);
-    if (workflowFormTask && currentWorkflowKind && next.view !== toolbar.view) {
+    if (canCreateTasks && workflowFormTask && currentWorkflowKind && next.view !== toolbar.view) {
       const view = next.view === "board" ? "kanban" : next.view;
       const task = next.view === "form" ? `&task=${workflowFormTask.id}` : "";
       router.replace(`/projects/${id}?view=${view}${task}`, { scroll: false });
@@ -343,7 +336,7 @@ export default function ProjectPage() {
   };
 
   const handleDeleteSelectedTasks = async () => {
-    if (selectedTaskIds.length === 0 || deletingSelectedTasks) return;
+    if (!canCreateTasks || selectedTaskIds.length === 0 || deletingSelectedTasks) return;
     if (!confirm(t("task.bulkDeleteConfirm", { count: selectedTaskIds.length }))) return;
     const idsToDelete = [...selectedTaskIds];
     setDeletingSelectedTasks(true);
@@ -430,6 +423,15 @@ export default function ProjectPage() {
               >
                 <FileText className="w-4 h-4" /> {t("projects.docs")}
               </Link>
+              {project.capabilities?.canManageMembers && (
+                <button
+                  type="button"
+                  onClick={() => setManageMembersOpen(true)}
+                  className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-sm transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+                >
+                  <UsersRound className="w-4 h-4" /> {t("projects.manageContributors")}
+                </button>
+              )}
               {canCreateTasks && (
                 <button
                   onClick={() => setCreateOpen({ status: "todo" })}
@@ -443,7 +445,16 @@ export default function ProjectPage() {
           </div>
         </div>
 
-        {workflowFormTask && currentWorkflowKind && (
+        {!canCreateTasks && (
+          <div
+            role="status"
+            className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
+          >
+            {t("projects.contributorAccessRequired")}
+          </div>
+        )}
+
+        {canCreateTasks && workflowFormTask && currentWorkflowKind && (
           <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70">
             <button
               type="button"
@@ -496,6 +507,7 @@ export default function ProjectPage() {
             users={users}
             onOpenTask={handleOpenTask}
             onRefresh={loadData}
+            canContribute={canCreateTasks}
           />
         ) : showWorkflowFormFirst && workflowFormTask && currentWorkflowKind ? (
           currentWorkflowKind === "finance" ? (
@@ -509,7 +521,7 @@ export default function ProjectPage() {
               taskId={workflowFormTask.id}
               embedded
               onClose={() => router.replace(`/projects/${id}?view=kanban`, { scroll: false })}
-              onAddTask={() => setCreateOpen({ status: "todo" })}
+              onAddTask={() => canCreateTasks && setCreateOpen({ status: "todo" })}
               onUpdate={loadData}
             />
           )
@@ -526,6 +538,7 @@ export default function ProjectPage() {
                   : undefined
               }
               canManage={canManageFields}
+              canContribute={canCreateTasks}
               users={users}
               selectionMode={selectionMode}
               selectedCount={selectedTaskIds.length}
@@ -533,7 +546,7 @@ export default function ProjectPage() {
               enableForms={isDesignQueue}
             />
 
-            {toolbar.view !== "form" && selectionMode && (
+            {toolbar.view !== "form" && selectionMode && canCreateTasks && (
               <div className="mb-3 flex flex-col gap-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-sm font-semibold text-foreground">
                   {t("task.bulkSelected", { count: selectedTaskIds.length })}
@@ -595,7 +608,9 @@ export default function ProjectPage() {
                 users={users}
                 toolbar={toolbar}
                 onUpdate={loadData}
-                onAddTask={(status, fieldValues) => setCreateOpen({ status, fieldValues })}
+                onAddTask={(status, fieldValues) => {
+                  if (canCreateTasks) setCreateOpen({ status, fieldValues });
+                }}
                 canCreate={canCreateTasks}
                 onOpenTask={handleOpenTask}
                 selectedTaskIds={selectedTaskIdSet}
@@ -647,6 +662,15 @@ export default function ProjectPage() {
         />
       )}
 
+      {manageMembersOpen && (
+        <ProjectMembersDialog
+          open={manageMembersOpen}
+          projectId={id}
+          onClose={() => setManageMembersOpen(false)}
+          onChanged={loadData}
+        />
+      )}
+
       {project.space_id && canManageFields && (
         <SpaceWorkflowStatusManager
           open={manageSpaceStatusesOpen}
@@ -656,7 +680,7 @@ export default function ProjectPage() {
         />
       )}
 
-      {selectedTask && workflowFormKind(selectedTask) ? (
+      {selectedTask && canCreateTasks && workflowFormKind(selectedTask) ? (
         workflowFormKind(selectedTask) === "finance" ? (
           <FinanceOnboardingForm
             taskId={selectedTask.id}
@@ -721,6 +745,7 @@ export default function ProjectPage() {
           customFields={customFields}
           workflowStatuses={workflowStatuses}
           spaceId={project.space_id}
+          canContribute={canCreateTasks}
           onChanged={loadData}
           onClose={() => {
             setSelectedTask(null);

@@ -150,15 +150,16 @@ async function POST_handler(req: NextRequest) {
   );
 
   const admin = isWorkspaceAdminFor(auth, auth.currentWorkspaceId);
+  const canCreateWorkspaceEvent = await canCreateCalendarEvent(auth, auth.currentWorkspaceId);
   const canCreateLinkedSchedule = Boolean(
-    linkedTask &&
+    canCreateWorkspaceEvent &&
+      linkedTask &&
       linkedSchedulingItem &&
       isLinkedSchedulingItem &&
       (linkedTask.assignee_id === auth.prismaUser.id ||
         linkedTask.project.owner_id === auth.prismaUser.id ||
         linkedSchedulingItem.owner_id === auth.prismaUser.id),
   );
-  const canCreateWorkspaceEvent = await canCreateCalendarEvent(auth, auth.currentWorkspaceId);
   if (!canCreateWorkspaceEvent && !canCreateLinkedSchedule) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

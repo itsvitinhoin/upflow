@@ -36,10 +36,10 @@ test("restricted users are shown an explanation instead of rejected client and u
   assert.match(clientDetailPage, /canManageClient && editingContact\?\.id/);
   assert.match(clientDetailPage, /canManageClient && editingNote\?\.id/);
   assert.match(clientDetailPage, /canManageClient \? \(\s*<NewProjectDialog/s);
-  assert.match(taskCoverControl, /hasWorkspaceAdminAccess\(user\)/);
+  assert.doesNotMatch(taskCoverControl, /hasWorkspaceAdminAccess\(user\)/);
   assert.match(taskCoverControl, /canUploadTaskCover \? \(/);
-  assert.match(taskCoverControl, /data-testid="task-cover-upload-restricted"/);
-  assert.match(taskCoverControl, /taskCover\.uploadRestricted/);
+  assert.match(taskCoverControl, /data-testid="task-cover-upload-requires-project"/);
+  assert.match(taskCoverControl, /taskCover\.projectRequired/);
   assert.match(timePage, /hasWorkspaceAdminAccess\(user\)/);
   assert.match(timePage, /canManageTime \? \(/);
   assert.match(timePage, /data-testid="time-tracking-read-only"/);

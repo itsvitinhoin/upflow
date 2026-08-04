@@ -15,7 +15,8 @@ test("task dependency APIs are workspace scoped, cycle safe, and activity tracke
   const taskRoute = read("src/app/api/tasks/[id]/route.ts");
 
   assert.match(collectionRoute, /canAccessWorkspace/);
-  assert.match(collectionRoute, /isWorkspaceAdminFor/);
+  assert.match(collectionRoute, /canContributeToProject/);
+  assert.match(itemRoute, /canContributeToProject/);
   assert.match(collectionRoute, /createsCycle/);
   assert.match(collectionRoute, /frontier/);
   assert.doesNotMatch(collectionRoute, /take:\s*5000/);

@@ -63,7 +63,6 @@ export async function canManageCalendarEvent(
   auth: AuthUser,
   event: { workspace_id: string; created_by: string },
 ) {
-  if (event.created_by === auth.prismaUser.id) return true;
   if (isWorkspaceAdminFor(auth, event.workspace_id)) return true;
 
   const membership = await prisma.workspaceMember.findFirst({
@@ -71,11 +70,17 @@ export async function canManageCalendarEvent(
       workspace_id: event.workspace_id,
       user_id: auth.prismaUser.id,
       status: "active",
-      role: { in: ["owner", "admin"] },
+      role: { not: "guest" },
     },
-    select: { id: true },
+    select: { role: true },
   });
-  return Boolean(membership);
+  if (!membership) return false;
+
+  return (
+    event.created_by === auth.prismaUser.id ||
+    membership.role === "owner" ||
+    membership.role === "admin"
+  );
 }
 
 export async function validateCalendarEventRelations(input: {

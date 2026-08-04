@@ -54,6 +54,10 @@ export interface Project {
   } | null;
   _count: { tasks: number };
   pending_todo_count?: number;
+  capabilities?: {
+    canContribute: boolean;
+    canManageMembers: boolean;
+  };
 }
 
 export interface Space {

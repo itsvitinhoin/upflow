@@ -7,7 +7,11 @@ import {
 import { requireAuth } from "@/lib/auth-response";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import { parseAppDate } from "@/lib/utils";
-import { canReadProject } from "@/lib/project-access";
+import {
+  canContributeToProject,
+  canManageProjectMembers,
+  canReadProject,
+} from "@/lib/project-access";
 import { deleteProjectsByIds, findActiveOnboardingProject } from "@/lib/project-delete";
 import { isProtectedDesignQueue } from "@/lib/system-projects";
 import { z } from "zod";
@@ -58,7 +62,14 @@ async function GET_handler(
   if (!(await canReadProject(auth, project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  return NextResponse.json(project);
+
+  return NextResponse.json({
+    ...project,
+    capabilities: {
+      canContribute: await canContributeToProject(auth, project),
+      canManageMembers: canManageProjectMembers(auth, project),
+    },
+  });
 }
 
 async function PATCH_handler(
