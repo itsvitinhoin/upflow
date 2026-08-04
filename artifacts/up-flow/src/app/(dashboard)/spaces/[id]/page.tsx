@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { notFound, useParams, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
   AlertCircle,
@@ -12,6 +12,7 @@ import {
   Folder,
   FolderKanban,
   FolderPlus,
+  FileText,
   ListPlus,
   Plus,
   RefreshCcw,
@@ -32,6 +33,7 @@ import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import { BrowseTab, ContainerSkeleton, DashboardSkeleton } from "@/components/spaces/space-browser";
 import { CommercialOperationsHub } from "@/components/spaces/commercial-operations-hub";
 import { SpaceDashboardDrawer } from "@/components/spaces/space-dashboard-drawer";
+import { SpaceDocsTab } from "@/components/spaces/space-docs-tab";
 import {
   CommandTile,
   HeroMetric,
@@ -54,10 +56,17 @@ import {
 } from "@/components/spaces/space-dashboard-utils";
 import type { SpaceContainerData, SpaceDashboardData, SpaceTab } from "@/components/spaces/space-page-types";
 
+const SPACE_TABS: SpaceTab[] = ["dashboard", "browse", "docs"];
+
+function getSpaceTabId(tab: SpaceTab) {
+  return tab === "docs" ? "space-docs-tab-button" : `space-${tab}-tab`;
+}
+
 export default function SpaceContainerPage() {
   const { t } = useLanguage();
   const user = useAppUser();
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const id = (params?.id ?? "") as string;
   const tabParam = searchParams?.get("tab") ?? "";
@@ -69,6 +78,7 @@ export default function SpaceContainerPage() {
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
+  const [docsRefreshKey, setDocsRefreshKey] = useState(0);
   const [notFoundState, setNotFoundState] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewList, setShowNewList] = useState(false);
@@ -135,6 +145,7 @@ export default function SpaceContainerPage() {
     window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
     loadContainer({ silent: true });
     loadDashboard({ silent: true });
+    setDocsRefreshKey((current) => current + 1);
   };
 
   useEffect(() => {
@@ -145,8 +156,48 @@ export default function SpaceContainerPage() {
   }, [id]);
 
   useEffect(() => {
-    setActiveTab(tabParam === "browse" || focusedListId ? "browse" : "dashboard");
+    setActiveTab(
+      focusedListId || tabParam === "browse"
+        ? "browse"
+        : tabParam === "docs"
+          ? "docs"
+          : "dashboard",
+    );
   }, [focusedListId, id, tabParam]);
+
+  const selectTab = (nextTab: SpaceTab) => {
+    setActiveTab(nextTab);
+    const nextParams = new URLSearchParams(searchParams?.toString() ?? "");
+    if (nextTab === "dashboard") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", nextTab);
+    }
+    if (nextTab !== "browse") nextParams.delete("list");
+
+    const query = nextParams.toString();
+    router.replace(query ? `/spaces/${id}?${query}` : `/spaces/${id}`, { scroll: false });
+  };
+
+  const handleTabKeyDown = (
+    event: KeyboardEvent<HTMLButtonElement>,
+    currentTab: SpaceTab,
+  ) => {
+    const currentIndex = SPACE_TABS.indexOf(currentTab);
+    let nextIndex = currentIndex;
+
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % SPACE_TABS.length;
+    else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + SPACE_TABS.length) % SPACE_TABS.length;
+    } else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = SPACE_TABS.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextTab = SPACE_TABS[nextIndex];
+    selectTab(nextTab);
+    window.requestAnimationFrame(() => document.getElementById(getSpaceTabId(nextTab))?.focus());
+  };
 
   useEffect(() => {
     if (
@@ -260,71 +311,82 @@ export default function SpaceContainerPage() {
   const departmentTheme = getDepartmentDashboardTheme(departmentPreset?.department_key);
   const workspaceName = space.workspace?.name ?? t("invite.currentWorkspace");
   const canShareWorkspace = canManageWorkspace;
+  const isDocsTab = activeTab === "docs";
 
   return (
     <>
       <Header title={space.name} />
-      <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
+      <div className={cn("overflow-x-hidden p-4 sm:p-6", isDocsTab ? "space-y-4" : "space-y-6")}>
         <section
           className={cn(
-            "relative overflow-hidden rounded-xl border p-5 shadow-sm",
+            "relative overflow-hidden rounded-xl border shadow-sm",
+            isDocsTab ? "p-4" : "p-5",
             departmentTheme.container,
           )}
         >
           <div className={cn("absolute inset-x-0 top-0 h-1", departmentTheme.accent)} />
 
           <div className="relative flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4 min-w-0">
+            <div className={cn("flex items-start min-w-0", isDocsTab ? "gap-3" : "gap-4")}>
               <div
                 className={cn(
-                  "flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border text-2xl shadow-sm",
+                  "flex flex-shrink-0 items-center justify-center rounded-xl border shadow-sm",
+                  isDocsTab ? "h-10 w-10 text-lg" : "h-14 w-14 text-2xl",
                   departmentTheme.icon,
                 )}
               >
-                {departmentPreset?.emoji ?? <Folder className="h-7 w-7" />}
+                {departmentPreset?.emoji ?? <Folder className={isDocsTab ? "h-5 w-5" : "h-7 w-7"} />}
               </div>
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
-                      departmentTheme.badge,
-                    )}
-                  >
-                    {t("space.departmentDashboard")}
-                  </span>
-                  {departmentPreset && (
-                    <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                      {t("space.templateLabel").replace(
-                        "{template}",
-                        departmentPreset.default_task_template_id.replace("_", " "),
+                {!isDocsTab && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]",
+                        departmentTheme.badge,
                       )}
+                    >
+                      {t("space.departmentDashboard")}
                     </span>
-                  )}
-                </div>
-                <h2 className="mt-3 truncate text-2xl font-bold text-foreground sm:text-3xl">
+                    {departmentPreset && (
+                      <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                        {t("space.templateLabel").replace(
+                          "{template}",
+                          departmentPreset.default_task_template_id.replace("_", " "),
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <h2 className={cn(
+                  "truncate font-bold text-foreground",
+                  isDocsTab ? "text-lg" : "mt-3 text-2xl sm:text-3xl",
+                )}>
                   {space.name}
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-                  {departmentPreset?.description ??
-                    t("space.commandCenterFallback", {
-                      icon: space.icon || t("space.defaultIcon"),
-                    })}
-                </p>
+                {!isDocsTab && (
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                    {departmentPreset?.description ??
+                      t("space.commandCenterFallback", {
+                        icon: space.icon || t("space.defaultIcon"),
+                      })}
+                  </p>
+                )}
               </div>
             </div>
-            <div className="relative flex flex-wrap items-center gap-2">
-              {canShareWorkspace && (
-                <button
-                  onClick={() => setShowInvite(true)}
-                  className="inline-flex items-center gap-2 border border-blue-300/20 bg-blue-500/10 text-blue-100 hover:border-blue-300/40 hover:bg-blue-500/15 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  {t("space.shareSpace")}
-                </button>
-              )}
-              {canManageWorkspace && (
-                <>
+            {!isDocsTab && (
+              <div className="relative flex flex-wrap items-center gap-2">
+                {canShareWorkspace && (
+                  <button
+                    onClick={() => setShowInvite(true)}
+                    className="inline-flex items-center gap-2 border border-blue-300/20 bg-blue-500/10 text-blue-100 hover:border-blue-300/40 hover:bg-blue-500/15 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    {t("space.shareSpace")}
+                  </button>
+                )}
+                {canManageWorkspace && (
+                  <>
                   <button
                     onClick={() => setShowNewFolder(true)}
                     className="inline-flex items-center gap-2 border border-white/10 text-foreground hover:bg-white/10 text-sm font-medium px-4 py-2 rounded-lg transition-colors"
@@ -339,20 +401,47 @@ export default function SpaceContainerPage() {
                     <ListPlus className="w-4 h-4" />
                     {t("folder.newList")}
                   </button>
-                </>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
-          <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="inline-flex rounded-lg border border-white/10 bg-black/20 p-1">
-            <TabButton active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")}>
-              {t("space.dashboardTab")}
-            </TabButton>
-            <TabButton active={activeTab === "browse"} onClick={() => setActiveTab("browse")}>
-              {t("space.browseTab")}
-            </TabButton>
+          <div className={cn("relative flex flex-wrap items-center justify-between gap-3", isDocsTab ? "mt-4" : "mt-6")}>
+            <div
+              role="tablist"
+              aria-label={t("space.views")}
+              className="inline-flex rounded-lg border border-white/10 bg-black/20 p-1"
+            >
+              <TabButton
+                active={activeTab === "dashboard"}
+                onClick={() => selectTab("dashboard")}
+                id="space-dashboard-tab"
+                panelId="space-dashboard-panel"
+                onKeyDown={(event) => handleTabKeyDown(event, "dashboard")}
+              >
+                {t("space.dashboardTab")}
+              </TabButton>
+              <TabButton
+                active={activeTab === "browse"}
+                onClick={() => selectTab("browse")}
+                id="space-browse-tab"
+                panelId="space-browse-panel"
+                onKeyDown={(event) => handleTabKeyDown(event, "browse")}
+              >
+                {t("space.browseTab")}
+              </TabButton>
+              <TabButton
+                active={activeTab === "docs"}
+                onClick={() => selectTab("docs")}
+                id="space-docs-tab-button"
+                panelId="space-docs-panel"
+                onKeyDown={(event) => handleTabKeyDown(event, "docs")}
+              >
+                <FileText className="h-4 w-4" />
+                {t("space.docsTab")}
+              </TabButton>
             </div>
-            {departmentPreset && (
+            {!isDocsTab && departmentPreset && (
               <p className="text-xs text-muted-foreground">
                 {t("space.starterLists").replace(
                   "{lists}",
@@ -361,54 +450,70 @@ export default function SpaceContainerPage() {
               </p>
             )}
           </div>
-          <div className="relative mt-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/65">
-                  {t("space.accessTitle")}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("space.accessDescription", { workspace: workspaceName })}
-                </p>
+          {!isDocsTab && (
+            <div className="relative mt-4 rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-100/65">
+                    {t("space.accessTitle")}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("space.accessDescription", { workspace: workspaceName })}
+                  </p>
+                </div>
+                {canShareWorkspace && (
+                  <button
+                    type="button"
+                    onClick={() => setShowInvite(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-blue-300/20 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-white"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                    {t("space.manageAccess")}
+                  </button>
+                )}
               </div>
-              {canShareWorkspace && (
-                <button
-                  type="button"
-                  onClick={() => setShowInvite(true)}
-                  className="inline-flex items-center gap-2 rounded-lg border border-blue-300/20 px-3 py-2 text-xs font-semibold text-blue-100 transition hover:border-blue-300/40 hover:bg-blue-500/10 hover:text-white"
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  {t("space.manageAccess")}
-                </button>
-              )}
             </div>
-          </div>
+          )}
         </section>
 
-        {activeTab === "dashboard" ? (
-          <SpaceDashboard
-            data={dashboard}
-            loading={dashboardLoading}
-            error={dashboardError}
-            updatingTask={updatingTask}
-            onRetry={loadDashboard}
-            onOpenDrawer={setDrawer}
-            onCreateTask={canCreateWorkspaceWork ? openTaskCreate : undefined}
-            onCreateMeeting={canCreateWorkspaceWork ? openMeetingCreate : undefined}
-            onCreateProject={canCreateWorkspaceWork ? () => setShowNewProject(true) : undefined}
-            onTaskStatusChange={updateTaskStatus}
-          />
-        ) : (
-          <BrowseTab
-            empty={empty}
-            rootFolders={rootFolders}
-            projects={projects}
-            focusedProjectId={focusedListId}
-            canManageStructure={canManageWorkspace}
-            onNewFolder={() => setShowNewFolder(true)}
-            onNewList={() => setShowNewList(true)}
-          />
-        )}
+        <div
+          role="tabpanel"
+          id={`space-${activeTab}-panel`}
+          aria-labelledby={getSpaceTabId(activeTab)}
+          tabIndex={0}
+        >
+          {activeTab === "dashboard" ? (
+            <SpaceDashboard
+              data={dashboard}
+              loading={dashboardLoading}
+              error={dashboardError}
+              updatingTask={updatingTask}
+              onRetry={loadDashboard}
+              onOpenDrawer={setDrawer}
+              onCreateTask={canCreateWorkspaceWork ? openTaskCreate : undefined}
+              onCreateMeeting={canCreateWorkspaceWork ? openMeetingCreate : undefined}
+              onCreateProject={canCreateWorkspaceWork ? () => setShowNewProject(true) : undefined}
+              onTaskStatusChange={updateTaskStatus}
+            />
+          ) : activeTab === "browse" ? (
+            <BrowseTab
+              empty={empty}
+              rootFolders={rootFolders}
+              projects={projects}
+              focusedProjectId={focusedListId}
+              canManageStructure={canManageWorkspace}
+              onNewFolder={() => setShowNewFolder(true)}
+              onNewList={() => setShowNewList(true)}
+            />
+          ) : (
+            <SpaceDocsTab
+              spaceId={space.id}
+              canManage={canManageWorkspace}
+              refreshKey={docsRefreshKey}
+              onCreateProject={() => setShowNewProject(true)}
+            />
+          )}
+        </div>
       </div>
 
       {showNewFolder && (

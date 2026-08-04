@@ -2,7 +2,7 @@ import type { ActivityEvent, CalendarEvent, Folder, Project, Space, Task, TeamMe
 import type { DepartmentSpacePreset } from "@/lib/department-spaces";
 
 export type ContainerList = Pick<Project, "id" | "name">;
-export type SpaceTab = "dashboard" | "browse";
+export type SpaceTab = "dashboard" | "browse" | "docs";
 
 export interface SpaceContainerData {
   space: Space;
