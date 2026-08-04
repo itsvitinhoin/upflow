@@ -126,13 +126,20 @@ export default function ProjectMembersDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="max-w-xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 pr-8">
-            <UsersRound className="h-5 w-5 text-primary" />
-            {t("projects.projectContributors")}
+      <DialogContent
+        data-testid="project-members-dialog"
+        className="max-w-xl overflow-x-hidden"
+      >
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
+            <UsersRound className="h-5 w-5 shrink-0 text-primary" />
+            <span className="min-w-0 break-words">
+              {t("projects.projectContributors")}
+            </span>
           </DialogTitle>
-          <DialogDescription>{t("projects.contributorAccessDescription")}</DialogDescription>
+          <DialogDescription className="min-w-0 break-words">
+            {t("projects.contributorAccessDescription")}
+          </DialogDescription>
         </DialogHeader>
 
         {loading && !data ? (
@@ -140,25 +147,27 @@ export default function ProjectMembersDialog({
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
           </div>
         ) : data ? (
-          <div className="space-y-4">
-            <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-950 dark:text-amber-100">
+          <div className="min-w-0 space-y-4">
+            <p className="min-w-0 break-words rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs leading-5 text-amber-950 dark:text-amber-100">
               {t("projects.restrictedContributorHint")}
             </p>
 
-            <div className="rounded-xl border border-border bg-muted/25 p-3">
-              <p className="mb-2 text-sm font-semibold text-foreground">
+            <div className="min-w-0 rounded-xl border border-border bg-muted/25 p-3">
+              <p className="mb-2 break-words text-sm font-semibold text-foreground">
                 {t("projects.projectContributors")}
               </p>
               {data.members.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("projects.noContributors")}</p>
+                <p className="break-words text-sm text-muted-foreground">
+                  {t("projects.noContributors")}
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {data.members.map((member) => (
                     <li
                       key={member.user_id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2"
+                      className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2"
                     >
-                      <span className="min-w-0">
+                      <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-foreground">
                           {member.user.name}
                         </span>
@@ -188,12 +197,12 @@ export default function ProjectMembersDialog({
             </div>
 
             {data.canManageMembers && (
-              <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="flex min-w-0 flex-col gap-2">
                 <select
                   value={selectedUserId}
                   onChange={(event) => setSelectedUserId(event.target.value)}
                   disabled={availableMembers.length === 0 || Boolean(pendingUserId)}
-                  className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  className="h-9 w-full max-w-full min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground"
                 >
                   <option value="">{t("projects.addContributor")}</option>
                   {availableMembers.map((member) => (
@@ -206,7 +215,7 @@ export default function ProjectMembersDialog({
                   type="button"
                   onClick={() => void addContributor()}
                   disabled={!selectedUserId || Boolean(pendingUserId)}
-                  className="shrink-0"
+                  className="w-full max-w-full whitespace-normal"
                 >
                   {pendingUserId === selectedUserId ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
