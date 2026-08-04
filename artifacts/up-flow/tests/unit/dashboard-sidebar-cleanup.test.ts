@@ -56,7 +56,10 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(rail, /sidebar\.show/);
   assert.match(rail, /sidebar\.hide/);
   assert.match(rail, /href="\/docs"/);
-  assert.match(rail, /aria-pressed=\{panelOpen\}/);
+  assert.match(rail, /aria-expanded=\{panelOpen\}/);
+  assert.match(rail, /aria-controls=\{panelId\}/);
+  assert.match(rail, /data-testid="sidebar-panel-toggle"/);
+  assert.match(sidebar, /id="desktop-sidebar-panel"/);
   assert.match(sidebar, /window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/);
   assert.match(sidebar, /closeMobileNavigation\(false\)/);
   assert.match(panel, /sidebar\.hide/);
@@ -73,9 +76,15 @@ test("sidebar rail uses compact labeled navigation while keeping Spaces in an op
   assert.match(rail, /bg-\[#16132f\]/);
   assert.match(rail, /min-h-\[48px\]/);
   assert.match(rail, /sidebar-rail-item-label/);
-  assert.match(rail, /sidebar\.more/);
-  assert.match(translations, /"sidebar\.more": "More"/);
-  assert.match(translations, /"sidebar\.more": "Mais"/);
+  assert.match(rail, /whitespace-normal/);
+  assert.match(rail, /overflow-wrap:anywhere/);
+  assert.doesNotMatch(rail, /truncate/);
+  assert.match(translations, /"sidebar\.show": "Show sidebar"/);
+  assert.match(translations, /"sidebar\.show": "Mostrar sidebar"/);
+
+  const toggleIndex = rail.indexOf('data-testid="sidebar-panel-toggle"');
+  const navigationIndex = rail.indexOf('data-testid="sidebar-rail-navigation"');
+  assert.ok(toggleIndex >= 0 && toggleIndex < navigationIndex);
 });
 
 test("empty workspaces teach setup steps and permission boundaries", () => {

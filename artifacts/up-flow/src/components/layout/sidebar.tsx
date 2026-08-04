@@ -124,11 +124,16 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
     }
   };
 
-  const renderRail = (onNavigate?: () => void) => (
+  const renderRail = (
+    onNavigate?: () => void,
+    options: { panelId?: string; showPanelToggle?: boolean } = {},
+  ) => (
     <Rail
       user={user}
       pathname={pathname}
       panelOpen={panelOpen}
+      panelId={options.panelId}
+      showPanelToggle={options.showPanelToggle}
       onTogglePanel={() => setPanelOpen((v) => !v)}
       onSignOut={handleSignOut}
       onNavigate={onNavigate}
@@ -146,8 +151,11 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
   return (
     <>
       <aside className="hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden md:flex">
-        <div className="flex min-h-0 w-[64px]">{renderRail()}</div>
+        <div className="flex min-h-0 w-[64px]">
+          {renderRail(undefined, { panelId: "desktop-sidebar-panel" })}
+        </div>
         <div
+          id="desktop-sidebar-panel"
           className={cn(
             "grid min-h-0 overflow-hidden transition-[width,opacity] duration-200 ease-out",
             panelOpen ? "w-[272px] opacity-100" : "w-0 opacity-0",
@@ -210,7 +218,9 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
               <X className="w-5 h-5" />
             </button>
             <div className="flex min-h-0 w-[64px]">
-              {renderRail(closeMobileNavigationAfterNavigate)}
+              {renderRail(closeMobileNavigationAfterNavigate, {
+                showPanelToggle: false,
+              })}
             </div>
             <div className="min-h-0 min-w-0 flex-1">
               <Panel

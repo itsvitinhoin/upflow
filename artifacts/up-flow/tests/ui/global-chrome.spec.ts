@@ -47,19 +47,65 @@ test.describe("Global chrome", () => {
     await help.click();
     await expect(page).toHaveURL(/\/docs$/, { timeout: 30_000 });
 
-    const railToggle = page.getByRole("button", {
-      name: /^(Hide|Show) sidebar$/,
-    }).first();
-    const initialPressed = await railToggle.getAttribute("aria-pressed");
+    const railToggle = page.getByTestId("sidebar-panel-toggle");
+    const initialExpanded = await railToggle.getAttribute("aria-expanded");
     await railToggle.click();
     await expect(railToggle).not.toHaveAttribute(
-      "aria-pressed",
-      initialPressed ?? "",
+      "aria-expanded",
+      initialExpanded ?? "",
     );
     await railToggle.click();
     await expect(railToggle).toHaveAttribute(
-      "aria-pressed",
-      initialPressed ?? "",
+      "aria-expanded",
+      initialExpanded ?? "",
+    );
+
+    await ctx.close();
+  });
+
+  test("compact rail keeps translated labels readable and its sidebar opener reachable", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await page.addInitScript(() => {
+      localStorage.setItem("upflow.sidebar.spacesOpen", "0");
+      localStorage.setItem("upflow.language", "pt-BR");
+    });
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
+
+    const rail = page.getByTestId("sidebar-rail-navigation");
+    const railToggle = page.getByTestId("sidebar-panel-toggle");
+    await expect(railToggle).toBeVisible();
+    await expect(railToggle).toBeInViewport();
+    await expect(railToggle).toHaveAttribute("aria-expanded", "false");
+
+    const labelOverflow = await rail
+      .getByTestId("sidebar-rail-item-label")
+      .evaluateAll((labels) =>
+        labels.map((label) => ({
+          scrollWidth: label.scrollWidth,
+          clientWidth: label.clientWidth,
+          scrollHeight: label.scrollHeight,
+          clientHeight: label.clientHeight,
+        })),
+      );
+    expect(
+      labelOverflow.every(
+        ({ scrollWidth, clientWidth, scrollHeight, clientHeight }) =>
+          scrollWidth <= clientWidth && scrollHeight <= clientHeight,
+      ),
+    ).toBeTruthy();
+
+    await railToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(railToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator("#desktop-sidebar-panel")).toHaveAttribute(
+      "aria-hidden",
+      "false",
     );
 
     await ctx.close();
