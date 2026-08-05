@@ -340,6 +340,13 @@ export interface Department {
   name: string;
   color: string;
   sort_order: number;
+  leader_id?: string | null;
+  leader?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string | null;
+  } | null;
   created_at: string;
   _count: { members: number };
 }

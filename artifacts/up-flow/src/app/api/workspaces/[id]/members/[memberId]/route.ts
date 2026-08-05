@@ -117,6 +117,19 @@ async function PATCH_handler(
       });
     }
 
+    // A department leader must remain an active member of that department.
+    // Moving or deactivating a person clears any affected leadership slots.
+    if (
+      nextMembership.status === "inactive" ||
+      (parsed.data.department_id !== undefined &&
+        parsed.data.department_id !== membership.department_id)
+    ) {
+      await tx.department.updateMany({
+        where: { workspace_id: params.id, leader_id: params.memberId },
+        data: { leader_id: null },
+      });
+    }
+
     return nextMembership;
   });
 
@@ -188,6 +201,10 @@ async function DELETE_handler(
       // state together with this workspace membership.
       await tx.googleCalendarOAuthState.deleteMany({
         where: { workspace_id: params.id, user_id: params.memberId },
+      });
+      await tx.department.updateMany({
+        where: { workspace_id: params.id, leader_id: params.memberId },
+        data: { leader_id: null },
       });
       await tx.workspaceMember.delete({
         where: { workspace_id_user_id: { workspace_id: params.id, user_id: params.memberId } },

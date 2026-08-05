@@ -22,6 +22,10 @@ const teamPage = readFileSync(
   join(__dirname, "..", "..", "src", "app", "(dashboard)", "team", "page.tsx"),
   "utf8",
 );
+const teamWorkspace = readFileSync(
+  join(__dirname, "..", "..", "src", "components", "team", "team-workspace.tsx"),
+  "utf8",
+);
 const teamInvitePanels = readFileSync(
   join(__dirname, "..", "..", "src", "components", "team", "team-invite-panels.tsx"),
   "utf8",
@@ -154,7 +158,7 @@ test("team page makes real workspace user invites the primary flow", () => {
 });
 
 test("team keeps onboarding ownership setup progressively disclosed", () => {
-  assert.match(teamPage, /<ServiceLeaderMappingPanel/);
+  assert.match(teamWorkspace, /<ServiceLeaderMappingPanel/);
   assert.match(serviceLeaderMappingPanel, /<details className="group/);
   assert.match(serviceLeaderMappingPanel, /<summary/);
 });

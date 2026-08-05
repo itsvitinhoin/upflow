@@ -58,6 +58,10 @@ interface TeamWorkspaceProps {
       department_id?: string | null;
     },
   ) => void;
+  onUpdateDepartmentLeader: (
+    departmentId: string,
+    leaderId: string | null,
+  ) => void;
   onRemoveMember: (user: TeamMember) => void;
   onResendInvite: (invite: PendingInvite) => void;
   onCancelInvite: (invite: PendingInvite) => void;
@@ -71,6 +75,8 @@ interface TeamCardData {
   name: string;
   color: string;
   members: TeamMember[];
+  leader: Department["leader"] | null;
+  leaderCandidates: TeamMember[];
 }
 
 const DEFAULT_CARD_COPY = {
@@ -108,6 +114,8 @@ const DEFAULT_CARD_COPY = {
     tasks: "assigned tasks",
     leader: "Leader",
     noLeader: "No leader assigned",
+    editLeader: "Edit leader",
+    chooseLeader: "Choose a leader",
     memberControls: "Member controls",
     memberControlsDescription: "Manage roles, account status, and department assignments.",
     noMembers: "No members in this team yet.",
@@ -151,6 +159,8 @@ const DEFAULT_CARD_COPY = {
     tasks: "tarefas atribuídas",
     leader: "Líder",
     noLeader: "Nenhum líder definido",
+    editLeader: "Editar líder",
+    chooseLeader: "Escolha um líder",
     memberControls: "Controles de membros",
     memberControlsDescription: "Gerencie papéis, status da conta e atribuições de departamento.",
     noMembers: "Nenhum membro nesta equipe ainda.",
@@ -295,7 +305,13 @@ function roleLabel(user: TeamMember, t: Translate) {
   return t("common.member");
 }
 
-function Avatar({ user, className }: { user: TeamMember; className?: string }) {
+function Avatar({
+  user,
+  className,
+}: {
+  user: Pick<TeamMember, "name" | "avatar_url">;
+  className?: string;
+}) {
   return (
     <span
       className={cn(
@@ -357,6 +373,7 @@ export default function TeamWorkspace({
   onShowEmptyChange,
   onToggleCollapsed,
   onUpdateMember,
+  onUpdateDepartmentLeader,
   onRemoveMember,
   onResendInvite,
   onCancelInvite,
@@ -369,6 +386,7 @@ export default function TeamWorkspace({
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [contextMenuFor, setContextMenuFor] = useState<string | null>(null);
+  const [leaderEditorFor, setLeaderEditorFor] = useState<string | null>(null);
 
   const groupMembers = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -398,6 +416,12 @@ export default function TeamWorkspace({
       name: department.name,
       color: department.color,
       members: groupMembers.get(department.id) ?? [],
+      leader: department.leader ?? null,
+      leaderCandidates: users.filter(
+        (user) =>
+          user.department_id === department.id &&
+          user.workspace_status === "active",
+      ),
     }));
     const unassigned = groupMembers.get("__unassigned__") ?? [];
     if (unassigned.length > 0 || departments.length === 0) {
@@ -407,10 +431,12 @@ export default function TeamWorkspace({
         name: t("common.unassigned"),
         color: "slate",
         members: unassigned,
+        leader: null,
+        leaderCandidates: [],
       });
     }
     return cards;
-  }, [departments, groupMembers, t]);
+  }, [departments, groupMembers, t, users]);
 
   const visibleCards = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase();
@@ -455,6 +481,7 @@ export default function TeamWorkspace({
     setDepartmentFilter(card.key);
     setActiveView("people");
     setContextMenuFor(null);
+    setLeaderEditorFor(null);
     window.requestAnimationFrame(() => {
       document.getElementById("team-member-roster")?.scrollIntoView({
         behavior: "smooth",
@@ -594,8 +621,19 @@ export default function TeamWorkspace({
                     copy={copy}
                     language={language}
                     layoutMode={layoutMode}
+                    isAdmin={isAdmin}
                     contextOpen={contextMenuFor === card.key}
                     onToggleContext={() => setContextMenuFor((current) => current === card.key ? null : card.key)}
+                    leaderEditorOpen={leaderEditorFor === card.key}
+                    onToggleLeaderEditor={() => {
+                      setContextMenuFor(null);
+                      setLeaderEditorFor((current) => current === card.key ? null : card.key);
+                    }}
+                    onUpdateLeader={(leaderId) => {
+                      if (!card.id) return;
+                      setLeaderEditorFor(null);
+                      onUpdateDepartmentLeader(card.id, leaderId);
+                    }}
                     onViewPeople={() => revealPeople(card)}
                     onOpenManage={() => {
                       setContextMenuFor(null);
@@ -722,8 +760,12 @@ function TeamCard({
   copy,
   language,
   layoutMode,
+  isAdmin,
   contextOpen,
   onToggleContext,
+  leaderEditorOpen,
+  onToggleLeaderEditor,
+  onUpdateLeader,
   onViewPeople,
   onOpenManage,
 }: {
@@ -732,14 +774,23 @@ function TeamCard({
   copy: TeamCopy;
   language: "en" | "pt-BR";
   layoutMode: LayoutMode;
+  isAdmin: boolean;
   contextOpen: boolean;
   onToggleContext: () => void;
+  leaderEditorOpen: boolean;
+  onToggleLeaderEditor: () => void;
+  onUpdateLeader: (leaderId: string | null) => void;
   onViewPeople: () => void;
   onOpenManage: () => void;
 }) {
   const style = teamStyleFor(card.name, index);
   const Icon = style.icon;
-  const leader = card.members.find((member) => member.workspace_status !== "inactive") ?? card.members[0];
+  const leader = card.leader;
+  const leaderOptions =
+    leader && !card.leaderCandidates.some((member) => member.id === leader.id)
+      ? [leader, ...card.leaderCandidates]
+      : card.leaderCandidates;
+  const canEditLeader = isAdmin && card.id !== null;
   const totalTasks = card.members.reduce((sum, member) => sum + member._count.tasks, 0);
   const totalProjects = card.members.reduce((sum, member) => sum + member._count.projects, 0);
   return (
@@ -793,12 +844,42 @@ function TeamCard({
         </div>
       </div>
 
-      <div className={cn("mt-3 flex items-center gap-2.5", layoutMode === "list" && "sm:order-3 sm:mt-0 sm:min-w-[164px]")}>
-        {leader ? <Avatar user={leader} className="h-7 w-7" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-slate-500"><UsersRound className="h-3.5 w-3.5" /></span>}
-        <div className="min-w-0">
-          <p className="text-[10px] leading-none text-slate-500">{copy.leader}</p>
-          <p className="mt-1 truncate text-xs font-medium text-slate-200">{leader?.name ?? copy.noLeader}</p>
+      <div className={cn("mt-3", layoutMode === "list" && "sm:order-3 sm:mt-0 sm:min-w-[210px]")}>
+        <div className="flex items-center gap-2.5">
+          {leader ? <Avatar user={leader} className="h-7 w-7" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 text-slate-500"><UsersRound className="h-3.5 w-3.5" /></span>}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="text-[10px] leading-none text-slate-500">{copy.leader}</p>
+              {canEditLeader && (
+                <button
+                  type="button"
+                  aria-label={copy.editLeader}
+                  title={copy.editLeader}
+                  onClick={onToggleLeaderEditor}
+                  className="flex h-5 w-5 items-center justify-center rounded text-slate-500 transition hover:bg-blue-500/15 hover:text-blue-100"
+                >
+                  <PencilLine className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+            <p className="mt-1 truncate text-xs font-medium text-slate-200">{leader?.name ?? copy.noLeader}</p>
+          </div>
         </div>
+        {leaderEditorOpen && canEditLeader && (
+          <label className="mt-2 block">
+            <span className="sr-only">{copy.chooseLeader}</span>
+            <select
+              value={leader?.id ?? ""}
+              onChange={(event) => onUpdateLeader(event.target.value || null)}
+              className="h-8 w-full rounded-lg border border-blue-300/20 bg-[#07101e] px-2 text-xs font-medium text-slate-100 outline-none transition hover:border-blue-300/35 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/15"
+            >
+              <option value="">{copy.noLeader}</option>
+              {leaderOptions.map((member) => (
+                <option key={member.id} value={member.id}>{member.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className={cn("mt-3 flex items-center justify-between gap-3", layoutMode === "list" && "sm:col-start-2 sm:row-start-2 sm:mt-3")}>
