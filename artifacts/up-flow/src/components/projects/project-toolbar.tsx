@@ -80,15 +80,10 @@ export default function ProjectToolbar({
   ];
 
   return (
-    <div className="mb-4 flex min-w-0 items-center gap-2 border-b border-border/70 py-3">
-      <div
-        data-testid="project-toolbar-scroll"
-        className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <div
-          data-testid="project-toolbar-controls"
-          className="flex min-w-max items-center gap-2 [&>*]:shrink-0"
-        >
+    <div
+      data-testid="project-toolbar"
+      className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70 py-3"
+    >
       <div className="mr-1 flex items-center rounded-xl border border-border bg-muted/50 p-1 shadow-sm">
         <ToolbarTab
           active={state.view === "list"}
@@ -227,15 +222,13 @@ export default function ProjectToolbar({
 
         </>
       )}
-        </div>
-      </div>
 
       {state.view !== "form" && canManage && onManageFields && (
         <button
           type="button"
           data-testid="project-toolbar-custom-fields"
           onClick={onManageFields}
-          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+          className="ml-auto flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
         >
           <Settings2 className="h-3.5 w-3.5" /> {t("toolbar.customFields")}
         </button>
