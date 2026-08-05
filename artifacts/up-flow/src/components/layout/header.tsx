@@ -253,6 +253,8 @@ export default function Header({
     user?.currentRole === "member";
   const notificationsUnavailable =
     notificationListUnavailable || (!notificationsHaveLoaded && notificationUnreadUnavailable);
+  const effectiveSearchAriaLabel =
+    searchAriaLabel ?? t("header.searchAriaLabel", { title });
 
 
   const fetchNotifications = useCallback(async (
@@ -519,8 +521,8 @@ export default function Header({
           onSubmit={handleSearch}
           action="/search"
           method="get"
+          role="search"
           className="w-full min-w-0 pl-11 sm:flex-1 md:pl-0"
-          aria-label={searchAriaLabel ?? t("header.searchAriaLabel", { title })}
         >
           <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -528,6 +530,7 @@ export default function Header({
               ref={searchRef}
               type="search"
               name="q"
+              aria-label={effectiveSearchAriaLabel}
               value={searchValue ?? search}
               onChange={(e) => {
                 if (searchValue === undefined) setSearch(e.target.value);

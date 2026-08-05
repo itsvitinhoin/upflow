@@ -289,6 +289,7 @@ export default function TeamPage() {
               <button
                 type="button"
                 onClick={() => setInviteOpen(true)}
+                aria-label={t("team.inviteUsers")}
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-300/15 bg-[#0b1424]/90 px-3 text-xs font-semibold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-300/30 hover:bg-white/[0.06] sm:h-11"
               >
                 <UserPlus className="h-4 w-4 text-blue-200" />
@@ -297,6 +298,7 @@ export default function TeamPage() {
               <button
                 type="button"
                 onClick={() => setManageOpen(true)}
+                aria-label={isPortuguese ? "Criar equipe" : "Create team"}
                 className="upflow-gradient-button inline-flex h-10 items-center gap-2 rounded-xl px-3 text-xs font-semibold text-white transition hover:-translate-y-0.5 sm:h-11"
               >
                 <Plus className="h-4 w-4" />
@@ -305,6 +307,7 @@ export default function TeamPage() {
               <button
                 type="button"
                 onClick={() => setManageOpen(true)}
+                aria-label={t("team.manageDepartments")}
                 className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-300/15 bg-[#0b1424]/90 px-3 text-xs font-semibold text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition hover:border-blue-300/30 hover:bg-white/[0.06] sm:h-11"
               >
                 <Settings2 className="h-4 w-4 text-blue-200" />
