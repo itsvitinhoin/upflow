@@ -226,10 +226,21 @@ export default function CalendarPage() {
 
   useEffect(() => {
     const result = searchParams?.get("google_calendar");
-    if (result !== "connected" && result !== "error") return;
+    if (
+      result !== "connected" &&
+      result !== "error" &&
+      result !== "official_origin_required" &&
+      result !== "session_required"
+    ) {
+      return;
+    }
 
     if (result === "connected") {
       toast.success(t("googleCalendar.connectedNotice"));
+    } else if (result === "official_origin_required") {
+      toast.error(t("googleCalendar.officialOriginRequired"));
+    } else if (result === "session_required") {
+      toast.error(t("googleCalendar.sessionRequired"));
     } else {
       toast.error(t("googleCalendar.connectFailed"));
     }

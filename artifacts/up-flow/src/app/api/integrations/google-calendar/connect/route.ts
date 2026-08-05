@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireCurrentWorkspace } from "@/lib/api/scope";
 import { requireAuth } from "@/lib/auth-response";
-import { createGoogleCalendarConnectUrl } from "@/lib/google-calendar";
+import {
+  createGoogleCalendarConnectUrl,
+  getGoogleCalendarConfig,
+  getGoogleCalendarLoginRecoveryUrl,
+  isGoogleCalendarCallbackOrigin,
+} from "@/lib/google-calendar";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
@@ -13,6 +18,26 @@ async function GET_handler(req: NextRequest) {
   if (!result.ok) return result.response;
   const scope = await requireCurrentWorkspace(result.auth);
   if (!scope.ok) return scope.response;
+
+  const config = getGoogleCalendarConfig();
+  if (!config) {
+    return NextResponse.json(
+      { error: "Google Calendar integration is not configured" },
+      { status: 503 },
+    );
+  }
+
+  // The provider always returns to GOOGLE_CALENDAR_REDIRECT_URI. Do not
+  // create an OAuth state from an alias host whose browser session cannot be
+  // read on that canonical callback host.
+  if (!isGoogleCalendarCallbackOrigin(req.url, config)) {
+    const response = NextResponse.redirect(
+      getGoogleCalendarLoginRecoveryUrl(config, "official_origin_required"),
+    );
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
 
   const limit = await checkRateLimit(req, {
     windowMs: 60_000,
