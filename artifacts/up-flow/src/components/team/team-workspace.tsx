@@ -413,9 +413,18 @@ export default function TeamWorkspace({
   }, [departments, groupMembers, t]);
 
   const visibleCards = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
     const cards = allCards
       .filter((card) => departmentFilter === "all" || card.key === departmentFilter)
-      .filter((card) => query.trim().length > 0 || showEmpty || card.members.length > 0);
+      .filter((card) => {
+        if (normalizedQuery) {
+          return (
+            card.members.length > 0 ||
+            card.name.toLocaleLowerCase().includes(normalizedQuery)
+          );
+        }
+        return showEmpty || card.members.length > 0;
+      });
     return [...cards].sort((left, right) => {
       if (sortMode === "members") return right.members.length - left.members.length;
       if (sortMode === "tasks") {
