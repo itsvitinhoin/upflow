@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X, Moon, Sun } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
@@ -24,6 +24,21 @@ import type { Notification } from "@/lib/types";
 
 interface HeaderProps {
   title: string;
+  /**
+   * Lets workspace pages turn the global header search into a local search
+   * without duplicating the shell.  Omitted on every existing route, so the
+   * original project/task/document search remains unchanged.
+   */
+  searchValue?: string;
+  searchPlaceholder?: string;
+  searchAriaLabel?: string;
+  onSearchChange?: (value: string) => void;
+  onSearchSubmit?: () => void;
+  /** Optional page actions rendered before the notifications control. */
+  actions?: ReactNode;
+  /** Use when a page supplies its own primary actions in the header. */
+  hideUtilityControls?: boolean;
+  hideDefaultPrimaryAction?: boolean;
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 30_000;
@@ -196,7 +211,17 @@ function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "e
   return taskTitle;
 }
 
-export default function Header({ title }: HeaderProps) {
+export default function Header({
+  title,
+  searchValue,
+  searchPlaceholder,
+  searchAriaLabel,
+  onSearchChange,
+  onSearchSubmit,
+  actions,
+  hideUtilityControls = false,
+  hideDefaultPrimaryAction = false,
+}: HeaderProps) {
   const router = useRouter();
   const user = useAppUser();
   const { language, toggleLanguage, t } = useLanguage();
@@ -470,13 +495,17 @@ export default function Header({ title }: HeaderProps) {
   const handleSearch = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      if (onSearchSubmit) {
+        onSearchSubmit();
+        return;
+      }
       const query = new FormData(e.currentTarget).get("q");
       const normalizedQuery = typeof query === "string" ? query.trim() : "";
       if (normalizedQuery) {
         router.push(`/search?q=${encodeURIComponent(normalizedQuery)}`);
       }
     },
-    [router]
+    [onSearchSubmit, router]
   );
 
   const assistantContext = assistantNotification
@@ -491,7 +520,7 @@ export default function Header({ title }: HeaderProps) {
           action="/search"
           method="get"
           className="w-full min-w-0 pl-11 sm:flex-1 md:pl-0"
-          aria-label={t("header.searchAriaLabel", { title })}
+          aria-label={searchAriaLabel ?? t("header.searchAriaLabel", { title })}
         >
           <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -499,11 +528,17 @@ export default function Header({ title }: HeaderProps) {
               ref={searchRef}
               type="search"
               name="q"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("header.searchPlaceholder", {
-                title: title.toLowerCase(),
-              })}
+              value={searchValue ?? search}
+              onChange={(e) => {
+                if (searchValue === undefined) setSearch(e.target.value);
+                onSearchChange?.(e.target.value);
+              }}
+              placeholder={
+                searchPlaceholder ??
+                t("header.searchPlaceholder", {
+                  title: title.toLowerCase(),
+                })
+              }
               className="upflow-shell-search upflow-focus-glow h-10 w-full rounded-full border border-border bg-background/95 pl-11 pr-4 text-sm shadow-sm backdrop-blur-md transition placeholder:text-muted-foreground hover:border-primary/[0.35] hover:bg-background focus:border-sky-400/70 dark:border-blue-300/10 dark:bg-[#050a18]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] dark:hover:border-blue-300/25 dark:hover:bg-[#070d1f]/90 sm:h-11 md:pr-16"
             />
             <button
@@ -518,29 +553,34 @@ export default function Header({ title }: HeaderProps) {
         </form>
 
         <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:self-auto">
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            aria-label={t("language.toggle")}
-            title={`${t("language.toggle")}: ${
-              language === "en"
-                ? t("language.portugueseBrazil")
-                : t("language.english")
-            }`}
-            className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
-          >
-            <Languages className="h-4 w-4" />
-            <span>{language === "en" ? "EN" : "PT"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
-            title={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
-            className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
-          >
-            {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
-          </button>
+          {!hideUtilityControls && (
+            <>
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                aria-label={t("language.toggle")}
+                title={`${t("language.toggle")}: ${
+                  language === "en"
+                    ? t("language.portugueseBrazil")
+                    : t("language.english")
+                }`}
+                className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
+              >
+                <Languages className="h-4 w-4" />
+                <span>{language === "en" ? "EN" : "PT"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+                aria-label={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
+                title={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
+                className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
+              >
+                {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+              </button>
+            </>
+          )}
+          {actions}
           <div className="relative" ref={panelRef}>
             <button
               ref={notificationToggleRef}
@@ -648,7 +688,7 @@ export default function Header({ title }: HeaderProps) {
             )}
           </div>
 
-          {canCreateProject && (
+          {canCreateProject && !hideDefaultPrimaryAction && (
             <button
               onClick={() => setShowNewProject(true)}
               aria-label={t("header.newProject")}
