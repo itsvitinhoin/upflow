@@ -300,6 +300,7 @@ export default function CalendarPage() {
     setFailedCalendarRange((current) => (current === rangeKey ? null : current));
     const from = mergeAppDateAndTime(gridStart, "00:00").toISOString();
     const to = mergeAppDateAndTime(gridEnd, "23:59").toISOString();
+    const taskRangeParams = new URLSearchParams({ due_from: from, due_to: to });
     const sharedAgendaRequest = fetch(
       `/api/calendar/shared-agenda?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
       { signal: controller.signal },
@@ -315,7 +316,7 @@ export default function CalendarPage() {
       });
 
     Promise.all([
-      fetch("/api/tasks", { signal: controller.signal }).then(async (response) => {
+      fetch(`/api/tasks?${taskRangeParams.toString()}`, { signal: controller.signal }).then(async (response) => {
         if (!response.ok) throw new Error(`Unable to load tasks: ${response.status}`);
         return response.json();
       }),

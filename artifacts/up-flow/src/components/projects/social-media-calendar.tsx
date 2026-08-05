@@ -184,7 +184,7 @@ export default function SocialMediaCalendar({
       try {
         const [plansResult, companiesResult] = await Promise.all([
           fetch(`/api/projects/${projectId}/social-media`),
-          fetch("/api/companies?limit=100"),
+          fetch("/api/companies?limit=100&include_summary=false"),
         ]);
         if (!plansResult.ok) throw new Error("Could not load the social media calendar");
         const planPayload = (await plansResult.json()) as {

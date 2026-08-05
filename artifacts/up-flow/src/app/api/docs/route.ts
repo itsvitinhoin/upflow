@@ -39,7 +39,14 @@ async function GET_handler(req: NextRequest) {
     take: limit + 1,
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: [{ updated_at: "desc" }, { id: "asc" }],
-    include: {
+    // Do not send the document's full editor JSON to index views. Editors
+    // already request one document by id from /api/docs/[id].
+    select: {
+      id: true,
+      title: true,
+      project_id: true,
+      author_id: true,
+      updated_at: true,
       project: { select: { id: true, name: true } },
       author: { select: { id: true, name: true } },
     },

@@ -23,6 +23,45 @@ export const calendarEventDetailInclude = {
   },
 } as const satisfies Prisma.CalendarEventInclude;
 
+// Calendar grids only need the event itself and attendee identities. Full
+// relation graphs (attachments, reminders, linked records) are loaded by the
+// existing detail endpoint when a user opens an event to edit it.
+export const calendarEventListSelect = {
+  id: true,
+  workspace_id: true,
+  title: true,
+  description: true,
+  type: true,
+  status: true,
+  starts_at: true,
+  ends_at: true,
+  timezone: true,
+  created_by: true,
+  project_id: true,
+  task_id: true,
+  company_id: true,
+  space_id: true,
+  responsible_user_id: true,
+  priority: true,
+  cancelled_at: true,
+  cancelled_by: true,
+  location: true,
+  meeting_url: true,
+  color: true,
+  created_at: true,
+  updated_at: true,
+  creator: { select: { id: true, name: true, email: true, avatar_url: true } },
+  attendees: {
+    select: {
+      id: true,
+      user_id: true,
+      created_at: true,
+      user: { select: { id: true, name: true, email: true, avatar_url: true } },
+    },
+    orderBy: { created_at: "asc" },
+  },
+} as const satisfies Prisma.CalendarEventSelect;
+
 export type CalendarEventDetail = Prisma.CalendarEventGetPayload<{
   include: typeof calendarEventDetailInclude;
 }>;

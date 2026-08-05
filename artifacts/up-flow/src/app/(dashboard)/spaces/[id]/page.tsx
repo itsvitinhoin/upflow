@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import dynamic from "next/dynamic";
 import { notFound, useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
@@ -33,7 +34,6 @@ import TaskCreateSheet from "@/components/projects/task-create-sheet";
 import { BrowseTab, ContainerSkeleton, DashboardSkeleton } from "@/components/spaces/space-browser";
 import { CommercialOperationsHub } from "@/components/spaces/commercial-operations-hub";
 import { SpaceDashboardDrawer } from "@/components/spaces/space-dashboard-drawer";
-import { SpaceDocsTab } from "@/components/spaces/space-docs-tab";
 import {
   CommandTile,
   HeroMetric,
@@ -57,6 +57,17 @@ import {
 import type { SpaceContainerData, SpaceDashboardData, SpaceTab } from "@/components/spaces/space-page-types";
 
 const SPACE_TABS: SpaceTab[] = ["dashboard", "browse", "docs"];
+
+// The Docs view includes the Tiptap editor. It is only needed after a user
+// chooses Docs, so loading it on demand keeps the Space dashboard and browse
+// views responsive without changing document behavior.
+const SpaceDocsTab = dynamic(
+  () => import("@/components/spaces/space-docs-tab").then((module) => module.SpaceDocsTab),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[32rem] rounded-xl border border-white/10 bg-black/20" aria-busy="true" />,
+  },
+);
 
 function getSpaceTabId(tab: SpaceTab) {
   return tab === "docs" ? "space-docs-tab-button" : `space-${tab}-tab`;
