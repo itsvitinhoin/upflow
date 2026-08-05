@@ -5,6 +5,7 @@ import {
   isWorkspaceAdminFor,
 } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { canContributeToProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 import {
   getOnboardingTaskStartBlocker,
@@ -33,14 +34,12 @@ async function POST_handler(
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, workspace_id: true },
+    select: { id: true, workspace_id: true, owner_id: true },
   });
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canAccessWorkspace(auth, project.workspace_id)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const isWorkspaceAdmin = isWorkspaceAdminFor(auth, project.workspace_id);
-
   const body = (await req.json()) as {
     movedTaskId?: string;
     srcColumn?: string;
@@ -86,7 +85,14 @@ async function POST_handler(
   const canMoveDepartmentOnboardingTask = Boolean(
     onboardingItem && onboardingAccess?.canUpdateChecklistItem(onboardingItem) && srcColumn !== dstColumn,
   );
-  if (!isWorkspaceAdmin && !canMoveDepartmentOnboardingTask) {
+  // Normal project contributors can reorder ordinary tasks. Onboarding tasks
+  // keep their stricter workflow rule: only workspace admins or the matching
+  // department owner may move one across status columns.
+  const canContribute = await canContributeToProject(auth, project);
+  const canReorderTask = onboardingItem
+    ? isWorkspaceAdminFor(auth, project.workspace_id) || canMoveDepartmentOnboardingTask
+    : canContribute;
+  if (!canReorderTask) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -12,6 +12,7 @@ function read(rel: string) {
 test("Marketing B2C onboarding uses routed department form tasks", () => {
   const schema = read("prisma/schema.prisma");
   const migration = read("prisma/migrations/20260702130000_marketing_b2c_onboarding_forms/migration.sql");
+  const repairMigration = read("prisma/migrations/20260803120000_repair_marketing_b2c_onboarding_forms/migration.sql");
   const helper = read("src/lib/onboarding.ts");
   const routing = read("src/lib/onboarding-routing.ts");
   const route = read("src/app/api/onboarding/marketing-b2c-form/[taskId]/route.ts");
@@ -29,6 +30,10 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(schema, /marketing_b2c_onboarding_form\s+MarketingB2COnboardingForm\?/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS "MarketingB2COnboardingForm"/);
   assert.match(migration, /UNIQUE INDEX IF NOT EXISTS "MarketingB2COnboardingForm_task_id_key"/);
+  assert.match(repairMigration, /DISTINCT ON \(item\."onboarding_id"\)/);
+  assert.match(repairMigration, /gen_random_uuid\(\)::text/);
+  assert.match(repairMigration, /MarketingB2COnboardingForm/);
+  assert.match(repairMigration, /NOT \(/);
 
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES/);
   assert.match(helper, /MARKETING_B2C_FORM_SERVICES[\s\S]*"Vesti"/);
@@ -42,6 +47,10 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /db\.project\.update[\s\S]*name: projectName/);
   assert.match(helper, /b2cFormServices/);
   assert.match(helper, /marketingB2COnboardingForm\.create/);
+  assert.match(helper, /async function ensureMarketingB2COnboardingForm/);
+  assert.match(helper, /servicesRevealB2C/);
+  assert.match(helper, /b2cFormRepair/);
+  assert.match(helper, /onboarding_enabled: true/);
   assert.match(helper, /const formServiceAlreadyAssigned = b2bFormServiceKeys\.has\(serviceMapKey\) \|\| b2cFormServiceKeys\.has\(serviceMapKey\)/);
   assert.match(helper, /const dedicatedServiceTask = shouldCreateDedicatedServiceTask\(service\)/);
   assert.match(helper, /formServiceAlreadyAssigned && !dedicatedServiceTask/);
@@ -76,6 +85,11 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(helper, /key === "social media"/);
 
   assert.match(route, /marketingB2COnboardingForm\.findUnique/);
+  assert.match(route, /async function ensureBackfilledB2CForm/);
+  assert.match(route, /bindExistingB2CFormToTask/);
+  assert.match(route, /type RouteContext = \{ params: Promise<\{ taskId: string \}> \}/);
+  assert.match(route, /const \{ taskId \} = await params/);
+  assert.match(route, /canContributeToProject/);
   assert.match(route, /marketingB2COnboardingForm\.update/);
   assert.match(route, /task\.update[\s\S]*status: "done"/);
   assert.match(route, /onboardingChecklistItem\.update[\s\S]*status: "complete"/);
@@ -86,6 +100,8 @@ test("Marketing B2C onboarding uses routed department form tasks", () => {
   assert.match(form, /scheduleFieldSave/);
   assert.match(form, /valuesRef\.current/);
   assert.match(form, /finalizeAction/);
+  assert.match(form, /loadError/);
+  assert.match(form, /common\.retry/);
   assert.match(form, /brandName/);
   assert.match(form, /metaPixelStatus/);
   assert.match(form, /ecommercePlatform/);

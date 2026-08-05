@@ -22,6 +22,9 @@ test("active workspace members can read and contribute while guests stay view-on
   assert.match(helper, /return \{ workspace_id: workspaceId \}/);
   assert.match(helper, /return canAccessWorkspace\(auth,\s*project\.workspace_id\)/);
   assert.match(helper, /isWorkspaceAdminFor\(auth,\s*project\.workspace_id\)/);
+  assert.match(helper, /export function canManageProjectMembers/);
+  assert.match(helper, /project\.owner_id !== auth\.prismaUser\.id/);
+  assert.match(helper, /membership\.role !== "guest"/);
   assert.match(helper, /workspaceMember\.findFirst/);
   assert.match(helper, /status:\s*"active"/);
   assert.match(helper, /role:\s*\{\s*not:\s*"guest"\s*\}/);
@@ -31,6 +34,9 @@ test("active workspace members can read and contribute while guests stay view-on
   assert.match(helper, /project\.owner_id === userId/);
   assert.match(projectsRoute, /readableProjectWhere\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(projectRoute, /canReadProject\(auth,\s*project\)/);
+  assert.match(projectRoute, /canContributeToProject\(auth,\s*project\)/);
+  assert.match(projectRoute, /canManageMembers:/);
+  assert.match(projectRoute, /canManageProjectMembers\(auth, project\)/);
   assert.match(tasksRoute, /readableProjectWhere\(auth,\s*auth\.currentWorkspaceId\)/);
   assert.match(tasksRoute, /canContributeToProject\(auth,\s*project\)/);
   assert.match(taskRoute, /canReadProject\(auth,\s*task\.project\)/);

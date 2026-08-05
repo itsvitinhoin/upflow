@@ -2,6 +2,18 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { isTestLoginEnabled, TEST_AUTH_COOKIE } from "@/lib/test-auth";
 
+function signInRedirect(req: NextRequest) {
+  const nextPath = `${req.nextUrl.pathname}${req.nextUrl.search}`;
+  const loginUrl = req.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  // Keep the original request only as a relative path inside `next`. This
+  // lets a canonical-host re-login resume a protected screen (including the
+  // Google Calendar OAuth recovery notice) without accepting external URLs.
+  loginUrl.search = "";
+  loginUrl.searchParams.set("next", nextPath);
+  return NextResponse.redirect(loginUrl);
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isApiRoute = pathname.startsWith("/api/");
@@ -79,16 +91,12 @@ export async function middleware(req: NextRequest) {
         user = null;
       }
     } else if (!isPublicAuthPage) {
-      const loginUrl = req.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      return NextResponse.redirect(loginUrl);
+      return signInRedirect(req);
     }
   }
 
   if (!user && !isPublicAuthPage) {
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
+    return signInRedirect(req);
   }
 
   // Only redirect away from /login when we have a *real* Supabase session.

@@ -140,6 +140,8 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(form, /\["finance", "marketingB2B\.responsible\.finance"\]/);
   assert.match(form, /\["marketing", "marketingB2B\.responsible\.marketing"\]/);
   assert.match(form, /\["manager", "marketingB2B\.responsible\.manager"\]/);
+  assert.match(form, /\["crm", "marketingB2B\.responsible\.crm"\]/);
+  assert.match(translations, /"marketingB2B\.responsible\.crm": "CRM"/);
   assert.match(form, /\["performance", "marketingB2B\.service\.performance"\]/);
   assert.match(form, /\["upMotion", "marketingB2B\.service\.upMotion"\]/);
   assert.match(form, /\["upZero", "marketingB2B\.service\.upZero"\]/);
@@ -184,7 +186,7 @@ test("Marketing B2B onboarding uses routed department form tasks", () => {
   assert.match(projectPage, /t\("toolbar\.list"\)/);
   assert.match(projectPage, /\?view=form&task=/);
   assert.match(projectPage, /embedded[\s\S]*onClose=\{\(\) => router\.replace\(`[\s\S]*\?view=kanban/);
-  assert.match(projectPage, /onAddTask=\{\(\) => setCreateOpen\(\{ status: "todo" \}\)\}/);
+  assert.match(projectPage, /onAddTask=\{\(\) => canCreateTasks && setCreateOpen\(\{ status: "todo" \}\)\}/);
 
   assert.match(translations, /marketingB2BForm\.field\.brandName/);
   assert.match(translations, /marketingB2BForm\.field\.metaAdsAccess/);

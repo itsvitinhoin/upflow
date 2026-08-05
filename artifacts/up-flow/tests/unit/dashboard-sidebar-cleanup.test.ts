@@ -55,9 +55,42 @@ test("desktop sidebar exposes a clear sliding drawer toggle", () => {
   assert.match(sidebar, /onRequestClose=\{\(\) => setPanelOpen\(false\)\}/);
   assert.match(rail, /sidebar\.show/);
   assert.match(rail, /sidebar\.hide/);
-  assert.match(rail, /aria-pressed=\{panelOpen\}/);
+  assert.match(rail, /href="\/docs"/);
+  assert.match(rail, /aria-expanded=\{panelOpen\}/);
+  assert.match(rail, /aria-controls=\{panelId\}/);
+  assert.match(rail, /data-testid="sidebar-panel-toggle"/);
+  assert.match(sidebar, /id="desktop-sidebar-panel"/);
+  assert.match(sidebar, /window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/);
+  assert.match(sidebar, /closeMobileNavigation\(false\)/);
   assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
+});
+
+test("sidebar rail uses compact labeled navigation while keeping Spaces in an optional drawer", () => {
+  const sidebar = read("src/components/layout/sidebar.tsx");
+  const rail = read("src/components/layout/sidebar/rail.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
+
+  assert.match(sidebar, /useState\(false\)/);
+  assert.match(sidebar, /w-\[64px\]/);
+  assert.match(rail, /bg-\[#16132f\]/);
+  assert.match(rail, /min-h-\[48px\]/);
+  assert.match(rail, /sidebar-rail-item-label/);
+  assert.match(rail, /whitespace-normal/);
+  assert.match(rail, /overflow-wrap:anywhere/);
+  assert.doesNotMatch(rail, /truncate/);
+  assert.match(translations, /"sidebar\.show": "Show sidebar"/);
+  assert.match(translations, /"sidebar\.show": "Mostrar sidebar"/);
+
+  const brandIndex = rail.indexOf('data-testid="sidebar-rail-brand"');
+  const toggleIndex = rail.indexOf('data-testid="sidebar-panel-toggle"');
+  const navigationIndex = rail.indexOf('data-testid="sidebar-rail-navigation"');
+  assert.ok(
+    brandIndex >= 0 &&
+      brandIndex < toggleIndex &&
+      toggleIndex < navigationIndex,
+  );
+  assert.match(rail, /mt-1 flex h-8 w-full shrink-0 items-center justify-center/);
 });
 
 test("empty workspaces teach setup steps and permission boundaries", () => {
@@ -74,7 +107,11 @@ test("empty workspaces teach setup steps and permission boundaries", () => {
   assert.match(summaryRoute, /prisma\.workspaceMember\.count/);
   assert.match(onboarding, /onboarding\.modelWorkspace/);
   assert.match(onboarding, /onboarding\.roleHintViewer/);
-  assert.match(onboarding, /onboarding\.stepSpaceAction/);
+  assert.doesNotMatch(onboarding, /onboarding\.stepSpaceAction/);
+  assert.match(onboarding, /onboarding\.stepSpaceBodyViewOnly/);
+  assert.match(onboarding, /requiresWorkspaceAdmin: true/);
+  assert.match(onboarding, /!canManageWorkspace && Boolean\(step\.requiresWorkspaceAdmin\)/);
+  assert.match(onboarding, /const isInteractive = !disabled && !step\.complete/);
   assert.match(panel, /sidebar\.noSpacesHint/);
   assert.match(panel, /sidebar\.noSpacesViewOnly/);
   assert.match(panel, /canManageWorkspace \? \(/);

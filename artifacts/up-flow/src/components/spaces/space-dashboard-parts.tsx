@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useLanguage } from "@/components/language-provider";
 import type { Task } from "@/lib/types";
 import { cn, formatDate, priorityColor } from "@/lib/utils";
@@ -192,16 +192,29 @@ export function TabButton({
   active,
   onClick,
   children,
+  id,
+  panelId,
+  onKeyDown,
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
+  id?: string;
+  panelId?: string;
+  onKeyDown?: (event: KeyboardEvent<HTMLButtonElement>) => void;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
+      role="tab"
+      id={id}
+      aria-selected={active}
+      aria-controls={panelId}
+      tabIndex={active ? 0 : -1}
+      onKeyDown={onKeyDown}
       className={cn(
-        "rounded-md px-4 py-2 text-sm font-medium transition-colors",
+        "inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         active
           ? "bg-primary text-primary-foreground"
           : "text-muted-foreground hover:text-foreground",

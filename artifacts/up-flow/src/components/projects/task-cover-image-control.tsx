@@ -9,6 +9,10 @@ import { getTaskAssetPath, getTaskCoverDisplayUrl } from "@/lib/task-images";
 interface TaskCoverImageControlProps {
   value: string | null | undefined;
   onChange: (value: string | null) => void | Promise<void>;
+  /** Required for uploads so the server can verify project contributor access. */
+  projectId?: string;
+  /** Present when editing an existing task; the server verifies it matches projectId. */
+  taskId?: string;
   disabled?: boolean;
   compact?: boolean;
 }
@@ -27,10 +31,13 @@ function isImageUrl(value: string) {
 export default function TaskCoverImageControl({
   value,
   onChange,
+  projectId,
+  taskId,
   disabled = false,
   compact = false,
 }: TaskCoverImageControlProps) {
   const { t } = useLanguage();
+  const canUploadTaskCover = Boolean(projectId);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [url, setUrl] = useState(
     value?.startsWith("data:") || getTaskAssetPath(value) ? "" : value ?? "",
@@ -66,6 +73,10 @@ export default function TaskCoverImageControl({
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
+    if (!projectId) {
+      toast.error(t("taskCover.projectRequired"));
+      return;
+    }
     if (!file.type.startsWith("image/")) {
       toast.error(t("taskCover.chooseImage"));
       return;
@@ -78,6 +89,8 @@ export default function TaskCoverImageControl({
     try {
       const form = new FormData();
       form.append("file", file);
+      form.append("project_id", projectId);
+      if (taskId) form.append("task_id", taskId);
       const res = await fetch("/api/uploads/task-cover", {
         method: "POST",
         body: form,
@@ -138,22 +151,33 @@ export default function TaskCoverImageControl({
             className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
           />
         </div>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          className="hidden"
-          onChange={(e) => void handleFile(e.target.files?.[0])}
-        />
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled || saving}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-          {t("taskCover.upload")}
-        </button>
+        {canUploadTaskCover ? (
+          <>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => void handleFile(e.target.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={disabled || saving}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+              {t("taskCover.upload")}
+            </button>
+          </>
+        ) : (
+          <p
+            data-testid="task-cover-upload-requires-project"
+            className="self-center text-xs text-muted-foreground"
+          >
+            {t("taskCover.projectRequired")}
+          </p>
+        )}
         {value && (
           <button
             type="button"

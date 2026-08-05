@@ -88,6 +88,8 @@ interface RailProps {
   user: AppUser;
   pathname: string | null;
   panelOpen: boolean;
+  panelId?: string;
+  showPanelToggle?: boolean;
   onTogglePanel: () => void;
   onSignOut: () => void;
   onNavigate?: () => void;
@@ -102,35 +104,72 @@ export function Rail({
   user,
   pathname,
   panelOpen,
+  panelId,
+  showPanelToggle = true,
   onTogglePanel,
   onSignOut,
   onNavigate,
 }: RailProps) {
   const { t } = useLanguage();
-  return (
-    <div className="flex h-full w-full flex-col items-center glass-rail">
-      <div className="flex h-20 w-full shrink-0 items-center justify-center border-b border-sidebar-border dark:border-blue-300/10">
-        <Link
-          href="/"
-          onClick={onNavigate}
-          className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-background/10 shadow-[0_0_24px_rgba(59,130,246,0.18)] ring-1 ring-white/10 transition-transform hover:scale-105"
-          aria-label="Up Flow"
-        >
-          <Image
-            src="/assets/UP_LOGO_1778594851568.png"
-            alt="Up Flow"
-            width={36}
-            height={36}
-            className="w-full h-full object-contain"
-            priority
-          />
-        </Link>
-      </div>
+  const railLabelClass =
+    "block w-full whitespace-normal break-words text-center [overflow-wrap:anywhere]";
 
-      <nav
-        data-testid="sidebar-rail-navigation"
-        className="flex-1 flex flex-col items-center gap-2 w-full px-1 py-4"
-      >
+  return (
+    <div className="glass-rail flex h-full w-full flex-col p-1">
+      <div className="flex min-h-0 flex-1 flex-col items-center rounded-[10px] bg-[#16132f] px-0 pb-1.5 pt-1.5 text-[#e9e7ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(0,0,0,0.28)]">
+        <div
+          data-testid="sidebar-rail-brand"
+          className="flex h-10 w-full shrink-0 items-center justify-center"
+        >
+          <Link
+            href="/"
+            onClick={onNavigate}
+            className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,0.24)] transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            aria-label="Up Flow"
+          >
+            <Image
+              src="/assets/UP_LOGO_1778594851568.png"
+              alt="Up Flow"
+              width={36}
+              height={36}
+              className="w-full h-full object-contain"
+              priority
+            />
+          </Link>
+        </div>
+        {showPanelToggle && (
+          <div className="mt-1 flex h-8 w-full shrink-0 items-center justify-center">
+            <button
+              type="button"
+              data-testid="sidebar-panel-toggle"
+              onClick={onTogglePanel}
+              title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              aria-controls={panelId}
+              aria-expanded={panelOpen}
+              className={cn(
+                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[#e9e7ff] shadow-[0_4px_16px_rgba(0,0,0,0.2)] outline-none transition-all focus-visible:ring-2 focus-visible:ring-white/80",
+                panelOpen
+                  ? "border-white/45 bg-white text-[#171331]"
+                  : "border-white/20 bg-white/[0.1] hover:border-white/45 hover:bg-white/[0.18] hover:text-white",
+              )}
+            >
+              {panelOpen ? (
+                <PanelLeftClose className="h-4 w-4 stroke-[2]" />
+              ) : (
+                <PanelLeftOpen className="h-4 w-4 stroke-[2]" />
+              )}
+              <span className="sr-only">
+                {panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              </span>
+            </button>
+          </div>
+        )}
+
+        <nav
+          data-testid="sidebar-rail-navigation"
+          className="mt-1 flex min-h-0 w-full flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain px-0 py-1"
+        >
         {primaryNav.map(({ href, label, labelKey, icon: Icon }) => {
           const active = isActiveHref(pathname, href);
           const translatedLabel = t(labelKey) || label;
@@ -143,86 +182,73 @@ export function Rail({
               aria-label={translatedLabel}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group relative flex h-9 w-9 flex-col items-center justify-center rounded-xl transition-all",
+                "group relative flex min-h-[48px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight outline-none transition-all focus-visible:ring-2 focus-visible:ring-white/80",
                 active
-                  ? "bg-gradient-to-br from-blue-600/[0.55] to-violet-600/[0.35] text-white shadow-[0_0_28px_rgba(37,99,235,0.34)] ring-1 ring-blue-300/30"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15] dark:hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
+                  ? "bg-white text-[#171331] shadow-[0_6px_20px_rgba(0,0,0,0.22)]"
+                  : "text-[#d9d5fb] hover:bg-white/[0.12] hover:text-white",
               )}
             >
-              {active && (
-                <span className="absolute left-0 h-5 w-0.5 rounded-full bg-sky-400 shadow-[0_0_14px_rgba(59,130,246,0.85)]" />
-              )}
               <Icon
                 className={cn(
-                  "w-[18px] h-[18px]",
-                  active && "drop-shadow-[0_0_8px_rgba(147,197,253,0.85)]",
+                  "h-[17px] w-[17px] shrink-0 stroke-[1.8]",
+                  active ? "text-[#21184a]" : "text-[#e6e3ff]",
                 )}
               />
-              {active && (
-                <span className="absolute -bottom-1.5 h-1 w-1 rounded-full bg-primary shadow-[0_0_10px_rgba(139,92,246,0.75)]" />
-              )}
+              <span
+                data-testid="sidebar-rail-item-label"
+                className={railLabelClass}
+              >
+                {translatedLabel}
+              </span>
             </Link>
           );
         })}
-
-        <button
-          onClick={onTogglePanel}
-          title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-          aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-          aria-pressed={panelOpen}
-          className={cn(
-            "group relative mt-1 flex h-9 w-9 items-center justify-center rounded-xl transition-all",
-            panelOpen
-              ? "bg-primary/[0.15] text-primary shadow-[0_0_22px_rgba(139,92,246,0.18)] ring-1 ring-primary/25"
-              : "bg-primary/20 text-foreground shadow-[0_0_22px_rgba(59,130,246,0.14)] hover:bg-primary/30",
-          )}
-        >
-          {panelOpen ? (
-            <PanelLeftClose className="w-[18px] h-[18px]" />
-          ) : (
-            <PanelLeftOpen className="w-[18px] h-[18px]" />
-          )}
-        </button>
       </nav>
 
-      <div className="flex flex-col items-center gap-2 w-full px-1 pb-1">
+      <div className="mt-1 flex w-full shrink-0 flex-col items-center gap-1 border-t border-white/[0.1] pt-1.5">
         <Link
           href="/settings"
           onClick={onNavigate}
           aria-label={t("sidebar.settings")}
           title={t("sidebar.settings")}
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15] dark:hover:shadow-[0_0_22px_rgba(139,92,246,0.16)]",
+            "flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight text-[#d9d5fb] outline-none transition-all hover:bg-white/[0.12] hover:text-white focus-visible:ring-2 focus-visible:ring-white/80",
             isActiveHref(pathname, "/settings") &&
-              "bg-gradient-to-br from-blue-600/[0.55] to-violet-600/[0.35] text-white shadow-[0_0_24px_rgba(37,99,235,0.28)] ring-1 ring-blue-300/25",
+              "bg-white text-[#171331] shadow-[0_6px_20px_rgba(0,0,0,0.22)]",
           )}
         >
-          <Settings2 className="w-[18px] h-[18px]" />
+          <Settings2 className="h-[17px] w-[17px] stroke-[1.8]" />
+          <span className={railLabelClass}>{t("sidebar.settings")}</span>
         </Link>
         <button
           onClick={onSignOut}
           aria-label={t("sidebar.signOut")}
           title={t("sidebar.signOut")}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-all hover:bg-rose-500/10 hover:text-rose-700 dark:hover:text-rose-100 dark:hover:shadow-[0_0_22px_rgba(244,63,94,0.14)]"
+          className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight text-[#d9d5fb] outline-none transition-all hover:bg-rose-500/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/80"
         >
-          <LogOut className="w-[18px] h-[18px]" />
+          <LogOut className="h-[17px] w-[17px] stroke-[1.8]" />
+          <span className={railLabelClass}>{t("sidebar.signOut")}</span>
         </button>
-        <button
+        <Link
+          href="/docs"
+          onClick={onNavigate}
           aria-label={t("sidebar.help")}
           title={t("sidebar.help")}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.15]"
+          className="flex min-h-[46px] w-full flex-col items-center justify-center gap-1 rounded-lg px-0 py-1 text-center text-[8px] font-semibold leading-[9px] tracking-tight text-[#d9d5fb] outline-none transition-all hover:bg-white/[0.12] hover:text-white focus-visible:ring-2 focus-visible:ring-white/80"
         >
-          <HelpCircle className="w-[18px] h-[18px]" />
-        </button>
+          <HelpCircle className="h-[17px] w-[17px] stroke-[1.8]" />
+          <span className={railLabelClass}>{t("sidebar.help")}</span>
+        </Link>
         <Link
           href="/settings"
           onClick={onNavigate}
           aria-label={user.name || user.email || "User"}
           title={user.name || user.email || "User"}
-          className="mt-2 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-[10px] font-bold text-white shadow-[0_0_24px_rgba(139,92,246,0.26)] transition-opacity hover:opacity-90"
+          className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-[9px] font-bold text-[#21184a] shadow-[0_3px_12px_rgba(0,0,0,0.22)] transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
         >
           {getInitials(user.name || user.email || "U")}
         </Link>
+      </div>
       </div>
     </div>
   );

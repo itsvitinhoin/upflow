@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { canAccessWorkspace, isWorkspaceAdminFor } from "@/lib/auth-helpers";
+import { canAccessWorkspace } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
 import { recordActivity } from "@/lib/activity";
+import { canContributeToProject } from "@/lib/project-access";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const CreateDependencySchema = z.object({
@@ -142,11 +143,10 @@ async function POST_handler(
       { status: 400 },
     );
   }
-  const canManage =
-    task.assignee_id === auth.prismaUser.id ||
-    task.project.owner_id === auth.prismaUser.id ||
-    isWorkspaceAdminFor(auth, task.project.workspace_id);
-  if (!canManage) {
+  // A dependency changes the task's project plan. Assignment alone is not
+  // permission to change that plan: a user can retain a stale assignment
+  // after becoming a guest or after being removed from an explicit roster.
+  if (!(await canContributeToProject(auth, task.project))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if (task.id === dependsOnTask.id) {

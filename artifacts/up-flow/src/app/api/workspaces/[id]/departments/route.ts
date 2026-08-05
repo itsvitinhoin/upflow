@@ -34,7 +34,16 @@ async function GET_handler(
       name: true,
       color: true,
       sort_order: true,
+      leader_id: true,
       created_at: true,
+      leader: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          avatar_url: true,
+        },
+      },
       _count: { select: { members: true } },
     },
   });
@@ -96,10 +105,14 @@ async function POST_handler(
         name: true,
         color: true,
         sort_order: true,
+        leader_id: true,
         created_at: true,
       },
     });
-    return NextResponse.json({ ...dep, _count: { members: 0 } }, { status: 201 });
+    return NextResponse.json(
+      { ...dep, leader: null, _count: { members: 0 } },
+      { status: 201 },
+    );
   } catch (err) {
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&

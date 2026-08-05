@@ -146,6 +146,7 @@ interface Props {
   tasks: Task[];
   customFields: CustomFieldDefinition[];
   users: TaskAssignee[];
+  canContribute: boolean;
   onOpenTask: (task: Task) => void;
   onRefresh: () => void | Promise<void>;
 }
@@ -161,6 +162,7 @@ export default function SocialMediaCalendar({
   tasks,
   customFields,
   users,
+  canContribute,
   onOpenTask,
   onRefresh,
 }: Props) {
@@ -182,7 +184,7 @@ export default function SocialMediaCalendar({
       try {
         const [plansResult, companiesResult] = await Promise.all([
           fetch(`/api/projects/${projectId}/social-media`),
-          fetch("/api/companies?limit=100"),
+          fetch("/api/companies?limit=100&include_summary=false"),
         ]);
         if (!plansResult.ok) throw new Error("Could not load the social media calendar");
         const planPayload = (await plansResult.json()) as {
@@ -416,6 +418,7 @@ export default function SocialMediaCalendar({
     value: string,
     taskStatus?: Task["status"],
   ) => {
+    if (!canContribute) return;
     const definition = fieldsByName.get(fieldName.toLocaleLowerCase());
     if (!definition) {
       toast.error(`${fieldName} is not configured for this list yet.`);
@@ -443,6 +446,7 @@ export default function SocialMediaCalendar({
   };
 
   const updateMoodboard = async (plan: SocialMediaPlan, moodboardStatus: string) => {
+    if (!canContribute) return;
     setSavingKey(`moodboard:${plan.id}`);
     try {
       const response = await fetch(`/api/social-media/plans/${plan.id}`, {
@@ -520,13 +524,15 @@ export default function SocialMediaCalendar({
             >
               <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} /> Refresh
             </button>
-            <button
-              type="button"
-              onClick={() => setShowPlanForm((show) => !show)}
-              className="upflow-gradient-button inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold text-white"
-            >
-              <Plus className="h-4 w-4" /> New content plan
-            </button>
+            {canContribute && (
+              <button
+                type="button"
+                onClick={() => setShowPlanForm((show) => !show)}
+                className="upflow-gradient-button inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold text-white"
+              >
+                <Plus className="h-4 w-4" /> New content plan
+              </button>
+            )}
           </div>
         </div>
 
@@ -541,7 +547,7 @@ export default function SocialMediaCalendar({
           />
         )}
 
-        {showPlanForm && (
+        {canContribute && showPlanForm && (
           <NewPlanForm
             projectId={projectId}
             workspaceId={workspaceId}
@@ -564,6 +570,7 @@ export default function SocialMediaCalendar({
             plan={plan}
             stats={planStats.get(plan.id) ?? emptyPlanStats()}
             users={users}
+            canContribute={canContribute}
             saving={savingKey === `moodboard:${plan.id}`}
             onMoodboardChange={(value) => void updateMoodboard(plan, value)}
             onOpenMoodboard={() => {
@@ -575,12 +582,12 @@ export default function SocialMediaCalendar({
             onAddPost={() => setAddingPostFor((current) => (current === plan.id ? null : plan.id))}
           />
         ))}
-        {visiblePlanSummaries.length === 0 && !filters.withoutPlanOnly && (
+        {canContribute && visiblePlanSummaries.length === 0 && !filters.withoutPlanOnly && (
           <EmptyPlanSummary onCreate={() => setShowPlanForm(true)} />
         )}
       </section>
 
-      {addingPostFor && (
+      {canContribute && addingPostFor && (
         <AdditionalPostForm
           plan={plans.find((plan) => plan.id === addingPostFor) ?? null}
           users={users}
@@ -594,7 +601,11 @@ export default function SocialMediaCalendar({
       )}
 
       {filters.withoutPlanOnly ? (
-        <MissingPlanPanel companies={plansWithoutContent} onCreate={() => setShowPlanForm(true)} />
+        <MissingPlanPanel
+          companies={plansWithoutContent}
+          canContribute={canContribute}
+          onCreate={() => setShowPlanForm(true)}
+        />
       ) : (
         <section className="rounded-2xl border border-border bg-card shadow-sm">
           <CalendarHeader
@@ -607,6 +618,7 @@ export default function SocialMediaCalendar({
             month={calendarMonth}
             postsByDate={postsByDate}
             fieldsByName={fieldsByName}
+            canContribute={canContribute}
             savingKey={savingKey}
             onOpenTask={onOpenTask}
             onUpdateField={updateTaskField}
@@ -845,6 +857,7 @@ function PlanSummary({
   plan,
   stats,
   users,
+  canContribute,
   saving,
   onMoodboardChange,
   onOpenMoodboard,
@@ -853,6 +866,7 @@ function PlanSummary({
   plan: SocialMediaPlan;
   stats: PlanStats;
   users: TaskAssignee[];
+  canContribute: boolean;
   saving: boolean;
   onMoodboardChange: (value: string) => void;
   onOpenMoodboard: () => void;
@@ -883,7 +897,7 @@ function PlanSummary({
             {isMoodboardReady(plan.moodboard_status) ? <Check className="h-3 w-3" /> : "M"}
           </span>
           <span className="min-w-0"><span className="font-semibold text-foreground">Moodboard</span>{" "}
-            <select value={plan.moodboard_status} onChange={(event) => onMoodboardChange(event.target.value)} disabled={saving} className="ml-1 max-w-[150px] rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
+            <select value={plan.moodboard_status} onChange={(event) => onMoodboardChange(event.target.value)} disabled={!canContribute || saving} className="ml-1 max-w-[150px] rounded border border-transparent bg-transparent px-1 py-0.5 text-xs text-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50">
               {MOODBOARD_STATUSES.map((status) => <option key={status}>{status}</option>)}
             </select>
           </span>
@@ -892,7 +906,7 @@ function PlanSummary({
       </div>
       <div className="mt-3 flex items-center gap-2">
         {plan.moodboard_task && <button type="button" onClick={onOpenMoodboard} className="text-xs font-semibold text-primary hover:underline">Open moodboard task</button>}
-        <button type="button" onClick={onAddPost} className="ml-auto inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3 w-3" /> Add post</button>
+        {canContribute && <button type="button" onClick={onAddPost} className="ml-auto inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="h-3 w-3" /> Add post</button>}
       </div>
     </article>
   );
@@ -902,6 +916,7 @@ function MonthGrid({
   month,
   postsByDate,
   fieldsByName,
+  canContribute,
   savingKey,
   onOpenTask,
   onUpdateField,
@@ -909,6 +924,7 @@ function MonthGrid({
   month: string;
   postsByDate: Map<string, Array<{ task: Task; plan: SocialMediaPlan }>>;
   fieldsByName: Map<string, CustomFieldDefinition>;
+  canContribute: boolean;
   savingKey: string | null;
   onOpenTask: (task: Task) => void;
   onUpdateField: (task: Task, fieldName: string, value: string, taskStatus?: Task["status"]) => Promise<void>;
@@ -921,7 +937,7 @@ function MonthGrid({
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <div key={day} className="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{day}</div>)}
         </div>
         <div className="grid grid-cols-7">
-          {days.map((date) => <DayCell key={date.key} date={date} posts={postsByDate.get(date.key) ?? []} fieldsByName={fieldsByName} savingKey={savingKey} onOpenTask={onOpenTask} onUpdateField={onUpdateField} />)}
+          {days.map((date) => <DayCell key={date.key} date={date} posts={postsByDate.get(date.key) ?? []} fieldsByName={fieldsByName} canContribute={canContribute} savingKey={savingKey} onOpenTask={onOpenTask} onUpdateField={onUpdateField} />)}
         </div>
       </div>
     </div>
@@ -932,6 +948,7 @@ function DayCell({
   date,
   posts,
   fieldsByName,
+  canContribute,
   savingKey,
   onOpenTask,
   onUpdateField,
@@ -939,6 +956,7 @@ function DayCell({
   date: CalendarDate;
   posts: Array<{ task: Task; plan: SocialMediaPlan }>;
   fieldsByName: Map<string, CustomFieldDefinition>;
+  canContribute: boolean;
   savingKey: string | null;
   onOpenTask: (task: Task) => void;
   onUpdateField: (task: Task, fieldName: string, value: string, taskStatus?: Task["status"]) => Promise<void>;
@@ -950,7 +968,7 @@ function DayCell({
       <div className="mb-1 flex items-center justify-between"><span className={cn("inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold", today ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{date.day}</span>{posts.length > 0 && <span className="text-[10px] font-semibold text-muted-foreground">{posts.length}</span>}</div>
       <div className="space-y-1.5">
         {posts.map(({ task, plan }) => (
-          <PostCard key={task.id} task={task} plan={plan} fieldsByName={fieldsByName} savingKey={savingKey} onOpenTask={onOpenTask} onUpdateField={onUpdateField} />
+          <PostCard key={task.id} task={task} plan={plan} fieldsByName={fieldsByName} canContribute={canContribute} savingKey={savingKey} onOpenTask={onOpenTask} onUpdateField={onUpdateField} />
         ))}
       </div>
     </div>
@@ -961,6 +979,7 @@ function PostCard({
   task,
   plan,
   fieldsByName,
+  canContribute,
   savingKey,
   onOpenTask,
   onUpdateField,
@@ -968,6 +987,7 @@ function PostCard({
   task: Task;
   plan: SocialMediaPlan;
   fieldsByName: Map<string, CustomFieldDefinition>;
+  canContribute: boolean;
   savingKey: string | null;
   onOpenTask: (task: Task) => void;
   onUpdateField: (task: Task, fieldName: string, value: string, taskStatus?: Task["status"]) => Promise<void>;
@@ -996,9 +1016,9 @@ function PostCard({
       </div>
       <p className="mt-1 truncate text-[9px] text-muted-foreground">Responsible: {task.assignee?.name ?? "Unassigned"}</p>
       <div className="mt-1.5 grid gap-1">
-        <StageSelect label="Production" value={contentStatus} options={CONTENT_STATUSES} disabled={!moodboardReady || savingKey === `${task.id}:${contentField?.id}`} onChange={(value) => void onUpdateField(task, FIELD_NAMES.contentStatus, value, value === "Not Requested" ? "todo" : "in_progress")} />
-        <StageSelect label="Approval" value={approvalStatus} options={APPROVAL_STATUSES} disabled={!moodboardReady || savingKey === `${task.id}:${approvalField?.id}`} onChange={(value) => void onUpdateField(task, FIELD_NAMES.approvalStatus, value)} />
-        <StageSelect label="Publishing" value={publishingStatus} options={PUBLISHING_STATUSES} disabled={!canPublish || savingKey === `${task.id}:${publishingField?.id}`} onChange={(value) => void onUpdateField(task, FIELD_NAMES.publishingStatus, value, value === "Published" ? "done" : undefined)} />
+        <StageSelect label="Production" value={contentStatus} options={CONTENT_STATUSES} disabled={!canContribute || !moodboardReady || savingKey === `${task.id}:${contentField?.id}`} onChange={(value) => void onUpdateField(task, FIELD_NAMES.contentStatus, value, value === "Not Requested" ? "todo" : "in_progress")} />
+        <StageSelect label="Approval" value={approvalStatus} options={APPROVAL_STATUSES} disabled={!canContribute || !moodboardReady || savingKey === `${task.id}:${approvalField?.id}`} onChange={(value) => void onUpdateField(task, FIELD_NAMES.approvalStatus, value)} />
+        <StageSelect label="Publishing" value={publishingStatus} options={PUBLISHING_STATUSES} disabled={!canContribute || !canPublish || savingKey === `${task.id}:${publishingField?.id}`} onChange={(value) => void onUpdateField(task, FIELD_NAMES.publishingStatus, value, value === "Published" ? "done" : undefined)} />
       </div>
       {publishingStatus === "Published" && <span className="mt-1 inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-700 dark:text-emerald-200"><Check className="h-3 w-3" /> Published{publishedAt ? ` ${publishedAt.slice(0, 16).replace("T", " ")}` : ""}</span>}
       {publishedUrl && <a href={publishedUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-0.5 truncate text-[9px] font-semibold text-primary hover:underline"><ExternalLink className="h-2.5 w-2.5" /> Published post</a>}
@@ -1020,8 +1040,8 @@ function UnscheduledRail({ posts, onOpenTask }: { posts: Array<{ task: Task; pla
   return <div className="border-t border-border p-4"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Unscheduled content</p><div className="flex flex-wrap gap-2">{posts.map(({ task, plan }) => <button key={task.id} type="button" onClick={() => onOpenTask(task)} className="rounded-lg border border-border bg-muted/30 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-accent">{plan.company.name}: {task.title}</button>)}</div></div>;
 }
 
-function MissingPlanPanel({ companies, onCreate }: { companies: Company[]; onCreate: () => void }) {
-  return <section className="rounded-2xl border border-border bg-card p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold text-foreground">Clients without a content plan</h3><p className="mt-1 text-sm text-muted-foreground">These clients have no social-media plan for the displayed month.</p></div><button type="button" onClick={onCreate} className="upflow-gradient-button inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" /> Create plan</button></div>{companies.length ? <div className="mt-4 flex flex-wrap gap-2">{companies.map((company) => <span key={company.id} className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-semibold text-foreground">{company.name}</span>)}</div> : <p className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-3 text-sm text-emerald-700 dark:text-emerald-200">Every client has a plan for this month.</p>}</section>;
+function MissingPlanPanel({ companies, canContribute, onCreate }: { companies: Company[]; canContribute: boolean; onCreate: () => void }) {
+  return <section className="rounded-2xl border border-border bg-card p-5 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-base font-bold text-foreground">Clients without a content plan</h3><p className="mt-1 text-sm text-muted-foreground">These clients have no social-media plan for the displayed month.</p></div>{canContribute && <button type="button" onClick={onCreate} className="upflow-gradient-button inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" /> Create plan</button>}</div>{companies.length ? <div className="mt-4 flex flex-wrap gap-2">{companies.map((company) => <span key={company.id} className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm font-semibold text-foreground">{company.name}</span>)}</div> : <p className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-3 text-sm text-emerald-700 dark:text-emerald-200">Every client has a plan for this month.</p>}</section>;
 }
 
 function AlertRow({ alert }: { alert: CalendarAlert }) {

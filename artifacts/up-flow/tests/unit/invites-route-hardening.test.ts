@@ -22,6 +22,10 @@ const teamPage = readFileSync(
   join(__dirname, "..", "..", "src", "app", "(dashboard)", "team", "page.tsx"),
   "utf8",
 );
+const teamWorkspace = readFileSync(
+  join(__dirname, "..", "..", "src", "components", "team", "team-workspace.tsx"),
+  "utf8",
+);
 const teamInvitePanels = readFileSync(
   join(__dirname, "..", "..", "src", "components", "team", "team-invite-panels.tsx"),
   "utf8",
@@ -154,7 +158,7 @@ test("team page makes real workspace user invites the primary flow", () => {
 });
 
 test("team keeps onboarding ownership setup progressively disclosed", () => {
-  assert.match(teamPage, /<ServiceLeaderMappingPanel/);
+  assert.match(teamWorkspace, /<ServiceLeaderMappingPanel/);
   assert.match(serviceLeaderMappingPanel, /<details className="group/);
   assert.match(serviceLeaderMappingPanel, /<summary/);
 });
@@ -212,6 +216,18 @@ test("invite modes support personal workspaces and current workspace access", ()
   assert.match(inviteReconciliation, /invite_mode:\s*"workspace_access"/);
   assert.match(acceptPage, /t\("invite\.personalWorkspaceExplanation"/);
   assert.match(acceptPage, /t\("invite\.workspaceAccessExplanation"/);
+});
+
+test("accepted-invite reconciliation preserves later member role and status changes", () => {
+  const memberUpsert = inviteReconciliation.slice(
+    inviteReconciliation.indexOf("await tx.workspaceMember.upsert"),
+    inviteReconciliation.indexOf("if (!invite.accepted_by)"),
+  );
+
+  assert.match(memberUpsert, /create:\s*\{[\s\S]*role:\s*invite\.role,[\s\S]*status:\s*"active"[\s\S]*\}/);
+  assert.match(memberUpsert, /update:\s*\{\s*\}/);
+  assert.doesNotMatch(memberUpsert, /update:\s*\{[^}]*role:\s*invite\.role/);
+  assert.doesNotMatch(memberUpsert, /update:\s*\{[^}]*status:\s*"active"/);
 });
 
 test("admin health exposes actionable production diagnostics without secrets", () => {

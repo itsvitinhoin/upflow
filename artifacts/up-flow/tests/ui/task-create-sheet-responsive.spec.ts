@@ -42,6 +42,8 @@ test.describe("quick-first task creator responsive layout", () => {
       expect(footerBox).toBeTruthy();
       expect(sheetBox!.x).toBeGreaterThanOrEqual(0);
       expect(sheetBox!.x + sheetBox!.width).toBeLessThanOrEqual(layout.width + 1);
+      expect(Math.abs(sheetBox!.x + sheetBox!.width / 2 - layout.width / 2)).toBeLessThanOrEqual(2);
+      expect(Math.abs(sheetBox!.y + sheetBox!.height / 2 - layout.height / 2)).toBeLessThanOrEqual(2);
       expect(scrollBox!.y + scrollBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);
       expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(layout.height + 1);
 

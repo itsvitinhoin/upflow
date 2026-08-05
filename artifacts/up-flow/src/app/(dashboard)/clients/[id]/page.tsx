@@ -8,6 +8,7 @@ import Header from "@/components/layout/header";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
 import { useAppUser } from "@/components/user-provider";
 import type { Company, CompanyContact, CompanyNote, SalesChannel, TeamMember, TimeEntry } from "@/lib/types";
+import { hasWorkspaceAdminAccess } from "@/lib/client-role-access";
 import { formatDate } from "@/lib/utils";
 import { useLanguage } from "@/components/language-provider";
 
@@ -61,9 +62,7 @@ export default function ClientDetailPage() {
     plan_notes: "",
   });
 
-  const canChangeManager = Boolean(
-    user?.isSuperAdmin || user?.currentRole === "owner" || user?.currentRole === "admin",
-  );
+  const canManageClient = hasWorkspaceAdminAccess(user);
 
   const loadCompany = async (options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -101,7 +100,7 @@ export default function ClientDetailPage() {
   };
 
   const openManagerEditor = async () => {
-    if (!company || !canChangeManager) return;
+    if (!company || !canManageClient) return;
 
     setManagerId(company.owner_id);
     setManagerError(null);
@@ -351,6 +350,14 @@ export default function ClientDetailPage() {
     <>
       <Header title={company.name} />
       <div className="space-y-6 overflow-x-hidden p-4 sm:p-6">
+        {!canManageClient ? (
+          <p
+            data-testid="client-detail-read-only"
+            className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+          >
+            {t("clientDetail.manageRestricted")}
+          </p>
+        ) : null}
         <section className="glass rounded-xl p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex min-w-0 items-start gap-4">
@@ -381,14 +388,16 @@ export default function ClientDetailPage() {
                 <FileText className="h-4 w-4" />
                 {t("clientDetail.reportWorkflow")}
               </Link>
-              <button
-                type="button"
-                onClick={() => setShowProjectDialog(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              >
-                <Plus className="h-4 w-4" />
-                {t("clientDetail.newProject")}
-              </button>
+              {canManageClient ? (
+                <button
+                  type="button"
+                  onClick={() => setShowProjectDialog(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t("clientDetail.newProject")}
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
@@ -418,7 +427,7 @@ export default function ClientDetailPage() {
               />
               <div className="rounded-lg border border-white/5 bg-white/[0.03] p-4">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">{t("clientDetail.clientOwner")}</p>
-                {editingManager ? (
+                {canManageClient && editingManager ? (
                   <div className="mt-3 space-y-3">
                     <select
                       value={managerId}
@@ -472,7 +481,7 @@ export default function ClientDetailPage() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {company.owner?.email ?? t("clientDetail.assignOwnerHint")}
                     </p>
-                    {canChangeManager ? (
+                    {canManageClient ? (
                       <button
                         type="button"
                         onClick={() => void openManagerEditor()}
@@ -581,43 +590,45 @@ export default function ClientDetailPage() {
                 {t("clientDetail.servicesPlan")}
               </h3>
             </div>
-            {editingPlan ? (
-              <div className="flex flex-wrap items-center gap-2">
+            {canManageClient ? (
+              editingPlan ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlanForm(toPlanForm(company));
+                      setPlanError(null);
+                      setEditingPlan(false);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5"
+                  >
+                    <X className="h-4 w-4" />
+                    {t("common.cancel")}
+                  </button>
+                  <button
+                    type="submit"
+                    form="client-plan-form"
+                    disabled={savingPlan}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Save className="h-4 w-4" />
+                    {savingPlan ? t("docs.saving") : t("clientDetail.savePlan")}
+                  </button>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setPlanForm(toPlanForm(company));
-                    setPlanError(null);
-                    setEditingPlan(false);
-                  }}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-white/5"
+                  onClick={() => setEditingPlan(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-foreground hover:bg-white/5"
                 >
-                  <X className="h-4 w-4" />
-                  {t("common.cancel")}
+                  <Pencil className="h-4 w-4" />
+                  {t("clientDetail.editPlan")}
                 </button>
-                <button
-                  type="submit"
-                  form="client-plan-form"
-                  disabled={savingPlan}
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {savingPlan ? t("docs.saving") : t("clientDetail.savePlan")}
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setEditingPlan(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-foreground hover:bg-white/5"
-              >
-                <Pencil className="h-4 w-4" />
-                {t("clientDetail.editPlan")}
-              </button>
-            )}
+              )
+            ) : null}
           </div>
 
-          {editingPlan ? (
+          {canManageClient && editingPlan ? (
             <form id="client-plan-form" onSubmit={savePlan} className="mt-5 grid gap-4 lg:grid-cols-4">
               <label className="grid gap-2 text-xs font-medium uppercase text-muted-foreground">
                 {t("clients.salesChannel.label")}
@@ -714,19 +725,21 @@ export default function ClientDetailPage() {
 
         <div className="grid gap-4 xl:grid-cols-3">
           <Panel title={t("clientDetail.contacts")} icon={<Users className="h-4 w-4" />}>
-            <form onSubmit={addContact} className="grid gap-2">
-              <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder={t("clientDetail.contactName")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder={t("clientDetail.emailAddress")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <button
-                type="submit"
-                disabled={!contactName.trim() || pendingClientAction === "contact:create"}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Plus className="h-4 w-4" /> {pendingClientAction === "contact:create" ? t("clientDetail.adding") : t("clientDetail.addContact")}
-              </button>
-            </form>
+            {canManageClient ? (
+              <form onSubmit={addContact} className="grid gap-2">
+                <input value={contactName} onChange={(e) => setContactName(e.target.value)} placeholder={t("clientDetail.contactName")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+                <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder={t("clientDetail.emailAddress")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+                <button
+                  type="submit"
+                  disabled={!contactName.trim() || pendingClientAction === "contact:create"}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" /> {pendingClientAction === "contact:create" ? t("clientDetail.adding") : t("clientDetail.addContact")}
+                </button>
+              </form>
+            ) : null}
             <List items={company.contacts ?? []} empty={t("clientDetail.noContacts")} render={(contact: CompanyContact) => (
-              editingContact?.id === contact.id ? (
+              canManageClient && editingContact?.id === contact.id ? (
                 <form onSubmit={saveContact} className="grid gap-2">
                   <input
                     value={editingContact.name}
@@ -779,31 +792,33 @@ export default function ClientDetailPage() {
                     <p className="break-words text-xs text-muted-foreground">{contact.email || contact.phone || t("clientDetail.noContactInfo")}</p>
                     {contact.role ? <p className="mt-1 text-xs text-muted-foreground">{contact.role}</p> : null}
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditingContact({
-                        id: contact.id,
-                        name: contact.name,
-                        email: contact.email ?? "",
-                        phone: contact.phone ?? "",
-                        role: contact.role ?? "",
-                      })}
-                      className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
-                      aria-label={t("clientDetail.editContact", { name: contact.name })}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteContact(contact)}
-                      disabled={pendingClientAction === `contact:delete:${contact.id}`}
-                      className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
-                      aria-label={t("clientDetail.deleteContact", { name: contact.name })}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {canManageClient ? (
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingContact({
+                          id: contact.id,
+                          name: contact.name,
+                          email: contact.email ?? "",
+                          phone: contact.phone ?? "",
+                          role: contact.role ?? "",
+                        })}
+                        className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
+                        aria-label={t("clientDetail.editContact", { name: contact.name })}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteContact(contact)}
+                        disabled={pendingClientAction === `contact:delete:${contact.id}`}
+                        className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
+                        aria-label={t("clientDetail.deleteContact", { name: contact.name })}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )
             )} />
@@ -827,18 +842,20 @@ export default function ClientDetailPage() {
           </Panel>
 
           <Panel title={t("clientDetail.notes")} icon={<FileText className="h-4 w-4" />}>
-            <form onSubmit={addNote} className="grid gap-2">
-              <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} placeholder={t("clientDetail.addNote")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
-              <button
-                type="submit"
-                disabled={!noteBody.trim() || pendingClientAction === "note:create"}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Plus className="h-4 w-4" /> {pendingClientAction === "note:create" ? t("clientDetail.adding") : t("clientDetail.addNote")}
-              </button>
-            </form>
+            {canManageClient ? (
+              <form onSubmit={addNote} className="grid gap-2">
+                <textarea value={noteBody} onChange={(e) => setNoteBody(e.target.value)} rows={3} placeholder={t("clientDetail.addNote")} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm" />
+                <button
+                  type="submit"
+                  disabled={!noteBody.trim() || pendingClientAction === "note:create"}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Plus className="h-4 w-4" /> {pendingClientAction === "note:create" ? t("clientDetail.adding") : t("clientDetail.addNote")}
+                </button>
+              </form>
+            ) : null}
             <List items={company.notes_log ?? []} empty={t("clientDetail.noNotes")} render={(note: CompanyNote) => (
-              editingNote?.id === note.id ? (
+              canManageClient && editingNote?.id === note.id ? (
                 <form onSubmit={saveNote} className="grid gap-2">
                   <textarea
                     value={editingNote.body}
@@ -870,25 +887,27 @@ export default function ClientDetailPage() {
                     <p className="break-words text-sm text-foreground">{note.body}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{note.author?.name ?? t("clientDetail.unknown")} - {formatDate(note.created_at, locale)}</p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditingNote({ id: note.id, body: note.body })}
-                      className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
-                      aria-label={t("clientDetail.editNote")}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteNote(note)}
-                      disabled={pendingClientAction === `note:delete:${note.id}`}
-                      className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
-                      aria-label={t("clientDetail.deleteNote")}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {canManageClient ? (
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingNote({ id: note.id, body: note.body })}
+                        className="rounded-md border border-white/10 p-1.5 text-muted-foreground hover:text-foreground"
+                        aria-label={t("clientDetail.editNote")}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteNote(note)}
+                        disabled={pendingClientAction === `note:delete:${note.id}`}
+                        className="rounded-md border border-upflow-danger/20 p-1.5 text-upflow-danger hover:bg-upflow-danger/10 disabled:opacity-60"
+                        aria-label={t("clientDetail.deleteNote")}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               )
             )} />
@@ -915,15 +934,17 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      <NewProjectDialog
-        open={showProjectDialog}
-        onClose={() => setShowProjectDialog(false)}
-        defaultCompanyId={company.id}
-        onCreated={() => {
-          setShowProjectDialog(false);
-          void loadCompany({ silent: true });
-        }}
-      />
+      {canManageClient ? (
+        <NewProjectDialog
+          open={showProjectDialog}
+          onClose={() => setShowProjectDialog(false)}
+          defaultCompanyId={company.id}
+          onCreated={() => {
+            setShowProjectDialog(false);
+            void loadCompany({ silent: true });
+          }}
+        />
+      ) : null}
     </>
   );
 }

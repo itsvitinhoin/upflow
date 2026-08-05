@@ -20,7 +20,7 @@ export function SpaceTaskTimeline({
   onCreateTask,
 }: {
   tasks: Task[];
-  onCreateTask: () => void;
+  onCreateTask?: () => void;
 }) {
   const { language, t } = useLanguage();
   const hours = Array.from({ length: 12 }, (_, i) => 8 + i);
@@ -92,13 +92,15 @@ export function SpaceTaskTimeline({
             )}
           </p>
         </div>
-        <button
-          onClick={onCreateTask}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          {t("spaceDashboard.newTask")}
-        </button>
+        {onCreateTask && (
+          <button
+            onClick={onCreateTask}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            {t("spaceDashboard.newTask")}
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto pb-1">

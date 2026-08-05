@@ -25,6 +25,16 @@ test("auth membership scope ignores inactive workspace members", () => {
   assert.match(workspace, /where:\s*\{\s*user_id: userId,\s*status:\s*"active"\s*\}/);
 });
 
+test("removing or deactivating a workspace member securely disconnects Google Calendar", () => {
+  const route = read("src/app/api/workspaces/[id]/members/[memberId]/route.ts");
+
+  assert.match(route, /nextMembership\.status === "inactive"/);
+  assert.match(route, /googleCalendarOAuthState\.deleteMany/);
+  assert.match(route, /import \{ disconnectGoogleCalendar \} from "@\/lib\/google-calendar"/);
+  assert.match(route, /await disconnectGoogleCalendar\(\{ workspaceId: params\.id, userId: params\.memberId \}\)/);
+  assert.match(route, /await tx\.workspaceMember\.delete/);
+});
+
 test("workspace deletion is owner-only and protects the user's only workspace", () => {
   const route = read("src/app/api/workspaces/[id]/route.ts");
 

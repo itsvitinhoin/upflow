@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-response";
 import { isSuperAdmin } from "@/lib/auth-helpers";
+import { deleteCalendarEventsWithGoogleTombstones } from "@/lib/calendar-event-delete";
 import { withErrorReporting } from "@/lib/with-error-reporting";
 
 const RESET_CONFIRMATION = "RESET WORKSPACE DATA";
@@ -94,7 +95,9 @@ async function POST_handler(
     await tx.clientReport.deleteMany({ where: { workspace_id: workspace.id } });
     await tx.notification.deleteMany({ where: { workspace_id: workspace.id } });
     await tx.timeEntry.deleteMany({ where: { workspace_id: workspace.id } });
-    await tx.calendarEvent.deleteMany({ where: { workspace_id: workspace.id } });
+    await deleteCalendarEventsWithGoogleTombstones(tx, {
+      workspace_id: workspace.id,
+    });
     await tx.activityEvent.deleteMany({ where: { workspace_id: workspace.id } });
     await tx.savedView.deleteMany({ where: { workspace_id: workspace.id } });
     await tx.goal.deleteMany({ where: { workspace_id: workspace.id } });

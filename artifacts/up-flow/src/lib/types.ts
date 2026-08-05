@@ -54,6 +54,10 @@ export interface Project {
   } | null;
   _count: { tasks: number };
   pending_todo_count?: number;
+  capabilities?: {
+    canContribute: boolean;
+    canManageMembers: boolean;
+  };
 }
 
 export interface Space {
@@ -249,6 +253,10 @@ export interface Doc {
   author: { id: string; name: string };
 }
 
+// List views never need the potentially large Tiptap document payload. Keep
+// the full Doc type for editors and use this compact shape for indexes.
+export type DocSummary = Omit<Doc, "content">;
+
 export interface NotificationTask {
   id: string;
   title: string;
@@ -332,6 +340,13 @@ export interface Department {
   name: string;
   color: string;
   sort_order: number;
+  leader_id?: string | null;
+  leader?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url: string | null;
+  } | null;
   created_at: string;
   _count: { members: number };
 }

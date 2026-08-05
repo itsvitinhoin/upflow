@@ -38,6 +38,7 @@ interface PanelProps {
   currentRole: "owner" | "admin" | "member" | "guest" | null;
   userName?: string | null;
   isSuperAdmin?: boolean;
+  active?: boolean;
   onNavigate?: () => void;
   onRequestClose?: () => void;
   onSignOut: () => void;
@@ -56,6 +57,7 @@ export default function Panel({
   currentRole,
   userName,
   isSuperAdmin = false,
+  active = true,
   onNavigate,
   onRequestClose,
   onSignOut,
@@ -81,7 +83,7 @@ export default function Panel({
   } = usePanelData(pathname, {
     workspaceId: currentWorkspaceId,
     userId: currentUserId,
-  });
+  }, { enabled: active });
 
   const [showCreate, setShowCreate] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Space | null>(null);

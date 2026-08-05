@@ -249,6 +249,63 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await ctx.close();
   });
 
+  test("custom fields wraps cleanly instead of overlapping task-toolbar controls", async ({
+    browser,
+    baseURL,
+  }) => {
+    const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    const projectId = await createProjectViaApi(ctx, uniq("ToolbarAlignmentProj"));
+    const page = await ctx.newPage();
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.goto(`/projects/${projectId}`);
+
+    const toolbar = page.getByTestId("project-toolbar");
+    const customFields = page.getByTestId("project-toolbar-custom-fields");
+    const showClosed = page.getByRole("button", { name: /^Show closed$/ });
+    const selectTasks = page.getByRole("button", { name: /^Select tasks$/ });
+
+    await expect(toolbar).toBeVisible();
+    await expect(customFields).toBeVisible();
+    await expect(showClosed).toBeVisible();
+    await expect(selectTasks).toBeVisible();
+
+    const [toolbarBox, showClosedBox, selectTasksBox, customFieldsBox] =
+      await Promise.all([
+        toolbar.boundingBox(),
+        showClosed.boundingBox(),
+        selectTasks.boundingBox(),
+        customFields.boundingBox(),
+      ]);
+    expect(toolbarBox).not.toBeNull();
+    expect(showClosedBox).not.toBeNull();
+    expect(selectTasksBox).not.toBeNull();
+    expect(customFieldsBox).not.toBeNull();
+
+    expect(
+      (customFieldsBox?.x ?? 0) + (customFieldsBox?.width ?? 0),
+    ).toBeLessThanOrEqual((toolbarBox?.x ?? 0) + (toolbarBox?.width ?? 0) + 1);
+
+    expect(
+      await toolbar.evaluate((element) => element.scrollWidth <= element.clientWidth),
+    ).toBe(true);
+
+    for (const controlBox of [showClosedBox, selectTasksBox]) {
+      const overlaps = !(
+        (customFieldsBox?.x ?? 0) >=
+          (controlBox?.x ?? 0) + (controlBox?.width ?? 0) ||
+        (controlBox?.x ?? 0) >=
+          (customFieldsBox?.x ?? 0) + (customFieldsBox?.width ?? 0) ||
+        (customFieldsBox?.y ?? 0) >=
+          (controlBox?.y ?? 0) + (controlBox?.height ?? 0) ||
+        (controlBox?.y ?? 0) >=
+          (customFieldsBox?.y ?? 0) + (customFieldsBox?.height ?? 0)
+      );
+      expect(overlaps).toBe(false);
+    }
+
+    await ctx.close();
+  });
+
   test("toolbar 'Show closed' and sort-direction buttons toggle their state", async ({
     browser,
     baseURL,

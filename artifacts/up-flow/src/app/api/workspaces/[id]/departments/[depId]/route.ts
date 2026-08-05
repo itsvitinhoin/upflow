@@ -33,8 +33,9 @@ async function PATCH_handler(
   const body = (await req.json().catch(() => ({}))) as {
     name?: string;
     color?: string;
+    leader_id?: string | null;
   };
-  const data: { name?: string; color?: string } = {};
+  const data: { name?: string; color?: string; leader_id?: string | null } = {};
   if (typeof body.name === "string") {
     const trimmed = body.name.trim();
     if (!trimmed) {
@@ -51,6 +52,35 @@ async function PATCH_handler(
     }
     data.color = body.color;
   }
+  if ("leader_id" in body) {
+    if (body.leader_id !== null && typeof body.leader_id !== "string") {
+      return NextResponse.json({ error: "Invalid leader" }, { status: 400 });
+    }
+
+    const leaderId = body.leader_id?.trim() || null;
+    if (leaderId) {
+      const membership = await prisma.workspaceMember.findUnique({
+        where: {
+          workspace_id_user_id: {
+            workspace_id: id,
+            user_id: leaderId,
+          },
+        },
+        select: { status: true, department_id: true },
+      });
+      if (
+        !membership ||
+        membership.status !== "active" ||
+        membership.department_id !== depId
+      ) {
+        return NextResponse.json(
+          { error: "Leader must be an active member of this department" },
+          { status: 400 },
+        );
+      }
+    }
+    data.leader_id = leaderId;
+  }
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
@@ -64,7 +94,16 @@ async function PATCH_handler(
         name: true,
         color: true,
         sort_order: true,
+        leader_id: true,
         created_at: true,
+        leader: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar_url: true,
+          },
+        },
         _count: { select: { members: true } },
       },
     });

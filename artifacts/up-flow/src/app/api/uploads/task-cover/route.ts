@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { isWorkspaceAdminFor } from "@/lib/auth-helpers";
 import { requireAuth } from "@/lib/auth-response";
+import { prisma } from "@/lib/prisma";
+import { canContributeToProject } from "@/lib/project-access";
 import { createTaskAssetReference } from "@/lib/task-images";
 import { getSupabaseAdminClient } from "@/lib/supabase-server";
 import { withErrorReporting } from "@/lib/with-error-reporting";
@@ -10,6 +12,14 @@ const MAX_IMAGE_BYTES = 2_000_000;
 const BUCKET = process.env.TASK_ASSETS_BUCKET || "task-assets";
 
 type ImageType = "image/png" | "image/jpeg" | "image/webp" | "image/gif";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function formUuid(form: FormData, field: string): string | null | "invalid" {
+  const value = form.get(field);
+  if (value === null) return null;
+  return typeof value === "string" && UUID_PATTERN.test(value) ? value : "invalid";
+}
 
 function imageTypeFromBytes(bytes: Buffer): ImageType | null {
   if (
@@ -51,12 +61,49 @@ async function POST_handler(req: NextRequest) {
   if (!_r.ok) return _r.response;
   const auth = _r.auth;
 
-  if (!auth.currentWorkspaceId) {
-    return NextResponse.json({ error: "No active workspace" }, { status: 400 });
+  const form = await req.formData().catch(() => null);
+  if (!form) {
+    return NextResponse.json({ error: "Invalid upload form" }, { status: 400 });
   }
-  if (!isWorkspaceAdminFor(auth, auth.currentWorkspaceId)) {
-    return NextResponse.json({ error: "Workspace admin access required" }, { status: 403 });
+
+  const projectId = formUuid(form, "project_id");
+  const taskId = formUuid(form, "task_id");
+  if (projectId === "invalid" || taskId === "invalid") {
+    return NextResponse.json({ error: "Invalid project or task" }, { status: 400 });
   }
+  if (!projectId && !taskId) {
+    return NextResponse.json({ error: "Project or task is required" }, { status: 400 });
+  }
+
+  let project: { id: string; workspace_id: string; owner_id: string };
+  if (taskId) {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: {
+        project: { select: { id: true, workspace_id: true, owner_id: true } },
+      },
+    });
+    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    if (projectId && task.project.id !== projectId) {
+      return NextResponse.json({ error: "Task does not belong to project" }, { status: 400 });
+    }
+    project = task.project;
+  } else {
+    const foundProject = await prisma.project.findUnique({
+      where: { id: projectId! },
+      select: { id: true, workspace_id: true, owner_id: true },
+    });
+    if (!foundProject) return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    project = foundProject;
+  }
+
+  const canUpload =
+    isWorkspaceAdminFor(auth, project.workspace_id) ||
+    (await canContributeToProject(auth, project));
+  if (!canUpload) {
+    return NextResponse.json({ error: "Project contributor access required" }, { status: 403 });
+  }
+
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
@@ -70,8 +117,7 @@ async function POST_handler(req: NextRequest) {
     );
   }
 
-  const form = await req.formData().catch(() => null);
-  const file = form?.get("file");
+  const file = form.get("file");
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Image file is required" }, { status: 400 });
   }
@@ -92,7 +138,7 @@ async function POST_handler(req: NextRequest) {
   }
 
   const path = [
-    auth.currentWorkspaceId,
+    project.workspace_id,
     auth.prismaUser.id,
     `${Date.now()}-${randomUUID()}.${extensionFor(imageType)}`,
   ].join("/");

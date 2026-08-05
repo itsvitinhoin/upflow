@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X, Moon, Sun } from "lucide-react";
 import NewProjectDialog from "@/components/projects/new-project-dialog";
@@ -19,10 +19,26 @@ import {
   type NotificationPreferences,
 } from "@/lib/notification-preferences";
 import { cn } from "@/lib/utils";
+import { logError } from "@/lib/log-error";
 import type { Notification } from "@/lib/types";
 
 interface HeaderProps {
   title: string;
+  /**
+   * Lets workspace pages turn the global header search into a local search
+   * without duplicating the shell.  Omitted on every existing route, so the
+   * original project/task/document search remains unchanged.
+   */
+  searchValue?: string;
+  searchPlaceholder?: string;
+  searchAriaLabel?: string;
+  onSearchChange?: (value: string) => void;
+  onSearchSubmit?: () => void;
+  /** Optional page actions rendered before the notifications control. */
+  actions?: ReactNode;
+  /** Use when a page supplies its own primary actions in the header. */
+  hideUtilityControls?: boolean;
+  hideDefaultPrimaryAction?: boolean;
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 30_000;
@@ -34,9 +50,12 @@ function fetchUnreadCount(userId: string, force = false): Promise<number> {
     `notifications:unread-count:${userId}`,
     "/api/notifications/unread-count",
     { ttlMs: 30_000, force },
-  )
-    .then((data) => data.unread ?? 0)
-    .catch(() => 0);
+  ).then((data) => {
+    if (typeof data.unread !== "number") {
+      throw new Error("Unread notification count was not returned");
+    }
+    return data.unread;
+  });
 }
 
 function fetchNotificationItems(userId: string, force = false): Promise<Notification[]> {
@@ -47,24 +66,31 @@ function fetchNotificationItems(userId: string, force = false): Promise<Notifica
   ) {
     return Promise.resolve(notificationCache.items);
   }
-  if (!force && notificationRequest?.userId === userId) {
+  // A forced refresh should bypass cached data, but it should never create a
+  // second identical request while one is already in flight. Reusing it keeps
+  // slower responses from racing newer notification state in the header.
+  if (notificationRequest?.userId === userId) {
     return notificationRequest.promise;
   }
 
   const request = fetch("/api/notifications")
     .then(async (res) => {
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`Unable to load notifications: ${res.status}`);
       const data = (await res.json()) as { items: Notification[] };
-      const items = data.items ?? [];
+      if (!Array.isArray(data.items)) {
+        throw new Error("Notifications response did not include an items list");
+      }
+      const items = data.items;
       notificationCache = { userId, items, loadedAt: Date.now() };
       return items;
-    })
-    .catch(() => []);
+    });
 
   notificationRequest = { userId, promise: request };
-  void request.finally(() => {
-    if (notificationRequest?.promise === request) notificationRequest = null;
-  });
+  void request
+    .finally(() => {
+      if (notificationRequest?.promise === request) notificationRequest = null;
+    })
+    .catch(() => undefined);
   return request;
 }
 
@@ -185,7 +211,17 @@ function notificationLabel(n: Notification, language: "en" | "pt" | "pt-BR" = "e
   return taskTitle;
 }
 
-export default function Header({ title }: HeaderProps) {
+export default function Header({
+  title,
+  searchValue,
+  searchPlaceholder,
+  searchAriaLabel,
+  onSearchChange,
+  onSearchSubmit,
+  actions,
+  hideUtilityControls = false,
+  hideDefaultPrimaryAction = false,
+}: HeaderProps) {
   const router = useRouter();
   const user = useAppUser();
   const { language, toggleLanguage, t } = useLanguage();
@@ -195,19 +231,31 @@ export default function Header({ title }: HeaderProps) {
   const [showNewProject, setShowNewProject] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsHaveLoaded, setNotificationsHaveLoaded] = useState(false);
+  const [notificationListUnavailable, setNotificationListUnavailable] = useState(false);
+  const [notificationUnreadUnavailable, setNotificationUnreadUnavailable] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [assistantNotification, setAssistantNotification] = useState<Notification | null>(null);
   const [notificationPreferences, setNotificationPreferences] =
     useState<NotificationPreferences>(() => readNotificationPreferences(user?.id));
   const panelRef = useRef<HTMLDivElement>(null);
+  const notificationToggleRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const activeNotificationUserIdRef = useRef<string | null>(user?.id ?? null);
   const shownAssistantIdsRef = useRef<Set<string>>(new Set());
+  const notificationListRequestRef = useRef(0);
+  const notificationUnreadRequestRef = useRef(0);
   const canCreateProject =
     user?.isSuperAdmin ||
     user?.currentRole === "owner" ||
     user?.currentRole === "admin" ||
     user?.currentRole === "member";
+  const notificationsUnavailable =
+    notificationListUnavailable || (!notificationsHaveLoaded && notificationUnreadUnavailable);
+  const effectiveSearchAriaLabel =
+    searchAriaLabel ?? t("header.searchAriaLabel", { title });
+  const usesLocalSearchLabel = searchAriaLabel !== undefined;
 
 
   const fetchNotifications = useCallback(async (
@@ -218,22 +266,50 @@ export default function Header({ title }: HeaderProps) {
     if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
+      setNotificationsLoading(false);
+      setNotificationsHaveLoaded(false);
+      setNotificationListUnavailable(false);
+      setNotificationUnreadUnavailable(false);
       return;
     }
 
-    const items = await fetchNotificationItems(userId, force);
-    if (activeNotificationUserIdRef.current !== userId) return;
-    setNotifications(items);
-    setUnreadCount(items.filter((n) => !n.read).length);
-    if (options?.showAssistant && notificationPreferences.assistantPopups) {
-      const nextNotification = items.find(
-        (item) =>
-          shouldShowAssistantPopup(item) &&
-          !shownAssistantIdsRef.current.has(item.id),
-      );
-      if (nextNotification) {
-        shownAssistantIdsRef.current.add(nextNotification.id);
-        setAssistantNotification(nextNotification);
+    const requestId = ++notificationListRequestRef.current;
+    setNotificationsLoading(true);
+    try {
+      const items = await fetchNotificationItems(userId, force);
+      if (
+        activeNotificationUserIdRef.current !== userId ||
+        notificationListRequestRef.current !== requestId
+      ) return;
+      setNotifications(items);
+      setUnreadCount(items.filter((n) => !n.read).length);
+      setNotificationsHaveLoaded(true);
+      setNotificationListUnavailable(false);
+      if (options?.showAssistant && notificationPreferences.assistantPopups) {
+        const nextNotification = items.find(
+          (item) =>
+            shouldShowAssistantPopup(item) &&
+            !shownAssistantIdsRef.current.has(item.id),
+        );
+        if (nextNotification) {
+          shownAssistantIdsRef.current.add(nextNotification.id);
+          setAssistantNotification(nextNotification);
+        }
+      }
+    } catch (error) {
+      logError("notifications:load", error);
+      if (
+        activeNotificationUserIdRef.current === userId &&
+        notificationListRequestRef.current === requestId
+      ) {
+        setNotificationListUnavailable(true);
+      }
+    } finally {
+      if (
+        activeNotificationUserIdRef.current === userId &&
+        notificationListRequestRef.current === requestId
+      ) {
+        setNotificationsLoading(false);
       }
     }
   }, [user?.id, notificationPreferences.assistantPopups]);
@@ -244,6 +320,10 @@ export default function Header({ title }: HeaderProps) {
     setAssistantNotification(null);
     setNotifications([]);
     setUnreadCount(0);
+    setNotificationsLoading(false);
+    setNotificationsHaveLoaded(false);
+    setNotificationListUnavailable(false);
+    setNotificationUnreadUnavailable(false);
 
     const onPreferencesChanged = (event?: Event) => {
       const detail = event instanceof CustomEvent
@@ -267,11 +347,38 @@ export default function Header({ title }: HeaderProps) {
       setUnreadCount(0);
       return;
     }
-    const count = await fetchUnreadCount(userId, force);
-    if (activeNotificationUserIdRef.current === userId) {
-      setUnreadCount(count);
+    const requestId = ++notificationUnreadRequestRef.current;
+    try {
+      const count = await fetchUnreadCount(userId, force);
+      if (
+        activeNotificationUserIdRef.current === userId &&
+        notificationUnreadRequestRef.current === requestId
+      ) {
+        setUnreadCount(count);
+        setNotificationUnreadUnavailable(false);
+      }
+    } catch (error) {
+      logError("notifications:unread-count", error);
+      if (
+        activeNotificationUserIdRef.current === userId &&
+        notificationUnreadRequestRef.current === requestId
+      ) {
+        setNotificationUnreadUnavailable(true);
+      }
     }
   }, [user?.id]);
+
+  const retryNotifications = useCallback(() => {
+    void fetchNotifications(true);
+    void refreshUnreadCount(true);
+  }, [fetchNotifications, refreshUnreadCount]);
+
+  const closeNotificationPanel = useCallback((restoreFocus = false) => {
+    setPanelOpen(false);
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => notificationToggleRef.current?.focus());
+    }
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -319,11 +426,13 @@ export default function Header({ title }: HeaderProps) {
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setPanelOpen(false);
+        // Let the element the person clicked keep focus. The bell regains
+        // focus only when the panel is dismissed from the keyboard.
+        closeNotificationPanel();
       }
     }
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && panelOpen) setPanelOpen(false);
+      if (e.key === "Escape" && panelOpen) closeNotificationPanel(true);
     }
     if (panelOpen) {
       document.addEventListener("mousedown", handleClick);
@@ -333,7 +442,7 @@ export default function Header({ title }: HeaderProps) {
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [panelOpen]);
+  }, [closeNotificationPanel, panelOpen]);
 
 
   const handleMarkAllRead = async () => {
@@ -381,7 +490,7 @@ export default function Header({ title }: HeaderProps) {
     }
 
     if (href) {
-      setPanelOpen(false);
+      closeNotificationPanel();
       router.push(href);
     }
   };
@@ -389,13 +498,17 @@ export default function Header({ title }: HeaderProps) {
   const handleSearch = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      if (onSearchSubmit) {
+        onSearchSubmit();
+        return;
+      }
       const query = new FormData(e.currentTarget).get("q");
       const normalizedQuery = typeof query === "string" ? query.trim() : "";
       if (normalizedQuery) {
         router.push(`/search?q=${encodeURIComponent(normalizedQuery)}`);
       }
     },
-    [router]
+    [onSearchSubmit, router]
   );
 
   const assistantContext = assistantNotification
@@ -410,7 +523,7 @@ export default function Header({ title }: HeaderProps) {
           action="/search"
           method="get"
           className="w-full min-w-0 pl-11 sm:flex-1 md:pl-0"
-          aria-label={t("header.searchAriaLabel", { title })}
+          aria-label={usesLocalSearchLabel ? undefined : effectiveSearchAriaLabel}
         >
           <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -418,11 +531,18 @@ export default function Header({ title }: HeaderProps) {
               ref={searchRef}
               type="search"
               name="q"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("header.searchPlaceholder", {
-                title: title.toLowerCase(),
-              })}
+              aria-label={usesLocalSearchLabel ? effectiveSearchAriaLabel : undefined}
+              value={searchValue ?? search}
+              onChange={(e) => {
+                if (searchValue === undefined) setSearch(e.target.value);
+                onSearchChange?.(e.target.value);
+              }}
+              placeholder={
+                searchPlaceholder ??
+                t("header.searchPlaceholder", {
+                  title: title.toLowerCase(),
+                })
+              }
               className="upflow-shell-search upflow-focus-glow h-10 w-full rounded-full border border-border bg-background/95 pl-11 pr-4 text-sm shadow-sm backdrop-blur-md transition placeholder:text-muted-foreground hover:border-primary/[0.35] hover:bg-background focus:border-sky-400/70 dark:border-blue-300/10 dark:bg-[#050a18]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_30px_rgba(37,99,235,0.08)] dark:hover:border-blue-300/25 dark:hover:bg-[#070d1f]/90 sm:h-11 md:pr-16"
             />
             <button
@@ -437,33 +557,42 @@ export default function Header({ title }: HeaderProps) {
         </form>
 
         <div className="flex flex-shrink-0 items-center justify-end gap-2 sm:self-auto">
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            aria-label={t("language.toggle")}
-            title={`${t("language.toggle")}: ${
-              language === "en"
-                ? t("language.portugueseBrazil")
-                : t("language.english")
-            }`}
-            className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
-          >
-            <Languages className="h-4 w-4" />
-            <span>{language === "en" ? "EN" : "PT"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
-            title={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
-            className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
-          >
-            {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
-          </button>
+          {!hideUtilityControls && (
+            <>
+              <button
+                type="button"
+                onClick={toggleLanguage}
+                aria-label={t("language.toggle")}
+                title={`${t("language.toggle")}: ${
+                  language === "en"
+                    ? t("language.portugueseBrazil")
+                    : t("language.english")
+                }`}
+                className="upflow-shell-control inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:px-3"
+              >
+                <Languages className="h-4 w-4" />
+                <span>{language === "en" ? "EN" : "PT"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+                aria-label={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
+                title={isDark ? t("header.switchToLightMode") : t("header.switchToDarkMode")}
+                className="upflow-shell-control inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
+              >
+                {isDark ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+              </button>
+            </>
+          )}
+          {actions}
           <div className="relative" ref={panelRef}>
             <button
+              ref={notificationToggleRef}
+              type="button"
               onClick={() => setPanelOpen((v) => !v)}
               aria-label={t("header.notifications")}
+              aria-expanded={panelOpen}
+              aria-controls="header-notification-panel"
               className="upflow-shell-control relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm backdrop-blur-md transition-all hover:border-sky-400/[0.55] hover:bg-accent hover:text-foreground dark:border-blue-300/10 dark:bg-[#071024]/80 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] dark:hover:bg-sky-400/10 dark:hover:shadow-[0_0_24px_rgba(59,130,246,0.16)] sm:h-11 sm:w-11"
             >
               <Bell className="w-[18px] h-[18px]" />
@@ -473,7 +602,12 @@ export default function Header({ title }: HeaderProps) {
             </button>
 
             {panelOpen && (
-              <div className="fixed left-4 right-4 top-16 z-50 overflow-hidden rounded-xl glass-strong sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
+              <div
+                id="header-notification-panel"
+                role="dialog"
+                aria-label={t("header.notifications")}
+                className="fixed left-4 right-4 top-16 z-50 overflow-hidden rounded-xl glass-strong sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80"
+              >
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <span className="text-sm font-semibold text-foreground">
                     {t("header.notifications")}
@@ -488,7 +622,38 @@ export default function Header({ title }: HeaderProps) {
                   )}
                 </div>
                 <div className="max-h-80 overflow-y-auto divide-y divide-border">
-                  {notifications.length === 0 ? (
+                  {notificationsUnavailable && notifications.length > 0 && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      className="flex items-center justify-between gap-3 border-b border-upflow-warning/30 bg-upflow-warning/10 px-4 py-2.5 text-xs text-foreground"
+                    >
+                      <span>{t("header.notificationsUnavailableStale")}</span>
+                      <button
+                        type="button"
+                        onClick={retryNotifications}
+                        className="shrink-0 font-medium text-primary hover:underline"
+                      >
+                        {t("header.retryNotifications")}
+                      </button>
+                    </div>
+                  )}
+                  {notifications.length === 0 && notificationsUnavailable ? (
+                    <div role="alert" className="px-4 py-8 text-center text-sm text-muted-foreground">
+                      <p>{t("header.notificationsUnavailable")}</p>
+                      <button
+                        type="button"
+                        onClick={retryNotifications}
+                        className="mt-2 text-xs font-medium text-primary hover:underline"
+                      >
+                        {t("header.retryNotifications")}
+                      </button>
+                    </div>
+                  ) : notifications.length === 0 && (!notificationsHaveLoaded || notificationsLoading) ? (
+                    <div className="py-10 text-center text-sm text-muted-foreground">
+                      {t("common.loading")}
+                    </div>
+                  ) : notifications.length === 0 ? (
                     <div className="py-10 text-center text-sm text-muted-foreground">
                       {t("header.allCaughtUp")}
                     </div>
@@ -527,7 +692,7 @@ export default function Header({ title }: HeaderProps) {
             )}
           </div>
 
-          {canCreateProject && (
+          {canCreateProject && !hideDefaultPrimaryAction && (
             <button
               onClick={() => setShowNewProject(true)}
               aria-label={t("header.newProject")}

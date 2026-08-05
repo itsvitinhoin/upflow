@@ -188,7 +188,7 @@ async function getAccess(taskId: string) {
     };
   }
 
-  const canEdit = Boolean(
+  const canEdit = onboardingAccess.canWork && Boolean(
     onboardingAccess.admin ||
       item.task.assignee_id === auth.prismaUser.id ||
       item.owner_id === auth.prismaUser.id ||

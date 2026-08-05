@@ -44,6 +44,7 @@ interface Props {
   onManageFields?: () => void;
   onManageSpaceStatuses?: () => void;
   canManage: boolean;
+  canContribute?: boolean;
   users?: { id: string; name: string }[];
   selectionMode: boolean;
   selectedCount: number;
@@ -58,6 +59,7 @@ export default function ProjectToolbar({
   onManageFields,
   onManageSpaceStatuses,
   canManage,
+  canContribute = true,
   users = [],
   selectionMode,
   selectedCount,
@@ -78,7 +80,10 @@ export default function ProjectToolbar({
   ];
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70 py-3">
+    <div
+      data-testid="project-toolbar"
+      className="mb-4 flex flex-wrap items-center gap-2 border-b border-border/70 py-3"
+    >
       <div className="mr-1 flex items-center rounded-xl border border-border bg-muted/50 p-1 shadow-sm">
         <ToolbarTab
           active={state.view === "list"}
@@ -196,32 +201,37 @@ export default function ProjectToolbar({
         }
       />
 
-      <button
-        type="button"
-        onClick={onToggleSelectionMode}
-        aria-pressed={selectionMode}
-        className={cn(
-          "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
-          selectionMode
-            ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
-            : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
-        )}
-      >
-        <ListChecks className="h-3.5 w-3.5" />
-        {selectionMode
-          ? t("task.finishSelecting", { count: selectedCount })
-          : t("task.selectTasks")}
-      </button>
-
-      {canManage && onManageFields && (
+      {canContribute && (
         <button
-          onClick={onManageFields}
-          className="ml-auto flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+          type="button"
+          onClick={onToggleSelectionMode}
+          aria-pressed={selectionMode}
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all",
+            selectionMode
+              ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+              : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:bg-accent hover:text-accent-foreground",
+          )}
         >
-          <Settings2 className="w-3.5 h-3.5" /> {t("toolbar.customFields")}
+          <ListChecks className="h-3.5 w-3.5" />
+          {selectionMode
+            ? t("task.finishSelecting", { count: selectedCount })
+            : t("task.selectTasks")}
         </button>
       )}
+
         </>
+      )}
+
+      {state.view !== "form" && canManage && onManageFields && (
+        <button
+          type="button"
+          data-testid="project-toolbar-custom-fields"
+          onClick={onManageFields}
+          className="ml-auto flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+        >
+          <Settings2 className="h-3.5 w-3.5" /> {t("toolbar.customFields")}
+        </button>
       )}
     </div>
   );

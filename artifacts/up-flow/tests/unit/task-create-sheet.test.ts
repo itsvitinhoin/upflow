@@ -71,14 +71,19 @@ test("task status selectors use the project's board stages when available", () =
   assert.match(taskDetailRoute, /custom_field_values:/);
 });
 
-test("task creation provides inline validation, announcements, and discard protection", () => {
+test("task creation provides inline validation, announcements, discard protection, and a centered dialog", () => {
   const sheet = read("src/components/projects/task-create-sheet.tsx");
 
   assert.match(sheet, /role="alert"/);
   assert.match(sheet, /aria-invalid=\{Boolean\(titleError\)\}/);
   assert.match(sheet, /aria-live="polite"/);
-  assert.match(sheet, /<SheetTitle>/);
-  assert.match(sheet, /<SheetDescription>/);
+  assert.match(sheet, /<DialogContent/);
+  assert.match(sheet, /<DialogTitle>/);
+  assert.match(sheet, /<DialogDescription>/);
+  assert.match(sheet, /data-task-create-dialog/);
+  assert.match(sheet, /max-w-\[680px\]/);
+  assert.doesNotMatch(sheet, /<SheetContent/);
+  assert.doesNotMatch(sheet, /side="right"/);
   assert.match(sheet, /setDiscardOpen\(true\)/);
   assert.match(sheet, /t\("task\.discardMessage"\)/);
   assert.match(sheet, /overflow-y-auto/);

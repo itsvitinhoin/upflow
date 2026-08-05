@@ -97,6 +97,17 @@ function isMarketingB2BFormTask(task: Task) {
   return text.includes("marketing b2b") && hasFormSignal && !isSchedulingOnboardingTask(task);
 }
 
+function isMarketingB2CFormTask(task: Task) {
+  const text = taskSearchText(task);
+  const hasFormSignal =
+    text.includes("form") ||
+    text.includes("formulario") ||
+    text.includes("formulÃ¡rio") ||
+    text.includes("onboarding marketing b2c") ||
+    text.includes("marketing b2c onboarding");
+  return text.includes("marketing b2c") && hasFormSignal && !isSchedulingOnboardingTask(task);
+}
+
 export function workflowFormKind(task: Task): WorkflowFormKind | null {
   if (isUpZeroConfigurationTask(task)) return null;
   const explicitAction = task.onboarding_link?.action;
@@ -105,6 +116,7 @@ export function workflowFormKind(task: Task): WorkflowFormKind | null {
   if (task.marketing_b2b_onboarding_form) return "marketing_b2b";
   if (isMarketingB2BFormTask(task)) return "marketing_b2b";
   if (task.marketing_b2c_onboarding_form) return "marketing_b2c";
+  if (isMarketingB2CFormTask(task)) return "marketing_b2c";
   if (isFinanceOnboardingTask(task)) return "finance";
   if (isSupportGroupOnboardingTask(task)) return "support";
   return null;

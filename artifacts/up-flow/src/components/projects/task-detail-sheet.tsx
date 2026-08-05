@@ -40,6 +40,7 @@ interface TaskDetailSheetProps {
   customFields?: CustomFieldDefinition[];
   workflowStatuses?: WorkflowStatus[];
   spaceId?: string | null;
+  canContribute?: boolean;
   onClose: () => void;
   onUpdate: () => void;
   onChanged?: () => void;
@@ -56,6 +57,7 @@ export default function TaskDetailSheet({
   customFields = [],
   workflowStatuses = [],
   spaceId,
+  canContribute = true,
   onClose,
   onUpdate,
   onChanged,
@@ -119,6 +121,7 @@ export default function TaskDetailSheet({
   const updateChain = useRef<Promise<void>>(Promise.resolve());
 
   const update = (patch: Partial<Task>) => {
+    if (!canContribute) return Promise.resolve();
     const next = updateChain.current.then(async () => {
       setSaving(true);
       try {
@@ -165,7 +168,7 @@ export default function TaskDetailSheet({
     : "";
 
   const updateBoardStatus = (value: string) => {
-    if (!boardStatus) return;
+    if (!boardStatus || !canContribute) return;
     const taskStatus = taskStatusForTaskBoardOption(boardStatus, value);
     const next = updateChain.current.then(async () => {
       setSaving(true);
@@ -208,6 +211,7 @@ export default function TaskDetailSheet({
   };
 
   const deleteTask = async () => {
+    if (!canContribute) return;
     if (!confirm(t("task.deleteConfirm"))) return;
     try {
       const res = await fetch(`/api/tasks/${currentTask.id}`, { method: "DELETE" });
@@ -224,7 +228,7 @@ export default function TaskDetailSheet({
 
   const addComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim()) return;
+    if (!canContribute || !newComment.trim()) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/comments", {
@@ -249,7 +253,7 @@ export default function TaskDetailSheet({
   };
 
   const addReply = async (parentId: string) => {
-    if (!replyText.trim()) return;
+    if (!canContribute || !replyText.trim()) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/comments", {
@@ -283,7 +287,7 @@ export default function TaskDetailSheet({
 
   const addSubtask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSubtask.trim()) return;
+    if (!canContribute || !newSubtask.trim()) return;
     setAddingSubtask(true);
     try {
       const res = await fetch("/api/tasks", {
@@ -312,6 +316,7 @@ export default function TaskDetailSheet({
   };
 
   const deleteSubtask = async (subtaskId: string) => {
+    if (!canContribute) return;
     if (!confirm(t("task.deleteSubtaskConfirm"))) return;
     try {
       const res = await fetch(`/api/tasks/${subtaskId}`, { method: "DELETE" });
@@ -326,6 +331,7 @@ export default function TaskDetailSheet({
   };
 
   const toggleSubtask = async (subtaskId: string, done: boolean) => {
+    if (!canContribute) return;
     try {
       const res = await fetch(`/api/tasks/${subtaskId}`, {
         method: "PATCH",
@@ -387,6 +393,7 @@ export default function TaskDetailSheet({
           <div className="flex-1 min-w-0">
             <input
               defaultValue={currentTask.title}
+              disabled={!canContribute}
               onBlur={(e) => {
                 if (e.target.value !== currentTask.title) update({ title: e.target.value });
               }}
@@ -395,13 +402,15 @@ export default function TaskDetailSheet({
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {saving && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-            <button
-              onClick={deleteTask}
-              aria-label={t("task.deleteConfirm")}
-              className="text-destructive hover:text-destructive/80 p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {canContribute && (
+              <button
+                onClick={deleteTask}
+                aria-label={t("task.deleteConfirm")}
+                className="text-destructive hover:text-destructive/80 p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={onClose}
               aria-label={t("task.closeDetails")}
@@ -414,10 +423,16 @@ export default function TaskDetailSheet({
 
         <div className="flex-1 overflow-y-auto">
           <div className="space-y-4 border-b border-border px-4 py-4 sm:px-6">
+            {!canContribute && (
+              <p className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-sm leading-5 text-amber-950 dark:text-amber-100">
+                {t("task.contributorAccessRequired")}
+              </p>
+            )}
             <div className="grid gap-2 sm:flex sm:items-center sm:gap-3">
               <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.status")}</span>
               <select
                 value={boardStatus ? selectedBoardStatusValue : currentTask.status}
+                disabled={!canContribute}
                 onChange={(e) =>
                   boardStatus
                     ? updateBoardStatus(e.target.value)
@@ -444,6 +459,7 @@ export default function TaskDetailSheet({
               <span className="text-sm text-muted-foreground sm:w-24">{t("toolbar.priority")}</span>
               <select
                 value={currentTask.priority}
+                disabled={!canContribute}
                 onChange={(e) => update({ priority: e.target.value as Task["priority"] })}
                 className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
@@ -457,7 +473,7 @@ export default function TaskDetailSheet({
                 value={currentTask.assignee_id || ""}
                 users={users}
                 onChange={(value) => update({ assignee_id: value || null })}
-                disabled={saving}
+                disabled={saving || !canContribute}
                 label={t("toolbar.assignee")}
                 emptyLabel={t("common.unassigned")}
                 mode="update"
@@ -469,6 +485,7 @@ export default function TaskDetailSheet({
               <div className="min-w-0 flex-1">
                 <BrazilianDateInput
                   value={currentTask.due_date ? currentTask.due_date.split("T")[0] : ""}
+                  disabled={!canContribute}
                   onChange={() => {}}
                   onCommit={(value) => update({ due_date: value || null })}
                   className="text-sm border border-border bg-background rounded-lg px-3 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -585,6 +602,7 @@ export default function TaskDetailSheet({
             )}
             <textarea
               defaultValue={currentTask.description || ""}
+              disabled={!canContribute}
               onBlur={(e) => {
                 if (e.target.value !== (currentTask.description || "")) {
                   update({ description: e.target.value || null });
@@ -600,7 +618,9 @@ export default function TaskDetailSheet({
             <label className="block text-sm font-medium text-foreground mb-2">{t("task.boardCoverImage")}</label>
             <TaskCoverImageControl
               value={currentTask.cover_image_url}
-              disabled={saving}
+              projectId={currentTask.project_id}
+              taskId={currentTask.id}
+              disabled={saving || !canContribute}
               onChange={(cover_image_url) => update({ cover_image_url })}
             />
           </div>
@@ -630,6 +650,7 @@ export default function TaskDetailSheet({
                     <div key={s.id} className="flex items-center gap-3 group">
                       <button
                         onClick={() => toggleSubtask(s.id, s.status !== "done")}
+                        disabled={!canContribute}
                         className={cn(
                           "w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors",
                           s.status === "done"
@@ -657,15 +678,17 @@ export default function TaskDetailSheet({
                           {getInitials(s.assignee.name)}
                         </div>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => deleteSubtask(s.id)}
-                        title={t("task.failedDeleteSubtask")}
-                        aria-label={t("task.failedDeleteSubtask")}
-                        className="text-muted-foreground/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canContribute && (
+                        <button
+                          type="button"
+                          onClick={() => deleteSubtask(s.id)}
+                          title={t("task.failedDeleteSubtask")}
+                          aria-label={t("task.failedDeleteSubtask")}
+                          className="text-muted-foreground/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   ))}
                   {subtasks.length === 0 && (
@@ -676,13 +699,14 @@ export default function TaskDetailSheet({
                 <form onSubmit={addSubtask} className="grid gap-2 sm:flex">
                   <input
                     value={newSubtask}
+                    disabled={!canContribute}
                     onChange={(e) => setNewSubtask(e.target.value)}
                     placeholder={t("task.addSubtask")}
                     className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                   <button
                     type="submit"
-                    disabled={addingSubtask || !newSubtask.trim()}
+                    disabled={!canContribute || addingSubtask || !newSubtask.trim()}
                     className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-3 py-2 rounded-lg transition-colors"
                   >
                     {addingSubtask ? (
@@ -720,9 +744,12 @@ export default function TaskDetailSheet({
                         <p className="text-sm text-foreground">{displayCommentBody(c.body)}</p>
                       </div>
                       <button
-                        onClick={() =>
-                          setReplyingTo((prev) => (prev === c.id ? null : c.id))
-                        }
+                        onClick={() => {
+                          if (canContribute) {
+                            setReplyingTo((prev) => (prev === c.id ? null : c.id));
+                          }
+                        }}
+                        disabled={!canContribute}
                         className="mt-1 ml-1 text-xs text-muted-foreground hover:text-primary transition-colors"
                       >
                         {t("task.reply")}
@@ -768,6 +795,7 @@ export default function TaskDetailSheet({
                           <input
                             ref={replyInputRef}
                             value={replyText}
+                            disabled={!canContribute}
                             onChange={(e) => setReplyText(e.target.value)}
                             placeholder={t("task.reply")}
                             autoFocus
@@ -784,7 +812,7 @@ export default function TaskDetailSheet({
                       </div>
                       <button
                         onClick={() => addReply(c.id)}
-                        disabled={submitting || !replyText.trim()}
+                        disabled={!canContribute || submitting || !replyText.trim()}
                         className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-3 py-2 rounded-lg transition-colors"
                       >
                         {submitting ? (
@@ -812,13 +840,14 @@ export default function TaskDetailSheet({
               <input
                 ref={commentInputRef}
                 value={newComment}
+                disabled={!canContribute}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder={t("task.addCommentWithMentions", { action: t("task.addComment") })}
                 className="min-w-0 flex-1 text-sm border border-border bg-background rounded-lg px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button
                 type="submit"
-                disabled={submitting || !newComment.trim()}
+                disabled={!canContribute || submitting || !newComment.trim()}
                 className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-medium px-3 py-2 rounded-lg transition-colors"
               >
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

@@ -10,7 +10,7 @@ import {
 
 const PANEL_CACHE_TTL_MS = 60_000;
 const SMART_COLLAPSE_CHILD_LIMIT = 8;
-const WORKLOAD_REFRESH_INTERVAL_MS = 30_000;
+const WORKLOAD_REFRESH_INTERVAL_MS = 60_000;
 // Keep this endpoint neutral. Some content blockers treat routes named
 // "sidebar" or "navigation" as browser-extension traffic and block them.
 const NAVIGATION_ENDPOINT = "/api/workspace-tree";
@@ -69,7 +69,9 @@ function fetchPanelData(scope: string, force = false, query = ""): Promise<Panel
 export function usePanelData(
   pathname: string,
   identity: { workspaceId?: string | null; userId?: string | null },
+  options: { enabled?: boolean } = {},
 ) {
+  const enabled = options.enabled !== false;
   const storageKeys = useMemo(
     () =>
       getSidebarStorageKeys({
@@ -234,14 +236,32 @@ export function usePanelData(
   }, [loadPanel]);
 
   useEffect(() => {
-    const handler = () => loadPanel({ force: true });
+    if (!enabled) return;
+    // Reopening a collapsed panel reuses a fresh cache or reloads an
+    // invalidated one without making the closed sidebar poll in the background.
+    loadPanel();
+  }, [enabled, loadPanel]);
+
+  useEffect(() => {
+    const handler = () => {
+      // Do not wake a closed navigation tree just to refresh it. A mutation
+      // invalidates its snapshot, and opening the panel fetches the fresh data.
+      if (!enabled) {
+        panelCache.delete(storageKeys.scope);
+        return;
+      }
+      loadPanel({ force: true });
+    };
     window.addEventListener("upflow:sidebar-refresh", handler);
     return () => window.removeEventListener("upflow:sidebar-refresh", handler);
-  }, [loadPanel]);
+  }, [enabled, loadPanel, storageKeys.scope]);
   useEffect(() => {
+    if (!enabled) return;
     const refreshWorkload = () => {
       if (document.visibilityState !== "visible" || activeQueryRef.current) return;
-      loadPanel({ force: true });
+      // The 60 second cache keeps focus changes from producing duplicate
+      // workspace-tree requests while still refreshing long-open panels.
+      loadPanel();
     };
     const interval = window.setInterval(refreshWorkload, WORKLOAD_REFRESH_INTERVAL_MS);
     window.addEventListener("focus", refreshWorkload);
@@ -251,7 +271,7 @@ export function usePanelData(
       window.removeEventListener("focus", refreshWorkload);
       document.removeEventListener("visibilitychange", refreshWorkload);
     };
-  }, [loadPanel]);
+  }, [enabled, loadPanel]);
 
   useEffect(() => {
     if (!pathname) return;

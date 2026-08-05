@@ -308,7 +308,7 @@ export default function EventEditorSheet({
           await Promise.all([
             fetch("/api/calendar/events/" + event.id),
             fetch("/api/projects?limit=200"),
-            fetch("/api/companies?limit=100"),
+            fetch("/api/companies?limit=100&include_summary=false"),
             fetch("/api/spaces?limit=200"),
             fetch("/api/docs?limit=200"),
           ]);

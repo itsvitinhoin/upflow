@@ -130,12 +130,14 @@ test("critical readiness e2e coverage documents permission, health, reporting, a
   assert.match(spec, /audit center exposes permission and report history/);
 });
 
-test("google calendar status reports readiness without claiming sync is connected", () => {
+test("google calendar status is authenticated, workspace-scoped, and delegates to the secure connection summary", () => {
   const route = read("src/app/api/integrations/google-calendar/status/route.ts");
 
-  assert.match(route, /GOOGLE_CALENDAR_CLIENT_ID/);
-  assert.match(route, /GOOGLE_CALENDAR_CLIENT_SECRET/);
-  assert.match(route, /GOOGLE_CALENDAR_REDIRECT_URI/);
-  assert.match(route, /connected:\s*false/);
-  assert.match(route, /Add a connect flow and token storage/);
+  assert.match(route, /requireAuth/);
+  assert.match(route, /requireCurrentWorkspace/);
+  assert.match(route, /getGoogleCalendarConnectionStatus/);
+  assert.match(route, /workspaceId:\s*scope\.workspaceId/);
+  assert.match(route, /userId:\s*auth\.prismaUser\.id/);
+  assert.match(route, /withErrorReporting/);
+  assert.doesNotMatch(route, /access_token_ciphertext|refresh_token_ciphertext/);
 });

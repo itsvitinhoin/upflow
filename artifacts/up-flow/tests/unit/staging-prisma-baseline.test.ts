@@ -173,8 +173,13 @@ test("the frozen baseline prefix matches the reviewed migration tree", () => {
 test("the clone guard knows every unmapped application table", () => {
   const tableNames = getExpectedAppTableNames();
 
-  assert.equal(tableNames.length, 51);
+  assert.equal(tableNames.length, 56);
+  assert.ok(tableNames.includes("GoogleCalendarConnection"));
+  assert.ok(tableNames.includes("GoogleCalendarOAuthState"));
+  assert.ok(tableNames.includes("GoogleCalendarEventLink"));
+  assert.ok(tableNames.includes("GoogleCalendarSyncJob"));
   assert.ok(tableNames.includes("SidebarSpaceHide"));
+  assert.ok(tableNames.includes("ProjectMember"));
   assert.ok(tableNames.includes("User"));
 });
 

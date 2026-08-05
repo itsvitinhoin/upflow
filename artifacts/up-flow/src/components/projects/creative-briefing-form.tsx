@@ -298,7 +298,7 @@ export default function CreativeBriefingForm({
     const controller = new AbortController();
     setCompaniesLoading(true);
     fetch(
-      `/api/companies?limit=100&workspace_id=${encodeURIComponent(workspaceId)}`,
+      `/api/companies?limit=100&include_summary=false&workspace_id=${encodeURIComponent(workspaceId)}`,
       {
         signal: controller.signal,
       },

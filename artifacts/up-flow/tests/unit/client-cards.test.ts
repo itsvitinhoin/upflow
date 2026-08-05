@@ -23,6 +23,9 @@ test("client cards surface service plan and commercial details", () => {
   assert.match(clientsPage, /clients\.brandType/);
   assert.match(clientsPage, /clients\.contractedPlan/);
   assert.match(clientsPage, /clients\.planServices/);
+  assert.match(clientsPage, /data-testid="client-plan-services"[^>]*flex-col items-start gap-1\.5/);
+  assert.match(clientsPage, /data-testid="client-plan-services-label"/);
+  assert.match(clientsPage, /data-testid="client-plan-services-list"/);
   assert.match(clientsPage, /clients\.responsibleManager/);
   assert.match(clientsPage, /PlanServiceTile/);
   assert.match(clientsPage, /brandTypeValue/);
