@@ -192,6 +192,60 @@ export default function TeamPage() {
     }
   }
 
+  async function updateDepartmentLeader(
+    departmentId: string,
+    leaderId: string | null,
+  ) {
+    if (!workspaceId) return;
+    const previous = departments;
+    const selectedLeader = leaderId
+      ? users.find((user) => user.id === leaderId) ?? null
+      : null;
+
+    setDepartments((current) =>
+      current.map((department) =>
+        department.id === departmentId
+          ? {
+              ...department,
+              leader_id: leaderId,
+              leader: selectedLeader
+                ? {
+                    id: selectedLeader.id,
+                    name: selectedLeader.name,
+                    email: selectedLeader.email,
+                    avatar_url: selectedLeader.avatar_url,
+                  }
+                : null,
+            }
+          : department,
+      ),
+    );
+
+    try {
+      const response = await fetch(
+        `/api/workspaces/${workspaceId}/departments/${departmentId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ leader_id: leaderId }),
+        },
+      );
+      if (!response.ok) throw new Error("Failed to update department leader");
+      const updated = (await response.json()) as Department;
+      setDepartments((current) =>
+        current.map((department) =>
+          department.id === departmentId ? updated : department,
+        ),
+      );
+      clearCachedJson("team:overview");
+      setToast(t("team.departmentLeaderUpdated"));
+      router.refresh();
+    } catch {
+      setDepartments(previous);
+      setToast(t("team.couldNotUpdateDepartmentLeader"));
+    }
+  }
+
   async function removeMember(user: TeamMember) {
     if (!workspaceId) return;
     if (!window.confirm(t("team.removeConfirm", { name: user.name }))) return;
@@ -341,6 +395,9 @@ export default function TeamPage() {
         onToggleCollapsed={toggleCollapsed}
         onUpdateMember={(userId, patch) => {
           void updateMember(userId, patch);
+        }}
+        onUpdateDepartmentLeader={(departmentId, leaderId) => {
+          void updateDepartmentLeader(departmentId, leaderId);
         }}
         onRemoveMember={(user) => {
           void removeMember(user);

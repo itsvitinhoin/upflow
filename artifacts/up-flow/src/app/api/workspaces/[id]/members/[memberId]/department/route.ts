@@ -51,15 +51,23 @@ async function PUT_handler(
         user_id: memberId,
       },
     },
-    select: { id: true },
+    select: { id: true, department_id: true },
   });
   if (!membership) {
     return NextResponse.json({ error: "Member not found" }, { status: 404 });
   }
 
-  await prisma.workspaceMember.update({
-    where: { id: membership.id },
-    data: { department_id: departmentId },
+  await prisma.$transaction(async (tx) => {
+    await tx.workspaceMember.update({
+      where: { id: membership.id },
+      data: { department_id: departmentId },
+    });
+    if (membership.department_id !== departmentId) {
+      await tx.department.updateMany({
+        where: { workspace_id: id, leader_id: memberId },
+        data: { leader_id: null },
+      });
+    }
   });
 
   return NextResponse.json({ success: true, department_id: departmentId });

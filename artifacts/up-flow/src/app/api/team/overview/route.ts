@@ -82,7 +82,16 @@ async function GET_handler(req: Request) {
         name: true,
         color: true,
         sort_order: true,
+        leader_id: true,
         created_at: true,
+        leader: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatar_url: true,
+          },
+        },
         _count: { select: { members: true } },
       },
     }),
