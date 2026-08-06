@@ -61,7 +61,7 @@ interface TeamWorkspaceProps {
   onUpdateDepartmentLeader: (
     departmentId: string,
     leaderId: string | null,
-  ) => void;
+  ) => Promise<boolean>;
   onRemoveMember: (user: TeamMember) => void;
   onResendInvite: (invite: PendingInvite) => void;
   onCancelInvite: (invite: PendingInvite) => void;
@@ -629,10 +629,11 @@ export default function TeamWorkspace({
                       setContextMenuFor(null);
                       setLeaderEditorFor((current) => current === card.key ? null : card.key);
                     }}
-                    onUpdateLeader={(leaderId) => {
-                      if (!card.id) return;
-                      setLeaderEditorFor(null);
-                      onUpdateDepartmentLeader(card.id, leaderId);
+                    onUpdateLeader={async (leaderId) => {
+                      if (!card.id) return false;
+                      const updated = await onUpdateDepartmentLeader(card.id, leaderId);
+                      if (updated) setLeaderEditorFor(null);
+                      return updated;
                     }}
                     onViewPeople={() => revealPeople(card)}
                     onOpenManage={() => {
@@ -779,12 +780,13 @@ function TeamCard({
   onToggleContext: () => void;
   leaderEditorOpen: boolean;
   onToggleLeaderEditor: () => void;
-  onUpdateLeader: (leaderId: string | null) => void;
+  onUpdateLeader: (leaderId: string | null) => Promise<boolean>;
   onViewPeople: () => void;
   onOpenManage: () => void;
 }) {
   const style = teamStyleFor(card.name, index);
   const Icon = style.icon;
+  const [savingLeader, setSavingLeader] = useState(false);
   const leader = card.leader;
   const leaderOptions =
     leader && !card.leaderCandidates.some((member) => member.id === leader.id)
@@ -819,7 +821,11 @@ function TeamCard({
                 type="button"
                 aria-label={copy.moreActions}
                 aria-expanded={contextOpen}
-                onClick={onToggleContext}
+                title={copy.moreActions}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleContext();
+                }}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -830,6 +836,16 @@ function TeamCard({
                     <UsersRound className="h-3.5 w-3.5 text-blue-300" />
                     {copy.viewMembers}
                   </button>
+                  {canEditLeader && (
+                    <button
+                      type="button"
+                      onClick={onToggleLeaderEditor}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-slate-200 hover:bg-white/10"
+                    >
+                      <UserRoundCog className="h-3.5 w-3.5 text-blue-300" />
+                      {copy.editLeader}
+                    </button>
+                  )}
                   <button type="button" onClick={onOpenManage} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs text-slate-200 hover:bg-white/10">
                     <PencilLine className="h-3.5 w-3.5 text-blue-300" />
                     {copy.manageTeam}
@@ -855,7 +871,10 @@ function TeamCard({
                   type="button"
                   aria-label={copy.editLeader}
                   title={copy.editLeader}
-                  onClick={onToggleLeaderEditor}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleLeaderEditor();
+                  }}
                   className="flex h-5 w-5 items-center justify-center rounded text-slate-500 transition hover:bg-blue-500/15 hover:text-blue-100"
                 >
                   <PencilLine className="h-3 w-3" />
@@ -867,10 +886,16 @@ function TeamCard({
         </div>
         {leaderEditorOpen && canEditLeader && (
           <label className="mt-2 block">
-            <span className="sr-only">{copy.chooseLeader}</span>
+            <span className="mb-1 block text-[10px] font-medium text-slate-400">{copy.chooseLeader}</span>
             <select
               value={leader?.id ?? ""}
-              onChange={(event) => onUpdateLeader(event.target.value || null)}
+              disabled={savingLeader}
+              onClick={(event) => event.stopPropagation()}
+              onChange={async (event) => {
+                setSavingLeader(true);
+                await onUpdateLeader(event.target.value || null);
+                setSavingLeader(false);
+              }}
               className="h-8 w-full rounded-lg border border-blue-300/20 bg-[#07101e] px-2 text-xs font-medium text-slate-100 outline-none transition hover:border-blue-300/35 focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/15"
             >
               <option value="">{copy.noLeader}</option>
@@ -893,13 +918,13 @@ function TeamCard({
       </div>
 
       <div className={cn("mt-2.5 grid grid-cols-3 gap-2", layoutMode === "list" && "sm:col-start-3 sm:row-start-2 sm:mt-0 sm:min-w-[146px]")}>
-        <button type="button" onClick={onViewPeople} aria-label={copy.viewMembers} className="flex h-7 items-center justify-center rounded-lg border border-blue-300/10 bg-white/[0.03] text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-500/10 hover:text-white">
+        <button type="button" onClick={(event) => { event.stopPropagation(); onViewPeople(); }} aria-label={copy.viewMembers} title={copy.viewMembers} className="flex h-7 items-center justify-center rounded-lg border border-blue-300/10 bg-white/[0.03] text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-500/10 hover:text-white">
           <ExternalLink className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={onOpenManage} aria-label={copy.manageTeam} className="flex h-7 items-center justify-center rounded-lg border border-blue-300/10 bg-white/[0.03] text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-500/10 hover:text-white">
-          <PencilLine className="h-3.5 w-3.5" />
+        <button type="button" onClick={(event) => { event.stopPropagation(); onToggleLeaderEditor(); }} aria-label={copy.editLeader} title={copy.editLeader} className="flex h-7 items-center justify-center rounded-lg border border-blue-300/10 bg-white/[0.03] text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-500/10 hover:text-white">
+          <UserRoundCog className="h-3.5 w-3.5" />
         </button>
-        <button type="button" onClick={onToggleContext} aria-label={copy.moreActions} className="flex h-7 items-center justify-center rounded-lg border border-blue-300/10 bg-white/[0.03] text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-500/10 hover:text-white">
+        <button type="button" onClick={(event) => { event.stopPropagation(); onToggleContext(); }} aria-label={copy.moreActions} title={copy.moreActions} className="flex h-7 items-center justify-center rounded-lg border border-blue-300/10 bg-white/[0.03] text-slate-300 transition hover:border-blue-300/30 hover:bg-blue-500/10 hover:text-white">
           <CircleEllipsis className="h-3.5 w-3.5" />
         </button>
       </div>
