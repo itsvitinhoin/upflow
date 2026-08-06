@@ -29,6 +29,11 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(teamTimeline, /formatTime/);
   assert.match(teamTimeline, /startLabel/);
   assert.match(teamTimeline, /aria-label=\{tooltip\}/);
+  assert.match(teamTimeline, /const TIMELINE_PREVIEW_LIMIT = 5/);
+  assert.match(teamTimeline, /users\.slice\(0, TIMELINE_PREVIEW_LIMIT\)/);
+  assert.match(teamTimeline, /timeline\.peoplePreviewCount/);
+  assert.match(teamTimeline, /data-testid="team-timeline-view-all"/);
+  assert.match(teamTimeline, /href="\/team"/);
   assert.doesNotMatch(teamTimeline, /fmtH\(b\.start\)/);
   assert.match(page, /\/api\/dashboard\/summary/);
   assert.doesNotMatch(page, /function AgencyOperationsPanel/);

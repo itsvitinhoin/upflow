@@ -22,6 +22,8 @@ type TimelineBlock = {
 
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
+const TIMELINE_PREVIEW_LIMIT = 5;
+
 function timelineHourLabel(hour: number, language: Language) {
   if (language === "pt-BR") return `${String(hour).padStart(2, "0")}:00`;
   return `${hour % 12 || 12} ${hour >= 12 ? "PM" : "AM"}`;
@@ -74,7 +76,7 @@ function buildTimelineRowsFromData(
     "bg-upflow-danger/30 border-l-upflow-danger",
   ];
 
-  return users.slice(0, 5).map((user, index) => {
+  return users.slice(0, TIMELINE_PREVIEW_LIMIT).map((user, index) => {
     const blocks: TimelineBlock[] = [];
 
     timeEntries
@@ -174,6 +176,7 @@ export function TeamTimeline({
     [users, timeEntries, events, t, locale],
   );
   const scheduledBlocks = rows.reduce((sum, row) => sum + row.blocks.length, 0);
+  const hasHiddenPeople = users.length > rows.length;
 
   const inFocusWindow = (h: number) =>
     focusHour !== null && Math.abs(h - focusHour) <= 2;
@@ -222,11 +225,26 @@ export function TeamTimeline({
 
         <div className="flex items-center gap-2">
           <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium text-muted-foreground">
-            {t("timeline.peopleCount", { count: rows.length })}
+            {hasHiddenPeople
+              ? t("timeline.peoplePreviewCount", {
+                  shown: rows.length,
+                  total: users.length,
+                })
+              : t("timeline.peopleCount", { count: rows.length })}
           </span>
           <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.14)]">
             {t("timeline.blocksCount", { count: scheduledBlocks })}
           </span>
+          {hasHiddenPeople && (
+            <Link
+              href="/team"
+              aria-label={t("timeline.viewAllPeople", { count: users.length })}
+              data-testid="team-timeline-view-all"
+              className="rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 hover:text-primary/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              {t("timeline.viewAll")}
+            </Link>
+          )}
           <div className="relative" ref={optionsRef}>
             <button
               onClick={() => setOptionsOpen((v) => !v)}
