@@ -729,14 +729,51 @@ export async function createGoogleCalendarConnectUrl(input: {
   });
 }
 
+export type GoogleCalendarOAuthResult =
+  | "connected"
+  | "error"
+  | "official_origin_required"
+  | "session_required";
+
+/**
+ * OAuth must begin on the same origin that receives Google's callback. A
+ * Supabase browser session is host-scoped, so starting from a Vercel alias
+ * and returning to the canonical production host otherwise loses the session.
+ */
+export function isGoogleCalendarCallbackOrigin(
+  requestUrl: string | URL,
+  config: GoogleCalendarConfig,
+) {
+  try {
+    return new URL(requestUrl).origin === new URL(config.redirectUri).origin;
+  } catch {
+    return false;
+  }
+}
+
 export function getGoogleCalendarResultUrl(
   config: GoogleCalendarConfig,
-  result: "connected" | "error",
+  result: GoogleCalendarOAuthResult,
 ) {
   const callbackOrigin = new URL(config.redirectUri).origin;
   const url = new URL("/calendar", callbackOrigin);
   url.searchParams.set("google_calendar", result);
   return url;
+}
+
+/**
+ * Keep recovery on the canonical host and return to Calendar after a fresh
+ * sign-in. The `next` target is generated server-side and contains no OAuth
+ * code, state, token, or provider error details.
+ */
+export function getGoogleCalendarLoginRecoveryUrl(
+  config: GoogleCalendarConfig,
+  result: Exclude<GoogleCalendarOAuthResult, "connected" | "error">,
+) {
+  const calendarUrl = getGoogleCalendarResultUrl(config, result);
+  const loginUrl = new URL("/login", calendarUrl.origin);
+  loginUrl.searchParams.set("next", `${calendarUrl.pathname}${calendarUrl.search}`);
+  return loginUrl;
 }
 
 export async function completeGoogleCalendarConnect(input: {

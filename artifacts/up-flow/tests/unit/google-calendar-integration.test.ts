@@ -10,6 +10,9 @@ import {
   encryptGoogleCalendarSecret,
   getGoogleCalendarConfig,
   getGoogleCalendarAuthorizationUrl,
+  getGoogleCalendarLoginRecoveryUrl,
+  getGoogleCalendarResultUrl,
+  isGoogleCalendarCallbackOrigin,
   toGoogleCalendarAgendaEntry,
 } from "@/lib/google-calendar";
 
@@ -121,6 +124,43 @@ test("Google OAuth configuration rejects an interceptable callback URL but allow
   );
 });
 
+test("Google OAuth requires its configured callback origin and produces canonical recovery links", () => {
+  const config = {
+    clientId: "client-id.apps.googleusercontent.com",
+    clientSecret: "server-only-client-secret",
+    redirectUri: "https://www.grupoup-flow.com.br/api/integrations/google-calendar/callback",
+    tokenEncryptionKey: TEST_ENCRYPTION_KEY,
+  };
+
+  assert.equal(
+    isGoogleCalendarCallbackOrigin(
+      "https://www.grupoup-flow.com.br/api/integrations/google-calendar/connect",
+      config,
+    ),
+    true,
+  );
+  assert.equal(
+    isGoogleCalendarCallbackOrigin(
+      "https://upflow-mocha.vercel.app/api/integrations/google-calendar/connect",
+      config,
+    ),
+    false,
+  );
+
+  const result = getGoogleCalendarResultUrl(config, "official_origin_required");
+  assert.equal(result.origin, "https://www.grupoup-flow.com.br");
+  assert.equal(result.pathname, "/calendar");
+  assert.equal(result.searchParams.get("google_calendar"), "official_origin_required");
+
+  const recovery = getGoogleCalendarLoginRecoveryUrl(config, "session_required");
+  assert.equal(recovery.origin, "https://www.grupoup-flow.com.br");
+  assert.equal(recovery.pathname, "/login");
+  assert.equal(
+    recovery.searchParams.get("next"),
+    "/calendar?google_calendar=session_required",
+  );
+});
+
 test("completed Google OAuth never reuses a prior refresh token and requires a verified subject", () => {
   const source = read("src/lib/google-calendar.ts");
 
@@ -133,6 +173,7 @@ test("completed Google OAuth never reuses a prior refresh token and requires a v
 
 test("Google OAuth callback uses the signed state workspace and fences account replacement", () => {
   const callback = read("src/app/api/integrations/google-calendar/callback/route.ts");
+  const connect = read("src/app/api/integrations/google-calendar/connect/route.ts");
   const source = read("src/lib/google-calendar.ts");
 
   // A person may switch their selected workspace while they are at Google's
@@ -140,9 +181,26 @@ test("Google OAuth callback uses the signed state workspace and fences account r
   // only the signed-in user needs to match on callback.
   assert.doesNotMatch(callback, /requireCurrentWorkspace/);
   assert.match(callback, /completeGoogleCalendarConnect\(\{\s*state,\s*code,\s*userId:/);
+  assert.match(callback, /getGoogleCalendarLoginRecoveryUrl\(config, "session_required"\)/);
+  assert.match(callback, /Cache-Control", "private, no-store"/);
+  assert.match(connect, /getGoogleCalendarConfig/);
+  assert.match(connect, /isGoogleCalendarCallbackOrigin\(req\.url, config\)/);
+  assert.match(connect, /getGoogleCalendarLoginRecoveryUrl\(config, "official_origin_required"\)/);
   assert.match(source, /oauthState\.workspace_id/);
   assert.match(source, /lockGoogleCalendarConnectionForSync\(tx, existing\.id\)/);
   assert.match(source, /revokeGoogleCalendarToken\(saved\.replacedConnection, config\)/);
+});
+
+test("Google OAuth host and session recovery notices are localized", () => {
+  const calendar = read("src/app/(dashboard)/calendar/page.tsx");
+  const translations = read("src/lib/i18n/translations.ts");
+
+  assert.match(calendar, /googleCalendar\.officialOriginRequired/);
+  assert.match(calendar, /googleCalendar\.sessionRequired/);
+  assert.match(translations, /"googleCalendar\.officialOriginRequired": "You are now on the official UpFlow address/);
+  assert.match(translations, /"googleCalendar\.sessionRequired": "Your Google authorization could not be completed/);
+  assert.match(translations, /"googleCalendar\.officialOriginRequired": "Agora você está no endereço oficial do UpFlow/);
+  assert.match(translations, /"googleCalendar\.sessionRequired": "Não foi possível concluir a autorização do Google/);
 });
 
 test("Google Calendar event sync requires an active workspace membership for the event creator", () => {

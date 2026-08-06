@@ -26,3 +26,34 @@ test("password recovery pages prevent callback state from being cached or sent a
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalSupabaseKey;
   }
 });
+
+test("protected routes preserve a relative return path through canonical sign-in", async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const originalSupabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NODE_ENV = "development";
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  try {
+    const response = await middleware(
+      new NextRequest(
+        "https://www.grupoup-flow.com.br/calendar?google_calendar=session_required",
+      ),
+    );
+    const location = new URL(response.headers.get("location")!);
+    assert.equal(location.pathname, "/login");
+    assert.equal(
+      location.searchParams.get("next"),
+      "/calendar?google_calendar=session_required",
+    );
+    assert.equal(location.searchParams.get("google_calendar"), null);
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+    if (originalSupabaseUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = originalSupabaseUrl;
+    if (originalSupabaseKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalSupabaseKey;
+  }
+});
