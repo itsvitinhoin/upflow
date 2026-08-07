@@ -389,7 +389,7 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await ctx.close();
   });
 
-  test("task detail sheet: edits title, status, priority, due date and posts a comment", async ({
+  test("full task workspace: edits title, status, priority, due date and posts a comment", async ({
     browser,
     baseURL,
   }) => {
@@ -403,6 +403,14 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     const page = await ctx.newPage();
     await page.goto(`/projects/${projectId}`);
     await page.getByText(title).first().click();
+
+    // The detail opens as an accessible full task hub, with a main panel and activity rail.
+    const taskWorkspace = page.getByTestId("task-detail-workspace");
+    await expect(taskWorkspace).toBeVisible();
+    await expect(taskWorkspace).toHaveAttribute("role", "dialog");
+    await expect(taskWorkspace.getByTestId("task-detail-main")).toBeVisible();
+    await expect(taskWorkspace.getByTestId("task-detail-activity")).toBeVisible();
+    await expect(taskWorkspace.getByRole("tablist", { name: "Task sections" })).toBeVisible();
 
     // Editable title input pre-populated with the task title.
     const titleInput = page.locator(`input[value="${title}"]`).first();
@@ -465,8 +473,8 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
     await firstActiveMember.click();
     await p;
 
-    // 5) Comment post — type into the inline form and submit. /api/comments
-    // POSTs and the input clears.
+    // 5) Comment post — switch to the Comments section and submit. /api/comments
+    await taskWorkspace.getByRole("tab", { name: "Comments" }).click();    // POSTs and the input clears.
     const commentInput = page.getByPlaceholder("Add a comment...");
     await expect(commentInput).toBeVisible();
 
@@ -520,10 +528,9 @@ test.describe("Project detail page (toolbar + kanban + list + task sheet)", () =
       ]),
     );
 
-    // 6) Close the sheet — press Escape and assert the sheet unmounts
-    // (the comment input is unique to the sheet, so its absence proves it).
+    // 6) Close the full workspace — Escape restores the project surface.
     await page.keyboard.press("Escape");
-    await expect(commentInput).toBeHidden();
+    await expect(taskWorkspace).toBeHidden();
 
     await ctx.close();
     await mentionedCtx.close();
