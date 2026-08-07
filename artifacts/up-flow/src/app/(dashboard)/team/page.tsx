@@ -195,8 +195,8 @@ export default function TeamPage() {
   async function updateDepartmentLeader(
     departmentId: string,
     leaderId: string | null,
-  ) {
-    if (!workspaceId) return;
+  ): Promise<boolean> {
+    if (!workspaceId) return false;
     const previous = departments;
     const selectedLeader = leaderId
       ? users.find((user) => user.id === leaderId) ?? null
@@ -230,7 +230,10 @@ export default function TeamPage() {
           body: JSON.stringify({ leader_id: leaderId }),
         },
       );
-      if (!response.ok) throw new Error("Failed to update department leader");
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        throw new Error(payload.error || "Failed to update department leader");
+      }
       const updated = (await response.json()) as Department;
       setDepartments((current) =>
         current.map((department) =>
@@ -240,9 +243,15 @@ export default function TeamPage() {
       clearCachedJson("team:overview");
       setToast(t("team.departmentLeaderUpdated"));
       router.refresh();
-    } catch {
+      return true;
+    } catch (error) {
       setDepartments(previous);
-      setToast(t("team.couldNotUpdateDepartmentLeader"));
+      setToast(
+        error instanceof Error && error.message
+          ? error.message
+          : t("team.couldNotUpdateDepartmentLeader"),
+      );
+      return false;
     }
   }
 
@@ -397,7 +406,7 @@ export default function TeamPage() {
           void updateMember(userId, patch);
         }}
         onUpdateDepartmentLeader={(departmentId, leaderId) => {
-          void updateDepartmentLeader(departmentId, leaderId);
+          return updateDepartmentLeader(departmentId, leaderId);
         }}
         onRemoveMember={(user) => {
           void removeMember(user);
