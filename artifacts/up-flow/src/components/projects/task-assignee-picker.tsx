@@ -40,6 +40,8 @@ export interface TaskAssigneePickerProps {
   className?: string;
   triggerClassName?: string;
   contentClassName?: string;
+  /** Trap focus inside the picker when it is opened from another modal. */
+  modal?: boolean;
   /** @deprecated Use triggerClassName. Kept for existing task forms. */
   selectClassName?: string;
 }
@@ -67,6 +69,7 @@ export default function TaskAssigneePicker({
   className,
   triggerClassName,
   contentClassName,
+  modal = false,
   selectClassName,
 }: TaskAssigneePickerProps) {
   const { t } = useLanguage();
@@ -122,6 +125,7 @@ export default function TaskAssigneePicker({
 
       <div className="flex items-stretch gap-2">
         <Popover
+          modal={modal}
           open={open}
           onOpenChange={(nextOpen) => {
             if (interactionDisabled) return;

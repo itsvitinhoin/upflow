@@ -241,10 +241,14 @@ test.describe("Mobile responsive layout", () => {
     await expectNoPageOverflow(page);
     await page.getByText(taskTitle).first().click();
 
+    const taskWorkspace = page.getByTestId("task-detail-workspace");
+    await expect(taskWorkspace).toBeVisible();
     await expect(
       page.locator(`input[value="${taskTitle}"]`).first(),
     ).toBeVisible();
-    await expectFitsViewport(page, "div.fixed.right-0.top-0.z-50");
+    await taskWorkspace.getByRole("tab", { name: "Activity" }).click();
+    await expect(taskWorkspace.getByRole("heading", { name: "Recent activity" })).toBeVisible();
+    await expectFitsViewport(page, '[data-testid="task-detail-workspace"]');
     await expectNoPageOverflow(page);
     await ctx.close();
   });
