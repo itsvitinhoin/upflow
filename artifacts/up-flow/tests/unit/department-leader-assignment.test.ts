@@ -36,12 +36,18 @@ test("department leader updates require an active member of that department", ()
 
 test("Teams cards render the stored leader and expose an admin editor", () => {
   const component = read("src/components/team/team-workspace.tsx");
+  const page = read("src/app/(dashboard)/team/page.tsx");
   const overview = read("src/app/api/team/overview/route.ts");
 
   assert.match(component, /leader: department\.leader \?\? null/);
   assert.match(component, /leaderCandidates:/);
   assert.match(component, /copy\.editLeader/);
   assert.match(component, /onUpdateDepartmentLeader/);
+  assert.match(component, /onClick=\{\(event\) => \{ event\.stopPropagation\(\); onToggleLeaderEditor\(\); \}\}/);
+  assert.match(component, /disabled=\{savingLeader\}/);
+  assert.match(component, /await onUpdateLeader\(event\.target\.value \|\| null\)/);
+  assert.match(page, /return updateDepartmentLeader\(departmentId, leaderId\)/);
+  assert.match(page, /payload\.error \|\| "Failed to update department leader"/);
   assert.match(overview, /leader_id: true/);
   assert.match(overview, /avatar_url: true/);
 });
