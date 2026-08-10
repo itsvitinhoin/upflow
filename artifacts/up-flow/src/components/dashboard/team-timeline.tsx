@@ -67,6 +67,7 @@ function buildTimelineRowsFromData(
   events: CalendarEvent[],
   t: Translate,
   locale: string,
+  showAllPeople: boolean,
 ) {
   const today = new Date();
   const colors = [
@@ -76,7 +77,11 @@ function buildTimelineRowsFromData(
     "bg-upflow-danger/30 border-l-upflow-danger",
   ];
 
-  return users.slice(0, TIMELINE_PREVIEW_LIMIT).map((user, index) => {
+  const visibleUsers = showAllPeople
+    ? users
+    : users.slice(0, TIMELINE_PREVIEW_LIMIT);
+
+  return visibleUsers.map((user, index) => {
     const blocks: TimelineBlock[] = [];
 
     timeEntries
@@ -153,6 +158,7 @@ export function TeamTimeline({
   const [focusHour, setFocusHour] = useState<number | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [compact, setCompact] = useState(false);
+  const [showAllPeople, setShowAllPeople] = useState(false);
   const optionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -172,17 +178,21 @@ export function TeamTimeline({
   }, [optionsOpen]);
 
   const rows = useMemo(
-    () => buildTimelineRowsFromData(users, timeEntries, events, t, locale),
-    [users, timeEntries, events, t, locale],
+    () => buildTimelineRowsFromData(users, timeEntries, events, t, locale, showAllPeople),
+    [users, timeEntries, events, t, locale, showAllPeople],
   );
   const scheduledBlocks = rows.reduce((sum, row) => sum + row.blocks.length, 0);
-  const hasHiddenPeople = users.length > rows.length;
+  const canTogglePeople = users.length > TIMELINE_PREVIEW_LIMIT;
+  const hasHiddenPeople = !showAllPeople && users.length > rows.length;
 
   const inFocusWindow = (h: number) =>
     focusHour !== null && Math.abs(h - focusHour) <= 2;
 
   return (
-    <section className="command-section-panel relative overflow-hidden rounded-[1.4rem] p-4 sm:p-5">
+    <section
+      data-testid="team-timeline"
+      className="command-section-panel relative overflow-hidden rounded-[1.4rem] p-4 sm:p-5"
+    >
       <div className="pointer-events-none absolute left-0 top-0 h-full w-px bg-gradient-to-b from-primary via-violet-400 to-upflow-success opacity-80 shadow-[0_0_28px_rgba(99,102,241,0.75)]" />
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -235,15 +245,22 @@ export function TeamTimeline({
           <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-xs font-medium text-sky-300 shadow-[0_0_18px_rgba(56,189,248,0.14)]">
             {t("timeline.blocksCount", { count: scheduledBlocks })}
           </span>
-          {hasHiddenPeople && (
-            <Link
-              href="/team"
-              aria-label={t("timeline.viewAllPeople", { count: users.length })}
+          {canTogglePeople && (
+            <button
+              type="button"
+              onClick={() => setShowAllPeople((expanded) => !expanded)}
+              aria-expanded={showAllPeople}
+              aria-controls="team-timeline-rows"
+              aria-label={
+                showAllPeople
+                  ? t("timeline.showLess")
+                  : t("timeline.viewAllPeople", { count: users.length })
+              }
               data-testid="team-timeline-view-all"
               className="rounded-lg px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10 hover:text-primary/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
-              {t("timeline.viewAll")}
-            </Link>
+              {showAllPeople ? t("timeline.showLess") : t("timeline.viewAll")}
+            </button>
           )}
           <div className="relative" ref={optionsRef}>
             <button
@@ -324,7 +341,10 @@ export function TeamTimeline({
         })}
       </div>
 
-      <div className={cn("mt-2", compact ? "space-y-1" : "space-y-2")}>
+      <div
+        id="team-timeline-rows"
+        className={cn("mt-2", compact ? "space-y-1" : "space-y-2")}
+      >
         {loading ? (
           <div className="py-4 text-center text-xs text-muted-foreground">
             {t("timeline.loading")}
@@ -341,6 +361,7 @@ export function TeamTimeline({
             return (
               <button
                 key={u.id}
+                data-testid="team-timeline-row"
                 onClick={() => toast(t("timeline.openSchedule", { name: u.name }))}
                 className={cn(
                   "-mx-1 flex w-full items-center gap-3 rounded-xl p-1 transition-colors hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
