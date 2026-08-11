@@ -68,10 +68,25 @@ test.describe("Mobile responsive layout", () => {
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    await ctx.addCookies([
+      {
+        name: "upflow.sidebar.desktopOpen.v1",
+        value: "1",
+        url: baseURL!,
+      },
+    ]);
     const page = await ctx.newPage();
+    const workspaceTreeRequests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/workspace-tree") {
+        workspaceTreeRequests.push(request.url());
+      }
+    });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
 
+    await expect(page.getByTestId("desktop-sidebar")).toBeHidden();
+    await expect(page.getByTestId("desktop-sidebar-restore")).toBeHidden();
     await expect(
       page.getByRole("button", { name: "Open navigation" }),
     ).toBeVisible();
@@ -91,6 +106,14 @@ test.describe("Mobile responsive layout", () => {
     }
 
     await expectNoPageOverflow(page);
+    await page.waitForTimeout(150);
+    expect(workspaceTreeRequests).toHaveLength(0);
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+    });
+    await page.waitForTimeout(150);
+    expect(workspaceTreeRequests).toHaveLength(0);
+
     await page.getByRole("button", { name: "Open navigation" }).click();
     const navigationDialog = page.getByRole("dialog", { name: "Navigation" });
     await expect(navigationDialog).toBeVisible();
@@ -118,6 +141,52 @@ test.describe("Mobile responsive layout", () => {
 
     await page.getByRole("button", { name: "Open navigation" }).click();
     await expect(navigationDialog).toBeVisible();
+    await page.setViewportSize({ width: 1024, height: 844 });
+    const desktopSidebar = page.getByTestId("desktop-sidebar");
+    await expect(navigationDialog).toHaveCount(0);
+    await expect(desktopSidebar).toBeVisible();
+    await expect(page.getByTestId("desktop-sidebar-restore")).toBeHidden();
+    await expect(
+      desktopSidebar.getByTestId("sidebar-panel-toggle"),
+    ).toBeFocused();
+    await page.waitForTimeout(100);
+    const desktopRequestBaseline = workspaceTreeRequests.length;
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+    });
+    await expect
+      .poll(() => workspaceTreeRequests.length)
+      .toBe(desktopRequestBaseline + 1);
+    await page.waitForTimeout(150);
+    expect(workspaceTreeRequests).toHaveLength(desktopRequestBaseline + 1);
+
+    const dashboardLink = desktopSidebar
+      .getByTestId("sidebar-rail-navigation")
+      .getByRole("link", {
+        name: "Dashboard",
+        exact: true,
+      });
+    await dashboardLink.focus();
+    await expect(dashboardLink).toBeFocused();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(desktopSidebar).toBeHidden();
+    await expect(page.getByTestId("desktop-sidebar-restore")).toBeHidden();
+    const navigationToggle = page.getByRole("button", {
+      name: "Open navigation",
+    });
+    await expect(navigationToggle).toBeVisible();
+    await expect(navigationToggle).toBeFocused();
+    await expect(navigationDialog).toHaveCount(0);
+    const mobileRequestBaseline = workspaceTreeRequests.length;
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("upflow:sidebar-refresh"));
+    });
+    await page.waitForTimeout(150);
+    expect(workspaceTreeRequests).toHaveLength(mobileRequestBaseline);
+
+    await navigationToggle.click();
+    await expect(navigationDialog).toBeVisible();
     await Promise.all([
       page.waitForURL(/\/calendar(?:\?|$)/),
       navigationDialog
@@ -125,11 +194,31 @@ test.describe("Mobile responsive layout", () => {
         .getByRole("link", { name: "Calendar", exact: true })
         .click(),
     ]);
-    const navigationToggle = page.getByRole("button", {
-      name: "Open navigation",
-    });
     await expect(navigationToggle).toBeVisible();
     await expect(navigationToggle).not.toBeFocused();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          localStorage.getItem("upflow.sidebar.desktopOpen.v1"),
+        ),
+      )
+      .toBe("1");
+    await expect
+      .poll(async () =>
+        (await ctx.cookies()).find(
+          (cookie) => cookie.name === "upflow.sidebar.desktopOpen.v1",
+        )?.value,
+      )
+      .toBe("1");
+
+    await navigationToggle.focus();
+    await expect(navigationToggle).toBeFocused();
+    await page.setViewportSize({ width: 1024, height: 844 });
+    await expect(
+      page
+        .getByTestId("desktop-sidebar")
+        .getByTestId("sidebar-panel-toggle"),
+    ).toBeFocused();
     await ctx.close();
   });
 

@@ -54,33 +54,126 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(taskDetailModal, /t\("task\.deleteTask"\)/);
 });
 
-test("desktop sidebar exposes a clear sliding drawer toggle", () => {
+test("desktop sidebar fully hides and exposes a focused restore control", () => {
   const sidebar = read("src/components/layout/sidebar.tsx");
+  const layout = read("src/app/(dashboard)/layout.tsx");
   const rail = read("src/components/layout/sidebar/rail.tsx");
   const panel = read("src/components/layout/sidebar/panel.tsx");
+  const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
 
-  assert.match(sidebar, /transition-\[width,opacity\]/);
-  assert.match(sidebar, /aria-hidden=\{!panelOpen\}/);
-  assert.match(sidebar, /onRequestClose=\{\(\) => setPanelOpen\(false\)\}/);
-  assert.match(rail, /sidebar\.show/);
-  assert.match(rail, /sidebar\.hide/);
-  assert.match(rail, /href="\/docs"/);
-  assert.match(rail, /aria-expanded=\{panelOpen\}/);
-  assert.match(rail, /aria-controls=\{panelId\}/);
-  assert.match(rail, /data-testid="sidebar-panel-toggle"/);
-  assert.match(sidebar, /id="desktop-sidebar-panel"/);
-  assert.match(sidebar, /window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/);
+  assert.match(layout, /import \{ cookies \} from "next\/headers"/);
+  assert.match(
+    layout,
+    /const DESKTOP_SIDEBAR_KEY = "upflow\.sidebar\.desktopOpen\.v1"/,
+  );
+  assert.match(
+    layout,
+    /\(await cookies\(\)\)\.get\(DESKTOP_SIDEBAR_KEY\)\?\.value/,
+  );
+  assert.match(
+    layout,
+    /const initialDesktopSidebarOpen = sidebarPreference !== "0"/,
+  );
+  assert.match(
+    layout,
+    /initialDesktopSidebarOpen=\{initialDesktopSidebarOpen\}/,
+  );
+  assert.match(sidebar, /initialDesktopSidebarOpen: boolean/);
+  assert.match(
+    sidebar,
+    /const DESKTOP_SIDEBAR_KEY = "upflow\.sidebar\.desktopOpen\.v1"/,
+  );
+  assert.match(
+    sidebar,
+    /const \[desktopSidebarOpen, setDesktopSidebarOpen\]\s*=\s*useState\(initialDesktopSidebarOpen\)/,
+  );
+  assert.match(sidebar, /setDesktopSidebarOpen\(false\)/);
+  assert.match(sidebar, /setDesktopSidebarOpen\(true\)/);
+  assert.match(sidebar, /desktopRestoreRef\.current\?\.focus\(\)/);
+  assert.match(sidebar, /desktopCloseRef\.current\?\.focus\(\)/);
+  assert.match(sidebar, /data-testid="desktop-sidebar"/);
+  assert.match(sidebar, /data-testid="desktop-sidebar-restore"/);
+  assert.match(sidebar, /onRequestClose=\{closeDesktopSidebar\}/);
+  assert.match(
+    sidebar,
+    /localStorage\.setItem\(\s*DESKTOP_SIDEBAR_KEY,\s*desktopSidebarOpen \? "1" : "0",?\s*\)/s,
+  );
+  assert.match(sidebar, /document\.cookie\s*=/);
+  assert.match(sidebar, /SameSite=Lax/);
+  assert.match(sidebar, /window\.matchMedia\("\(min-width: 768px\)"\)/);
+  assert.match(
+    sidebar,
+    /active=\{desktopSidebarOpen && isDesktopViewport\}/,
+  );
+  assert.match(sidebar, /aria-hidden=\{!desktopSidebarOpen\}/);
+  assert.match(sidebar, /inert=\{desktopSidebarOpen \? undefined : true\}/);
+  assert.match(sidebar, /aria-label=\{t\("sidebar\.show"\)\}/);
+  assert.match(sidebar, /aria-controls="desktop-sidebar"/);
+  assert.match(sidebar, /aria-expanded=\{false\}/);
+  assert.match(sidebar, /const \[mobileOpen, setMobileOpen\] = useState\(false\)/);
+  assert.match(sidebar, /showPanelToggle: false/);
+  assert.match(
+    sidebar,
+    /const lastNavigationFocusRef = useRef<"mobile" \| "desktop" \| null>\(null\)/,
+  );
+  assert.match(sidebar, /document\.addEventListener\("focusin", rememberFocus\)/);
+  assert.match(
+    sidebar,
+    /document\.addEventListener\("pointerdown", rememberPointer, true\)/,
+  );
+  assert.match(sidebar, /document\.removeEventListener\("focusin", rememberFocus\)/);
+  assert.match(
+    sidebar,
+    /document\.removeEventListener\("pointerdown", rememberPointer, true\)/,
+  );
+  assert.match(
+    sidebar,
+    /if \(mobileOpen \|\| mobileNavigationFocused\) \{\s*window\.requestAnimationFrame\(\(\) => \{\s*lastNavigationFocusRef\.current = null;\s*const desktopControl = desktopSidebarOpen\s*\? desktopCloseRef\.current\s*:\s*desktopRestoreRef\.current/s,
+  );
+  assert.match(
+    sidebar,
+    /const desktopNavigationFocused =[\s\S]*lastNavigationFocusRef\.current === "desktop"/,
+  );
+  assert.match(
+    sidebar,
+    /if \(desktopNavigationFocused\) \{\s*lastNavigationFocusRef\.current = null;\s*window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/,
+  );
+  assert.match(
+    sidebar,
+    /const mobileNavigationFocused =[\s\S]*lastNavigationFocusRef\.current === "mobile"/,
+  );
   assert.match(sidebar, /closeMobileNavigation\(false\)/);
+  assert.match(rail, /href="\/docs"/);
+  assert.match(
+    sidebar,
+    /if \(isDesktopViewport\) \{[\s\S]*setMobileOpen\(false\)/,
+  );
+  assert.match(
+    sidebar,
+    /const desktopNavigationFocused =[\s\S]*desktopSidebarRef\.current\?\.contains\(document\.activeElement\)[\s\S]*mobileToggleRef\.current\?\.focus\(\)/,
+  );
+  assert.match(panel, /if \(!active\) return;[\s\S]*loadPanel/);
+  assert.match(
+    panel,
+    /if \(!active \|\| !canManageWorkspace \|\| isSearching \|\| loadingPanel\) return/,
+  );
+  assert.match(panelData, /const enabledRef = useRef\(enabled\)/);
+  assert.match(panelData, /if \(!enabledRef\.current\) return/);
+  assert.doesNotMatch(
+    panelData,
+    /useEffect\(\(\) => \{\s*loadPanel\(\);\s*\}, \[loadPanel\]\)/,
+  );
+  assert.match(rail, /data-testid="sidebar-panel-toggle"/);
   assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
 });
 
-test("sidebar rail uses compact labeled navigation while keeping Spaces in an optional drawer", () => {
+test("visible desktop sidebar keeps compact rail labels readable", () => {
   const sidebar = read("src/components/layout/sidebar.tsx");
   const rail = read("src/components/layout/sidebar/rail.tsx");
   const translations = read("src/lib/i18n/translations.ts");
 
-  assert.match(sidebar, /useState\(false\)/);
+  assert.match(sidebar, /useState\(initialDesktopSidebarOpen\)/);
   assert.match(sidebar, /w-\[64px\]/);
   assert.match(rail, /bg-\[#16132f\]/);
   assert.match(rail, /min-h-\[48px\]/);

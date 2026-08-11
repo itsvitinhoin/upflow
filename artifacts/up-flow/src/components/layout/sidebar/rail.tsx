@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -16,7 +17,6 @@ import {
   HelpCircle,
   LogOut,
   PanelLeftClose,
-  PanelLeftOpen,
   Settings2,
   type LucideIcon,
 } from "lucide-react";
@@ -90,6 +90,7 @@ interface RailProps {
   panelOpen: boolean;
   panelId?: string;
   showPanelToggle?: boolean;
+  toggleRef?: Ref<HTMLButtonElement>;
   onTogglePanel: () => void;
   onSignOut: () => void;
   onNavigate?: () => void;
@@ -106,6 +107,7 @@ export function Rail({
   panelOpen,
   panelId,
   showPanelToggle = true,
+  toggleRef,
   onTogglePanel,
   onSignOut,
   onNavigate,
@@ -140,11 +142,12 @@ export function Rail({
         {showPanelToggle && (
           <div className="mt-1 flex h-8 w-full shrink-0 items-center justify-center">
             <button
+              ref={toggleRef}
               type="button"
               data-testid="sidebar-panel-toggle"
               onClick={onTogglePanel}
-              title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-              aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              title={t("sidebar.hide")}
+              aria-label={t("sidebar.hide")}
               aria-controls={panelId}
               aria-expanded={panelOpen}
               className={cn(
@@ -154,14 +157,8 @@ export function Rail({
                   : "border-white/20 bg-white/[0.1] hover:border-white/45 hover:bg-white/[0.18] hover:text-white",
               )}
             >
-              {panelOpen ? (
-                <PanelLeftClose className="h-4 w-4 stroke-[2]" />
-              ) : (
-                <PanelLeftOpen className="h-4 w-4 stroke-[2]" />
-              )}
-              <span className="sr-only">
-                {panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-              </span>
+              <PanelLeftClose className="h-4 w-4 stroke-[2]" />
+              <span className="sr-only">{t("sidebar.hide")}</span>
             </button>
           </div>
         )}

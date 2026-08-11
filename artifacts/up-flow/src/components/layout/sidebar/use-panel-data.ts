@@ -82,6 +82,8 @@ export function usePanelData(
   );
   const loadRequestId = useRef(0);
   const activeQueryRef = useRef("");
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [folders, setFolders] = useState<FolderT[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -170,6 +172,7 @@ export function usePanelData(
 
   const loadPanel = useCallback(
     (options?: { force?: boolean; query?: string }) => {
+      if (!enabledRef.current) return;
       const query = options?.query?.trim() ?? "";
       activeQueryRef.current = query;
       const requestId = ++loadRequestId.current;
@@ -179,7 +182,7 @@ export function usePanelData(
 
       fetchPanelData(storageKeys.scope, options?.force === true, query)
         .then((data) => {
-          if (requestId !== loadRequestId.current) return;
+          if (!enabledRef.current || requestId !== loadRequestId.current) return;
           const nextSpaces = data.spaces.items ?? [];
           const nextProjects = data.projects.items ?? [];
           const nextFolders = data.folders.items ?? [];
@@ -220,20 +223,17 @@ export function usePanelData(
           });
         })
         .catch((err) => {
-          if (requestId !== loadRequestId.current) return;
+          if (!enabledRef.current || requestId !== loadRequestId.current) return;
           setPanelLoadFailed(true);
           logError("sidebar:loadPanel", err);
         })
         .finally(() => {
-          if (requestId === loadRequestId.current) setLoadingPanel(false);
+          if (enabledRef.current && requestId === loadRequestId.current) setLoadingPanel(false);
         });
     },
     [setCollapsed, storageKeys.scope, storageKeys.snapshot],
   );
 
-  useEffect(() => {
-    loadPanel();
-  }, [loadPanel]);
 
   useEffect(() => {
     if (!enabled) return;
