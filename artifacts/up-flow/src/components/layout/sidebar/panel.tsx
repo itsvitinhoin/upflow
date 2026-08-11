@@ -107,15 +107,16 @@ export default function Panel({
     isSuperAdmin || currentRole === "owner" || currentRole === "admin";
 
   useEffect(() => {
+    if (!active) return;
     const handle = window.setTimeout(() => {
       loadPanel({ force: isSearching, query: sidebarQuery.trim() });
     }, isSearching ? 250 : 0);
 
     return () => window.clearTimeout(handle);
-  }, [isSearching, loadPanel, sidebarQuery]);
+  }, [active, isSearching, loadPanel, sidebarQuery]);
 
   useEffect(() => {
-    if (!canManageWorkspace || isSearching || loadingPanel) return;
+    if (!active || !canManageWorkspace || isSearching || loadingPanel) return;
 
     const creativeSpaceMissingQueue = spaces.find(
       (space) =>
@@ -154,6 +155,7 @@ export default function Panel({
     };
   }, [
     canManageWorkspace,
+    active,
     currentWorkspaceId,
     isSearching,
     loadPanel,

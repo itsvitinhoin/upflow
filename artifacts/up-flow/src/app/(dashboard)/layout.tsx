@@ -1,8 +1,10 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/layout/sidebar";
 import { UserProvider } from "@/components/user-provider";
 import type { AppUser } from "@/lib/types";
 import { getAuthResult, isSuperAdmin } from "@/lib/auth-helpers";
+const DESKTOP_SIDEBAR_KEY = "upflow.sidebar.desktopOpen.v1";
 
 export default async function DashboardLayout({
   children,
@@ -16,6 +18,9 @@ export default async function DashboardLayout({
   if (authResult.kind === "error") {
     throw authResult.error;
   }
+
+  const sidebarPreference = (await cookies()).get(DESKTOP_SIDEBAR_KEY)?.value;
+  const initialDesktopSidebarOpen = sidebarPreference !== "0";
 
   const auth = authResult.user;
   const prismaUser = auth.prismaUser;
@@ -46,7 +51,11 @@ export default async function DashboardLayout({
     <UserProvider user={user}>
       <div className="relative flex h-dvh min-h-dvh overflow-hidden overflow-x-hidden bg-background">
         <div className="relative z-10 flex h-full w-full min-w-0">
-          <Sidebar user={user} workspaces={workspaces} />
+          <Sidebar
+            user={user}
+            workspaces={workspaces}
+            initialDesktopSidebarOpen={initialDesktopSidebarOpen}
+          />
           <main className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
             <div className="relative z-10 min-w-0">{children}</div>
           </main>

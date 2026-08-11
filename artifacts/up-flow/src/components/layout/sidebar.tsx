@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { Menu, PanelLeftOpen, X } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { logError } from "@/lib/log-error";
@@ -28,20 +28,31 @@ interface SidebarProps {
     slug: string;
     role: "owner" | "admin" | "member" | "guest";
   }>;
+  initialDesktopSidebarOpen: boolean;
 }
 
-const PANEL_KEY = "upflow.sidebar.spacesOpen";
+const DESKTOP_SIDEBAR_KEY = "upflow.sidebar.desktopOpen.v1";
 
-export default function Sidebar({ user, workspaces }: SidebarProps) {
+export default function Sidebar({
+  user,
+  workspaces,
+  initialDesktopSidebarOpen,
+}: SidebarProps) {
   const { t } = useLanguage();
   const pathname = usePathname() ?? "";
   const [mounted, setMounted] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] =
+    useState(initialDesktopSidebarOpen);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+  const desktopRestoreRef = useRef<HTMLButtonElement>(null);
+  const desktopSidebarRef = useRef<HTMLElement>(null);
+  const desktopCloseRef = useRef<HTMLButtonElement>(null);
   const mobileToggleRef = useRef<HTMLButtonElement>(null);
   const mobileDialogRef = useRef<HTMLElement>(null);
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const lastNavigationFocusRef = useRef<"mobile" | "desktop" | null>(null);
   const closeMobileNavigation = useCallback((restoreFocus = true) => {
     setMobileOpen(false);
     if (restoreFocus) {
@@ -52,34 +63,113 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
     () => closeMobileNavigation(false),
     [closeMobileNavigation],
   );
+  const closeDesktopSidebar = useCallback(() => {
+    setDesktopSidebarOpen(false);
+    window.requestAnimationFrame(() => desktopRestoreRef.current?.focus());
+  }, []);
+  const openDesktopSidebar = useCallback(() => {
+    setDesktopSidebarOpen(true);
+    window.requestAnimationFrame(
+      () => desktopCloseRef.current?.focus(),
+    );
+  }, []);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!mounted) return;
-    try {
-      const v = localStorage.getItem(PANEL_KEY);
-      if (v === "1" || v === "0") {
-        setPanelOpen(v === "1");
-      } else if (v !== null) {
-        localStorage.removeItem(PANEL_KEY);
-        setPanelOpen(false);
+    const navigationFor = (target: EventTarget | null) => {
+      if (!(target instanceof Node)) return null;
+      if (
+        target === mobileToggleRef.current ||
+        mobileDialogRef.current?.contains(target)
+      ) {
+        return "mobile" as const;
       }
-    } catch {
-      // localStorage unavailable (SSR, privacy modes) — use defaults.
-    }
-  }, [mounted]);
+      if (
+        target === desktopRestoreRef.current ||
+        desktopSidebarRef.current?.contains(target)
+      ) {
+        return "desktop" as const;
+      }
+      return null;
+    };
+    const rememberFocus = (event: FocusEvent) => {
+      const navigation = navigationFor(event.target);
+      if (navigation) {
+        lastNavigationFocusRef.current = navigation;
+      } else if (
+        event.target !== document.body &&
+        event.target !== document.documentElement
+      ) {
+        lastNavigationFocusRef.current = null;
+      }
+    };
+    const rememberPointer = (event: PointerEvent) => {
+      lastNavigationFocusRef.current = navigationFor(event.target);
+    };
+    document.addEventListener("focusin", rememberFocus);
+    document.addEventListener("pointerdown", rememberPointer, true);
+    return () => {
+      document.removeEventListener("focusin", rememberFocus);
+      document.removeEventListener("pointerdown", rememberPointer, true);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mounted) return;
     try {
-      localStorage.setItem(PANEL_KEY, panelOpen ? "1" : "0");
+      localStorage.setItem(
+        DESKTOP_SIDEBAR_KEY,
+        desktopSidebarOpen ? "1" : "0",
+      );
     } catch {
-      // localStorage unavailable — panel state simply won't persist.
+      // localStorage may be unavailable; the cookie remains the source of truth.
     }
-  }, [mounted, panelOpen]);
+    document.cookie =
+      DESKTOP_SIDEBAR_KEY + "=" + (desktopSidebarOpen ? "1" : "0") +
+      "; Path=/; Max-Age=31536000; SameSite=Lax";
+  }, [desktopSidebarOpen, mounted]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 768px)");
+    const handleViewportChange = () => setIsDesktopViewport(query.matches);
+    handleViewportChange();
+    query.addEventListener("change", handleViewportChange);
+    return () => {
+      query.removeEventListener("change", handleViewportChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDesktopViewport) {
+      const mobileNavigationFocused =
+        document.activeElement === mobileToggleRef.current ||
+        mobileDialogRef.current?.contains(document.activeElement) ||
+        lastNavigationFocusRef.current === "mobile";
+      if (mobileOpen) setMobileOpen(false);
+      if (mobileOpen || mobileNavigationFocused) {
+        window.requestAnimationFrame(() => {
+          lastNavigationFocusRef.current = null;
+          const desktopControl = desktopSidebarOpen
+            ? desktopCloseRef.current
+            : desktopRestoreRef.current;
+          desktopControl?.focus();
+        });
+      }
+      return;
+    }
+
+    const desktopNavigationFocused =
+      desktopSidebarRef.current?.contains(document.activeElement) ||
+      document.activeElement === desktopRestoreRef.current ||
+      lastNavigationFocusRef.current === "desktop";
+    if (desktopNavigationFocused) {
+      lastNavigationFocusRef.current = null;
+      window.requestAnimationFrame(() => mobileToggleRef.current?.focus());
+    }
+  }, [desktopSidebarOpen, isDesktopViewport, mobileOpen]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -139,12 +229,11 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
     <Rail
       user={user}
       pathname={pathname}
-      panelOpen={panelOpen}
+      panelOpen={desktopSidebarOpen}
       panelId={options.panelId}
       showPanelToggle={options.showPanelToggle}
-      onTogglePanel={() => {
-        setPanelOpen((v) => !v);
-      }}
+      toggleRef={options.panelId ? desktopCloseRef : undefined}
+      onTogglePanel={closeDesktopSidebar}
       onSignOut={handleSignOut}
       onNavigate={onNavigate}
     />
@@ -152,25 +241,40 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
 
   if (!mounted) {
     return (
-      <aside className="hidden md:flex flex-shrink-0" aria-hidden="true">
-        <div className="w-[64px] flex glass-rail" />
+      <aside
+        className={cn(
+          "hidden flex-shrink-0 md:flex",
+          initialDesktopSidebarOpen ? "w-[336px]" : "w-0",
+        )}
+        aria-hidden="true"
+      >
+        <div className="flex w-full glass-rail" />
       </aside>
     );
   }
 
   return (
     <>
-      <aside className="hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden md:flex">
-        <div className="flex min-h-0 w-[64px]">
-          {renderRail(undefined, { panelId: "desktop-sidebar-panel" })}
+      <aside
+        ref={desktopSidebarRef}
+        id="desktop-sidebar"
+        data-testid="desktop-sidebar"
+        className={cn(
+          "hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none md:flex",
+          desktopSidebarOpen
+            ? "w-[336px] opacity-100"
+            : "pointer-events-none w-0 opacity-0",
+        )}
+        aria-hidden={!desktopSidebarOpen}
+        inert={desktopSidebarOpen ? undefined : true}
+      >
+        <div className="flex min-h-0 w-[64px] shrink-0">
+          {renderRail(undefined, { panelId: "desktop-sidebar" })}
         </div>
         <div
           id="desktop-sidebar-panel"
-          className={cn(
-            "grid min-h-0 overflow-hidden transition-[width,opacity] duration-200 ease-out",
-            panelOpen ? "w-[272px] opacity-100" : "w-0 opacity-0",
-          )}
-          aria-hidden={!panelOpen}
+          className="grid min-h-0 w-[272px] overflow-hidden"
+          aria-hidden={!desktopSidebarOpen}
         >
           <div className="flex min-h-0 w-[272px]">
             <Panel
@@ -181,14 +285,31 @@ export default function Sidebar({ user, workspaces }: SidebarProps) {
               currentRole={user.currentRole ?? null}
               userName={user.name || user.email}
               isSuperAdmin={user.isSuperAdmin === true}
-              active={panelOpen}
-              onRequestClose={() => setPanelOpen(false)}
+              active={desktopSidebarOpen && isDesktopViewport}
+              onRequestClose={closeDesktopSidebar}
               onSignOut={handleSignOut}
               signingOut={signingOut}
             />
           </div>
         </div>
       </aside>
+
+      {!desktopSidebarOpen && (
+        <div className="fixed left-3 top-1/2 z-[60] hidden -translate-y-1/2 md:block">
+          <button
+            ref={desktopRestoreRef}
+            type="button"
+            data-testid="desktop-sidebar-restore"
+            onClick={openDesktopSidebar}
+            aria-label={t("sidebar.show")}
+            aria-expanded={false}
+            aria-controls="desktop-sidebar"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/70"
+          >
+            <PanelLeftOpen className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
       {!mobileOpen && (
         <div className="fixed left-3 top-3 z-[60] md:hidden">
