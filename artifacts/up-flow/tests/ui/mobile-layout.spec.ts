@@ -342,7 +342,7 @@ test.describe("Mobile responsive layout", () => {
     await ctx.close();
   });
 
-  test("global create and invite dialogs fit inside mobile viewport", async ({
+  test("Quick Create project and invite dialogs fit inside mobile viewport", async ({
     browser,
     baseURL,
   }) => {
@@ -351,10 +351,8 @@ test.describe("Mobile responsive layout", () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto("/");
 
-    await page
-      .getByRole("button", { name: /^New Project$/ })
-      .first()
-      .click();
+    await page.getByRole("button", { name: "Quick create" }).click();
+    await page.getByRole("menuitem", { name: "Project", exact: true }).click();
     await expect(
       page.getByRole("dialog", { name: "New Project" }),
     ).toBeVisible();

@@ -11,7 +11,7 @@ import {
 /**
  * Projects index + project detail page coverage:
  *   * /projects: client-first directory tabs, URL-backed filters,
- *     keyboard-accessible actions, and the header New Project dialog.
+ *     keyboard-accessible actions, without a global header creation shortcut.
  *   * /projects/[id]: ProjectToolbar (list/board toggle, search filter,
  *     filter popover, group/sort dropdowns, column toggle), kanban DnD
  *     (via keyboard sensor — hello-pangea/dnd supports space + arrows),
@@ -20,27 +20,16 @@ import {
 test.describe("Projects index", () => {
   requireChromiumOrSkip();
 
-  test("header '+ New Project' button on /projects opens the New Project dialog", async ({
+  test("projects page does not render the global New Project header action", async ({
     browser,
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
     await page.goto("/projects");
-    await page
-      .getByRole("button", { name: /^New Project$/ })
-      .first()
-      .click();
     await expect(
-      page.getByRole("dialog", { name: "New Project" }),
-    ).toBeVisible();
-    await page
-      .getByRole("dialog", { name: "New Project" })
-      .getByRole("button", { name: "Cancel" })
-      .click();
-    await expect(
-      page.getByRole("dialog", { name: "New Project" }),
-    ).toBeHidden();
+      page.getByRole("button", { name: /^New Project$/ }),
+    ).toHaveCount(0);
 
     await ctx.close();
   });

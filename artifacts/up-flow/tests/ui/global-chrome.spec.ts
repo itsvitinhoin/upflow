@@ -350,20 +350,19 @@ test.describe("Global chrome", () => {
     await ctx.close();
   });
 
-  test("header 'New Project' button opens the New Project dialog", async ({
+  test("shared header does not expose the global New Project action", async ({
     browser,
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
     const page = await ctx.newPage();
-    await page.goto("/");
-    await page
-      .getByRole("button", { name: /^New Project$/ })
-      .first()
-      .click();
-    await expect(
-      page.getByRole("dialog", { name: "New Project" }),
-    ).toBeVisible();
+
+    for (const path of ["/", "/clients", "/projects"]) {
+      await page.goto(path);
+      await expect(
+        page.getByRole("button", { name: /^New Project$/ }),
+      ).toHaveCount(0);
+    }
 
     await ctx.close();
   });
