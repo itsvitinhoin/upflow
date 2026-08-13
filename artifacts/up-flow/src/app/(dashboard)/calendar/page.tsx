@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import Header from "@/components/layout/header";
 import { logError } from "@/lib/log-error";
 import { Bell, Calendar as CalendarIcon, Check, CheckSquare, ChevronLeft, ChevronRight, Cloud, DoorOpen, Pencil, Plus, RefreshCw, Trash2, Video } from "lucide-react";
-import { appDateKey, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
+import { appDateKey, appTimeInputValue, cn, formatLongDate, formatTime, mergeAppDateAndTime } from "@/lib/utils";
 import type { CalendarEvent, Task } from "@/lib/types";
 import ScheduleMeetingDialog from "@/components/dashboard/schedule-meeting-dialog";
 import TaskCreateSheet from "@/components/projects/task-create-sheet";
@@ -215,6 +215,8 @@ export default function CalendarPage() {
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [manageEvents, setManageEvents] = useState(false);
   const [eventMenu, setEventMenu] = useState<{ event: CalendarEvent; x: number; y: number } | null>(null);
+  const [draggedEventId, setDraggedEventId] = useState<string | null>(null);
+  const [dragOverDateKey, setDragOverDateKey] = useState<string | null>(null);
   const [people, setPeople] = useState<SelectableUser[]>([]);
   const [peopleLoading, setPeopleLoading] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -223,6 +225,7 @@ export default function CalendarPage() {
   const [scheduleDefaults, setScheduleDefaults] = useState<ScheduleDefaults | null>(null);
   const calendarRequestIdRef = useRef(0);
   const calendarRequestControllerRef = useRef<AbortController | null>(null);
+  const draggedEventIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const result = searchParams?.get("google_calendar");
@@ -574,6 +577,76 @@ export default function CalendarPage() {
     }
   };
 
+  const rescheduleEvent = async (event: CalendarEvent, targetDate: Date) => {
+    if (dateKey(event.starts_at) === dateKey(targetDate)) {
+      setSelected(targetDate);
+      return;
+    }
+
+    const originalStart = new Date(event.starts_at);
+    const originalEnd = event.ends_at ? new Date(event.ends_at) : null;
+    const startsAt = mergeAppDateAndTime(targetDate, appTimeInputValue(event.starts_at));
+    const endsAt = originalEnd
+      ? new Date(startsAt.getTime() + (originalEnd.getTime() - originalStart.getTime()))
+      : null;
+
+    try {
+      const res = await fetch(`/api/calendar/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          starts_at: startsAt.toISOString(),
+          ends_at: endsAt?.toISOString() ?? null,
+        }),
+      });
+      if (res.status === 403) {
+        toast.error(t("calendar.noPermission"));
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to reschedule event");
+
+      const updated = (await res.json()) as CalendarEvent;
+      setEvents((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      setSelected(targetDate);
+      toast.success(t("calendar.eventRescheduled"));
+    } catch {
+      toast.error(t("calendar.couldNotReschedule"));
+    }
+  };
+
+  const startEventDrag = (event: CalendarEvent, dragEvent: React.DragEvent<HTMLDivElement>) => {
+    dragEvent.stopPropagation();
+    draggedEventIdRef.current = event.id;
+    dragEvent.dataTransfer.effectAllowed = "move";
+    dragEvent.dataTransfer.setData("text/plain", event.id);
+    setEventMenu(null);
+    setDraggedEventId(event.id);
+  };
+
+  const endEventDrag = () => {
+    draggedEventIdRef.current = null;
+    setDraggedEventId(null);
+    setDragOverDateKey(null);
+  };
+
+  const allowEventDrop = (dragEvent: React.DragEvent<HTMLButtonElement>, targetKey: string) => {
+    if (!draggedEventIdRef.current) return;
+    dragEvent.preventDefault();
+    dragEvent.dataTransfer.dropEffect = "move";
+    setDragOverDateKey(targetKey);
+  };
+
+  const dropEventOnDate = (dragEvent: React.DragEvent<HTMLButtonElement>, targetDate: Date) => {
+    const eventId = dragEvent.dataTransfer.getData("text/plain") || draggedEventIdRef.current;
+    dragEvent.preventDefault();
+    dragEvent.stopPropagation();
+    setDragOverDateKey(null);
+
+    if (!eventId) return;
+    const event = events.find((item) => item.id === eventId);
+    if (event) void rescheduleEvent(event, targetDate);
+  };
+
   const openEventMenu = (event: CalendarEvent, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -804,9 +877,12 @@ export default function CalendarPage() {
                 <button
                   key={key}
                   onClick={() => setSelected(day)}
+                  onDragOver={(dragEvent) => allowEventDrop(dragEvent, key)}
+                  onDrop={(dragEvent) => dropEventOnDate(dragEvent, day)}
                   className={cn(
                     "flex h-24 min-h-24 flex-col items-start overflow-hidden rounded-lg border p-1 text-left transition-colors sm:h-32 sm:min-h-32 sm:p-1.5 xl:h-36 xl:min-h-36",
                     isSelected ? "border-primary/60 bg-primary/10" : "border-transparent hover:bg-accent dark:hover:bg-white/5",
+                    draggedEventId && dragOverDateKey === key && "border-primary bg-primary/15 ring-2 ring-primary/30",
                     !inMonth && "opacity-40",
                   )}
                 >
@@ -828,7 +904,11 @@ export default function CalendarPage() {
                       return (
                         <div
                           key={event.id}
-                          title={`${eventTime(event)} ${event.title}${isRoomBooking ? ` - ${t("calendar.roomBooking")}` : ""}${display.isAutoComplete ? ` - ${t("calendar.autoCompleted")}` : ""}`}
+                          draggable
+                          aria-label={`${event.title}. ${t("calendar.dragToReschedule")}`}
+                          title={`${eventTime(event)} ${event.title}${isRoomBooking ? ` - ${t("calendar.roomBooking")}` : ""}${display.isAutoComplete ? ` - ${t("calendar.autoCompleted")}` : ""}. ${t("calendar.dragToReschedule")}`}
+                          onDragStart={(dragEvent) => startEventDrag(event, dragEvent)}
+                          onDragEnd={endEventDrag}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelected(day);
@@ -839,7 +919,7 @@ export default function CalendarPage() {
                             e.stopPropagation();
                             setEditingEvent(event);
                           }}
-                          className={cn("min-h-[15px] truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none", display.isCancelled && "opacity-60 line-through", eventVisualClass(event, display))}
+                          className={cn("min-h-[15px] cursor-grab truncate rounded border-l-2 px-1 py-0.5 text-[9px] leading-none active:cursor-grabbing", draggedEventId === event.id && "opacity-50", display.isCancelled && "opacity-60 line-through", eventVisualClass(event, display))}
                         >
                           {display.isComplete && <Check className="mr-0.5 inline h-2.5 w-2.5" />}
                           {isRoomBooking && !display.isComplete && <DoorOpen className="mr-0.5 inline h-2.5 w-2.5" />}
