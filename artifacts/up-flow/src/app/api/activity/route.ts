@@ -21,7 +21,25 @@ async function GET_handler(req: NextRequest) {
   const companyId = searchParams.get("company_id")?.trim();
   const projectId = searchParams.get("project_id")?.trim();
   const taskId = searchParams.get("task_id")?.trim();
+  const includeSubtasks = searchParams.get("include_subtasks") === "true";
   const query = searchParams.get("q")?.trim();
+
+  const taskIds = taskId
+    ? includeSubtasks
+      ? [
+          taskId,
+          ...(
+            await prisma.task.findMany({
+              where: {
+                parent_id: taskId,
+                project: { workspace_id: auth.currentWorkspaceId },
+              },
+              select: { id: true },
+            })
+          ).map((task) => task.id),
+        ]
+      : [taskId]
+    : [];
 
   const where: Prisma.ActivityEventWhereInput = {
     workspace_id: auth.currentWorkspaceId,
@@ -30,7 +48,7 @@ async function GET_handler(req: NextRequest) {
     ...(actorId ? { actor_id: actorId } : {}),
     ...(companyId ? { company_id: companyId } : {}),
     ...(projectId ? { project_id: projectId } : {}),
-    ...(taskId ? { task_id: taskId } : {}),
+    ...(taskId ? { task_id: { in: taskIds } } : {}),
     ...(query
       ? {
           OR: [

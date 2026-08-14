@@ -1,52 +1,64 @@
-# Team page design QA
+# Sidebar hide design QA
 
 ## Comparison target
 
-- Source visual truth: `C:\Users\supor\AppData\Local\Temp\codex-clipboard-2cca6944-7605-4b79-9821-8969b19a1315.png`
-- Source dimensions: 1680 × 942 px (desktop reference frame)
-- Intended implementation route: `/team`
-- Intended implementation state: authenticated admin, dark theme, Portuguese UI, Team/Equipes tab selected, grid layout
-- Intended viewport: 1668 × 940 CSS px, density 1× (normalized to the supplied desktop frame)
-- Implementation screenshot: unavailable — no browser-rendered capture was produced
+- Source visual truth: `C:\Users\supor\AppData\Local\Temp\codex-clipboard-dddac691-d84b-4292-9a16-3e99acde831c.png`
+- Local reference copy: `.design-qa/sidebar-reference.png`
+- Source dimensions: 1920 x 921 px
+- Implementation surface: the production `Sidebar` rendered in the temporary `/sidebar-qa` verification route
+- Desktop verification viewport: 1920 x 921 CSS px
+- Mobile verification viewport: 390 x 844 CSS px
+- Open-state screenshot: `.design-qa/sidebar-open.png`
+- Hidden-state screenshot: `.design-qa/sidebar-hidden.png`
+- Mobile screenshot: `.design-qa/sidebar-mobile.png`
+- Combined reference/result comparison: `.design-qa/sidebar-comparison.png`
 
-## Evidence and capture status
+## Intended behavior
 
-The source image was inspected before implementation. A local Next development server was started at `http://127.0.0.1:3000`, and the route returned the expected unauthenticated redirect in a non-browser HTTP check. The Codex in-app browser then denied navigation to the local URL under browser security policy, before an authenticated page could be captured.
+Selecting the desktop close control hides the complete 336 px navigation shell, including both the 64 px rail and the 272 px workspace panel. The main workspace expands to the left edge. A separate, accessible restore control remains at the left-center edge so navigation can be reopened without losing keyboard access.
 
-Because the browser-rendered implementation image is unavailable, no valid full-view or focused-region visual comparison could be performed. Build and static checks below are not a substitute for a visual comparison.
+## Visual comparison
 
-## Required fidelity surfaces
+The supplied source shows the failure state: the workspace panel is closed but the compact rail remains visible. The final implementation screenshot shows the rail and panel at zero width with the main workspace using the recovered space. The restore button is intentionally visible at the left-center edge.
 
-- **Fonts and typography:** blocked from visual verification. The implementation uses the existing UpFlow typography and text utility stack, with reference-oriented heading, metric, card, and small-control scales in `src/components/team/team-workspace.tsx`.
-- **Spacing and layout rhythm:** blocked from visual verification. The implementation targets the reference structure: header actions, four metrics, tab rail, filter row, four-column desktop card grid, and 280 px insights rail.
-- **Colors and visual tokens:** blocked from visual verification. The implementation reuses the existing dark UpFlow shell, `command-metric-card`, `command-section-panel`, and `upflow-gradient-button` tokens.
-- **Image quality and asset fidelity:** blocked from visual verification. Real member `avatar_url` images are used when available; the existing initials fallback is retained. No fabricated raster or SVG assets were added.
-- **Copy and app-specific content:** blocked from visual verification. The Team page supports Portuguese and English labels and uses live workspace member, department, invite, task, and project data.
+The first implementation capture occurred during the 200 ms width transition and still showed a faint rail silhouette. QA was strengthened to wait for computed width `0px`; the final screenshot has no remaining rail or sidebar footprint.
 
-## Findings
+## Fidelity review
 
-- [P1] Browser-rendered reference comparison is unavailable.
-  - Location: `/team` at the 1668 × 940 target viewport.
-  - Evidence: the in-app browser blocked the local `127.0.0.1:3000` navigation before a page screenshot could be captured.
-  - Impact: pixel-level alignment, visible card density, and header/sidebar composition cannot be asserted.
-  - Fix: allow authenticated local-route access in the selected browser, capture the implementation at the intended viewport, place it beside the source image in one comparison input, then address any resulting P0/P1/P2 deltas.
+- **Layout:** the whole desktop sidebar collapses rather than leaving a 64 px rail. Main content expands to fill the released width.
+- **Controls:** the existing Lucide close/open icons and UpFlow button tokens are retained. No substitute assets were introduced.
+- **Typography and labels:** existing compact rail typography remains unchanged while open; Portuguese and English labels remain localized.
+- **Color and motion:** existing dark theme, borders, shadows, and a 200 ms reduced-motion-aware transition are preserved.
+- **Responsive behavior:** mobile navigation remains an independent modal. Crossing into desktop closes the mobile dialog, removes its focus trap, and moves focus to the visible desktop control.
+- **Accessibility:** hidden navigation is `aria-hidden` and `inert`; close/restore controls expose names, `aria-controls`, and focus restoration.
 
-## Interaction and code checks completed
+## Issues found and resolved
 
-- TypeScript: `node_modules/.bin/tsc.cmd --noEmit` passed.
-- ESLint: changed Team/header files passed with `--max-warnings=0`.
-- Unit coverage: language, workspace sharing/guest role, and standalone-client checks passed (9/9).
-- Implemented live interactions: local header search, tab selection, department and sorting filters, grid/list controls, team card actions, pending-invite resend/cancel, invite dialog, department management dialog, member role/status/department updates, member removal, and service-leader mapping.
+1. **P1 - Invisible mobile dialog after breakpoint change.**
+   - Found: resizing to desktop while mobile navigation was open left a CSS-hidden dialog, focus trap, and panel active.
+   - Fixed: the mobile dialog now unmounts on desktop entry, focus moves to the visible desktop control, and returning to mobile focuses the mobile launcher.
+
+2. **P1 - Hidden panel background work.**
+   - Found: inactive desktop panels could still load workspace data or run design-queue maintenance.
+   - Fixed: panel search and maintenance effects are gated by `active`; the data loader uses an enabled ref and ignores inactive or stale callbacks.
+
+3. **P2 - Transitional rail ghost in the first screenshot.**
+   - Found: the initial capture happened before the width animation settled.
+   - Fixed: regression and visual tests now require computed width `0px` before layout measurement or capture.
+
+## Verification completed
+
+- Desktop Chrome component QA: full hide, zero-width settle, expanded main content, focus transfer, cookie/localStorage persistence, keyboard restore, and reload restore passed.
+- Mobile Chrome component QA: independent launcher, modal, Escape behavior, mobile-to-desktop unmount, desktop-to-mobile visible focus, and viewport fit passed.
+- Focused unit coverage: 6/6 passed.
+- TypeScript: `pnpm --filter @workspace/up-flow run typecheck` passed.
+- ESLint: sidebar implementation and focused tests passed with zero warnings.
+- Full database-backed dashboard Playwright setup was unavailable locally because no `DATABASE_URL` is configured. The browser verification used the real production Sidebar component with deterministic QA props; database-dependent panel requests were outside this visual behavior scope.
 
 ## Comparison history
 
-1. **Initial capture attempt — blocked.** The source frame was available, but browser navigation to the local implementation was denied before a screenshot and no visual findings could be produced. No visual-fidelity iteration is claimed.
+1. Source captured at 1920 x 921: confirmed the unwanted persistent rail.
+2. Initial implementation capture: functional collapse passed, but the screenshot exposed the in-progress transition silhouette.
+3. Final implementation capture: sidebar reached zero width, main content expanded, restore control remained accessible, and responsive focus lifecycle passed.
 
-## Implementation checklist
-
-1. Open `/team` in an authenticated browser session at 1668 × 940.
-2. Capture the initial Team/Equipes grid state and compare it side by side with the source image.
-3. Verify the header, sidebar width, cards, right-rail proportions, mobile behavior, and interactive states visually.
-4. Update this report with the implementation screenshot path, comparison findings, and a final visual QA result.
-
-final result: blocked
+final result: passed

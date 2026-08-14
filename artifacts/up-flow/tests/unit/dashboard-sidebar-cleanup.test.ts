@@ -29,6 +29,15 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(teamTimeline, /formatTime/);
   assert.match(teamTimeline, /startLabel/);
   assert.match(teamTimeline, /aria-label=\{tooltip\}/);
+  assert.match(teamTimeline, /const TIMELINE_PREVIEW_LIMIT = 5/);
+  assert.match(teamTimeline, /const \[showAllPeople, setShowAllPeople\] = useState\(false\)/);
+  assert.match(teamTimeline, /showAllPeople\s*\?\s*users\s*:\s*users\.slice\(0, TIMELINE_PREVIEW_LIMIT\)/s);
+  assert.match(teamTimeline, /timeline\.peoplePreviewCount/);
+  assert.match(teamTimeline, /data-testid="team-timeline-view-all"/);
+  assert.match(teamTimeline, /aria-expanded=\{showAllPeople\}/);
+  assert.match(teamTimeline, /onClick=\{\(\) => setShowAllPeople\(\(expanded\) => !expanded\)\}/);
+  assert.match(teamTimeline, /data-testid="team-timeline-row"/);
+  assert.match(teamTimeline, /timeline\.showLess/);
   assert.doesNotMatch(teamTimeline, /fmtH\(b\.start\)/);
   assert.match(page, /\/api\/dashboard\/summary/);
   assert.doesNotMatch(page, /function AgencyOperationsPanel/);
@@ -45,33 +54,138 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(taskDetailModal, /t\("task\.deleteTask"\)/);
 });
 
-test("desktop sidebar exposes a clear sliding drawer toggle", () => {
+test("desktop sidebar collapses only the workspace panel and keeps the rail interactive", () => {
   const sidebar = read("src/components/layout/sidebar.tsx");
+  const layout = read("src/app/(dashboard)/layout.tsx");
   const rail = read("src/components/layout/sidebar/rail.tsx");
   const panel = read("src/components/layout/sidebar/panel.tsx");
+  const panelData = read("src/components/layout/sidebar/use-panel-data.ts");
 
-  assert.match(sidebar, /transition-\[width,opacity\]/);
-  assert.match(sidebar, /aria-hidden=\{!panelOpen\}/);
-  assert.match(sidebar, /onRequestClose=\{\(\) => setPanelOpen\(false\)\}/);
-  assert.match(rail, /sidebar\.show/);
-  assert.match(rail, /sidebar\.hide/);
-  assert.match(rail, /href="\/docs"/);
-  assert.match(rail, /aria-expanded=\{panelOpen\}/);
-  assert.match(rail, /aria-controls=\{panelId\}/);
-  assert.match(rail, /data-testid="sidebar-panel-toggle"/);
+  assert.match(layout, /import \{ cookies \} from "next\/headers"/);
+  assert.match(
+    layout,
+    /const DESKTOP_SIDEBAR_KEY = "upflow\.sidebar\.desktopOpen\.v1"/,
+  );
+  assert.match(
+    layout,
+    /\(await cookies\(\)\)\.get\(DESKTOP_SIDEBAR_KEY\)\?\.value/,
+  );
+  assert.match(
+    layout,
+    /const initialDesktopSidebarOpen = sidebarPreference !== "0"/,
+  );
+  assert.match(
+    layout,
+    /initialDesktopSidebarOpen=\{initialDesktopSidebarOpen\}/,
+  );
+  assert.match(sidebar, /initialDesktopSidebarOpen: boolean/);
+  assert.match(
+    sidebar,
+    /const DESKTOP_SIDEBAR_KEY = "upflow\.sidebar\.desktopOpen\.v1"/,
+  );
+  assert.match(
+    sidebar,
+    /const \[desktopSidebarOpen, setDesktopSidebarOpen\]\s*=\s*useState\(initialDesktopSidebarOpen\)/,
+  );
+  assert.match(sidebar, /setDesktopSidebarOpen\(false\)/);
+  assert.match(sidebar, /setDesktopSidebarOpen\(\(current\) => !current\)/);
+  assert.match(sidebar, /desktopToggleRef\.current\?\.focus\(\)/);
+  assert.match(sidebar, /data-testid="desktop-sidebar-rail"/);
+  assert.match(sidebar, /data-testid="desktop-sidebar"/);
+  assert.match(sidebar, /data-testid="desktop-sidebar-panel"/);
+  assert.doesNotMatch(sidebar, /desktop-sidebar-restore/);
+  assert.match(sidebar, /onRequestClose=\{closeDesktopSidebar\}/);
+  assert.match(
+    sidebar,
+    /localStorage\.setItem\(\s*DESKTOP_SIDEBAR_KEY,\s*desktopSidebarOpen \? "1" : "0",?\s*\)/s,
+  );
+  assert.match(sidebar, /document\.cookie\s*=/);
+  assert.match(sidebar, /SameSite=Lax/);
+  assert.match(sidebar, /window\.matchMedia\("\(min-width: 768px\)"\)/);
+  assert.match(
+    sidebar,
+    /active=\{desktopSidebarOpen && isDesktopViewport\}/,
+  );
+  assert.match(sidebar, /aria-hidden=\{!desktopSidebarOpen\}/);
+  assert.match(sidebar, /inert=\{desktopSidebarOpen \? undefined : true\}/);
+  assert.match(sidebar, /desktopSidebarOpen \? "w-\[336px\]" : "w-\[64px\]"/);
+  assert.match(
+    sidebar,
+    /desktopSidebarOpen[\s\S]*\? "w-\[272px\] opacity-100"[\s\S]*: "pointer-events-none w-0 opacity-0"/,
+  );
   assert.match(sidebar, /id="desktop-sidebar-panel"/);
-  assert.match(sidebar, /window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/);
+  assert.match(sidebar, /panelId: "desktop-sidebar-panel"/);
+
+  assert.match(sidebar, /const \[mobileOpen, setMobileOpen\] = useState\(false\)/);
+  assert.match(sidebar, /showPanelToggle: false/);
+  assert.match(
+    sidebar,
+    /const lastNavigationFocusRef = useRef<"mobile" \| "desktop" \| null>\(null\)/,
+  );
+  assert.match(sidebar, /document\.addEventListener\("focusin", rememberFocus\)/);
+  assert.match(
+    sidebar,
+    /document\.addEventListener\("pointerdown", rememberPointer, true\)/,
+  );
+  assert.match(sidebar, /document\.removeEventListener\("focusin", rememberFocus\)/);
+  assert.match(
+    sidebar,
+    /document\.removeEventListener\("pointerdown", rememberPointer, true\)/,
+  );
+  assert.match(
+    sidebar,
+    /if \(mobileOpen \|\| mobileNavigationFocused\) \{[\s\S]*lastNavigationFocusRef\.current = null;[\s\S]*desktopToggleRef\.current\?\.focus\(\)/,
+  );
+  assert.match(
+    sidebar,
+    /const desktopNavigationFocused =[\s\S]*lastNavigationFocusRef\.current === "desktop"/,
+  );
+  assert.match(
+    sidebar,
+    /if \(desktopNavigationFocused\) \{\s*lastNavigationFocusRef\.current = null;\s*window\.requestAnimationFrame\(\(\) => mobileToggleRef\.current\?\.focus\(\)\)/,
+  );
+  assert.match(
+    sidebar,
+    /const mobileNavigationFocused =[\s\S]*lastNavigationFocusRef\.current === "mobile"/,
+  );
   assert.match(sidebar, /closeMobileNavigation\(false\)/);
+  assert.match(rail, /href="\/docs"/);
+  assert.match(
+    sidebar,
+    /if \(isDesktopViewport\) \{[\s\S]*setMobileOpen\(false\)/,
+  );
+  assert.match(
+    sidebar,
+    /const desktopNavigationFocused =[\s\S]*desktopSidebarRef\.current\?\.contains\(document\.activeElement\)[\s\S]*mobileToggleRef\.current\?\.focus\(\)/,
+  );
+  assert.match(panel, /if \(!active\) return;[\s\S]*loadPanel/);
+  assert.match(
+    panel,
+    /if \(!active \|\| !canManageWorkspace \|\| isSearching \|\| loadingPanel\) return/,
+  );
+  assert.match(panelData, /const enabledRef = useRef\(enabled\)/);
+  assert.match(panelData, /if \(!enabledRef\.current\) return/);
+  assert.doesNotMatch(
+    panelData,
+    /useEffect\(\(\) => \{\s*loadPanel\(\);\s*\}, \[loadPanel\]\)/,
+  );
+  assert.match(rail, /data-testid="sidebar-panel-toggle"/);
+  assert.match(
+    rail,
+    /const panelToggleLabel = t\(panelOpen \? "sidebar\.hide" : "sidebar\.show"\)/,
+  );
+  assert.match(rail, /panelOpen \? \([\s\S]*PanelLeftClose[\s\S]*PanelLeftOpen/);
+  assert.match(rail, /aria-controls=\{panelId\}/);
   assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
 });
 
-test("sidebar rail uses compact labeled navigation while keeping Spaces in an optional drawer", () => {
+test("visible desktop sidebar keeps compact rail labels readable", () => {
   const sidebar = read("src/components/layout/sidebar.tsx");
   const rail = read("src/components/layout/sidebar/rail.tsx");
   const translations = read("src/lib/i18n/translations.ts");
 
-  assert.match(sidebar, /useState\(false\)/);
+  assert.match(sidebar, /useState\(initialDesktopSidebarOpen\)/);
   assert.match(sidebar, /w-\[64px\]/);
   assert.match(rail, /bg-\[#16132f\]/);
   assert.match(rail, /min-h-\[48px\]/);

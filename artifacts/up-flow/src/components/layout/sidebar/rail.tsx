@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -90,6 +91,7 @@ interface RailProps {
   panelOpen: boolean;
   panelId?: string;
   showPanelToggle?: boolean;
+  toggleRef?: Ref<HTMLButtonElement>;
   onTogglePanel: () => void;
   onSignOut: () => void;
   onNavigate?: () => void;
@@ -106,6 +108,7 @@ export function Rail({
   panelOpen,
   panelId,
   showPanelToggle = true,
+  toggleRef,
   onTogglePanel,
   onSignOut,
   onNavigate,
@@ -113,9 +116,10 @@ export function Rail({
   const { t } = useLanguage();
   const railLabelClass =
     "block w-full whitespace-normal break-words text-center [overflow-wrap:anywhere]";
+  const panelToggleLabel = t(panelOpen ? "sidebar.hide" : "sidebar.show");
 
   return (
-    <div className="glass-rail flex h-full w-full flex-col p-1">
+    <div className="glass-rail flex h-full w-full min-w-[64px] shrink-0 flex-col p-1">
       <div className="flex min-h-0 flex-1 flex-col items-center rounded-[10px] bg-[#16132f] px-0 pb-1.5 pt-1.5 text-[#e9e7ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(0,0,0,0.28)]">
         <div
           data-testid="sidebar-rail-brand"
@@ -140,11 +144,12 @@ export function Rail({
         {showPanelToggle && (
           <div className="mt-1 flex h-8 w-full shrink-0 items-center justify-center">
             <button
+              ref={toggleRef}
               type="button"
               data-testid="sidebar-panel-toggle"
               onClick={onTogglePanel}
-              title={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-              aria-label={panelOpen ? t("sidebar.hide") : t("sidebar.show")}
+              title={panelToggleLabel}
+              aria-label={panelToggleLabel}
               aria-controls={panelId}
               aria-expanded={panelOpen}
               className={cn(
@@ -159,9 +164,7 @@ export function Rail({
               ) : (
                 <PanelLeftOpen className="h-4 w-4 stroke-[2]" />
               )}
-              <span className="sr-only">
-                {panelOpen ? t("sidebar.hide") : t("sidebar.show")}
-              </span>
+              <span className="sr-only">{panelToggleLabel}</span>
             </button>
           </div>
         )}

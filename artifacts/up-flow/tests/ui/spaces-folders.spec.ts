@@ -17,6 +17,13 @@ test.describe("Spaces and folders containers", () => {
   }) => {
     test.setTimeout(120_000);
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    await ctx.addCookies([
+      {
+        name: "upflow.sidebar.desktopOpen.v1",
+        value: "0",
+        url: baseURL!,
+      },
+    ]);
     const api = ctx.request;
 
     const spaceName = uniq("ContainerSpace");
@@ -64,8 +71,9 @@ test.describe("Spaces and folders containers", () => {
     await expect(
       main.getByRole("heading", { name: spaceName, exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Show sidebar" }).click();
-    const sidebar = page.locator("aside").first();
+    await page.getByTestId("sidebar-panel-toggle").click();
+    const sidebar = page.getByTestId("desktop-sidebar");
+    await expect(sidebar).toBeVisible();
     await expect(
       sidebar.getByRole("link", { name: folderName, exact: true }),
     ).toBeVisible();

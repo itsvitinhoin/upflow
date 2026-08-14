@@ -19,6 +19,8 @@ test("activity API supports audit filters and cursor pagination", () => {
   assert.match(route, /company_id/);
   assert.match(route, /project_id/);
   assert.match(route, /task_id/);
+  assert.match(route, /include_subtasks/);
+  assert.match(route, /parent_id: taskId/);
   assert.match(route, /company:\s*\{\s*select:\s*\{\s*id:\s*true,\s*name:\s*true/);
 });
 

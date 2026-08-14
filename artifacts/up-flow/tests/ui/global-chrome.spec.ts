@@ -15,9 +15,18 @@ test.describe("Global chrome", () => {
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    await ctx.addCookies([
+      {
+        name: "upflow.sidebar.desktopOpen.v1",
+        value: "1",
+        url: baseURL!,
+      },
+    ]);
     const page = await ctx.newPage();
     await page.goto("/");
+    const desktopSidebar = page.getByTestId("desktop-sidebar");
     const rail = page.getByTestId("sidebar-rail-navigation");
+    await expect(desktopSidebar).toBeVisible();
     await expect(rail).toBeVisible();
 
     const sections: { label: string; path: string }[] = [
@@ -47,50 +56,102 @@ test.describe("Global chrome", () => {
     await help.click();
     await expect(page).toHaveURL(/\/docs$/, { timeout: 30_000 });
 
-    const railToggle = page.getByTestId("sidebar-panel-toggle");
-    const initialExpanded = await railToggle.getAttribute("aria-expanded");
-    await railToggle.click();
-    await expect(railToggle).not.toHaveAttribute(
-      "aria-expanded",
-      initialExpanded ?? "",
+    const sidebarRail = desktopSidebar.getByTestId("desktop-sidebar-rail");
+    const sidebarPanel = desktopSidebar.getByTestId("desktop-sidebar-panel");
+    const panelToggle = desktopSidebar.getByTestId("sidebar-panel-toggle");
+    const main = page.locator("main");
+    const mainWithSidebarBox = await main.boundingBox();
+    expect(mainWithSidebarBox).not.toBeNull();
+
+    await panelToggle.click();
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar).toHaveCSS("width", "64px");
+    await expect(sidebarRail).toBeVisible();
+    await expect(sidebarPanel).toBeHidden();
+    await expect(sidebarPanel).toHaveCSS("width", "0px");
+    await expect(sidebarPanel).toHaveCSS("opacity", "0");
+    await expect(sidebarPanel).toHaveAttribute("aria-hidden", "true");
+    await expect(sidebarPanel).toHaveAttribute("inert", "");
+    await expect(panelToggle).toHaveAccessibleName("Show sidebar");
+    await expect(panelToggle).toHaveAttribute(
+      "aria-controls",
+      "desktop-sidebar-panel",
     );
-    await railToggle.click();
-    await expect(railToggle).toHaveAttribute(
-      "aria-expanded",
-      initialExpanded ?? "",
+    await expect(panelToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(panelToggle).toBeFocused();
+
+    const mainWithoutSidebarBox = await main.boundingBox();
+    expect(mainWithoutSidebarBox).not.toBeNull();
+    expect(mainWithoutSidebarBox!.x).toBeLessThan(mainWithSidebarBox!.x);
+    expect(mainWithoutSidebarBox!.width).toBeGreaterThan(
+      mainWithSidebarBox!.width,
     );
+
+    await panelToggle.press("Enter");
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar).toHaveCSS("width", "336px");
+    await expect(sidebarPanel).toBeVisible();
+    await expect(sidebarPanel).toHaveAttribute("aria-hidden", "false");
+    await expect(sidebarPanel).not.toHaveAttribute("inert", "");
+    await expect(rail).toBeVisible();
+    await expect(panelToggle).toHaveAccessibleName("Hide sidebar");
+    await expect(panelToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(panelToggle).toBeFocused();
 
     await ctx.close();
   });
 
-  test("compact rail keeps translated labels readable and its sidebar opener reachable", async ({
+  test("collapsed desktop panel restores with the keyboard and keeps translated rail labels readable", async ({
     browser,
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    await ctx.addCookies([
+      {
+        name: "upflow.sidebar.desktopOpen.v1",
+        value: "0",
+        url: baseURL!,
+      },
+    ]);
     const page = await ctx.newPage();
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.addInitScript(() => {
-      localStorage.setItem("upflow.sidebar.spacesOpen", "0");
       localStorage.setItem("upflow.language", "pt-BR");
     });
     await page.goto("/");
     await expect(page.locator("html")).toHaveAttribute("lang", "pt-BR");
 
+    const desktopSidebar = page.getByTestId("desktop-sidebar");
+    const sidebarRail = desktopSidebar.getByTestId("desktop-sidebar-rail");
+    const sidebarPanel = desktopSidebar.getByTestId("desktop-sidebar-panel");
     const rail = page.getByTestId("sidebar-rail-navigation");
-    const railBrand = page.getByTestId("sidebar-rail-brand");
-    const railToggle = page.getByTestId("sidebar-panel-toggle");
-    await expect(railToggle).toBeVisible();
-    await expect(railToggle).toBeInViewport();
-    await expect(railToggle).toHaveAttribute("aria-expanded", "false");
+    const panelToggle = desktopSidebar.getByTestId("sidebar-panel-toggle");
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar).toHaveCSS("width", "64px");
+    await expect(sidebarRail).toBeVisible();
+    await expect(sidebarPanel).toBeHidden();
+    await expect(sidebarPanel).toHaveCSS("width", "0px");
+    await expect(sidebarPanel).toHaveCSS("opacity", "0");
+    await expect(sidebarPanel).toHaveAttribute("aria-hidden", "true");
+    await expect(sidebarPanel).toHaveAttribute("inert", "");
+    await expect(panelToggle).toHaveAccessibleName("Mostrar sidebar");
+    await expect(panelToggle).toHaveAttribute(
+      "aria-controls",
+      "desktop-sidebar-panel",
+    );
+    await expect(panelToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(panelToggle).toBeInViewport();
 
-    const [brandBox, toggleBox] = await Promise.all([
-      railBrand.boundingBox(),
-      railToggle.boundingBox(),
-    ]);
-    expect(brandBox).not.toBeNull();
-    expect(toggleBox).not.toBeNull();
-    expect(toggleBox!.y).toBeGreaterThanOrEqual(brandBox!.y + brandBox!.height);
+    await panelToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(desktopSidebar).toHaveCSS("width", "336px");
+    await expect(sidebarPanel).toBeVisible();
+    await expect(sidebarPanel).toHaveAttribute("aria-hidden", "false");
+    await expect(sidebarPanel).not.toHaveAttribute("inert", "");
+    await expect(rail).toBeVisible();
+    await expect(panelToggle).toHaveAccessibleName("Ocultar sidebar");
+    await expect(panelToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(panelToggle).toBeFocused();
 
     const labelOverflow = await rail
       .getByTestId("sidebar-rail-item-label")
@@ -102,6 +163,7 @@ test.describe("Global chrome", () => {
           clientHeight: label.clientHeight,
         })),
       );
+    expect(labelOverflow.length).toBeGreaterThan(0);
     expect(
       labelOverflow.every(
         ({ scrollWidth, clientWidth, scrollHeight, clientHeight }) =>
@@ -109,13 +171,54 @@ test.describe("Global chrome", () => {
       ),
     ).toBeTruthy();
 
-    await railToggle.focus();
-    await page.keyboard.press("Enter");
-    await expect(railToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(page.locator("#desktop-sidebar-panel")).toHaveAttribute(
-      "aria-hidden",
-      "false",
-    );
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          localStorage.getItem("upflow.sidebar.desktopOpen.v1"),
+        ),
+      )
+      .toBe("1");
+    await expect
+      .poll(async () =>
+        (await ctx.cookies()).find(
+          (cookie) => cookie.name === "upflow.sidebar.desktopOpen.v1",
+        )?.value,
+      )
+      .toBe("1");
+    await page.reload();
+    await expect(desktopSidebar).toHaveCSS("width", "336px");
+    await expect(sidebarPanel).toBeVisible();
+    await expect(panelToggle).toHaveAccessibleName("Ocultar sidebar");
+
+    await panelToggle.click();
+    await expect(desktopSidebar).toBeVisible();
+    await expect(desktopSidebar).toHaveCSS("width", "64px");
+    await expect(sidebarRail).toBeVisible();
+    await expect(sidebarPanel).toBeHidden();
+    await expect(sidebarPanel).toHaveAttribute("aria-hidden", "true");
+    await expect(sidebarPanel).toHaveAttribute("inert", "");
+    await expect(panelToggle).toHaveAccessibleName("Mostrar sidebar");
+    await expect(panelToggle).toBeFocused();
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          localStorage.getItem("upflow.sidebar.desktopOpen.v1"),
+        ),
+      )
+      .toBe("0");
+    await expect
+      .poll(async () =>
+        (await ctx.cookies()).find(
+          (cookie) => cookie.name === "upflow.sidebar.desktopOpen.v1",
+        )?.value,
+      )
+      .toBe("0");
+
+    await page.reload();
+    await expect(desktopSidebar).toHaveCSS("width", "64px");
+    await expect(sidebarRail).toBeVisible();
+    await expect(sidebarPanel).toBeHidden();
+    await expect(panelToggle).toHaveAccessibleName("Mostrar sidebar");
 
     await ctx.close();
   });
@@ -125,6 +228,13 @@ test.describe("Global chrome", () => {
     baseURL,
   }) => {
     const ctx = await loggedInContext(browser, baseURL, SEEDED.admin.email);
+    await ctx.addCookies([
+      {
+        name: "upflow.sidebar.desktopOpen.v1",
+        value: "0",
+        url: baseURL!,
+      },
+    ]);
     const page = await ctx.newPage();
     const secondaryName = uniq("Secondary workspace");
     const created = await ctx.request.post("/api/workspaces", {
@@ -133,7 +243,7 @@ test.describe("Global chrome", () => {
     expect(created.ok()).toBeTruthy();
 
     await page.goto("/");
-    await page.getByRole("button", { name: "Show sidebar" }).click();
+    await page.getByTestId("sidebar-panel-toggle").click();
     const trigger = page.getByRole("button", { name: "Workspace options" });
     await expect(trigger).toBeVisible();
     await trigger.click();

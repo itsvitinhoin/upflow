@@ -364,12 +364,18 @@ test("Creating a client with Vesti and UP Zero creates the complete service work
     await groupNameInput.blur();
     await expect
       .poll(async () => {
-        const response = await memberApi.get(
-          `/api/onboarding/support-form/${supportItem?.task?.id}`,
-        );
-        if (!response.ok()) return null;
-        return ((await response.json()) as { support_group: { group_name: string | null } })
-          .support_group.group_name;
+        try {
+          const response = await memberApi.get(
+            `/api/onboarding/support-form/${supportItem?.task?.id}`,
+          );
+          if (!response.ok()) return null;
+          return ((await response.json()) as { support_group: { group_name: string | null } })
+            .support_group.group_name;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (/ECONNRESET|ECONNREFUSED|EPIPE|socket hang up/i.test(message)) return null;
+          throw error;
+        }
       })
       .toBe(supportGroupName);
 
