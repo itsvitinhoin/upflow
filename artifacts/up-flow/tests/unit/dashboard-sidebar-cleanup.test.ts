@@ -54,7 +54,7 @@ test("home dashboard defaults to a focused today and risks command center", () =
   assert.match(taskDetailModal, /t\("task\.deleteTask"\)/);
 });
 
-test("desktop sidebar fully hides and exposes a focused restore control", () => {
+test("desktop sidebar collapses only the workspace panel and keeps the rail interactive", () => {
   const sidebar = read("src/components/layout/sidebar.tsx");
   const layout = read("src/app/(dashboard)/layout.tsx");
   const rail = read("src/components/layout/sidebar/rail.tsx");
@@ -88,11 +88,12 @@ test("desktop sidebar fully hides and exposes a focused restore control", () => 
     /const \[desktopSidebarOpen, setDesktopSidebarOpen\]\s*=\s*useState\(initialDesktopSidebarOpen\)/,
   );
   assert.match(sidebar, /setDesktopSidebarOpen\(false\)/);
-  assert.match(sidebar, /setDesktopSidebarOpen\(true\)/);
-  assert.match(sidebar, /desktopRestoreRef\.current\?\.focus\(\)/);
-  assert.match(sidebar, /desktopCloseRef\.current\?\.focus\(\)/);
+  assert.match(sidebar, /setDesktopSidebarOpen\(\(current\) => !current\)/);
+  assert.match(sidebar, /desktopToggleRef\.current\?\.focus\(\)/);
+  assert.match(sidebar, /data-testid="desktop-sidebar-rail"/);
   assert.match(sidebar, /data-testid="desktop-sidebar"/);
-  assert.match(sidebar, /data-testid="desktop-sidebar-restore"/);
+  assert.match(sidebar, /data-testid="desktop-sidebar-panel"/);
+  assert.doesNotMatch(sidebar, /desktop-sidebar-restore/);
   assert.match(sidebar, /onRequestClose=\{closeDesktopSidebar\}/);
   assert.match(
     sidebar,
@@ -107,9 +108,14 @@ test("desktop sidebar fully hides and exposes a focused restore control", () => 
   );
   assert.match(sidebar, /aria-hidden=\{!desktopSidebarOpen\}/);
   assert.match(sidebar, /inert=\{desktopSidebarOpen \? undefined : true\}/);
-  assert.match(sidebar, /aria-label=\{t\("sidebar\.show"\)\}/);
-  assert.match(sidebar, /aria-controls="desktop-sidebar"/);
-  assert.match(sidebar, /aria-expanded=\{false\}/);
+  assert.match(sidebar, /desktopSidebarOpen \? "w-\[336px\]" : "w-\[64px\]"/);
+  assert.match(
+    sidebar,
+    /desktopSidebarOpen[\s\S]*\? "w-\[272px\] opacity-100"[\s\S]*: "pointer-events-none w-0 opacity-0"/,
+  );
+  assert.match(sidebar, /id="desktop-sidebar-panel"/);
+  assert.match(sidebar, /panelId: "desktop-sidebar-panel"/);
+
   assert.match(sidebar, /const \[mobileOpen, setMobileOpen\] = useState\(false\)/);
   assert.match(sidebar, /showPanelToggle: false/);
   assert.match(
@@ -128,7 +134,7 @@ test("desktop sidebar fully hides and exposes a focused restore control", () => 
   );
   assert.match(
     sidebar,
-    /if \(mobileOpen \|\| mobileNavigationFocused\) \{\s*window\.requestAnimationFrame\(\(\) => \{\s*lastNavigationFocusRef\.current = null;\s*const desktopControl = desktopSidebarOpen\s*\? desktopCloseRef\.current\s*:\s*desktopRestoreRef\.current/s,
+    /if \(mobileOpen \|\| mobileNavigationFocused\) \{[\s\S]*lastNavigationFocusRef\.current = null;[\s\S]*desktopToggleRef\.current\?\.focus\(\)/,
   );
   assert.match(
     sidebar,
@@ -164,6 +170,12 @@ test("desktop sidebar fully hides and exposes a focused restore control", () => 
     /useEffect\(\(\) => \{\s*loadPanel\(\);\s*\}, \[loadPanel\]\)/,
   );
   assert.match(rail, /data-testid="sidebar-panel-toggle"/);
+  assert.match(
+    rail,
+    /const panelToggleLabel = t\(panelOpen \? "sidebar\.hide" : "sidebar\.show"\)/,
+  );
+  assert.match(rail, /panelOpen \? \([\s\S]*PanelLeftClose[\s\S]*PanelLeftOpen/);
+  assert.match(rail, /aria-controls=\{panelId\}/);
   assert.match(panel, /sidebar\.hide/);
   assert.match(panel, /PanelLeftClose/);
 });
