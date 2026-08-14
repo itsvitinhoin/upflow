@@ -12,6 +12,9 @@ async function openQuickCreate(
   page: Page,
   item: "Task" | "Project" | "Meeting" | "Company" | "Invite",
 ) {
+  await expect(
+    page.locator('main[data-dashboard-ready="true"]'),
+  ).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Quick create" }).click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }

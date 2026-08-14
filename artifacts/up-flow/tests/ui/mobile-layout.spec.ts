@@ -351,6 +351,9 @@ test.describe("Mobile responsive layout", () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto("/");
 
+    await expect(
+      page.locator('main[data-dashboard-ready="true"]'),
+    ).toBeVisible({ timeout: COLD_ROUTE_TIMEOUT });
     await page.getByRole("button", { name: "Quick create" }).click();
     await page.getByRole("menuitem", { name: "Project", exact: true }).click();
     await expect(
