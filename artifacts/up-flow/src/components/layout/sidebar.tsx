@@ -51,6 +51,7 @@ export default function Sidebar({
   const mobileToggleRef = useRef<HTMLButtonElement>(null);
   const mobileDialogRef = useRef<HTMLElement>(null);
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const mobileBackwardWrapTargetRef = useRef<HTMLElement>(null);
   const lastNavigationFocusRef = useRef<"mobile" | "desktop" | null>(null);
   const closeMobileNavigation = useCallback((restoreFocus = true) => {
     setMobileOpen(false);
@@ -184,14 +185,23 @@ export default function Sidebar({
       if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+        mobileBackwardWrapTargetRef.current = last;
+      } else if (
+        !event.shiftKey &&
+        (document.activeElement === last ||
+          document.activeElement === mobileBackwardWrapTargetRef.current)
+      ) {
         event.preventDefault();
         first.focus();
+        mobileBackwardWrapTargetRef.current = null;
+      } else {
+        mobileBackwardWrapTargetRef.current = null;
       }
     }
 
     document.addEventListener("keydown", handleKey);
     return () => {
+      mobileBackwardWrapTargetRef.current = null;
       document.removeEventListener("keydown", handleKey);
     };
   }, [closeMobileNavigation, mobileOpen]);
