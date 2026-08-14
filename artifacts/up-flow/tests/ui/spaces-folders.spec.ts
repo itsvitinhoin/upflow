@@ -71,7 +71,7 @@ test.describe("Spaces and folders containers", () => {
     await expect(
       main.getByRole("heading", { name: spaceName, exact: true }),
     ).toBeVisible();
-    await page.getByTestId("desktop-sidebar-restore").click();
+    await page.getByTestId("sidebar-panel-toggle").click();
     const sidebar = page.getByTestId("desktop-sidebar");
     await expect(sidebar).toBeVisible();
     await expect(

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { Menu, PanelLeftOpen, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { toast } from "sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { logError } from "@/lib/log-error";
@@ -46,9 +46,8 @@ export default function Sidebar({
   const [desktopSidebarOpen, setDesktopSidebarOpen] =
     useState(initialDesktopSidebarOpen);
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
-  const desktopRestoreRef = useRef<HTMLButtonElement>(null);
   const desktopSidebarRef = useRef<HTMLElement>(null);
-  const desktopCloseRef = useRef<HTMLButtonElement>(null);
+  const desktopToggleRef = useRef<HTMLButtonElement>(null);
   const mobileToggleRef = useRef<HTMLButtonElement>(null);
   const mobileDialogRef = useRef<HTMLElement>(null);
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
@@ -65,13 +64,11 @@ export default function Sidebar({
   );
   const closeDesktopSidebar = useCallback(() => {
     setDesktopSidebarOpen(false);
-    window.requestAnimationFrame(() => desktopRestoreRef.current?.focus());
+    window.requestAnimationFrame(() => desktopToggleRef.current?.focus());
   }, []);
-  const openDesktopSidebar = useCallback(() => {
-    setDesktopSidebarOpen(true);
-    window.requestAnimationFrame(
-      () => desktopCloseRef.current?.focus(),
-    );
+  const toggleDesktopSidebar = useCallback(() => {
+    setDesktopSidebarOpen((current) => !current);
+    window.requestAnimationFrame(() => desktopToggleRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -87,10 +84,7 @@ export default function Sidebar({
       ) {
         return "mobile" as const;
       }
-      if (
-        target === desktopRestoreRef.current ||
-        desktopSidebarRef.current?.contains(target)
-      ) {
+      if (desktopSidebarRef.current?.contains(target)) {
         return "desktop" as const;
       }
       return null;
@@ -152,10 +146,7 @@ export default function Sidebar({
       if (mobileOpen || mobileNavigationFocused) {
         window.requestAnimationFrame(() => {
           lastNavigationFocusRef.current = null;
-          const desktopControl = desktopSidebarOpen
-            ? desktopCloseRef.current
-            : desktopRestoreRef.current;
-          desktopControl?.focus();
+          desktopToggleRef.current?.focus();
         });
       }
       return;
@@ -163,7 +154,6 @@ export default function Sidebar({
 
     const desktopNavigationFocused =
       desktopSidebarRef.current?.contains(document.activeElement) ||
-      document.activeElement === desktopRestoreRef.current ||
       lastNavigationFocusRef.current === "desktop";
     if (desktopNavigationFocused) {
       lastNavigationFocusRef.current = null;
@@ -232,8 +222,8 @@ export default function Sidebar({
       panelOpen={desktopSidebarOpen}
       panelId={options.panelId}
       showPanelToggle={options.showPanelToggle}
-      toggleRef={options.panelId ? desktopCloseRef : undefined}
-      onTogglePanel={closeDesktopSidebar}
+      toggleRef={options.panelId ? desktopToggleRef : undefined}
+      onTogglePanel={toggleDesktopSidebar}
       onSignOut={handleSignOut}
       onNavigate={onNavigate}
     />
@@ -244,7 +234,7 @@ export default function Sidebar({
       <aside
         className={cn(
           "hidden flex-shrink-0 md:flex",
-          initialDesktopSidebarOpen ? "w-[336px]" : "w-0",
+          initialDesktopSidebarOpen ? "w-[336px]" : "w-[64px]",
         )}
         aria-hidden="true"
       >
@@ -260,21 +250,27 @@ export default function Sidebar({
         id="desktop-sidebar"
         data-testid="desktop-sidebar"
         className={cn(
-          "hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none md:flex",
-          desktopSidebarOpen
-            ? "w-[336px] opacity-100"
-            : "pointer-events-none w-0 opacity-0",
+          "hidden h-dvh min-h-0 flex-shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none md:flex",
+          desktopSidebarOpen ? "w-[336px]" : "w-[64px]",
         )}
-        aria-hidden={!desktopSidebarOpen}
-        inert={desktopSidebarOpen ? undefined : true}
       >
-        <div className="flex min-h-0 w-[64px] shrink-0">
-          {renderRail(undefined, { panelId: "desktop-sidebar" })}
+        <div
+          data-testid="desktop-sidebar-rail"
+          className="flex min-h-0 w-[64px] min-w-[64px] shrink-0"
+        >
+          {renderRail(undefined, { panelId: "desktop-sidebar-panel" })}
         </div>
         <div
           id="desktop-sidebar-panel"
-          className="grid min-h-0 w-[272px] overflow-hidden"
+          data-testid="desktop-sidebar-panel"
+          className={cn(
+            "grid min-h-0 shrink-0 overflow-hidden transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none",
+            desktopSidebarOpen
+              ? "w-[272px] opacity-100"
+              : "pointer-events-none w-0 opacity-0",
+          )}
           aria-hidden={!desktopSidebarOpen}
+          inert={desktopSidebarOpen ? undefined : true}
         >
           <div className="flex min-h-0 w-[272px]">
             <Panel
@@ -294,22 +290,6 @@ export default function Sidebar({
         </div>
       </aside>
 
-      {!desktopSidebarOpen && (
-        <div className="fixed left-3 top-1/2 z-[60] hidden -translate-y-1/2 md:block">
-          <button
-            ref={desktopRestoreRef}
-            type="button"
-            data-testid="desktop-sidebar-restore"
-            onClick={openDesktopSidebar}
-            aria-label={t("sidebar.show")}
-            aria-expanded={false}
-            aria-controls="desktop-sidebar"
-            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-lg outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary/70"
-          >
-            <PanelLeftOpen className="h-5 w-5" />
-          </button>
-        </div>
-      )}
 
       {!mobileOpen && (
         <div className="fixed left-3 top-3 z-[60] md:hidden">

@@ -17,6 +17,7 @@ import {
   HelpCircle,
   LogOut,
   PanelLeftClose,
+  PanelLeftOpen,
   Settings2,
   type LucideIcon,
 } from "lucide-react";
@@ -115,9 +116,10 @@ export function Rail({
   const { t } = useLanguage();
   const railLabelClass =
     "block w-full whitespace-normal break-words text-center [overflow-wrap:anywhere]";
+  const panelToggleLabel = t(panelOpen ? "sidebar.hide" : "sidebar.show");
 
   return (
-    <div className="glass-rail flex h-full w-full flex-col p-1">
+    <div className="glass-rail flex h-full w-full min-w-[64px] shrink-0 flex-col p-1">
       <div className="flex min-h-0 flex-1 flex-col items-center rounded-[10px] bg-[#16132f] px-0 pb-1.5 pt-1.5 text-[#e9e7ff] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_12px_30px_rgba(0,0,0,0.28)]">
         <div
           data-testid="sidebar-rail-brand"
@@ -146,8 +148,8 @@ export function Rail({
               type="button"
               data-testid="sidebar-panel-toggle"
               onClick={onTogglePanel}
-              title={t("sidebar.hide")}
-              aria-label={t("sidebar.hide")}
+              title={panelToggleLabel}
+              aria-label={panelToggleLabel}
               aria-controls={panelId}
               aria-expanded={panelOpen}
               className={cn(
@@ -157,8 +159,12 @@ export function Rail({
                   : "border-white/20 bg-white/[0.1] hover:border-white/45 hover:bg-white/[0.18] hover:text-white",
               )}
             >
-              <PanelLeftClose className="h-4 w-4 stroke-[2]" />
-              <span className="sr-only">{t("sidebar.hide")}</span>
+              {panelOpen ? (
+                <PanelLeftClose className="h-4 w-4 stroke-[2]" />
+              ) : (
+                <PanelLeftOpen className="h-4 w-4 stroke-[2]" />
+              )}
+              <span className="sr-only">{panelToggleLabel}</span>
             </button>
           </div>
         )}
