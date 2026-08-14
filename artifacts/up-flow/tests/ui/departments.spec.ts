@@ -227,9 +227,8 @@ test.describe("Departments UI", () => {
     await dialog.getByPlaceholder("e.g. Engineering").fill(depName);
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
 
-    // Close the dialog and reveal the new (empty) department on the page.
+    // Close the dialog and verify the new team appears in the single Teams view.
     await dialog.getByRole("button", { name: "Close" }).click();
-    await page.getByLabel("Show empty groups").check();
     const list = await ctx.request.get(`/api/workspaces/${wsId}/departments`);
     const listBody = (await list.json()) as {
       items: { id: string; name: string }[];
@@ -241,8 +240,14 @@ test.describe("Departments UI", () => {
     );
     await expect(depGroup).toBeVisible();
 
-    // Assign via the inline <select> for the seeded member.
-    const select = page.getByLabel(`Department for ${targetMember!.name}`);
+    // Expand the seeded member's current team, then use the inline selector
+    // to move them into the newly-created team.
+    const memberTeam = page.locator("[data-testid=\"department-group\"]", {
+      hasText: targetMember!.email,
+    });
+    await expect(memberTeam).toHaveCount(1);
+    await memberTeam.getByRole("button", { name: "View members" }).click();
+    const select = memberTeam.getByLabel(`Department for ${targetMember!.name}`);
     const assignment = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/members/${targetMember!.id}`) &&
@@ -252,8 +257,9 @@ test.describe("Departments UI", () => {
     await select.selectOption({ label: depName });
     await assignment;
 
-    // After assignment the member row should live inside the department's
-    // <section>. Wait for the API round-trip + re-render.
+    // The new team starts empty, so open it and verify the member was moved
+    // there after the API round-trip and re-render.
+    await depGroup.getByRole("button", { name: "View members" }).click();
     await expect(depGroup.getByText(targetMember!.email)).toBeVisible({
       timeout: 10_000,
     });
