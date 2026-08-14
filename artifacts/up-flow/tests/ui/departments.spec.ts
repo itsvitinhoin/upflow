@@ -257,11 +257,17 @@ test.describe("Departments UI", () => {
     await select.selectOption({ label: depName });
     await assignment;
 
-    // The new team starts empty, so open it and verify the member was moved
-    // there after the API round-trip and re-render.
+    // updateMember triggers a router refresh after persisting the assignment.
+    // Reload before expanding the target team so this assertion runs on the
+    // settled, current Teams view rather than a transient panel state.
+    await page.reload();
+    await expect(depGroup).toBeVisible();
     await depGroup.getByRole("button", { name: "View members" }).click();
     await expect(
-      depGroup.getByTestId("team-members-panel").getByText(targetMember!.email),
+      depGroup
+        .getByTestId("team-members-panel")
+        .getByRole("listitem")
+        .filter({ hasText: targetMember!.email }),
     ).toBeVisible({
       timeout: 10_000,
     });
