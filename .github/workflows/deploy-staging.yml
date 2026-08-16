@@ -5,6 +5,12 @@ on:
     workflows: ["Test"]
     types: [completed]
     branches: [staging]
+  workflow_dispatch:
+    inputs:
+      tested_sha:
+        description: "Exact Test-verified staging commit SHA to deploy."
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -20,24 +26,81 @@ jobs:
   verify-staging:
     name: Verify staging release gates
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'staging' &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'staging' &&
+       github.event.workflow_run.head_repository.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      head_sha: ${{ steps.target.outputs.head_sha }}
 
     steps:
-      - name: Require the tested staging commit
+      - name: Resolve and verify the Test-verified staging commit
+        id: target
         env:
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_EVENT: ${{ github.event.workflow_run.event }}
+          WORKFLOW_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          MANUAL_SHA: ${{ inputs.tested_sha }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
+          if [ "${EVENT_NAME}" = "workflow_run" ]; then
+            if [ "${WORKFLOW_EVENT}" != "push" ] || [ "${WORKFLOW_HEAD_BRANCH}" != "staging" ] || [ "${WORKFLOW_HEAD_REPOSITORY}" != "${GITHUB_REPOSITORY}" ]; then
+              echo "::error::The Test workflow provenance is not an in-repository staging push."
+              exit 1
+            fi
+
+            HEAD_SHA="${WORKFLOW_SHA}"
+          else
+            HEAD_SHA="${MANUAL_SHA}"
+
+            if [ -z "${HEAD_SHA}" ]; then
+              echo "::error::A Test-verified staging commit SHA is required."
+              exit 1
+            fi
+
+            test_runs="$(curl --fail --silent --show-error \
+              --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs?branch=staging&event=push&status=completed&per_page=100")"
+
+            if ! jq --exit-status --arg sha "${HEAD_SHA}" --arg repository "${GITHUB_REPOSITORY}" '
+              any(.workflow_runs[];
+                .name == "Test" and
+                .head_sha == $sha and
+                .event == "push" and
+                .head_branch == "staging" and
+                .conclusion == "success" and
+                .head_repository.full_name == $repository
+              )
+            ' <<< "${test_runs}" > /dev/null; then
+              echo "::error::${HEAD_SHA} has no successful Test run from an in-repository staging push."
+              exit 1
+            fi
+          fi
+
           if [ -z "${HEAD_SHA}" ]; then
             echo "::error::The successful Test workflow did not report a staging commit SHA."
             exit 1
           fi
 
-          echo "Staging release is using Test-verified commit ${HEAD_SHA}."
+          staging_sha="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/git/ref/heads/staging" | jq --raw-output '.object.sha')"
+
+          if [ "${HEAD_SHA}" != "${staging_sha}" ]; then
+            echo "::error::Refusing to deploy ${HEAD_SHA}; current staging head is ${staging_sha}."
+            exit 1
+          fi
+
+          echo "head_sha=${HEAD_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "Staging release is using Test-verified current staging commit ${HEAD_SHA}."
 
   migrate-staging:
     name: Migrate staging database
@@ -53,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ needs.verify-staging.outputs.head_sha }}
 
       - name: Require the direct staging database URL
         run: |
@@ -91,7 +154,7 @@ jobs:
 
   deploy-staging:
     name: Deploy and probe staging
-    needs: migrate-staging
+    needs: [verify-staging, migrate-staging]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: staging
@@ -104,7 +167,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ needs.verify-staging.outputs.head_sha }}
 
       - name: Require isolated staging Vercel credentials
         run: |
@@ -155,7 +218,7 @@ jobs:
           {
             echo "### Staging deployment complete"
             echo ""
-            echo "- Commit: \`${{ github.event.workflow_run.head_sha }}\`"
+            echo "- Commit: \`${{ needs.verify-staging.outputs.head_sha }}\`"
             echo "- URL: ${{ steps.deploy.outputs.url }}"
             echo "- Vercel project: \`${STAGING_VERCEL_PROJECT_ID}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
