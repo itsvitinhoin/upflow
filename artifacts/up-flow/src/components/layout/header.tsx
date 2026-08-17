@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X, Moon, Sun } from "lucide-react";
-import NewProjectDialog from "@/components/projects/new-project-dialog";
+import { Search, Bell, UserCheck, MessageSquare, Clock, UserPlus, ArrowRightCircle, AtSign, Languages, Sparkles, X, Moon, Sun } from "lucide-react";
 import CommandPalette from "@/components/command-palette";
 import { useAppUser } from "@/components/user-provider";
 import { useLanguage } from "@/components/language-provider";
@@ -38,7 +37,6 @@ interface HeaderProps {
   actions?: ReactNode;
   /** Use when a page supplies its own primary actions in the header. */
   hideUtilityControls?: boolean;
-  hideDefaultPrimaryAction?: boolean;
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 30_000;
@@ -220,7 +218,6 @@ export default function Header({
   onSearchSubmit,
   actions,
   hideUtilityControls = false,
-  hideDefaultPrimaryAction = false,
 }: HeaderProps) {
   const router = useRouter();
   const user = useAppUser();
@@ -228,7 +225,6 @@ export default function Header({
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const [search, setSearch] = useState("");
-  const [showNewProject, setShowNewProject] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
@@ -246,11 +242,6 @@ export default function Header({
   const shownAssistantIdsRef = useRef<Set<string>>(new Set());
   const notificationListRequestRef = useRef(0);
   const notificationUnreadRequestRef = useRef(0);
-  const canCreateProject =
-    user?.isSuperAdmin ||
-    user?.currentRole === "owner" ||
-    user?.currentRole === "admin" ||
-    user?.currentRole === "member";
   const notificationsUnavailable =
     notificationListUnavailable || (!notificationsHaveLoaded && notificationUnreadUnavailable);
   const effectiveSearchAriaLabel =
@@ -692,16 +683,6 @@ export default function Header({
             )}
           </div>
 
-          {canCreateProject && !hideDefaultPrimaryAction && (
-            <button
-              onClick={() => setShowNewProject(true)}
-              aria-label={t("header.newProject")}
-              className="upflow-gradient-button flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 sm:h-11 sm:px-5"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("header.newProject")}</span>
-            </button>
-          )}
         </div>
       </header>
 
@@ -770,15 +751,6 @@ export default function Header({
           </div>
         </div>
       )}
-
-      <NewProjectDialog
-        open={showNewProject}
-        onClose={() => setShowNewProject(false)}
-        onCreated={(project) => {
-          setShowNewProject(false);
-          router.push(`/projects/${project.id}`);
-        }}
-      />
 
       <CommandPalette />
     </>

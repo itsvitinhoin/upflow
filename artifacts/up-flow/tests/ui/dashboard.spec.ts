@@ -12,6 +12,9 @@ async function openQuickCreate(
   page: Page,
   item: "Task" | "Project" | "Meeting" | "Company" | "Invite",
 ) {
+  await expect(
+    page.locator('main[data-dashboard-ready="true"]'),
+  ).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Quick create" }).click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
@@ -22,7 +25,7 @@ async function openQuickCreate(
  *   * Stat cards toggle the statusFilter (aria-pressed flips)
  *   * Task-row "Actions" menu: Mark done / Edit / Delete (with confirm)
  *   * Progress widget "New Task" button opens the New Task dialog
- *   * Happy-path create via New Project dialog produces a visible project
+ *   * Happy-path project creation remains available through Quick Create
  */
 test.describe("Dashboard quick actions and task rows", () => {
   requireChromiumOrSkip();
@@ -219,7 +222,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     await ctx.close();
   });
 
-  test("creating a new project via the header dialog adds it to /projects", async ({
+  test("creating a new project via Quick Create adds it to /projects", async ({
     browser,
     baseURL,
   }) => {
@@ -227,10 +230,7 @@ test.describe("Dashboard quick actions and task rows", () => {
     const page = await ctx.newPage();
     await page.goto("/");
     const name = uniq("UI-Proj");
-    await page
-      .getByRole("button", { name: /^New Project$/ })
-      .first()
-      .click();
+    await openQuickCreate(page, "Project");
     const dlg = page.getByRole("dialog", { name: "New Project" });
     await dlg.getByPlaceholder("e.g. Website Redesign").fill(name);
     await dlg.getByRole("button", { name: /Create Project/i }).click();

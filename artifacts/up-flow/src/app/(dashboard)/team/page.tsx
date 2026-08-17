@@ -311,7 +311,6 @@ export default function TeamPage() {
         onSearchChange={setQuery}
         onSearchSubmit={() => undefined}
         hideUtilityControls
-        hideDefaultPrimaryAction
         actions={
           isAdmin && workspaceId ? (
             <div className="flex flex-wrap items-center justify-end gap-2">
